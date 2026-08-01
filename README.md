@@ -63,13 +63,14 @@ whenever it's wanted.
 | 8 | AI depth, tuned via headless tournaments |
 | 9 | Polish, scenario editor, house rules |
 
-**Phase 0 status: in progress.**
+**Phase 0 status: complete.**
 
-- [x] Python research readers/writers for `.map` and `.scn`, plus `.inf` parsing
+- [x] Python research readers/writers for `.map`, `.scn`, editable `.inf`, and plaintext scenarios
 - [x] Python plaintext-scenario reader/writer and corpus relationship audit
-- [x] Byte-exact local verification of all 10 shipped maps and 10 binary scenarios
-- [ ] Production C# formats library
-- [ ] Independent C#/Python cross-checks with evidence-based disagreement triage
+- [x] Production .NET 8 `Imperialism.Formats` codecs with arbitrary map dimensions
+- [x] Byte-exact local verification of all 10 maps, 10 binary scenarios, and 10 INF files
+- [x] Semantic local verification of all seven extensionless scenario sources
+- [x] Independent C#/Python structural-hash comparison over generated and original corpora
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's
@@ -100,11 +101,12 @@ what's being built.
 ## Layout
 
 ```
-src/imperialism_format/   Python library: MapFile, HexCell, ScenarioFile, Record
-tests/                    pytest suite (round-trip + structural tests)
+src/Imperialism.Formats/  Production .NET 8 format library
+src/imperialism_format/   Independent Python structural reference
+tests/                    xUnit and pytest round-trip/structural suites
 fixtures/local_only/      gitignored — drop real .map/.scn here for local testing
 docs/                     format notes, systems spec, architecture, research
-tools/                    inspection utilities and the disassembly indexer
+tools/                    C#/Python inspectors, corpus checks, disassembly indexer
 ```
 
 ## Running tests
@@ -112,6 +114,7 @@ tools/                    inspection utilities and the disassembly indexer
 ```
 python -m pip install -e ".[test]"
 python -m pytest
+dotnet test Imperialism.sln --configuration Release
 ```
 
 Inspect source files as stable JSON:
@@ -125,6 +128,14 @@ scenarios (the numbers are not reliable pairings):
 
 ```
 python tools/audit_scenario_corpus.py /path/to/Scenario
+```
+
+Compare the independent C# and Python interpretations. CI uses generated
+fixtures; the local corpus gate additionally covers your original files:
+
+```
+python tools/compare_format_oracles.py --generated
+python tools/compare_format_oracles.py --corpus /path/to/Scenario
 ```
 
 Build and query the disassembly index (requires your own copy of the game;

@@ -26,9 +26,9 @@ the `.alf` disassembly, and extracted art stay in `fixtures/local_only/`
 file's legal status. CI enforces it via `tools/check_no_game_assets.py`; run it
 before committing.
 
-**Byte-exact round-trip is a hard requirement, not an aspiration.** All 20
-original files (10 `.map` + 10 `.scn`) round-trip byte-for-byte today. Any
-parser change that breaks this is wrong. The trick is preserving uninterpreted
+**Byte-exact round-trip is a hard requirement, not an aspiration.** All 30
+original files (10 `.map` + 10 `.scn` + 10 `.inf`) round-trip byte-for-byte
+today. Any parser change that breaks this is wrong. The trick is preserving uninterpreted
 bytes — map trailer records, name padding after the null terminator, bytes
 past `TERM` — and re-emitting them verbatim unless the decoded value was
 actually edited.
@@ -57,18 +57,20 @@ reported confidently. Cheap to check, expensive to inherit.
 
 ## Current state
 
-Phase 0 is in progress. The Python library (`src/imperialism_format/`) provides
-byte-exact `.map`/`.scn` readers and writers, `.inf` parsing, and semantic
-plaintext-scenario read/write support. The extensionless plaintext filenames
+Phase 0 is complete. `src/Imperialism.Formats/` is the production .NET 8
+formats library for `.map`, binary/plaintext scenarios, and editable `.inf`
+files. The Python library (`src/imperialism_format/`) remains an independent
+structural reference. The extensionless plaintext filenames
 do not reliably pair with same-numbered `.scn` files; use
-`tools/audit_scenario_corpus.py` rather than assuming equality. The suite has
-57 tests at this point. `tools/alf/` indexes the original binary's disassembly.
-The production C# formats port has not started.
+`tools/audit_scenario_corpus.py` rather than assuming equality. The Python and
+C# suites cover generated fixtures and optional local corpus
+gates. `tools/alf/` indexes the original binary's disassembly.
+`tools/compare_format_oracles.py` compares per-field,
+per-record, per-section, and preserved-byte hashes across both implementations.
 
 Python is a **structural reference**, not an infallible oracle. A Python/C#
 disagreement triggers byte-level and evidence-based triage; neither side wins
-by definition. Editable `.inf` writing and the independent C# cross-check are
-still required before Phase 0 is complete.
+by definition. Godot and the versioned modern large-map package begin in Phase 1.
 
 ## Conventions
 

@@ -60,6 +60,9 @@ verified ourselves in `tests/`.
   exactly one playable entry), and the eighth is the default player country
   index. **Inferred**, not proven — consistent across all ten scenarios.
 - `^^` denotes a paragraph break within a section.
+- Unchanged documents retain their original bytes, including newline style and
+  final-newline choice. Once edited, writers emit canonical CP1252 with CR
+  line endings and enforce exactly seven country sections and eight integers.
 
 ## Semantics
 

@@ -171,7 +171,10 @@ public sealed class LegacyMapCodecTests
             return;
         }
 
-        var paths = Directory.GetFiles(directory, "*.map").Order(StringComparer.Ordinal).ToArray();
+        var paths = Directory.GetFiles(directory, "*.map")
+            .Where(IsNumberedScenarioFile)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
         Assert.Equal(10, paths.Length);
         foreach (var path in paths)
         {
@@ -179,5 +182,11 @@ public sealed class LegacyMapCodecTests
             var decoded = LegacyMapCodec.Decode(original);
             Assert.Equal(original, LegacyMapCodec.Encode(decoded));
         }
+    }
+
+    private static bool IsNumberedScenarioFile(string path)
+    {
+        var stem = Path.GetFileNameWithoutExtension(path);
+        return stem.Length > 1 && stem[0] == 's' && int.TryParse(stem.AsSpan(1), out _);
     }
 }
