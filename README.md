@@ -76,8 +76,9 @@ whenever it's wanted.
 foundation: typed identifiers, dimension-independent odd-row hex geometry,
 immutable map/scenario definitions, and mutable runtime state. A versioned
 `.iworld` package compiles stable authored keys into dense runtime IDs without
-legacy limits. The legacy converter and Godot map viewer follow as separate
-reviewable changes.
+legacy limits. The Phase 1 legacy converter produces this viewer-ready package
+with explicit diagnostics for deferred gameplay data; the Godot map viewer
+follows as a separate reviewable change.
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's
@@ -109,6 +110,7 @@ can support larger maps, richer metadata, Unicode names, and future migrations.
 | `docs/scenario-semantics.md` | What the fields *mean*, verified against real data |
 | `docs/formats-design-rules.md` | Rules governing the formats layer |
 | `docs/modern-content-format.md` | Versioned `.iworld` content and stable-key compilation |
+| `docs/legacy-importer.md` | Conservative `.map`/`.scn`/`.inf` to `.iworld` conversion and river codes |
 | `docs/formulas/_index.md` | Scoreboard for the undocumented formulas, and where to dig |
 | `docs/disasm/` | Disassembly listing format and the module map |
 
@@ -121,6 +123,7 @@ what's being built.
 src/Imperialism.Formats/  Production .NET 8 format library
 src/Imperialism.Core/     Headless modern world and simulation domain
 src/Imperialism.Content/  Versioned modern world documents and compiler
+src/Imperialism.LegacyImport/ Conservative Phase 1 legacy converter
 src/imperialism_format/   Independent Python structural reference
 tests/                    xUnit and pytest round-trip/structural suites
 fixtures/local_only/      gitignored — drop real .map/.scn here for local testing
@@ -155,6 +158,14 @@ fixtures; the local corpus gate additionally covers your original files:
 ```
 python tools/compare_format_oracles.py --generated
 python tools/compare_format_oracles.py --corpus /path/to/Scenario
+```
+
+Convert one legacy scenario triple into viewer-ready modern content:
+
+```
+dotnet run --project tools/Imperialism.LegacyImporter -- \
+  --map /path/to/s1.map --scenario /path/to/s1.scn --inf /path/to/s1.inf \
+  --output /path/to/s1.iworld --package-key s1 --report-json /path/to/report.json
 ```
 
 Build and query the disassembly index (requires your own copy of the game;
