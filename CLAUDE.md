@@ -15,6 +15,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | What are we building? (the original's rules) | `docs/game-systems.md` |
 | How are files laid out on disk? | `docs/file-formats.md` |
 | What do the fields *mean*? | `docs/scenario-semantics.md` |
+| How does legacy content become `.iworld`? | `docs/legacy-importer.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Navigating the original binary | `docs/disasm/README.md`, `docs/disasm/module-map.md` |
 
@@ -80,6 +81,11 @@ inputs. `src/Imperialism.Content/` reads and compiles versioned `.iworld`
 UTF-8 JSON using stable external keys and dense runtime IDs; see
 `docs/modern-content-format.md`. New and imported content uses this modern
 package rather than extending the 1997 layouts.
+
+`src/Imperialism.LegacyImport/` conservatively converts viewer-ready legacy
+geography and scenario setup into `.iworld`. Its report counts unsupported
+gameplay and briefing data instead of copying opaque records. River byte 2 is
+a per-cell path-shape code, not an edge mask; see `docs/legacy-importer.md`.
 
 ## Conventions
 

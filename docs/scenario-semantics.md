@@ -48,10 +48,12 @@ grouping. It must never be used as ownership.
 - **Nation byte is duplicated.** Bytes 3 and 4 are byte-identical in all
   6,480 cells of `s1` (**verified**). One is presumably a stale mirror; we
   preserve both and read from the first.
-- The nation byte holds a **country id on land and a sea-zone id on
-  ocean** — the two namespaces share one field, disambiguated by whether the
-  cell is ocean. Land cells in `s1` use exactly the 23 ids 0–22, matching
-  the 23 `cnam` records (**verified**).
+- The nation byte holds a **country id on land and a combined region id on
+  ocean**. Ocean values follow the country namespace, so the scenario `zone`
+  id is `raw_region - country_namespace_size`. All ten maps use 23 country
+  slots: their ocean values decode this way to named `zone` records with no
+  misses (**verified**). Land cells in `s1` use exactly ids 0–22, matching
+  the 23 `cnam` records.
 - Ocean cells use province id **65535** as a null marker.
 - `town_type` distinguishes settlements: 34 = village, 35 = capital. `s1`
   has 190 villages and **exactly 23 capitals — one per country** (**verified**).
