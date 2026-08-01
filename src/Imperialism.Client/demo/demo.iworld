@@ -1,16 +1,21 @@
 {
   "format": "imperialism-world",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "terrainKeys": [
     "terrain.ocean",
     "terrain.plains",
     "terrain.forest",
     "terrain.hills"
   ],
-  "resourceKeys": [
-    "resource.grain",
-    "resource.timber",
-    "resource.coal"
+  "commodities": [
+    { "key": "commodity.grain", "name": "Grain", "category": "raw" },
+    { "key": "commodity.timber", "name": "Timber", "category": "raw" },
+    { "key": "commodity.coal", "name": "Coal", "category": "raw" }
+  ],
+  "resources": [
+    { "key": "resource.grain", "commodity": "commodity.grain" },
+    { "key": "resource.timber", "commodity": "commodity.timber" },
+    { "key": "resource.coal", "commodity": "commodity.coal" }
   ],
   "map": {
     "key": "map.viewer-demo",

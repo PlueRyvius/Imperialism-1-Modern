@@ -3,19 +3,27 @@ namespace Imperialism.Core;
 public sealed class WorldDefinition
 {
     private readonly IReadOnlyList<CountryDefinition> _countries;
+    private readonly IReadOnlyList<CommodityDefinition> _commodities;
 
     public WorldDefinition(
         MapDefinition map,
         IEnumerable<CountryDefinition> countries,
-        ScenarioDefinition scenario)
+        ScenarioDefinition scenario,
+        IEnumerable<CommodityDefinition>? commodities = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
         ArgumentNullException.ThrowIfNull(scenario);
         var countryArray = countries.ToArray();
+        var commodityArray = commodities?.ToArray() ?? [];
         if (countryArray.Any(static country => country is null))
         {
             throw new ArgumentException("Countries cannot contain null entries.", nameof(countries));
+        }
+
+        if (commodityArray.Any(static commodity => commodity is null))
+        {
+            throw new ArgumentException("Commodities cannot contain null entries.", nameof(commodities));
         }
 
         for (var index = 0; index < countryArray.Length; index++)
@@ -26,6 +34,27 @@ public sealed class WorldDefinition
                     $"Modern country IDs must be dense and ordered; expected {index}, " +
                     $"got {countryArray[index].Id.Value}.",
                     nameof(countries));
+            }
+        }
+
+        for (var index = 0; index < commodityArray.Length; index++)
+        {
+            if (commodityArray[index].Id.Value != index)
+            {
+                throw new ArgumentException(
+                    $"Modern commodity IDs must be dense and ordered; expected {index}, " +
+                    $"got {commodityArray[index].Id.Value}.",
+                    nameof(commodities));
+            }
+        }
+
+        foreach (var resource in map.Resources)
+        {
+            if ((uint)resource.Commodity.Value >= (uint)commodityArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Resource {resource.Id.Value} refers to missing commodity {resource.Commodity.Value}.",
+                    nameof(map));
             }
         }
 
@@ -92,14 +121,46 @@ public sealed class WorldDefinition
             }
         }
 
+        foreach (var stock in scenario.InitialInventory)
+        {
+            if ((uint)stock.Country.Value >= (uint)countryArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Initial inventory refers to missing country {stock.Country.Value}.",
+                    nameof(scenario));
+            }
+
+            if ((uint)stock.Commodity.Value >= (uint)commodityArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Initial inventory refers to missing commodity {stock.Commodity.Value}.",
+                    nameof(scenario));
+            }
+        }
+
+        try
+        {
+            _ = checked(countryArray.Length * commodityArray.Length);
+        }
+        catch (OverflowException exception)
+        {
+            throw new ArgumentException(
+                "Country and commodity counts produce an inventory larger than the runtime can index.",
+                nameof(commodities),
+                exception);
+        }
+
         Map = map;
         Scenario = scenario;
         _countries = Array.AsReadOnly(countryArray);
+        _commodities = Array.AsReadOnly(commodityArray);
     }
 
     public MapDefinition Map { get; }
 
     public IReadOnlyList<CountryDefinition> Countries => _countries;
+
+    public IReadOnlyList<CommodityDefinition> Commodities => _commodities;
 
     public ScenarioDefinition Scenario { get; }
 
@@ -123,6 +184,9 @@ public sealed class WorldState
     private readonly HashSet<CellLink> _railLinks;
     private readonly CellIndex?[] _countryCapitals;
     private readonly RailConnectivityIndex?[] _railConnectivity;
+    private readonly long[] _availableInventory;
+    private readonly List<PendingDelivery> _pendingDeliveries = [];
+    private long _nextDeliveryId = 1;
 
     public WorldState(WorldDefinition definition)
     {
@@ -133,9 +197,15 @@ public sealed class WorldState
         _railLinks = definition.Scenario.InitialRailLinks.ToHashSet();
         _countryCapitals = new CellIndex?[definition.Countries.Count];
         _railConnectivity = new RailConnectivityIndex?[definition.Countries.Count];
+        _availableInventory = new long[checked(definition.Countries.Count * definition.Commodities.Count)];
         foreach (var capital in definition.Scenario.InitialCountryCapitals)
         {
             _countryCapitals[capital.Country.Value] = capital.Cell;
+        }
+
+        foreach (var stock in definition.Scenario.InitialInventory)
+        {
+            _availableInventory[GetInventoryOffset(stock.Country, stock.Commodity)] = stock.Quantity;
         }
     }
 
@@ -146,6 +216,78 @@ public sealed class WorldState
     public TurnDate CurrentDate { get; private set; }
 
     public int CurrentYear => CurrentDate.Year;
+
+    public long GetAvailableQuantity(CountryId country, CommodityId commodity) =>
+        _availableInventory[GetInventoryOffset(country, commodity)];
+
+    public void AddAvailableQuantity(CountryId country, CommodityId commodity, long quantity)
+    {
+        ValidatePositiveQuantity(quantity);
+        var offset = GetInventoryOffset(country, commodity);
+        _availableInventory[offset] = checked(_availableInventory[offset] + quantity);
+    }
+
+    public bool TryConsumeAvailable(CountryId country, CommodityId commodity, long quantity)
+    {
+        ValidatePositiveQuantity(quantity);
+        var offset = GetInventoryOffset(country, commodity);
+        if (_availableInventory[offset] < quantity)
+        {
+            return false;
+        }
+
+        _availableInventory[offset] -= quantity;
+        return true;
+    }
+
+    public DeliveryId QueuePendingDelivery(
+        CountryId recipient,
+        CommodityId commodity,
+        long quantity,
+        PendingDeliverySource source)
+    {
+        _ = GetInventoryOffset(recipient, commodity);
+        ValidatePositiveQuantity(quantity);
+        if (!Enum.IsDefined(source))
+        {
+            throw new ArgumentOutOfRangeException(nameof(source));
+        }
+
+        var id = new DeliveryId(_nextDeliveryId);
+        _nextDeliveryId = checked(_nextDeliveryId + 1);
+        _pendingDeliveries.Add(new PendingDelivery(id, recipient, commodity, quantity, source));
+        return id;
+    }
+
+    public bool CancelPendingDelivery(DeliveryId delivery)
+    {
+        var index = _pendingDeliveries.FindIndex(item => item.Id == delivery);
+        if (index < 0)
+        {
+            return false;
+        }
+
+        _pendingDeliveries.RemoveAt(index);
+        return true;
+    }
+
+    public IReadOnlyList<PendingDelivery> GetPendingDeliveries() =>
+        Array.AsReadOnly(_pendingDeliveries.ToArray());
+
+    public long GetPendingQuantity(CountryId recipient, CommodityId commodity)
+    {
+        _ = GetInventoryOffset(recipient, commodity);
+        var quantity = 0L;
+        foreach (var delivery in _pendingDeliveries)
+        {
+            if (delivery.Recipient == recipient && delivery.Commodity == commodity)
+            {
+                quantity = checked(quantity + delivery.Quantity);
+            }
+        }
+
+        return quantity;
+    }
 
     public CountryId? GetProvinceOwner(ProvinceId province)
     {
@@ -274,5 +416,56 @@ public sealed class WorldState
     {
         CurrentDate = CurrentDate.Next();
         CompletedTurnCount = checked(CompletedTurnCount + 1);
+    }
+
+    internal IReadOnlyList<PendingDelivery> CommitPendingDeliveries()
+    {
+        if (_pendingDeliveries.Count == 0)
+        {
+            return Array.Empty<PendingDelivery>();
+        }
+
+        var additions = new long[_availableInventory.Length];
+        foreach (var delivery in _pendingDeliveries)
+        {
+            var offset = GetInventoryOffset(delivery.Recipient, delivery.Commodity);
+            additions[offset] = checked(additions[offset] + delivery.Quantity);
+        }
+
+        for (var offset = 0; offset < additions.Length; offset++)
+        {
+            if (additions[offset] != 0)
+            {
+                _ = checked(_availableInventory[offset] + additions[offset]);
+            }
+        }
+
+        var committed = _pendingDeliveries.ToArray();
+        for (var offset = 0; offset < additions.Length; offset++)
+        {
+            _availableInventory[offset] += additions[offset];
+        }
+
+        _pendingDeliveries.Clear();
+        return Array.AsReadOnly(committed);
+    }
+
+    private int GetInventoryOffset(CountryId country, CommodityId commodity)
+    {
+        ValidateCountry(country);
+        if ((uint)commodity.Value >= (uint)Definition.Commodities.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(commodity));
+        }
+
+        return checked((country.Value * Definition.Commodities.Count) + commodity.Value);
+    }
+
+    private static void ValidatePositiveQuantity(long quantity)
+    {
+        if (quantity <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be positive.");
+        }
     }
 }

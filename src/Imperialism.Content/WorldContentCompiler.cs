@@ -40,7 +40,13 @@ public static class WorldContentCompiler
         ValidateEnvelope(document);
 
         var terrainKeys = RequireArray(document.TerrainKeys, "terrainKeys");
-        var resourceKeys = RequireArray(document.ResourceKeys, "resourceKeys");
+        var commodityContent = RequireArray(document.Commodities, "commodities");
+        var resourceContent = RequireArray(document.Resources, "resources");
+        if (document.ResourceKeys is not null)
+        {
+            throw Error("resourceKeys", "This version uses resource definitions instead of resourceKeys.");
+        }
+
         var mapContent = document.Map ?? throw Error("map", "Value is required.");
         var countriesContent = RequireArray(document.Countries, "countries");
         var scenariosContent = RequireArray(document.Scenarios, "scenarios");
@@ -57,12 +63,22 @@ public static class WorldContentCompiler
         }
 
         var terrainIds = BuildKeyMap(terrainKeys, "terrainKeys", requireAtLeastOne: true);
-        var resourceIds = BuildKeyMap(resourceKeys, "resourceKeys");
+        var commodityIds = BuildCommodityKeyMap(commodityContent);
+        var resourceIds = BuildResourceKeyMap(resourceContent, commodityIds);
         var provinceContent = RequireArray(mapContent.Provinces, "map.provinces");
         var seaZoneContent = RequireArray(mapContent.SeaZones, "map.seaZones");
         var provinceIds = BuildNamedKeyMap(provinceContent, "map.provinces");
         var seaZoneIds = BuildNamedKeyMap(seaZoneContent, "map.seaZones");
         var countryIds = BuildNamedKeyMap(countriesContent, "countries");
+        var commodities = commodityContent.Select((definition, index) =>
+            new CommodityDefinition(new CommodityId(index), definition.Name, definition.Category)).ToArray();
+        var resources = resourceContent.Select((definition, index) =>
+            new ResourceDefinition(
+                new ResourceId(index),
+                new CommodityId(FindKey(
+                    commodityIds,
+                    definition.Commodity,
+                    $"resources[{index}].commodity")))).ToArray();
 
         MapDimensions dimensions;
         try
@@ -103,7 +119,7 @@ public static class WorldContentCompiler
         MapDefinition map;
         try
         {
-            map = new MapDefinition(dimensions, cells, provinces, seaZones);
+            map = new MapDefinition(dimensions, cells, provinces, seaZones, resources);
         }
         catch (ArgumentException exception)
         {
@@ -114,7 +130,8 @@ public static class WorldContentCompiler
             new CountryDefinition(new CountryId(index), definition.Name)).ToArray();
         var catalog = new WorldContentCatalog(
             terrainKeys,
-            resourceKeys,
+            resourceContent.Select(static item => item.Key),
+            commodityContent.Select(static item => item.Key),
             provinceContent.Select(static item => item.Key),
             seaZoneContent.Select(static item => item.Key),
             countriesContent.Select(static item => item.Key));
@@ -137,9 +154,11 @@ public static class WorldContentCompiler
                     path,
                     map,
                     countries,
+                    commodities,
                     provinceContent,
                     provinceIds,
-                    countryIds));
+                    countryIds,
+                    commodityIds));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -150,9 +169,11 @@ public static class WorldContentCompiler
         string path,
         MapDefinition map,
         CountryDefinition[] countries,
+        CommodityDefinition[] commodities,
         NamedContentDefinition[] provinceContent,
         IReadOnlyDictionary<string, int> provinceIds,
-        IReadOnlyDictionary<string, int> countryIds)
+        IReadOnlyDictionary<string, int> countryIds,
+        IReadOnlyDictionary<string, int> commodityIds)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -167,6 +188,11 @@ public static class WorldContentCompiler
             RequireArray(scenarioContent.Capitals, $"{path}.capitals"),
             countryIds,
             path);
+        var initialInventory = CompileInitialInventory(
+            RequireArray(scenarioContent.InitialInventory, $"{path}.initialInventory"),
+            countryIds,
+            commodityIds,
+            path);
 
         if (string.IsNullOrWhiteSpace(scenarioContent.Name))
         {
@@ -180,8 +206,9 @@ public static class WorldContentCompiler
                 scenarioContent.StartingYear,
                 owners,
                 rails,
-                capitals);
-            return new WorldDefinition(map, countries, scenario);
+                capitals,
+                initialInventory);
+            return new WorldDefinition(map, countries, scenario, commodities);
         }
         catch (ArgumentException exception)
         {
@@ -330,6 +357,42 @@ public static class WorldContentCompiler
         return capitals;
     }
 
+    private static InitialCommodityStock[] CompileInitialInventory(
+        InitialInventoryContent?[] inventoryContent,
+        IReadOnlyDictionary<string, int> countryIds,
+        IReadOnlyDictionary<string, int> commodityIds,
+        string scenarioPath)
+    {
+        var path = $"{scenarioPath}.initialInventory";
+        var inventory = new InitialCommodityStock[inventoryContent.Length];
+        var seen = new HashSet<(int Country, int Commodity)>();
+        for (var index = 0; index < inventoryContent.Length; index++)
+        {
+            var content = inventoryContent[index] ??
+                throw Error($"{path}[{index}]", "Value is required.");
+            var country = FindKey(countryIds, content.Country, $"{path}[{index}].country");
+            var commodity = FindKey(commodityIds, content.Commodity, $"{path}[{index}].commodity");
+            if (content.Quantity <= 0)
+            {
+                throw Error($"{path}[{index}].quantity", "Quantity must be positive.");
+            }
+
+            if (!seen.Add((country, commodity)))
+            {
+                throw Error(
+                    $"{path}[{index}]",
+                    "A country and commodity can have only one initial inventory entry.");
+            }
+
+            inventory[index] = new InitialCommodityStock(
+                new CountryId(country),
+                new CommodityId(commodity),
+                content.Quantity);
+        }
+
+        return inventory;
+    }
+
     private static CellLink[] CompileLinks(CellLinkContent?[] linkContent, string path)
     {
         var links = new CellLink[linkContent.Length];
@@ -352,6 +415,46 @@ public static class WorldContentCompiler
         }
 
         return links;
+    }
+
+    private static Dictionary<string, int> BuildCommodityKeyMap(
+        CommodityContentDefinition?[] definitions)
+    {
+        const string path = "commodities";
+        var keys = new string?[definitions.Length];
+        for (var index = 0; index < definitions.Length; index++)
+        {
+            var definition = definitions[index] ?? throw Error($"{path}[{index}]", "Value is required.");
+            if (string.IsNullOrWhiteSpace(definition.Name))
+            {
+                throw Error($"{path}[{index}].name", "Value cannot be blank.");
+            }
+
+            if (!Enum.IsDefined(definition.Category))
+            {
+                throw Error($"{path}[{index}].category", "Unknown commodity category.");
+            }
+
+            keys[index] = definition.Key;
+        }
+
+        return BuildKeyMap(keys, path);
+    }
+
+    private static Dictionary<string, int> BuildResourceKeyMap(
+        ResourceContentDefinition?[] definitions,
+        IReadOnlyDictionary<string, int> commodityIds)
+    {
+        const string path = "resources";
+        var keys = new string?[definitions.Length];
+        for (var index = 0; index < definitions.Length; index++)
+        {
+            var definition = definitions[index] ?? throw Error($"{path}[{index}]", "Value is required.");
+            keys[index] = definition.Key;
+            _ = FindKey(commodityIds, definition.Commodity, $"{path}[{index}].commodity");
+        }
+
+        return BuildKeyMap(keys, path);
     }
 
     private static Dictionary<string, int> BuildNamedKeyMap(

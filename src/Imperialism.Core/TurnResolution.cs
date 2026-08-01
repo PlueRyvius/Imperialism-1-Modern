@@ -44,6 +44,18 @@ public sealed record TurnPhaseCompletedEvent : TurnEvent
     }
 }
 
+/// <summary>Records one pending commodity intent entering available inventory.</summary>
+public sealed record CommodityDeliveredEvent : TurnEvent
+{
+    public CommodityDeliveredEvent(int turnNumber, PendingDelivery delivery)
+        : base(turnNumber, TurnPhase.Delivery)
+    {
+        Delivery = delivery;
+    }
+
+    public PendingDelivery Delivery { get; }
+}
+
 public sealed class TurnResolution
 {
     private readonly IReadOnlyList<TurnEvent> _events;

@@ -43,10 +43,14 @@ public sealed class WorldContentTests
 
         Assert.Equal(new TerrainId(0), world.Map[new CellIndex(0)].Terrain);
         Assert.Equal(new ResourceId(2), world.Map[new CellIndex(0)].Resources[2]);
+        Assert.Equal(new CommodityId(2), world.Map.Resources[2].Commodity);
+        Assert.Equal(CommodityCategory.Material, world.Commodities[3].Category);
         Assert.Equal(new CountryId(1), world.Scenario.InitialProvinceOwners[0]);
         Assert.Equal("empire.a", compiled.Catalog.GetKey(new CountryId(1)));
         Assert.Equal(new CountryId(0), compiled.Catalog.GetCountryId("empire.b"));
         Assert.Equal(new ProvinceId(1), compiled.Catalog.GetProvinceId("province.east"));
+        Assert.Equal(new CommodityId(1), compiled.Catalog.GetCommodityId("commodity.grain"));
+        Assert.Equal("commodity.steel", compiled.Catalog.GetKey(new CommodityId(3)));
         Assert.Throws<KeyNotFoundException>(() => compiled.Catalog.GetTerrainId("terrain.missing"));
     }
 
@@ -104,6 +108,7 @@ public sealed class WorldContentTests
             compiled.World.Map.Cells[4].River);
         Assert.True(state.HasRail(rail));
         Assert.Equal(new CellIndex(0), state.GetCountryCapital(new CountryId(1)));
+        Assert.Equal(12, state.GetAvailableQuantity(new CountryId(1), new CommodityId(1)));
 
         state.RemoveRail(rail);
         state.SetCountryCapital(new CountryId(1), null);
@@ -122,9 +127,13 @@ public sealed class WorldContentTests
 
         document.Map.Cells[0].Terrain = "terrain.ocean";
         document.Countries[0].Name = "Changed";
+        document.Commodities[0].Name = "Changed";
+        document.Resources[0].Commodity = "commodity.steel";
 
         Assert.Equal(new TerrainId(0), compiled.World.Map[new CellIndex(0)].Terrain);
         Assert.Equal("République 世界", compiled.World.Countries[0].Name);
+        Assert.Equal("Coal", compiled.World.Commodities[0].Name);
+        Assert.Equal(new CommodityId(0), compiled.World.Map.Resources[0].Commodity);
     }
 
     [Fact]
@@ -252,7 +261,8 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(2)]
+    [InlineData(1)]
+    [InlineData(3)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -266,12 +276,93 @@ public sealed class WorldContentTests
     }
 
     [Fact]
+    public void DecoderMigratesVersionOneResourceKeysToExplicitRawCommodities()
+    {
+        var versionOne = """
+            {
+              "format": "imperialism-world",
+              "formatVersion": 1,
+              "terrainKeys": ["terrain.plains"],
+              "resourceKeys": ["resource.grain", "deposit.crude-oil"],
+              "map": {
+                "key": "map.v1",
+                "name": "Version One",
+                "width": 1,
+                "height": 1,
+                "provinces": [],
+                "seaZones": [],
+                "cells": [
+                  {
+                    "terrain": "terrain.plains",
+                    "region": {},
+                    "resources": ["resource.grain", "deposit.crude-oil"],
+                    "hasSettlementSite": false
+                  }
+                ]
+              },
+              "countries": [],
+              "scenarios": [
+                {
+                  "key": "scenario.v1",
+                  "name": "Version One",
+                  "startingYear": 1815,
+                  "provinceOwners": [],
+                  "rails": [],
+                  "capitals": []
+                }
+              ]
+            }
+            """;
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(versionOne));
+        var compiled = WorldContentCompiler.Compile(migrated);
+        var encoded = Encoding.UTF8.GetString(WorldContentCodec.Encode(migrated));
+
+        Assert.Equal(2, migrated.FormatVersion);
+        Assert.Null(migrated.ResourceKeys);
+        Assert.Equal(
+            ["commodity.grain", "commodity/from-resource/deposit.crude-oil"],
+            migrated.Commodities.Select(static item => item.Key));
+        Assert.All(migrated.Commodities, static item =>
+            Assert.Equal(CommodityCategory.Raw, item.Category));
+        Assert.Equal("commodity.grain", migrated.Resources[0].Commodity);
+        Assert.Equal(
+            new CommodityId(1),
+            compiled.World.Map.Resources[1].Commodity);
+        Assert.DoesNotContain("\"resourceKeys\"", encoded, StringComparison.Ordinal);
+        Assert.Contains("\"formatVersion\": 2", encoded, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void VersionOneMigrationRejectsMixedSchemas()
+    {
+        var mixed = """
+            {
+              "format": "imperialism-world",
+              "formatVersion": 1,
+              "terrainKeys": [],
+              "commodities": [{ "key": "commodity.grain", "name": "Grain", "category": "raw" }],
+              "resources": [],
+              "resourceKeys": [],
+              "map": {},
+              "countries": [],
+              "scenarios": []
+            }
+            """;
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(mixed)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    [Fact]
     public void DecoderRejectsUnknownPropertiesAndMalformedJson()
     {
         var valid = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()));
         var unknown = valid.Replace(
-            "\"formatVersion\": 1,",
-            "\"formatVersion\": 1,\n  \"mystery\": true,",
+            "\"formatVersion\": 2,",
+            "\"formatVersion\": 2,\n  \"mystery\": true,",
             StringComparison.Ordinal);
 
         Assert.Throws<ContentValidationException>(() =>
@@ -320,6 +411,47 @@ public sealed class WorldContentTests
         var unknownOwner = CreateValidDocument();
         unknownOwner.Scenarios[0].ProvinceOwners[0].Country = "empire.missing";
         AssertPath("scenarios[0].provinceOwners[0].country", unknownOwner);
+
+        var unknownResourceCommodity = CreateValidDocument();
+        unknownResourceCommodity.Resources[0].Commodity = "commodity.missing";
+        AssertPath("resources[0].commodity", unknownResourceCommodity);
+    }
+
+    [Fact]
+    public void CompilerValidatesCommodityDefinitionsAndInitialInventory()
+    {
+        var blankName = CreateValidDocument();
+        blankName.Commodities[0].Name = " ";
+        AssertPath("commodities[0].name", blankName);
+
+        var invalidCategory = CreateValidDocument();
+        invalidCategory.Commodities[0].Category = (CommodityCategory)200;
+        AssertPath("commodities[0].category", invalidCategory);
+
+        var duplicateCommodity = CreateValidDocument();
+        duplicateCommodity.Commodities[1].Key = duplicateCommodity.Commodities[0].Key;
+        AssertPath("commodities[1]", duplicateCommodity);
+
+        var unknownInventoryCommodity = CreateValidDocument();
+        unknownInventoryCommodity.Scenarios[0].InitialInventory[0].Commodity = "commodity.missing";
+        AssertPath("scenarios[0].initialInventory[0].commodity", unknownInventoryCommodity);
+
+        var zeroInventory = CreateValidDocument();
+        zeroInventory.Scenarios[0].InitialInventory[0].Quantity = 0;
+        AssertPath("scenarios[0].initialInventory[0].quantity", zeroInventory);
+
+        var duplicateInventory = CreateValidDocument();
+        duplicateInventory.Scenarios[0].InitialInventory =
+        [
+            duplicateInventory.Scenarios[0].InitialInventory[0],
+            new InitialInventoryContent
+            {
+                Country = "empire.a",
+                Commodity = "commodity.grain",
+                Quantity = 1,
+            },
+        ];
+        AssertPath("scenarios[0].initialInventory[1]", duplicateInventory);
     }
 
     [Fact]
@@ -379,7 +511,39 @@ public sealed class WorldContentTests
     private static WorldContentDocument CreateValidDocument() => new()
     {
         TerrainKeys = ["terrain.plains", "terrain.ocean"],
-        ResourceKeys = ["resource.coal", "resource.grain", "resource.oil"],
+        Commodities =
+        [
+            new CommodityContentDefinition
+            {
+                Key = "commodity.coal",
+                Name = "Coal",
+                Category = CommodityCategory.Raw,
+            },
+            new CommodityContentDefinition
+            {
+                Key = "commodity.grain",
+                Name = "Grain",
+                Category = CommodityCategory.Raw,
+            },
+            new CommodityContentDefinition
+            {
+                Key = "commodity.oil",
+                Name = "Oil",
+                Category = CommodityCategory.Raw,
+            },
+            new CommodityContentDefinition
+            {
+                Key = "commodity.steel",
+                Name = "Steel",
+                Category = CommodityCategory.Material,
+            },
+        ],
+        Resources =
+        [
+            new ResourceContentDefinition { Key = "resource.coal", Commodity = "commodity.coal" },
+            new ResourceContentDefinition { Key = "resource.grain", Commodity = "commodity.grain" },
+            new ResourceContentDefinition { Key = "resource.oil", Commodity = "commodity.oil" },
+        ],
         Map = new MapContentDocument
         {
             Key = "map.demo",
@@ -435,6 +599,15 @@ public sealed class WorldContentTests
                 [
                     new CountryCapitalContent { Country = "empire.a", Cell = 0 },
                     new CountryCapitalContent { Country = "empire.b", Cell = 3 },
+                ],
+                InitialInventory =
+                [
+                    new InitialInventoryContent
+                    {
+                        Country = "empire.a",
+                        Commodity = "commodity.grain",
+                        Quantity = 12,
+                    },
                 ],
             },
         ],

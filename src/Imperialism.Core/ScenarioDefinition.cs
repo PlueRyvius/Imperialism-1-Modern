@@ -5,18 +5,21 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<CountryId?> _initialProvinceOwners;
     private readonly IReadOnlyList<CellLink> _initialRailLinks;
     private readonly IReadOnlyList<CountryCapital> _initialCountryCapitals;
+    private readonly IReadOnlyList<InitialCommodityStock> _initialInventory;
 
     public ScenarioDefinition(
         string name,
         int startingYear,
         IEnumerable<CountryId?> initialProvinceOwners,
         IEnumerable<CellLink>? initialRailLinks = null,
-        IEnumerable<CountryCapital>? initialCountryCapitals = null)
+        IEnumerable<CountryCapital>? initialCountryCapitals = null,
+        IEnumerable<InitialCommodityStock>? initialInventory = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
         var railArray = initialRailLinks?.ToArray() ?? [];
         var capitalArray = initialCountryCapitals?.ToArray() ?? [];
+        var inventoryArray = initialInventory?.ToArray() ?? [];
         if (railArray.Length != railArray.Distinct().Count())
         {
             throw new ArgumentException("Initial rail links cannot contain duplicates.", nameof(initialRailLinks));
@@ -36,11 +39,20 @@ public sealed class ScenarioDefinition
                 nameof(initialCountryCapitals));
         }
 
+        if (inventoryArray.Select(static stock => (stock.Country, stock.Commodity)).Distinct().Count() !=
+            inventoryArray.Length)
+        {
+            throw new ArgumentException(
+                "Initial inventory cannot contain duplicate country and commodity entries.",
+                nameof(initialInventory));
+        }
+
         Name = name;
         StartingYear = startingYear;
         _initialProvinceOwners = Array.AsReadOnly(initialProvinceOwners.ToArray());
         _initialRailLinks = Array.AsReadOnly(railArray);
         _initialCountryCapitals = Array.AsReadOnly(capitalArray);
+        _initialInventory = Array.AsReadOnly(inventoryArray);
     }
 
     public string Name { get; }
@@ -52,4 +64,6 @@ public sealed class ScenarioDefinition
     public IReadOnlyList<CellLink> InitialRailLinks => _initialRailLinks;
 
     public IReadOnlyList<CountryCapital> InitialCountryCapitals => _initialCountryCapitals;
+
+    public IReadOnlyList<InitialCommodityStock> InitialInventory => _initialInventory;
 }

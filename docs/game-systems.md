@@ -49,6 +49,14 @@ deliberately unimplemented rather than filled with guessed rules.
 
 ## Economy
 
+**Current implementation boundary.** Commodity and deposit definitions are
+content-defined rather than fixed to legacy slots. Runtime stock uses checked
+64-bit quantities with separate Available inventory and identifiable Pending
+Delivery entries. Trade and transport entries can be cancelled independently;
+the Delivery phase commits the remainder atomically and records events. No
+recipe, capacity, labour, feeding, price, or extraction-rate formula is implied
+by this storage layer.
+
 **Commodity tiers.** 13 raw resources (grain, livestock, fruit, fish, cotton,
 wool, horses, timber, coal, iron, oil, gold, gems) → 6 materials (canned
 food, fabric, paper, lumber, steel, fuel) → 4 goods (clothing, furniture,

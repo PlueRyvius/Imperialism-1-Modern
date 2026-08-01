@@ -28,16 +28,22 @@ public static class TurnResolver
 
         var turnNumber = checked(state.CompletedTurnCount + 1);
         var startedAt = state.CurrentDate;
-        var events = new TurnEvent[Pipeline.Length];
-        for (var index = 0; index < Pipeline.Length; index++)
+        var events = new List<TurnEvent>(Pipeline.Length);
+        foreach (var phase in Pipeline)
         {
-            var phase = Pipeline[index];
-            if (phase == TurnPhase.Connectivity)
+            if (phase == TurnPhase.Delivery)
+            {
+                foreach (var delivery in state.CommitPendingDeliveries())
+                {
+                    events.Add(new CommodityDeliveredEvent(turnNumber, delivery));
+                }
+            }
+            else if (phase == TurnPhase.Connectivity)
             {
                 FinalizeConnectivity(state);
             }
 
-            events[index] = new TurnPhaseCompletedEvent(turnNumber, phase);
+            events.Add(new TurnPhaseCompletedEvent(turnNumber, phase));
         }
 
         state.CompleteTurn();

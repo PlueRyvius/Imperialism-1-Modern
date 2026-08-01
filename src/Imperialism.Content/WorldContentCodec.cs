@@ -7,7 +7,7 @@ namespace Imperialism.Content;
 public static class WorldContentCodec
 {
     public const string FormatName = "imperialism-world";
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
     public const string FileExtension = ".iworld";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -25,7 +25,7 @@ public static class WorldContentCodec
 
     public static WorldContentDocument Decode(ReadOnlySpan<byte> bytes)
     {
-        var document = Deserialize(bytes);
+        var document = DeserializeCurrent(bytes);
         _ = WorldContentCompiler.CompilePackage(document);
         return document;
     }
@@ -63,15 +63,18 @@ public static class WorldContentCodec
     }
 
     public static CompiledWorldContent DecodeAndCompile(ReadOnlySpan<byte> bytes) =>
-        WorldContentCompiler.Compile(Deserialize(bytes));
+        WorldContentCompiler.Compile(DeserializeCurrent(bytes));
 
     public static CompiledWorldContent DecodeAndCompile(
         ReadOnlySpan<byte> bytes,
         string scenarioKey) =>
-        WorldContentCompiler.Compile(Deserialize(bytes), scenarioKey);
+        WorldContentCompiler.Compile(DeserializeCurrent(bytes), scenarioKey);
 
     public static CompiledWorldPackage DecodeAndCompilePackage(ReadOnlySpan<byte> bytes) =>
-        WorldContentCompiler.CompilePackage(Deserialize(bytes));
+        WorldContentCompiler.CompilePackage(DeserializeCurrent(bytes));
+
+    private static WorldContentDocument DeserializeCurrent(ReadOnlySpan<byte> bytes) =>
+        WorldContentMigrator.ToCurrent(Deserialize(bytes));
 
     private static WorldContentDocument Deserialize(ReadOnlySpan<byte> bytes)
     {

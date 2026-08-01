@@ -14,6 +14,12 @@ town, and river codes create warnings and no inferred feature. Conflicting
 owners, references that cannot form valid modern content, duplicate capitals,
 conflicting years, or missing dimensions/year block output.
 
+Every converted package defines the standard 23-commodity catalog independently
+of which deposits happen to occur on that map. The 13 known legacy deposit
+codes become explicit resource definitions pointing to their raw commodities;
+notably forest yields timber and cattle yields livestock. This mapping adds no
+production quantity or extraction-rate assumption.
+
 Keys are deterministic. Known terrain and resources use semantic keys;
 countries, provinces, and sea zones retain padded numeric legacy IDs. Only
 `zone` IDs referenced by ocean cells become modern sea zones. The ocean byte
