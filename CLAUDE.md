@@ -57,7 +57,7 @@ reported confidently. Cheap to check, expensive to inherit.
 
 ## Current state
 
-Phase 0 is complete. `src/Imperialism.Formats/` is the production .NET 8
+Phase 0 is complete and Phase 1 is in progress. `src/Imperialism.Formats/` is the production .NET 8
 formats library for `.map`, binary/plaintext scenarios, and editable `.inf`
 files. The Python library (`src/imperialism_format/`) remains an independent
 structural reference. The extensionless plaintext filenames
@@ -71,6 +71,13 @@ per-record, per-section, and preserved-byte hashes across both implementations.
 Python is a **structural reference**, not an infallible oracle. A Python/C#
 disagreement triggers byte-level and evidence-based triage; neither side wins
 by definition. Godot and the versioned modern large-map package begin in Phase 1.
+
+`src/Imperialism.Core/` is the headless modern domain. It owns typed IDs,
+arbitrary map dimensions, verified odd-row hex geometry, immutable map and
+scenario definitions, and mutable world state. It must remain independent of
+Godot, filesystem IO, and legacy format structures. Original files are import
+inputs; new and imported content will use a versioned modern package rather
+than extending the 1997 layouts.
 
 ## Conventions
 

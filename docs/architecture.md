@@ -43,6 +43,55 @@ the following. A convention that isn't compiled is a convention that decays.
   integer-heavy 1997 C++, so this both matches it more closely and gives
   bit-identical cross-platform replays.
 
+## World data boundaries
+
+The legacy codecs are adapters, not the domain model. They decode original
+files into preserved format documents; a converter will then validate and map
+those documents into Core definitions. Core does not know about 36-byte cells,
+tagged scenario records, CP1252, raw padding, or original filename conventions.
+
+Modern content uses three layers:
+
+1. `MapDefinition` is immutable geography: dimensions, cells, terrain,
+   provinces, sea zones, resources, and settlements.
+2. `ScenarioDefinition` is an immutable starting setup over a map, initially
+   including year and province ownership.
+3. `WorldState` is the mutable state of one running game. It copies scenario
+   values on creation, so loading or simulating a game cannot mutate reusable
+   content definitions.
+
+Runtime identifiers are compact typed integers and definitions are dense by
+identifier for predictable lookup and cache behavior. The future modern
+package may use stable textual keys; its loader is responsible for validating
+and remapping those keys to dense runtime identifiers. This keeps save and
+authoring stability separate from simulation storage.
+
+Cells may contain more than the legacy format's resource count. Names are
+Unicode strings and no original country/province ceiling is part of Core.
+These freedoms are tested so an importer detail cannot silently become an
+engine constraint.
+
+## Hex coordinates
+
+The original map evidence identifies a pointy-top, odd-row offset grid
+(`odd-r`): odd-numbered rows are shifted right. Storage is row-major and
+`index = row * width + column`. Direction values retain the original six-bit
+ordering because it is useful at the import boundary:
+
+| Direction | Bit | Even row delta | Odd row delta |
+|---|---:|---:|---:|
+| NE | 1 | `(0,-1)` | `(+1,-1)` |
+| E  | 2 | `(+1,0)` | `(+1,0)` |
+| SE | 4 | `(0,+1)` | `(+1,+1)` |
+| SW | 8 | `(-1,+1)` | `(0,+1)` |
+| W  | 16 | `(-1,0)` | `(-1,0)` |
+| NW | 32 | `(-1,-1)` | `(0,-1)` |
+
+This interpretation was checked against original rail reciprocity and named
+city indices. Core owns the coordinate and adjacency math, clips neighbors at
+explicit map dimensions, and converts through axial coordinates for distance.
+No client pixel coordinate enters the simulation API.
+
 ## Simultaneous turn resolution
 
 Mutable `GameState` POCO, **inert** order objects (data only — no `Execute()`
@@ -169,8 +218,11 @@ authoring effort, not engine work.
 
 ## Verification
 
-- Byte-exact round-trip on every original file — a hard requirement, already
-  demonstrated in Python, so any C# parser that can't match it is wrong.
+- Byte-exact round-trip on every original file is a hard requirement at the
+  legacy boundary and is independently demonstrated in Python and C#.
+- Core geometry is tested with exhaustive coordinate round-trips,
+  neighbor/opposite properties, arbitrary dimensions, and boundaries that
+  prove edges never wrap into another row.
 - Cross-check: C# and the Python structural reference must agree on every
   corpus file. A disagreement triggers byte-level and evidence-based triage;
   neither implementation wins by definition.
