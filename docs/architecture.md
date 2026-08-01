@@ -253,6 +253,29 @@ connectivity graph must not assume a fixed cell count, and new sizes need a
 content format of our own with dimensions in its header. The remaining cost is
 authoring effort, not engine work.
 
+The first Phase 3 scale regression is 360x180, or 64,800 cells: exactly ten
+times the original area. A tenfold increase in both dimensions is 1080x600,
+or 648,000 cells. Core's packed connectivity arrays support either without a
+format change; the larger interactive case requires map-view chunking and
+packed presentation snapshots so off-screen work does not scale with the full
+map on every refresh.
+
+## Rail connectivity index
+
+`WorldState.GetRailConnectivity(country)` lazily builds an immutable,
+array-backed component index. A rail edge participates only when both endpoint
+cells are provinces currently owned by that country. Rail construction,
+removal, and province ownership changes invalidate affected cached indexes;
+queries rebuild only on demand. Old snapshots stay immutable, which lets a
+turn phase compare before/after topology without copying source state.
+
+Component identifiers are deterministic: components are numbered by their
+lowest cell index, independent of hash-set iteration or link insertion order.
+Cells with no usable rail edge are outside the rail index. The index does not
+yet decide whether a depot is served, infer river continuity, or join ports
+through sea zones. Those are transport rules layered over this physical rail
+topology as their required state enters the model.
+
 ## Traps to avoid
 
 - Logic in the client. Views are id-keyed and rule-free; if a client script

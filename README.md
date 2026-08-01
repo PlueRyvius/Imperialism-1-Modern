@@ -88,6 +88,15 @@ an optional local presentation source; the procedural fallback keeps assets
 from blocking simulation work. The next shortest-path milestone is the Phase 3
 transport graph and deterministic turn skeleton.
 
+**Phase 3 status: in progress.**
+
+- [x] Packed, deterministic rail-connectivity snapshots filtered by current ownership
+- [x] Lazy connectivity rebuild after rail construction, removal, or conquest
+- [x] Generated 64,800-cell scale regression (ten times the original map area)
+- [ ] Capital/depot collection and evidence-backed port/river/sea connectivity
+- [ ] Deterministic turn pipeline and event log
+- [ ] Inventory, labour, production, feeding, and deferred delivery
+
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's
 load-bearing infrastructure rather than a late feature.
@@ -98,6 +107,13 @@ The 108x60 grid is a limit of the 1997 file format and binary, not of this
 engine. Import takes a format profile; the in-memory model carries its own
 dimensions. Keeping that boundary clean is what makes larger maps cheap —
 the remaining cost is authoring effort, not engine work.
+
+The generated Core regression uses 360x180 (64,800 cells), exactly ten times
+the original cell count. Increasing both dimensions tenfold would instead be
+1080x600 (648,000 cells, one hundred times the area). Core data structures
+remain dimension-independent at that size, but the viewer will need chunked
+rendering and packed presentation state before 648,000 cells becomes a smooth
+interactive target.
 
 ### On legacy files
 

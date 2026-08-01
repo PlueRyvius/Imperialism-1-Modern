@@ -94,6 +94,13 @@ Towns industrialise on their own once served by a connected depot or port —
 first materials, then consumer goods capped at half the material output,
 gated on your matching factory reaching a capacity threshold.
 
+**Current implementation boundary.** Phase 3 begins with country-specific
+rail components: only rail edges whose two province cells are currently owned
+by that country are usable. The component index is cached and rebuilt lazily
+after conquest or rail changes. Capital/depot service, river continuity,
+ports, naval control, and sea-zone traversal remain explicit later layers;
+the initial graph does not guess those relationships.
+
 ## Trade
 
 Trade is a **ranked auction**, and it is the heart of the game.

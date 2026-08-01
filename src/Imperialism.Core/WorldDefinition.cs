@@ -122,6 +122,7 @@ public sealed class WorldState
     private readonly CountryId?[] _provinceOwners;
     private readonly HashSet<CellLink> _railLinks;
     private readonly CellIndex?[] _countryCapitals;
+    private readonly RailConnectivityIndex?[] _railConnectivity;
 
     public WorldState(WorldDefinition definition)
     {
@@ -131,6 +132,7 @@ public sealed class WorldState
         _provinceOwners = definition.Scenario.InitialProvinceOwners.ToArray();
         _railLinks = definition.Scenario.InitialRailLinks.ToHashSet();
         _countryCapitals = new CellIndex?[definition.Countries.Count];
+        _railConnectivity = new RailConnectivityIndex?[definition.Countries.Count];
         foreach (var capital in definition.Scenario.InitialCountryCapitals)
         {
             _countryCapitals[capital.Country.Value] = capital.Cell;
@@ -155,7 +157,15 @@ public sealed class WorldState
             throw new ArgumentOutOfRangeException(nameof(owner));
         }
 
+        var previousOwner = _provinceOwners[province.Value];
+        if (previousOwner == owner)
+        {
+            return;
+        }
+
         _provinceOwners[province.Value] = owner;
+        InvalidateRailConnectivity(previousOwner);
+        InvalidateRailConnectivity(owner);
     }
 
     public bool HasRail(CellLink link) => _railLinks.Contains(link);
@@ -165,14 +175,45 @@ public sealed class WorldState
         .ThenBy(static link => link.Second.Value)
         .ToArray());
 
+    /// <summary>
+    /// Returns a cached immutable snapshot of rail components wholly inside the
+    /// country's currently owned provinces. The snapshot remains valid after
+    /// later state mutations, while the next query rebuilds lazily.
+    /// </summary>
+    public RailConnectivityIndex GetRailConnectivity(CountryId country)
+    {
+        ValidateCountry(country);
+        return _railConnectivity[country.Value] ??=
+            RailConnectivityIndex.Create(
+                Definition.Map,
+                _provinceOwners,
+                _railLinks,
+                country);
+    }
+
     public bool BuildRail(CellLink link)
     {
         link.Validate(Definition.Map.Dimensions, "Rail");
         WorldDefinition.ValidateLandLink(Definition.Map, link, "Rail", nameof(link));
-        return _railLinks.Add(link);
+        var changed = _railLinks.Add(link);
+        if (changed)
+        {
+            Array.Clear(_railConnectivity);
+        }
+
+        return changed;
     }
 
-    public bool RemoveRail(CellLink link) => _railLinks.Remove(link);
+    public bool RemoveRail(CellLink link)
+    {
+        var changed = _railLinks.Remove(link);
+        if (changed)
+        {
+            Array.Clear(_railConnectivity);
+        }
+
+        return changed;
+    }
 
     public CellIndex? GetCountryCapital(CountryId country)
     {
@@ -214,6 +255,14 @@ public sealed class WorldState
         if ((uint)country.Value >= (uint)_countryCapitals.Length)
         {
             throw new ArgumentOutOfRangeException(nameof(country));
+        }
+    }
+
+    private void InvalidateRailConnectivity(CountryId? country)
+    {
+        if (country.HasValue)
+        {
+            _railConnectivity[country.Value.Value] = null;
         }
     }
 }
