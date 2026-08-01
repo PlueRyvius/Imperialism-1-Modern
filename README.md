@@ -72,6 +72,11 @@ whenever it's wanted.
 - [x] Semantic local verification of all seven extensionless scenario sources
 - [x] Independent C#/Python structural-hash comparison over generated and original corpora
 
+**Phase 1 status: in progress.** The first milestone is the headless world
+foundation: typed identifiers, dimension-independent odd-row hex geometry,
+immutable map/scenario definitions, and mutable runtime state. A versioned
+modern package and the Godot map viewer follow as separate reviewable changes.
+
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's
 load-bearing infrastructure rather than a late feature.
@@ -82,6 +87,15 @@ The 108x60 grid is a limit of the 1997 file format and binary, not of this
 engine. Import takes a format profile; the in-memory model carries its own
 dimensions. Keeping that boundary clean is what makes larger maps cheap —
 the remaining cost is authoring effort, not engine work.
+
+### On legacy files
+
+The original formats are import and research inputs, not the engine's native
+data model. `Imperialism.Formats` preserves them faithfully at the boundary;
+Core receives validated modern definitions and has no dependency on legacy
+records, byte layouts, filename pairings, or historical entity limits. New and
+imported content will be saved in an explicit, versioned modern package so it
+can support larger maps, richer metadata, Unicode names, and future migrations.
 
 ## Documentation
 
@@ -102,6 +116,7 @@ what's being built.
 
 ```
 src/Imperialism.Formats/  Production .NET 8 format library
+src/Imperialism.Core/     Headless modern world and simulation domain
 src/imperialism_format/   Independent Python structural reference
 tests/                    xUnit and pytest round-trip/structural suites
 fixtures/local_only/      gitignored — drop real .map/.scn here for local testing
