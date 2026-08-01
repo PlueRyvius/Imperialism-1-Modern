@@ -71,6 +71,22 @@ Unicode strings and no original country/province ceiling is part of Core.
 These freedoms are tested so an importer detail cannot silently become an
 engine constraint.
 
+Feature ownership follows whether a value can change between scenarios or
+during play:
+
+- terrain, resource deposits, settlement sites, and river links are immutable
+  map geography;
+- initial ownership, rail links, and country capitals belong to the scenario;
+- a running `WorldState` copies ownership, rail links, capitals, and year so
+  play never mutates reusable definitions;
+- coastlines and national/province borders are derived from adjacent cells and
+  ownership instead of stored as duplicated rendering masks.
+
+Rivers and rails use a canonical undirected `CellLink` between adjacent cells,
+not reciprocal direction bits on two records. Symmetry is therefore true by
+construction. Legacy importers may diagnose or normalize asymmetric source
+bits, but that corruption cannot enter the modern world model.
+
 ## Hex coordinates
 
 The original map evidence identifies a pointy-top, odd-row offset grid

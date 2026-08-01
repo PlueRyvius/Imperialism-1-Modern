@@ -61,6 +61,19 @@ public sealed class WorldDefinitionTests
     }
 
     [Fact]
+    public void CellLinksAreUndirectedAndRejectSelfLinks()
+    {
+        var forward = new CellLink(new CellIndex(2), new CellIndex(9));
+        var reverse = new CellLink(new CellIndex(9), new CellIndex(2));
+
+        Assert.Equal(forward, reverse);
+        Assert.Equal(new CellIndex(2), reverse.First);
+        Assert.Equal(new CellIndex(9), reverse.Second);
+        Assert.Throws<ArgumentException>(() =>
+            new CellLink(new CellIndex(4), new CellIndex(4)));
+    }
+
+    [Fact]
     public void DefinitionsAllowUtf8NamesFarBeyondLegacyPadding()
     {
         var name = "République industrielle de très longue durée 世界";
@@ -87,6 +100,103 @@ public sealed class WorldDefinitionTests
         Assert.Equal(1815, state.CurrentYear);
         Assert.Equal(new CountryId(0), scenario.InitialProvinceOwners[0]);
         Assert.Same(map, world.Map);
+    }
+
+    [Fact]
+    public void RiversAreMapGeographyWhileRailsAndCapitalsAreMutableState()
+    {
+        var dimensions = new MapDimensions(2, 1);
+        var link = new CellLink(new CellIndex(0), new CellIndex(1));
+        var map = new MapDefinition(
+            dimensions,
+            [
+                new CellDefinition(
+                    new CellIndex(0),
+                    new HexCoord(0, 0),
+                    new TerrainId(0),
+                    CellRegion.ForProvince(new ProvinceId(0)),
+                    settlementSite: SettlementSiteKind.Urban),
+                new CellDefinition(
+                    new CellIndex(1),
+                    new HexCoord(1, 0),
+                    new TerrainId(0),
+                    CellRegion.ForProvince(new ProvinceId(1)),
+                    settlementSite: SettlementSiteKind.Urban),
+            ],
+            [
+                new ProvinceDefinition(new ProvinceId(0), "West"),
+                new ProvinceDefinition(new ProvinceId(1), "East"),
+            ],
+            rivers: [link]);
+        var scenario = new ScenarioDefinition(
+            "Start",
+            1815,
+            [new CountryId(0), new CountryId(1)],
+            [link],
+            [
+                new CountryCapital(new CountryId(0), new CellIndex(0)),
+                new CountryCapital(new CountryId(1), new CellIndex(1)),
+            ]);
+        var world = new WorldDefinition(
+            map,
+            [
+                new CountryDefinition(new CountryId(0), "A"),
+                new CountryDefinition(new CountryId(1), "B"),
+            ],
+            scenario);
+        var state = new WorldState(world);
+
+        Assert.True(map.HasRiver(link));
+        Assert.True(state.HasRail(link));
+        Assert.Equal(new CellIndex(0), state.GetCountryCapital(new CountryId(0)));
+
+        Assert.True(state.RemoveRail(link));
+        state.SetCountryCapital(new CountryId(0), null);
+
+        Assert.False(state.HasRail(link));
+        Assert.Null(state.GetCountryCapital(new CountryId(0)));
+        Assert.Contains(link, scenario.InitialRailLinks);
+        Assert.Contains(
+            new CountryCapital(new CountryId(0), new CellIndex(0)),
+            scenario.InitialCountryCapitals);
+    }
+
+    [Fact]
+    public void ModernLinksAndCapitalsAreValidatedAtWorldBoundary()
+    {
+        var dimensions = new MapDimensions(3, 1);
+        var cells = CreateCells(
+            dimensions,
+            CellRegion.ForProvince(new ProvinceId(0)),
+            CellRegion.ForProvince(new ProvinceId(0)),
+            CellRegion.ForProvince(new ProvinceId(0)));
+        var provinces = new[] { new ProvinceDefinition(new ProvinceId(0), "Province") };
+
+        Assert.Throws<ArgumentException>(() => new MapDefinition(
+            dimensions,
+            cells,
+            provinces,
+            rivers: [new CellLink(new CellIndex(0), new CellIndex(2))]));
+
+        var map = new MapDefinition(dimensions, cells, provinces);
+        var countries = new[] { new CountryDefinition(new CountryId(0), "Country") };
+        Assert.Throws<ArgumentException>(() => new WorldDefinition(
+            map,
+            countries,
+            new ScenarioDefinition(
+                "Invalid rail",
+                1815,
+                [new CountryId(0)],
+                [new CellLink(new CellIndex(0), new CellIndex(2))])));
+        Assert.Throws<ArgumentException>(() => new WorldDefinition(
+            map,
+            countries,
+            new ScenarioDefinition(
+                "Invalid capital",
+                1815,
+                [new CountryId(0)],
+                initialCountryCapitals:
+                [new CountryCapital(new CountryId(0), new CellIndex(0))])));
     }
 
     [Fact]

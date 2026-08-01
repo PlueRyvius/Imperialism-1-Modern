@@ -1,10 +1,9 @@
 namespace Imperialism.Core;
 
-public enum SettlementKind : byte
+public enum SettlementSiteKind : byte
 {
     None,
-    Town,
-    Capital,
+    Urban,
 }
 
 public sealed class CellDefinition
@@ -17,11 +16,11 @@ public sealed class CellDefinition
         TerrainId terrain,
         CellRegion region,
         IEnumerable<ResourceId>? resources = null,
-        SettlementKind settlement = SettlementKind.None)
+        SettlementSiteKind settlementSite = SettlementSiteKind.None)
     {
-        if (!Enum.IsDefined(settlement))
+        if (!Enum.IsDefined(settlementSite))
         {
-            throw new ArgumentOutOfRangeException(nameof(settlement));
+            throw new ArgumentOutOfRangeException(nameof(settlementSite));
         }
 
         var resourceArray = resources?.ToArray() ?? [];
@@ -34,7 +33,7 @@ public sealed class CellDefinition
         Coordinate = coordinate;
         Terrain = terrain;
         Region = region;
-        Settlement = settlement;
+        SettlementSite = settlementSite;
         _resources = Array.AsReadOnly(resourceArray);
     }
 
@@ -48,5 +47,5 @@ public sealed class CellDefinition
 
     public IReadOnlyList<ResourceId> Resources => _resources;
 
-    public SettlementKind Settlement { get; }
+    public SettlementSiteKind SettlementSite { get; }
 }

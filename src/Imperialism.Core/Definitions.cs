@@ -41,3 +41,5 @@ public sealed record CountryDefinition
 
     public string Name { get; }
 }
+
+public readonly record struct CountryCapital(CountryId Country, CellIndex Cell);
