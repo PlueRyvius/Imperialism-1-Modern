@@ -10,7 +10,9 @@ public sealed partial class ViewerApp : Node
 {
     private const string DefaultWorldPath = "res://demo/demo.iworld";
     private CompiledWorldPackage? _package;
-    private MapViewSnapshot? _snapshot;
+    private MapViewDefinition? _mapDefinition;
+    private WorldState? _worldState;
+    private WorldViewState? _viewState;
     private WorldMapView? _mapView;
     private MapCameraController? _camera;
     private OptionButton? _scenarioPicker;
@@ -33,6 +35,7 @@ public sealed partial class ViewerApp : Node
                 ? ProjectSettings.GlobalizePath(worldPath)
                 : Path.GetFullPath(worldPath);
             _package = WorldContentCodec.DecodeAndCompilePackage(File.ReadAllBytes(filePath));
+            _mapDefinition = MapViewDefinition.Create(_package);
             BuildScene();
             LoadScenario(0);
             if (_smokeTest)
@@ -60,6 +63,9 @@ public sealed partial class ViewerApp : Node
         AddChild(_mapView);
         AddChild(_camera);
         _camera.MakeCurrent();
+        _mapView.Configure(_mapDefinition ??
+            throw new InvalidOperationException("Map presentation definition is unavailable."));
+        _camera.Configure(_mapView.Projection.Bounds);
 
         _mapView.HoveredChanged += cell =>
         {
@@ -108,9 +114,22 @@ public sealed partial class ViewerApp : Node
         _scenarioPicker.ItemSelected += OnScenarioSelected;
         row.AddChild(_scenarioPicker);
 
+        var stateProbe = new Button { Text = "Probe state", Visible = false };
+        stateProbe.Pressed += () =>
+        {
+            if (ApplyDebugStateProbe() && _status is not null)
+            {
+                _status.Text += "  •  state probe applied";
+            }
+        };
         var debugToggle = new CheckButton { Text = "Debug overlays" };
-        debugToggle.Toggled += enabled => _mapView?.SetDebugMode(enabled);
+        debugToggle.Toggled += enabled =>
+        {
+            _mapView?.SetDebugMode(enabled);
+            stateProbe.Visible = enabled;
+        };
         row.AddChild(debugToggle);
+        row.AddChild(stateProbe);
 
         _status = new Label { Text = "Loading..." };
         row.AddChild(_status);
@@ -157,11 +176,8 @@ public sealed partial class ViewerApp : Node
         }
 
         var scenarioKey = _package.ScenarioKeys[selectedIndex];
-        _snapshot = MapViewSnapshot.Create(_package, scenarioKey);
-        _selected = null;
-        _hovered = null;
-        _mapView.Configure(_snapshot);
-        _camera.Configure(_mapView.Projection.Bounds);
+        _worldState = new WorldState(_package.GetWorld(scenarioKey));
+        RefreshState(scenarioKey);
 
         if (_scenarioPicker is not null)
         {
@@ -178,12 +194,7 @@ public sealed partial class ViewerApp : Node
 
         if (_title is not null)
         {
-            _title.Text = $"{_snapshot.MapName} — {_snapshot.ScenarioName}";
-        }
-
-        if (_status is not null)
-        {
-            _status.Text = $"{_snapshot.Dimensions.Width}×{_snapshot.Dimensions.Height}  •  {_snapshot.StartingYear}";
+            _title.Text = $"{_mapDefinition?.MapName} — {_viewState?.ScenarioName}";
         }
 
         UpdateInspector();
@@ -193,7 +204,7 @@ public sealed partial class ViewerApp : Node
 
     private void UpdateInspector()
     {
-        if (_cellInfo is null || _snapshot is null)
+        if (_cellInfo is null || _mapDefinition is null || _viewState is null)
         {
             return;
         }
@@ -205,11 +216,12 @@ public sealed partial class ViewerApp : Node
             return;
         }
 
-        var cell = _snapshot[index.Value];
+        var cell = _mapDefinition[index.Value];
+        var state = _viewState[index.Value];
         var selection = _selected.HasValue ? "Selected" : "Hovered";
         var resources = cell.ResourceKeys.Count == 0 ? "—" : string.Join(", ", cell.ResourceKeys);
         var river = cell.River is { } path ? $"{path.First} ↔ {path.Second}" : "—";
-        var capital = cell.CapitalCountry.HasValue ? "yes" : "no";
+        var capital = state.CapitalCountry.HasValue ? "yes" : "no";
         _cellInfo.Text = string.Join(
             '\n',
             $"[b]{selection} cell {cell.Index.Value}[/b]",
@@ -217,8 +229,8 @@ public sealed partial class ViewerApp : Node
             $"Terrain: {cell.TerrainKey}",
             $"Region: {cell.RegionName ?? "Unassigned"}",
             $"Region key: {cell.RegionKey ?? "—"}",
-            $"Owner: {cell.OwnerName ?? "—"}",
-            $"Owner key: {cell.OwnerKey ?? "—"}",
+            $"Owner: {state.OwnerName ?? "—"}",
+            $"Owner key: {state.OwnerKey ?? "—"}",
             $"Resources: {resources}",
             $"Settlement: {cell.SettlementSite}",
             $"Capital: {capital}",
@@ -230,20 +242,92 @@ public sealed partial class ViewerApp : Node
         // Let the real controls and both static/interactive draw surfaces run once.
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 
-        if (_package is null || _snapshot is null || _mapView is null)
+        if (_package is null || _mapDefinition is null || _viewState is null || _mapView is null)
         {
             GetTree().Quit(1);
             return;
         }
 
-        var pickedCenters = _snapshot.Cells.Count(cell =>
+        var pickedCenters = _mapDefinition.Cells.Count(cell =>
             _mapView.Projection.Pick(_mapView.Projection.GetCenter(cell.Index)) == cell.Index);
+        var stateProbePassed = ApplyDebugStateProbe();
         GD.Print(string.Create(
             CultureInfo.InvariantCulture,
-            $"VIEWER_SMOKE_OK map={_snapshot.MapKey} scenarios={_package.ScenarioKeys.Count} " +
-            $"dimensions={_snapshot.Dimensions.Width}x{_snapshot.Dimensions.Height} " +
-            $"cells={_snapshot.Cells.Count} pickedCenters={pickedCenters}"));
-        GetTree().Quit(pickedCenters == _snapshot.Cells.Count ? 0 : 1);
+            $"VIEWER_SMOKE_OK map={_mapDefinition.MapKey} scenarios={_package.ScenarioKeys.Count} " +
+            $"dimensions={_mapDefinition.Dimensions.Width}x{_mapDefinition.Dimensions.Height} " +
+            $"cells={_mapDefinition.Cells.Count} pickedCenters={pickedCenters} " +
+            $"stateProbe={(stateProbePassed ? "pass" : "fail")}"));
+        GetTree().Quit(pickedCenters == _mapDefinition.Cells.Count && stateProbePassed ? 0 : 1);
+    }
+
+    private void RefreshState(string? scenarioKey = null)
+    {
+        if (_package is null || _mapDefinition is null || _worldState is null || _mapView is null)
+        {
+            throw new InvalidOperationException("Viewer state is not initialized.");
+        }
+
+        scenarioKey ??= _viewState?.ScenarioKey ??
+            throw new InvalidOperationException("No scenario is selected.");
+        _viewState = WorldViewState.Create(_package, scenarioKey, _worldState);
+        _mapView.ApplyState(_viewState);
+        if (_status is not null)
+        {
+            _status.Text =
+                $"{_mapDefinition.Dimensions.Width}×{_mapDefinition.Dimensions.Height}  •  {_viewState.CurrentYear}";
+        }
+
+        UpdateInspector();
+    }
+
+    private bool ApplyDebugStateProbe()
+    {
+        if (_worldState is null || _viewState is null)
+        {
+            return false;
+        }
+
+        var world = _worldState.Definition;
+        if (world.Map.Provinces.Count > 0 && world.Countries.Count > 0)
+        {
+            var province = FindProbeProvince(_worldState);
+            var owner = _worldState.GetProvinceOwner(province);
+            CountryId? nextOwner = owner.HasValue && owner.Value.Value + 1 < world.Countries.Count
+                ? new CountryId(owner.Value.Value + 1)
+                : owner.HasValue
+                    ? null
+                    : new CountryId(0);
+            _worldState.SetProvinceOwner(province, nextOwner);
+        }
+
+        if (world.Scenario.InitialRailLinks.Count > 0)
+        {
+            var rail = world.Scenario.InitialRailLinks[0];
+            if (!_worldState.RemoveRail(rail))
+            {
+                _worldState.BuildRail(rail);
+            }
+        }
+
+        RefreshState();
+        return true;
+    }
+
+    private static ProvinceId FindProbeProvince(WorldState state)
+    {
+        var capitalProvinces = new HashSet<ProvinceId>();
+        foreach (var country in state.Definition.Countries)
+        {
+            var capital = state.GetCountryCapital(country.Id);
+            if (capital.HasValue)
+            {
+                capitalProvinces.Add(state.Definition.Map[capital.Value].Region.Province);
+            }
+        }
+
+        return state.Definition.Map.Provinces
+            .Select(static province => province.Id)
+            .FirstOrDefault(province => !capitalProvinces.Contains(province));
     }
 
     private void BuildErrorUi(string message)

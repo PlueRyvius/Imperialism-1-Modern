@@ -177,12 +177,16 @@ public sealed class WorldDefinitionTests
             map.Cells[0].River);
         Assert.Null(map.Cells[1].River);
         Assert.True(state.HasRail(link));
+        var railSnapshot = state.GetRailLinks();
+        Assert.Equal([link], railSnapshot);
         Assert.Equal(new CellIndex(0), state.GetCountryCapital(new CountryId(0)));
 
         Assert.True(state.RemoveRail(link));
         state.SetCountryCapital(new CountryId(0), null);
 
         Assert.False(state.HasRail(link));
+        Assert.Empty(state.GetRailLinks());
+        Assert.Equal([link], railSnapshot);
         Assert.Null(state.GetCountryCapital(new CountryId(0)));
         Assert.Contains(link, scenario.InitialRailLinks);
         Assert.Contains(
