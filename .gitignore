@@ -12,6 +12,8 @@ bin/
 obj/
 TestResults/
 .vs/
+.godot/
+*.csproj.old
 
 # Real Imperialism game data is copyrighted and must never be committed.
 # Put actual .map/.scn/.inf files here for local testing only.

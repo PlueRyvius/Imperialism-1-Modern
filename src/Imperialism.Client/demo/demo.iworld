@@ -1,0 +1,101 @@
+{
+  "format": "imperialism-world",
+  "formatVersion": 1,
+  "terrainKeys": [
+    "terrain.ocean",
+    "terrain.plains",
+    "terrain.forest",
+    "terrain.hills"
+  ],
+  "resourceKeys": [
+    "resource.grain",
+    "resource.timber",
+    "resource.coal"
+  ],
+  "map": {
+    "key": "map.viewer-demo",
+    "name": "Viewer Demonstration",
+    "width": 6,
+    "height": 4,
+    "provinces": [
+      { "key": "province.west", "name": "Westmarch" },
+      { "key": "province.east", "name": "Eastvale" }
+    ],
+    "seaZones": [
+      { "key": "sea.north", "name": "Northern Sea" },
+      { "key": "sea.south", "name": "Southern Sea" }
+    ],
+    "cells": [
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.north" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.north" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.north" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.north" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.north" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.north" }, "resources": [], "hasSettlementSite": false },
+
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.north" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.plains", "region": { "province": "province.west" }, "resources": ["resource.grain"], "hasSettlementSite": true },
+      { "terrain": "terrain.forest", "region": { "province": "province.west" }, "resources": ["resource.timber"], "hasSettlementSite": false, "river": { "first": "source", "second": "southWest" } },
+      { "terrain": "terrain.hills", "region": { "province": "province.east" }, "resources": ["resource.coal"], "hasSettlementSite": false },
+      { "terrain": "terrain.plains", "region": { "province": "province.east" }, "resources": ["resource.grain"], "hasSettlementSite": true },
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.north" }, "resources": [], "hasSettlementSite": false },
+
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.south" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.plains", "region": { "province": "province.west" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.forest", "region": { "province": "province.west" }, "resources": ["resource.timber"], "hasSettlementSite": false, "river": { "first": "northEast", "second": "mouth" } },
+      { "terrain": "terrain.hills", "region": { "province": "province.east" }, "resources": ["resource.coal"], "hasSettlementSite": false },
+      { "terrain": "terrain.plains", "region": { "province": "province.east" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.south" }, "resources": [], "hasSettlementSite": false },
+
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.south" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.south" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.south" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.south" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.south" }, "resources": [], "hasSettlementSite": false },
+      { "terrain": "terrain.ocean", "region": { "seaZone": "sea.south" }, "resources": [], "hasSettlementSite": false }
+    ]
+  },
+  "countries": [
+    { "key": "country.blue", "name": "Blue Republic" },
+    { "key": "country.red", "name": "Red Empire" }
+  ],
+  "scenarios": [
+    {
+      "key": "scenario.opening",
+      "name": "Opening Balance",
+      "startingYear": 1815,
+      "provinceOwners": [
+        { "province": "province.west", "country": "country.blue" },
+        { "province": "province.east", "country": "country.red" }
+      ],
+      "rails": [
+        { "first": 7, "second": 8 },
+        { "first": 7, "second": 14 },
+        { "first": 14, "second": 15 },
+        { "first": 10, "second": 16 },
+        { "first": 15, "second": 16 }
+      ],
+      "capitals": [
+        { "country": "country.blue", "cell": 7 },
+        { "country": "country.red", "cell": 10 }
+      ]
+    },
+    {
+      "key": "scenario.reversal",
+      "name": "Reversed Control",
+      "startingYear": 1820,
+      "provinceOwners": [
+        { "province": "province.west", "country": "country.red" },
+        { "province": "province.east", "country": "country.blue" }
+      ],
+      "rails": [
+        { "first": 7, "second": 8 },
+        { "first": 10, "second": 16 }
+      ],
+      "capitals": [
+        { "country": "country.red", "cell": 7 },
+        { "country": "country.blue", "cell": 10 }
+      ]
+    }
+  ]
+}

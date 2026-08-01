@@ -16,6 +16,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | How are files laid out on disk? | `docs/file-formats.md` |
 | What do the fields *mean*? | `docs/scenario-semantics.md` |
 | How does legacy content become `.iworld`? | `docs/legacy-importer.md` |
+| How does the Godot map viewer work? | `docs/map-viewer.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Navigating the original binary | `docs/disasm/README.md`, `docs/disasm/module-map.md` |
 
@@ -86,6 +87,11 @@ package rather than extending the 1997 layouts.
 geography and scenario setup into `.iworld`. Its report counts unsupported
 gameplay and briefing data instead of copying opaque records. River byte 2 is
 a per-cell path-shape code, not an edge mask; see `docs/legacy-importer.md`.
+
+`src/Imperialism.Presentation/` keeps map projection, deterministic picking,
+and viewer snapshots testable without Godot. `src/Imperialism.Client/` is the
+single Godot 4.7.1 project. It reads only `.iworld`, uses batched cell rendering,
+and offers normal and debug-overlay modes; see `docs/map-viewer.md`.
 
 ## Conventions
 
