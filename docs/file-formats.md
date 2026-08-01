@@ -7,12 +7,17 @@ verified ourselves in `tests/`.
 
 ## `.map`
 
-- Grid: 108 x 60 hex cells, stored row-major (left-to-right, top-to-bottom).
+- Original-game profile: 108 x 60 hex cells, stored row-major
+  (left-to-right, top-to-bottom).
+- The binary format has no dimension header. `MapFormatProfile` supplies
+  dimensions at import time; `MapFile` carries those dimensions thereafter,
+  so new content is not restricted to 108 x 60.
 - Each cell is a fixed 36-byte record — see `HexCell` in
   `src/imperialism_format/map_file.py` for the full field layout
   (terrain type, resources, province/country ownership, rail, rivers,
   border/coastline overlays, town/capital markers).
-- After all 6,480 cell records, the file has a trailer of 384 records of
+- In the original profile, after all 6,480 cell records, the file has a
+  trailer of 384 records of
   198 bytes each (`DORMANT_RECORD_COUNT` / `DORMANT_RECORD_SIZE`). We
   preserve this trailer byte-for-byte on load/save without interpreting
   it — round-trip tests confirm this reproduces the original file
@@ -27,9 +32,16 @@ verified ourselves in `tests/`.
   (`cnam`, `pnam`, `zone`) a trailing 64-byte null-padded name string.
 - The file ends with a bare `TERM` tag and has no length prefix or
   checksum.
-- Round-trip note: the original files have leftover garbage bytes after
-  each name's null terminator (unused padding the original program
-  never zeroed). Our writer zero-pads instead — semantically identical
-  since the game only reads up to the null terminator, but not a
-  byte-for-byte match on those specific padding bytes. Every other byte
-  matches exactly.
+- Original files may contain leftover bytes after each name's null
+  terminator. The parser retains the full 64-byte field and reuses it if
+  the name is unchanged. Editing a name intentionally replaces the field
+  with a null-padded representation.
+
+## `.inf`
+
+- Plain-text scenario description split into `#`-delimited sections.
+- The first section contains the title and the next contains the overview.
+- Following sections contain country-specific descriptions and difficulty
+  notes.
+- A final `#` line may carry signed integer metadata used by the scenario
+  selection screen.

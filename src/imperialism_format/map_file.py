@@ -11,9 +11,47 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .constants import (
-    MAP_WIDTH, MAP_HEIGHT, MAP_CELL_COUNT, MAP_CELL_SIZE,
+    MAP_WIDTH, MAP_HEIGHT, MAP_CELL_SIZE,
     DORMANT_RECORD_COUNT, DORMANT_RECORD_SIZE,
 )
+
+
+@dataclass(frozen=True)
+class MapFormatProfile:
+    """Physical layout of a legacy ``.map`` file.
+
+    Imperialism's original files do not contain a header with their dimensions,
+    so callers must supply a profile.  Keeping that fact at the import boundary
+    lets the in-memory map model support maps of any width and height.
+    """
+
+    width: int
+    height: int
+    trailer_record_count: int = DORMANT_RECORD_COUNT
+    trailer_record_size: int = DORMANT_RECORD_SIZE
+
+    def __post_init__(self) -> None:
+        if self.width <= 0 or self.height <= 0:
+            raise ValueError("map width and height must be positive")
+        if self.trailer_record_count < 0 or self.trailer_record_size < 0:
+            raise ValueError("trailer dimensions cannot be negative")
+        if self.trailer_record_count and not self.trailer_record_size:
+            raise ValueError("non-empty trailer records must have a size")
+
+    @property
+    def cell_count(self) -> int:
+        return self.width * self.height
+
+    @property
+    def trailer_size(self) -> int:
+        return self.trailer_record_count * self.trailer_record_size
+
+    @property
+    def file_size(self) -> int:
+        return self.cell_count * MAP_CELL_SIZE + self.trailer_size
+
+
+LEGACY_MAP_PROFILE = MapFormatProfile(MAP_WIDTH, MAP_HEIGHT)
 
 
 @dataclass
@@ -99,39 +137,77 @@ class HexCell:
 
 @dataclass
 class MapFile:
-    cells: list = field(default_factory=list)  # row-major, length MAP_CELL_COUNT
+    profile: MapFormatProfile = LEGACY_MAP_PROFILE
+    cells: list = field(default_factory=list)  # row-major
     dormant_trailer: bytes = b""
 
     @classmethod
-    def load(cls, path: str) -> "MapFile":
+    def load(
+        cls, path: str, profile: MapFormatProfile = LEGACY_MAP_PROFILE
+    ) -> "MapFile":
         with open(path, "rb") as f:
             data = f.read()
-        cells = []
-        offset = 0
-        for _ in range(MAP_CELL_COUNT):
-            cells.append(HexCell.from_bytes(data[offset:offset + MAP_CELL_SIZE]))
-            offset += MAP_CELL_SIZE
-        trailer = data[offset:offset + DORMANT_RECORD_COUNT * DORMANT_RECORD_SIZE]
-        return cls(cells=cells, dormant_trailer=trailer)
+        return cls.from_bytes(data, profile=profile)
 
     @classmethod
-    def blank(cls) -> "MapFile":
-        cells = [HexCell(terrain=0, terrain_underlay=5, province=65535) for _ in range(MAP_CELL_COUNT)]
-        trailer = bytes(DORMANT_RECORD_COUNT * DORMANT_RECORD_SIZE)
-        return cls(cells=cells, dormant_trailer=trailer)
+    def from_bytes(
+        cls, data: bytes, profile: MapFormatProfile = LEGACY_MAP_PROFILE
+    ) -> "MapFile":
+        if len(data) != profile.file_size:
+            raise ValueError(
+                f"expected {profile.file_size} bytes for a "
+                f"{profile.width}x{profile.height} map, got {len(data)}"
+            )
+        cells = []
+        offset = 0
+        for _ in range(profile.cell_count):
+            cells.append(HexCell.from_bytes(data[offset:offset + MAP_CELL_SIZE]))
+            offset += MAP_CELL_SIZE
+        trailer = data[offset:]
+        return cls(profile=profile, cells=cells, dormant_trailer=trailer)
+
+    @classmethod
+    def blank(cls, profile: MapFormatProfile = LEGACY_MAP_PROFILE) -> "MapFile":
+        cells = [
+            HexCell(terrain=0, terrain_underlay=5, province=65535)
+            for _ in range(profile.cell_count)
+        ]
+        return cls(
+            profile=profile,
+            cells=cells,
+            dormant_trailer=bytes(profile.trailer_size),
+        )
+
+    @property
+    def width(self) -> int:
+        return self.profile.width
+
+    @property
+    def height(self) -> int:
+        return self.profile.height
+
+    def to_bytes(self) -> bytes:
+        if len(self.cells) != self.profile.cell_count:
+            raise ValueError(
+                f"expected {self.profile.cell_count} cells, have {len(self.cells)}"
+            )
+        if len(self.dormant_trailer) != self.profile.trailer_size:
+            raise ValueError(
+                f"expected {self.profile.trailer_size} trailer bytes, "
+                f"have {len(self.dormant_trailer)}"
+            )
+        return b"".join(cell.to_bytes() for cell in self.cells) + self.dormant_trailer
 
     def save(self, path: str) -> None:
-        if len(self.cells) != MAP_CELL_COUNT:
-            raise ValueError(f"expected {MAP_CELL_COUNT} cells, have {len(self.cells)}")
         with open(path, "wb") as f:
-            for cell in self.cells:
-                f.write(cell.to_bytes())
-            f.write(self.dormant_trailer)
+            f.write(self.to_bytes())
 
     def index(self, x: int, y: int) -> int:
-        if not (0 <= x < MAP_WIDTH and 0 <= y < MAP_HEIGHT):
-            raise IndexError(f"({x}, {y}) out of bounds for {MAP_WIDTH}x{MAP_HEIGHT} grid")
-        return y * MAP_WIDTH + x
+        if not (0 <= x < self.width and 0 <= y < self.height):
+            raise IndexError(
+                f"({x}, {y}) out of bounds for {self.width}x{self.height} grid"
+            )
+        return y * self.width + x
 
     def get(self, x: int, y: int) -> HexCell:
         return self.cells[self.index(x, y)]

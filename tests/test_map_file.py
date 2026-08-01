@@ -3,7 +3,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from imperialism_format import MapFile, HexCell
+from imperialism_format import HexCell, MapFile, MapFormatProfile
 from imperialism_format.constants import MAP_CELL_COUNT
 
 LOCAL_FIXTURE = os.path.join(os.path.dirname(__file__), "..", "fixtures", "local_only", "s1.map")
@@ -21,6 +21,29 @@ def test_blank_map_round_trips(tmp_path):
     reloaded = MapFile.load(str(out))
     assert len(reloaded.cells) == MAP_CELL_COUNT
     assert reloaded.cells[0].to_bytes() == m.cells[0].to_bytes()
+
+
+def test_custom_map_dimensions_round_trip():
+    profile = MapFormatProfile(
+        width=7, height=5, trailer_record_count=0, trailer_record_size=0
+    )
+    m = MapFile.blank(profile)
+    m.set(6, 4, HexCell(terrain=8, province=9))
+    reloaded = MapFile.from_bytes(m.to_bytes(), profile)
+    assert (reloaded.width, reloaded.height) == (7, 5)
+    assert len(reloaded.cells) == 35
+    assert reloaded.get(6, 4).province == 9
+
+
+def test_map_rejects_data_with_wrong_length():
+    profile = MapFormatProfile(
+        width=2, height=2, trailer_record_count=0, trailer_record_size=0
+    )
+    try:
+        MapFile.from_bytes(bytes(3 * 36), profile)
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "expected 144 bytes" in str(exc)
 
 
 def test_set_and_get_cell_roundtrip():
@@ -55,3 +78,4 @@ def test_real_game_map_loads_if_present():
         return
     m = MapFile.load(LOCAL_FIXTURE)
     assert len(m.cells) == MAP_CELL_COUNT
+    assert m.to_bytes() == open(LOCAL_FIXTURE, "rb").read()
