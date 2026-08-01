@@ -41,8 +41,9 @@ never content.
 
 Godot 4 + C#. The simulation lives in a plain, headless, unit-testable C#
 library with no Godot dependency; Godot is only the presentation layer.
-This Python library is retained as research tooling and as the **reference
-oracle** the C# parsers are tested against.
+This Python library is retained as research tooling and as an independent
+**structural reference** for the C# parsers. A disagreement identifies a bug
+to investigate; it does not make either implementation correct by definition.
 
 ## Project phases
 
@@ -61,6 +62,14 @@ whenever it's wanted.
 | 7 | Minor nations, Council of Governors, victory |
 | 8 | AI depth, tuned via headless tournaments |
 | 9 | Polish, scenario editor, house rules |
+
+**Phase 0 status: in progress.**
+
+- [x] Python research readers/writers for `.map` and `.scn`, plus `.inf` parsing
+- [x] Python plaintext-scenario reader/writer and corpus relationship audit
+- [x] Byte-exact local verification of all 10 shipped maps and 10 binary scenarios
+- [ ] Production C# formats library
+- [ ] Independent C#/Python cross-checks with evidence-based disagreement triage
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's
@@ -109,6 +118,13 @@ Inspect source files as stable JSON:
 
 ```
 python tools/inspect_assets.py Scenario/s1.map Scenario/s1.scn Scenario/s1.inf
+```
+
+Audit the relationship between extensionless editor sources and binary
+scenarios (the numbers are not reliable pairings):
+
+```
+python tools/audit_scenario_corpus.py /path/to/Scenario
 ```
 
 Build and query the disassembly index (requires your own copy of the game;

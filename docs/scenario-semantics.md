@@ -93,13 +93,14 @@ zones ("North Atlantic", "English Channel") and 40–62 are **port cities**
 - Tutorial maps use a `town_type` value of **33**, which we have not
   identified — it is neither village nor capital. Retained, uninterpreted.
 - Every one of the 24 known scenario tags appears somewhere in the corpus;
-  there are no dead tags. Rarest are `coun` (5 records, only in `s0`/`s1`/`s3`)
-  and `flag`/`year` (one per scenario).
+  there are no dead tags. `coun` is rarest: one record in `s0` and four in
+  `s1`. Every scenario has one `flag`; most have one `year`, while `s10` and
+  `s15` each contain two identical `year` records.
 
 ## The plaintext scenario form
 
-The tutorials ship an extensionless companion file (`Scenario/s9`, `s10`, …)
-containing the same records as **CR-delimited plain text**, one per line:
+Seven scenarios ship an extensionless file (`Scenario/s9` through `s15`)
+containing **CR-delimited plain text**, one record per line:
 
 ```
 tech 0 1
@@ -108,16 +109,31 @@ army 0 0 4
 labo 0 2 2 2
 ```
 
-`s14` has 1,091 lines and `s14.scn` has exactly 1,091 records. These are
-almost certainly the designers' editor input, left in the shipped folder.
+These appear to be editor-source artifacts, but their numbers are **not
+reliable pairings** with the binary files. An all-pairs semantic audit gives:
 
-Two consequences:
+| text source | best binary match | relationship |
+|---|---|---|
+| `s9` | `s9.scn` | ordered subset, 512 of 522 records |
+| `s10` | `s12.scn` | near match, 506 shared records |
+| `s11` | `s11.scn` | ordered subset, 383 of 392 records |
+| `s12` | `s10.scn` | ordered subset, 381 of 391 records |
+| `s13` | `s15.scn` | ordered subset, 406 of 416 records |
+| `s14` | `s13.scn` | exact, all 1,091 records |
+| `s15` | `s14.scn` | exact, all 1,091 records |
 
-1. It is **free ground truth for the tag arity table** — the thing most
-   likely to be subtly wrong. Parsing the text and diffing against the
-   binary is really a test of our arity assumptions.
+Notably, `s14` and `s14.scn` have the same record count but differ in one
+semantic record after whitespace normalisation. Same-name text/binary equality
+must not be used as a format invariant.
+
+Three consequences:
+
+1. Successfully parsing every line is useful evidence for the tag arity table,
+   but binary equality is not: the source/binary pairing is uncertain.
 2. It is the natural **human-editable format for our own scenario editor**;
    we should adopt it rather than invent one.
+3. Run `tools/audit_scenario_corpus.py` after parser changes to compare every
+   source with every binary without committing or printing source records.
 
 Note the CR (`\r`) line endings — the original was a Mac and PC cross-platform
 codebase (`McAppUI`, `UMacViewMgr` appear in the binary's leaked filenames).

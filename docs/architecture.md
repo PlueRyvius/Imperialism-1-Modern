@@ -60,8 +60,8 @@ Conflict → TradeCancellation → Delivery → Connectivity.
 step 4's blockades invalidated. That's only a hard rollback if trade committed
 something. So `TradePhase` writes *pending shipment intents* and commits
 nothing physical; `TradeCancellationPhase` becomes a filter over a list rather
-than an undo. This is also the faithful reading — the universal one-turn lag
-means a turn's natural output *is* a queue of deferred effects.
+than an undo. This is also the faithful reading: most physical output from a
+turn is a queue of deferred effects.
 
 Money is the only thing that genuinely reverses. Model it as a ledger where
 cancellation appends a compensating entry, never by mutating history.
@@ -72,9 +72,14 @@ impossible. Any `foreach` over a dictionary inside a phase is a latent bug.
 Genuine contention (two powers invading one province) resolves by an explicit
 seeded tiebreak, never by iteration order.
 
-**One-turn lag is modelled once, globally** — an `Available`/`Arriving` pair
-with a single turn-advance that swaps buckets. Five systems inventing five
-subtly different lags is a predictable failure mode.
+**Deferred delivery is modelled once, with explicit exceptions.** Warehouse
+stock is `Available`; transport and trade create `PendingDelivery` entries.
+Production cannot generally use pending goods, but worker feeding consumes
+transported raw food from `PendingDelivery` before warehouse food, matching
+the original's documented priority. Power is separate transient labour: it is
+created and consumed during the same production phase and never enters either
+inventory. After blockade cancellation and food consumption, `Delivery`
+commits the remaining pending goods for use on the following turn.
 
 **The event log is the presentation contract.** The client animates the log
 and never diffs state. This gives newspaper and battle-report views nearly
@@ -166,11 +171,13 @@ authoring effort, not engine work.
 
 - Byte-exact round-trip on every original file — a hard requirement, already
   demonstrated in Python, so any C# parser that can't match it is wrong.
-- Cross-oracle: C# and the Python reference implementation must agree on every
-  corpus file. The Python side is verified, so disagreement means C# is at fault.
+- Cross-check: C# and the Python structural reference must agree on every
+  corpus file. A disagreement triggers byte-level and evidence-based triage;
+  neither implementation wins by definition.
 - Arbitrary-dimension tests, to stop 108×60 creeping back in as an assumption.
-- Text/binary equivalence on the plaintext scenarios — effectively a test of
-  the tag arity table.
+- Plaintext corpus audit: every source must parse, and aggregate comparisons
+  track exact, ordered-subset, near, and unrelated binary relationships. The
+  shipped filenames are not assumed to identify matching pairs.
 - Golden replay from day one: record `(seed, scenario, orders)`, assert replay
   reproduces the per-turn state-hash sequence. An all-AI long-run trace is the
   canary for every refactor.

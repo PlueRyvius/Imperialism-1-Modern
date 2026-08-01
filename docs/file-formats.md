@@ -37,6 +37,17 @@ verified ourselves in `tests/`.
   the name is unchanged. Editing a name intentionally replaces the field
   with a null-padded representation.
 
+### Plaintext scenario form
+
+- The extensionless editor sources use the same tags and field arities, one
+  whitespace-delimited record per line, with the remainder of a name record's
+  line holding its name. They have no `TERM` sentinel.
+- Input accepts CR, LF, or CRLF. Canonical output is ASCII with single spaces
+  between fields and CR line endings; whitespace-exact preservation is not a
+  goal.
+- Source numbers do not reliably pair with same-numbered `.scn` files. Use the
+  all-pairs corpus audit described in `scenario-semantics.md`.
+
 ## `.inf`
 
 - Plain-text scenario description split into `#`-delimited sections, using
