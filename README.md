@@ -72,14 +72,21 @@ whenever it's wanted.
 - [x] Semantic local verification of all seven extensionless scenario sources
 - [x] Independent C#/Python structural-hash comparison over generated and original corpora
 
-**Phase 1 status: in progress.** The first milestone is the headless world
-foundation: typed identifiers, dimension-independent odd-row hex geometry,
-immutable map/scenario definitions, and mutable runtime state. A versioned
-`.iworld` package compiles stable authored keys into dense runtime IDs without
-legacy limits. The Phase 1 legacy converter produces this viewer-ready package
-with explicit diagnostics for deferred gameplay data. The Godot 4.7.1 viewer
-loads `.iworld` directly with batched terrain/ownership rendering, arbitrary
-dimensions, pan/zoom, picking, scenario switching, and normal/debug modes.
+**Phase 1 status: complete.**
+
+- [x] Typed identifiers and dimension-independent pointy-top odd-row geometry
+- [x] Immutable map/scenario definitions and mutable `WorldState`
+- [x] Versioned `.iworld` packages without legacy entity or map-size limits
+- [x] Conservative legacy conversion with diagnostics for deferred information
+- [x] Godot 4.7.1 viewer with batched rendering, pan/zoom, picking, and debug mode
+- [x] Independent static-map and mutable-state presentation layers
+- [x] Local viewer verification across all ten original scenario triples
+
+The viewer updates current ownership, rails, capitals, and year without
+rebuilding immutable terrain or resetting camera and selection. Original art is
+an optional local presentation source; the procedural fallback keeps assets
+from blocking simulation work. The next shortest-path milestone is the Phase 3
+transport graph and deterministic turn skeleton.
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's

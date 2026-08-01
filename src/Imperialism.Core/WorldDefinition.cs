@@ -160,6 +160,11 @@ public sealed class WorldState
 
     public bool HasRail(CellLink link) => _railLinks.Contains(link);
 
+    public IReadOnlyList<CellLink> GetRailLinks() => Array.AsReadOnly(_railLinks
+        .OrderBy(static link => link.First.Value)
+        .ThenBy(static link => link.Second.Value)
+        .ToArray());
+
     public bool BuildRail(CellLink link)
     {
         link.Validate(Definition.Map.Dimensions, "Rail");

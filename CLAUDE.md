@@ -59,7 +59,7 @@ reported confidently. Cheap to check, expensive to inherit.
 
 ## Current state
 
-Phase 0 is complete and Phase 1 is in progress. `src/Imperialism.Formats/` is the production .NET 8
+Phases 0 and 1 are complete. `src/Imperialism.Formats/` is the production .NET 8
 formats library for `.map`, binary/plaintext scenarios, and editable `.inf`
 files. The Python library (`src/imperialism_format/`) remains an independent
 structural reference. The extensionless plaintext filenames
@@ -72,7 +72,8 @@ per-record, per-section, and preserved-byte hashes across both implementations.
 
 Python is a **structural reference**, not an infallible oracle. A Python/C#
 disagreement triggers byte-level and evidence-based triage; neither side wins
-by definition. Godot and the versioned modern large-map package begin in Phase 1.
+by definition. Godot and the versioned modern large-map package were delivered
+in Phase 1.
 
 `src/Imperialism.Core/` is the headless modern domain. It owns typed IDs,
 arbitrary map dimensions, verified odd-row hex geometry, immutable map and
@@ -89,9 +90,11 @@ gameplay and briefing data instead of copying opaque records. River byte 2 is
 a per-cell path-shape code, not an edge mask; see `docs/legacy-importer.md`.
 
 `src/Imperialism.Presentation/` keeps map projection, deterministic picking,
-and viewer snapshots testable without Godot. `src/Imperialism.Client/` is the
-single Godot 4.7.1 project. It reads only `.iworld`, uses batched cell rendering,
-and offers normal and debug-overlay modes; see `docs/map-viewer.md`.
+immutable map presentation, and detached mutable-state snapshots testable
+without Godot. `src/Imperialism.Client/` is the single Godot 4.7.1 project. It
+reads only `.iworld`, uses batched cell rendering, updates ownership and dynamic
+features without rebuilding terrain, and offers normal and debug-overlay modes;
+see `docs/map-viewer.md`.
 
 ## Conventions
 

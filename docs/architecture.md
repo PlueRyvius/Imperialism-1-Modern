@@ -122,10 +122,14 @@ hit-testing are ordinary xUnit contracts. `Imperialism.Client` is a thin
 adapter from those map-space values to Godot vectors and draw calls.
 
 The first viewer uses two multimesh batches (terrain and ownership), one static
-map-feature surface, and one lightweight hover/selection surface. It does not
-create one Godot node per cell or rebuild static overlays on pointer movement.
-Debug mode is an overlay policy on the same viewer rather than a separate
-diagnostic client. See `map-viewer.md` for the renderer and controls.
+map-feature surface, one mutable rail/capital surface, and one lightweight
+hover/selection surface. `MapViewDefinition` contains immutable geography;
+`WorldViewState` is a detached presentation snapshot of current ownership,
+rails, capitals, and year. State refreshes recolor or redraw only mutable layers
+and preserve camera and selection. The viewer does not create one Godot node per
+cell or rebuild static overlays on pointer movement. Debug mode is an overlay
+policy on the same viewer rather than a separate diagnostic client. See
+`map-viewer.md` for the renderer and controls.
 
 ## Modern content packages
 

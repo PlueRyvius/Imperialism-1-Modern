@@ -10,11 +10,11 @@ public sealed partial class WorldMapView : Node2D
     private static readonly Color RegionBorder = new(0.92f, 0.88f, 0.72f, 0.82f);
     private static readonly Color RiverColor = new(0.20f, 0.67f, 0.94f, 0.95f);
     private static readonly Color RailColor = new(0.13f, 0.12f, 0.10f, 0.95f);
-    private static readonly Color CapitalColor = new(1f, 0.84f, 0.24f, 1f);
     private readonly MultiMeshInstance2D _terrainLayer = new() { Name = "Terrain" };
     private readonly MultiMeshInstance2D _ownershipLayer = new() { Name = "Ownership" };
+    private readonly MapStateOverlay _stateLayer = new() { Name = "WorldState" };
     private readonly MapInteractionOverlay _interactionLayer = new() { Name = "Interaction" };
-    private MapViewSnapshot? _snapshot;
+    private MapViewDefinition? _map;
     private HexMapProjection? _projection;
     private CellIndex? _hovered;
     private CellIndex? _selected;
@@ -31,24 +31,46 @@ public sealed partial class WorldMapView : Node2D
     {
         AddChild(_terrainLayer);
         AddChild(_ownershipLayer);
+        AddChild(_stateLayer);
         AddChild(_interactionLayer);
         ZIndex = -10;
     }
 
-    public void Configure(MapViewSnapshot snapshot, double radius = 32)
+    public void Configure(MapViewDefinition map, double radius = 32)
     {
-        ArgumentNullException.ThrowIfNull(snapshot);
-        _snapshot = snapshot;
-        _projection = new HexMapProjection(snapshot.Dimensions, radius);
+        ArgumentNullException.ThrowIfNull(map);
+        _map = map;
+        _projection = new HexMapProjection(map.Dimensions, radius);
         _hovered = null;
         _selected = null;
         _interactionLayer.Configure(_projection);
+        _stateLayer.Configure(map, _projection);
 
         var mesh = CreateHexMesh(_projection);
-        _terrainLayer.Multimesh = CreateInstances(mesh, snapshot, ownership: false);
-        _ownershipLayer.Multimesh = CreateInstances(mesh, snapshot, ownership: true);
+        _terrainLayer.Multimesh = CreateInstances(mesh, map, terrain: true);
+        _ownershipLayer.Multimesh = CreateInstances(mesh, map, terrain: false);
         ApplyOwnershipOpacity();
         QueueRedraw();
+    }
+
+    public void ApplyState(WorldViewState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (_map is null ||
+            !string.Equals(state.MapKey, _map.MapKey, StringComparison.Ordinal) ||
+            state.Cells.Count != _map.Cells.Count)
+        {
+            throw new ArgumentException("World view state does not match the configured map.", nameof(state));
+        }
+
+        var ownership = _ownershipLayer.Multimesh ??
+            throw new InvalidOperationException("The map view has not been configured.");
+        foreach (var cell in state.Cells)
+        {
+            ownership.SetInstanceColor(cell.Index.Value, TerrainPalette.Country(cell.OwnerKey, 1));
+        }
+
+        _stateLayer.ApplyState(state);
     }
 
     public void SetDebugMode(bool enabled)
@@ -81,15 +103,14 @@ public sealed partial class WorldMapView : Node2D
 
     public override void _Draw()
     {
-        if (_snapshot is null || _projection is null)
+        if (_map is null || _projection is null)
         {
             return;
         }
 
-        DrawRegionBorders(_snapshot, _projection);
-        DrawRivers(_snapshot, _projection);
-        DrawRails(_snapshot, _projection);
-        DrawSitesAndResources(_snapshot, _projection);
+        DrawRegionBorders(_map, _projection);
+        DrawRivers(_map, _projection);
+        DrawSitesAndResources(_map, _projection);
     }
 
     private static ArrayMesh CreateHexMesh(HexMapProjection projection)
@@ -114,19 +135,19 @@ public sealed partial class WorldMapView : Node2D
 
     private MultiMesh CreateInstances(
         ArrayMesh mesh,
-        MapViewSnapshot snapshot,
-        bool ownership)
+        MapViewDefinition map,
+        bool terrain)
     {
         var multiMesh = new MultiMesh
         {
             TransformFormat = MultiMesh.TransformFormatEnum.Transform2D,
             UseColors = true,
             Mesh = mesh,
-            InstanceCount = snapshot.Cells.Count,
-            VisibleInstanceCount = snapshot.Cells.Count,
+            InstanceCount = map.Cells.Count,
+            VisibleInstanceCount = map.Cells.Count,
         };
 
-        foreach (var cell in snapshot.Cells)
+        foreach (var cell in map.Cells)
         {
             var center = Projection.GetCenter(cell.Index);
             multiMesh.SetInstanceTransform2D(
@@ -134,9 +155,9 @@ public sealed partial class WorldMapView : Node2D
                 new Transform2D(0, new Vector2((float)center.X, (float)center.Y)));
             multiMesh.SetInstanceColor(
                 cell.Index.Value,
-                ownership
-                    ? TerrainPalette.Country(cell.OwnerKey, 1)
-                    : TerrainPalette.Terrain(cell.TerrainKey));
+                terrain
+                    ? TerrainPalette.Terrain(cell.TerrainKey)
+                    : new Color(0, 0, 0, 0));
         }
 
         return multiMesh;
@@ -147,20 +168,20 @@ public sealed partial class WorldMapView : Node2D
         _ownershipLayer.Modulate = new Color(1, 1, 1, _debugMode ? 0.34f : 0.13f);
     }
 
-    private void DrawRegionBorders(MapViewSnapshot snapshot, HexMapProjection projection)
+    private void DrawRegionBorders(MapViewDefinition map, HexMapProjection projection)
     {
-        foreach (var cell in snapshot.Cells)
+        foreach (var cell in map.Cells)
         {
             foreach (var direction in HexDirections.All)
             {
                 var edge = GetEdge(direction);
                 var hasNeighbor = cell.Coordinate.TryGetNeighbor(
                     direction,
-                    snapshot.Dimensions,
+                    map.Dimensions,
                     out var neighborCoordinate);
                 if (hasNeighbor)
                 {
-                    var neighbor = snapshot[snapshot.Dimensions.GetIndex(neighborCoordinate)];
+                    var neighbor = map[map.Dimensions.GetIndex(neighborCoordinate)];
                     if (neighbor.Index.Value < cell.Index.Value)
                     {
                         continue;
@@ -192,9 +213,9 @@ public sealed partial class WorldMapView : Node2D
         }
     }
 
-    private void DrawRivers(MapViewSnapshot snapshot, HexMapProjection projection)
+    private void DrawRivers(MapViewDefinition map, HexMapProjection projection)
     {
-        foreach (var cell in snapshot.Cells)
+        foreach (var cell in map.Cells)
         {
             if (cell.River is not { } river)
             {
@@ -221,31 +242,15 @@ public sealed partial class WorldMapView : Node2D
         }
     }
 
-    private void DrawRails(MapViewSnapshot snapshot, HexMapProjection projection)
+    private void DrawSitesAndResources(MapViewDefinition map, HexMapProjection projection)
     {
-        foreach (var rail in snapshot.Rails)
-        {
-            var first = ToVector(projection.GetCenter(rail.First));
-            var second = ToVector(projection.GetCenter(rail.Second));
-            DrawLine(first, second, new Color(0.88f, 0.81f, 0.64f, 0.96f), 6.2f, true);
-            DrawLine(first, second, RailColor, 2.3f, true);
-        }
-    }
-
-    private void DrawSitesAndResources(MapViewSnapshot snapshot, HexMapProjection projection)
-    {
-        foreach (var cell in snapshot.Cells)
+        foreach (var cell in map.Cells)
         {
             var center = ToVector(projection.GetCenter(cell.Index));
             if (cell.SettlementSite == SettlementSiteKind.Urban)
             {
                 DrawCircle(center, (float)(projection.Radius * 0.17), new Color(0.93f, 0.89f, 0.78f));
                 DrawArc(center, (float)(projection.Radius * 0.17), 0, Mathf.Tau, 20, RailColor, 2, true);
-            }
-
-            if (cell.CapitalCountry.HasValue)
-            {
-                DrawArc(center, (float)(projection.Radius * 0.27), 0, Mathf.Tau, 24, CapitalColor, 3, true);
             }
 
             if (_debugMode)
