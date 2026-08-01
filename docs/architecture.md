@@ -13,7 +13,7 @@ One solution. Godot owns exactly one csproj; everything else is plain
 src/
   Imperialism.Formats/   binary + text IO, zero game rules
   Imperialism.Core/      the simulation — no Godot, no IO, no float
-  Imperialism.Content/   static rules data (JSON) + immutable RuleSet
+  Imperialism.Content/   modern world JSON, static rules data + immutable RuleSet
   Imperialism.AI/        strategic, tactical and advisor AI
   Imperialism.Assets/    .gob extraction, cache, upscale orchestration
   Imperialism.Headless/  exe: batch sims, replay, oracle diffing
@@ -61,10 +61,10 @@ Modern content uses three layers:
    content definitions.
 
 Runtime identifiers are compact typed integers and definitions are dense by
-identifier for predictable lookup and cache behavior. The future modern
-package may use stable textual keys; its loader is responsible for validating
-and remapping those keys to dense runtime identifiers. This keeps save and
-authoring stability separate from simulation storage.
+identifier for predictable lookup and cache behavior. The modern package uses
+stable textual keys; its compiler validates and remaps those keys to dense
+runtime identifiers. This keeps save and authoring stability separate from
+simulation storage.
 
 Cells may contain more than the legacy format's resource count. Names are
 Unicode strings and no original country/province ceiling is part of Core.
@@ -113,6 +113,19 @@ This interpretation was checked against original rail reciprocity and named
 city indices. Core owns the coordinate and adjacency math, clips neighbors at
 explicit map dimensions, and converts through axial coordinates for distance.
 No client pixel coordinate enters the simulation API.
+
+## Modern content packages
+
+`.iworld` is canonical, versioned UTF-8 JSON. Stable textual keys are remapped
+to dense typed IDs during validation and retained in a bidirectional catalog;
+Core remains string-free in its hot paths. The authored format is deliberately
+diffable and editor-friendly. A future compiled binary cache may accelerate
+startup, but it is disposable and cannot become the only representation.
+
+World content and saved games are separate contracts. `.iworld` describes
+immutable definitions plus one or more keyed scenario starts sharing a map. A
+save will version and hash mutable `WorldState` independently. See
+`modern-content-format.md` for the package contract.
 
 ## Simultaneous turn resolution
 

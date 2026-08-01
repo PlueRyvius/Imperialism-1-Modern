@@ -76,8 +76,10 @@ by definition. Godot and the versioned modern large-map package begin in Phase 1
 arbitrary map dimensions, verified odd-row hex geometry, immutable map and
 scenario definitions, and mutable world state. It must remain independent of
 Godot, filesystem IO, and legacy format structures. Original files are import
-inputs; new and imported content will use a versioned modern package rather
-than extending the 1997 layouts.
+inputs. `src/Imperialism.Content/` reads and compiles versioned `.iworld`
+UTF-8 JSON using stable external keys and dense runtime IDs; see
+`docs/modern-content-format.md`. New and imported content uses this modern
+package rather than extending the 1997 layouts.
 
 ## Conventions
 

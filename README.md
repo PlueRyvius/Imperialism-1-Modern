@@ -75,7 +75,9 @@ whenever it's wanted.
 **Phase 1 status: in progress.** The first milestone is the headless world
 foundation: typed identifiers, dimension-independent odd-row hex geometry,
 immutable map/scenario definitions, and mutable runtime state. A versioned
-modern package and the Godot map viewer follow as separate reviewable changes.
+`.iworld` package compiles stable authored keys into dense runtime IDs without
+legacy limits. The legacy converter and Godot map viewer follow as separate
+reviewable changes.
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's
@@ -106,6 +108,7 @@ can support larger maps, richer metadata, Unicode names, and future migrations.
 | `docs/file-formats.md` | On-disk layout of `.map`, `.scn`, `.inf` |
 | `docs/scenario-semantics.md` | What the fields *mean*, verified against real data |
 | `docs/formats-design-rules.md` | Rules governing the formats layer |
+| `docs/modern-content-format.md` | Versioned `.iworld` content and stable-key compilation |
 | `docs/formulas/_index.md` | Scoreboard for the undocumented formulas, and where to dig |
 | `docs/disasm/` | Disassembly listing format and the module map |
 
@@ -117,6 +120,7 @@ what's being built.
 ```
 src/Imperialism.Formats/  Production .NET 8 format library
 src/Imperialism.Core/     Headless modern world and simulation domain
+src/Imperialism.Content/  Versioned modern world documents and compiler
 src/imperialism_format/   Independent Python structural reference
 tests/                    xUnit and pytest round-trip/structural suites
 fixtures/local_only/      gitignored — drop real .map/.scn here for local testing

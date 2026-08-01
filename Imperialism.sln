@@ -12,6 +12,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Imperialism.Core", "src\Imp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Imperialism.Core.Tests", "tests\Imperialism.Core.Tests\Imperialism.Core.Tests.csproj", "{8B35D17E-655B-4435-AB45-C38843EC0384}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Imperialism.Content", "src\Imperialism.Content\Imperialism.Content.csproj", "{795FE9BB-E0D8-4B80-B499-02B553090BB6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Imperialism.Content.Tests", "tests\Imperialism.Content.Tests\Imperialism.Content.Tests.csproj", "{EBA98736-7039-4E9C-93E1-2778B48C9B19}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -38,5 +42,13 @@ Global
 		{8B35D17E-655B-4435-AB45-C38843EC0384}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8B35D17E-655B-4435-AB45-C38843EC0384}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8B35D17E-655B-4435-AB45-C38843EC0384}.Release|Any CPU.Build.0 = Release|Any CPU
+		{795FE9BB-E0D8-4B80-B499-02B553090BB6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{795FE9BB-E0D8-4B80-B499-02B553090BB6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{795FE9BB-E0D8-4B80-B499-02B553090BB6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{795FE9BB-E0D8-4B80-B499-02B553090BB6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EBA98736-7039-4E9C-93E1-2778B48C9B19}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EBA98736-7039-4E9C-93E1-2778B48C9B19}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EBA98736-7039-4E9C-93E1-2778B48C9B19}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EBA98736-7039-4E9C-93E1-2778B48C9B19}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
