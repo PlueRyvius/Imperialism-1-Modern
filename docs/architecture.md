@@ -14,6 +14,7 @@ src/
   Imperialism.Formats/   binary + text IO, zero game rules
   Imperialism.Core/      the simulation — no Godot, no IO, no float
   Imperialism.Content/   modern world JSON, static rules data + immutable RuleSet
+  Imperialism.Presentation/ engine-free map projection, picking, viewer snapshots
   Imperialism.AI/        strategic, tactical and advisor AI
   Imperialism.Assets/    .gob extraction, cache, upscale orchestration
   Imperialism.Headless/  exe: batch sims, replay, oracle diffing
@@ -113,6 +114,18 @@ This interpretation was checked against original rail reciprocity and named
 city indices. Core owns the coordinate and adjacency math, clips neighbors at
 explicit map dimensions, and converts through axial coordinates for distance.
 No client pixel coordinate enters the simulation API.
+
+`Imperialism.Presentation` owns the floating-point projection from these Core
+coordinates to viewer map space. It stays independent of Godot and legacy
+formats, so center placement, geometric endpoints, arbitrary dimensions, and
+hit-testing are ordinary xUnit contracts. `Imperialism.Client` is a thin
+adapter from those map-space values to Godot vectors and draw calls.
+
+The first viewer uses two multimesh batches (terrain and ownership), one static
+map-feature surface, and one lightweight hover/selection surface. It does not
+create one Godot node per cell or rebuild static overlays on pointer movement.
+Debug mode is an overlay policy on the same viewer rather than a separate
+diagnostic client. See `map-viewer.md` for the renderer and controls.
 
 ## Modern content packages
 
