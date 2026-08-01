@@ -73,14 +73,29 @@ engine. Import takes a format profile; the in-memory model carries its own
 dimensions. Keeping that boundary clean is what makes larger maps cheap —
 the remaining cost is authoring effort, not engine work.
 
+## Documentation
+
+| Document | Contents |
+|---|---|
+| `docs/architecture.md` | Target C# architecture, turn resolution, phases, verification strategy |
+| `docs/game-systems.md` | How the original's systems work — the spec we're building to |
+| `docs/file-formats.md` | On-disk layout of `.map`, `.scn`, `.inf` |
+| `docs/scenario-semantics.md` | What the fields *mean*, verified against real data |
+| `docs/formats-design-rules.md` | Rules governing the formats layer |
+| `docs/formulas/_index.md` | Scoreboard for the undocumented formulas, and where to dig |
+| `docs/disasm/` | Disassembly listing format and the module map |
+
+Start with `architecture.md` for how it's built and `game-systems.md` for
+what's being built.
+
 ## Layout
 
 ```
 src/imperialism_format/   Python library: MapFile, HexCell, ScenarioFile, Record
 tests/                    pytest suite (round-trip + structural tests)
 fixtures/local_only/      gitignored — drop real .map/.scn here for local testing
-docs/                     our own notes on the file formats
-tools/                    semantic inspection utilities
+docs/                     format notes, systems spec, architecture, research
+tools/                    inspection utilities and the disassembly indexer
 ```
 
 ## Running tests
@@ -94,4 +109,12 @@ Inspect source files as stable JSON:
 
 ```
 python tools/inspect_assets.py Scenario/s1.map Scenario/s1.scn Scenario/s1.inf
+```
+
+Build and query the disassembly index (requires your own copy of the game;
+the index is written outside the repo and is gitignored regardless):
+
+```
+python -m tools.alf.index --alf /path/to/Imperialism.alf --exe /path/to/Imperialism.exe
+python -m tools.alf.query func --name UCity
 ```

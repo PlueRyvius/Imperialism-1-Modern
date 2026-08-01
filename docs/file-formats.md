@@ -39,9 +39,19 @@ verified ourselves in `tests/`.
 
 ## `.inf`
 
-- Plain-text scenario description split into `#`-delimited sections.
-- The first section contains the title and the next contains the overview.
-- Following sections contain country-specific descriptions and difficulty
-  notes.
-- A final `#` line may carry signed integer metadata used by the scenario
-  selection screen.
+- Plain-text scenario description split into `#`-delimited sections, using
+  **CR (`\r`) line endings** — read with universal-newline translation.
+- Section 1 is the title, section 2 the overview/victory text, then **seven
+  per-country briefings** in country-id order (unused slots contain literal
+  placeholder text), then a final section of **eight integers**.
+- Of those eight: the first seven appear to be per-country difficulty or
+  availability codes (`-1` marks a country as unplayable, and tutorials have
+  exactly one playable entry), and the eighth is the default player country
+  index. **Inferred**, not proven — consistent across all ten scenarios.
+- `^^` denotes a paragraph break within a section.
+
+## Semantics
+
+This document covers on-disk layout only. For what the fields *mean* —
+province ownership, cell references, sea zones vs. ports, and the corpus-wide
+findings that back them — see `scenario-semantics.md`.

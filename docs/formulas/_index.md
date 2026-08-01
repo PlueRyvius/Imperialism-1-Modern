@@ -19,19 +19,59 @@ template below.
 
 ## Status
 
+Doc filenames below are the intended names; none are written yet. Create one
+the first time a mechanic is actually investigated, using the template at the
+bottom of this file.
+
 | Mechanic | Confidence | Doc | Implemented in | Tests |
 |---|---|---|---|---|
-| Trade clearing price | `guess` | `trade-pricing.md` | — | — |
-| Favoured-partner ranking | `guess` | `trade-pricing.md` | — | — |
-| Diplomatic relation deltas | `guess` | `relations.md` | — | — |
-| Council nomination + abstention curve | `guess` | `council.md` | — | — |
-| Tactical initiative order | `guess` | `initiative.md` | — | — |
-| Strategic initiative (contested province) | `guess` | `initiative.md` | — | — |
-| Town auto-industrialisation | `guess` | `town-development.md` | — | — |
-| Credit limit + interest curve | `guess` | `credit.md` | — | — |
+| Trade clearing price | `guess` | _trade-pricing_ | — | — |
+| Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |
+| Diplomatic relation deltas | `guess` | _relations_ | — | — |
+| Council nomination + abstention curve | `guess` | _council_ | — | — |
+| Tactical initiative order | `guess` | _initiative_ | — | — |
+| Strategic initiative (contested province) | `guess` | _initiative_ | — | — |
+| Town auto-industrialisation | `guess` | _town-development_ | — | — |
+| Credit limit + interest curve | `guess` | _credit_ | — | — |
 
 Nothing is above `guess` yet — this file exists so that stays visible rather
 than being quietly forgotten.
+
+## Where to dig
+
+The disassembly indexer (`tools/alf/`) attributes address ranges to original
+source files via `assert()` anchors. Starting points for the modules that
+hold the formulas above:
+
+| Module | Role | Notable span | Anchors |
+|---|---|---|---|
+| `UDefenseMinister.cpp` | tactical AI | `004EC160`–`004ED4CF` (~5 KB, high) | 7 |
+| `UCity.cpp` | economy | `004B3080`–`004B427F` (~4.6 KB, high) | 3 |
+| `UCountry.cpp` | country state | `004DAF30`–`004DBB7F` (~3.1 KB, high) | 1 |
+| `UCountryAuto.cpp` | strategic AI | `0053C2B0`–`0053E67F` (~9 KB, low) | 1 |
+| `UAmbit.cpp` | diplomacy | `0049E6A0`–`0049E9CF`, `0049EB00`–`0049EE8F` | 3 |
+| `UTacPlayer.cpp` | tactical player | — | 1 |
+
+Query them with `python -m tools.alf.query func --name UCity`.
+
+**Temper expectations.** Assert density correlates with UI code, not gameplay
+math — `UCityViews` has 73 anchors across 150 KB while `UCountryAuto` has
+**one** across 13 KB. The aggregate "55.7% attributed" figure is carried by
+view code; coverage is weakest exactly where we need it most. Two consequences:
+
+1. Expect formula recovery to be slower than the headline suggests.
+2. This is *why* the architecture insists every unknown gets a placeholder
+   behind an interface. Archaeology must never sit on the critical path.
+
+Two techniques that make the listing usable at all, both already handled by
+the indexer and both easy to rediscover the hard way:
+
+- Nearly every `call` targets a 5-byte incremental-link **thunk**, not the
+  real function. Unresolved, the call graph reads as empty.
+- The disassembler never covers `.data`, so C++ **vtables are invisible** in
+  the listing. Reading them from the PE yields ~10,400 function starts versus
+  ~5,300 from direct calls — in a binary this virtual, that's the dominant
+  signal for finding functions.
 
 ## Priority
 
