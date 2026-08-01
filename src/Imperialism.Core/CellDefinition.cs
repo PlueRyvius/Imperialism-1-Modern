@@ -16,11 +16,17 @@ public sealed class CellDefinition
         TerrainId terrain,
         CellRegion region,
         IEnumerable<ResourceId>? resources = null,
-        SettlementSiteKind settlementSite = SettlementSiteKind.None)
+        SettlementSiteKind settlementSite = SettlementSiteKind.None,
+        RiverPath? river = null)
     {
         if (!Enum.IsDefined(settlementSite))
         {
             throw new ArgumentOutOfRangeException(nameof(settlementSite));
+        }
+
+        if (river is { } path && !path.IsValid)
+        {
+            throw new ArgumentException("The river path must join two distinct, defined endpoints.", nameof(river));
         }
 
         var resourceArray = resources?.ToArray() ?? [];
@@ -34,6 +40,7 @@ public sealed class CellDefinition
         Terrain = terrain;
         Region = region;
         SettlementSite = settlementSite;
+        River = river;
         _resources = Array.AsReadOnly(resourceArray);
     }
 
@@ -48,4 +55,6 @@ public sealed class CellDefinition
     public IReadOnlyList<ResourceId> Resources => _resources;
 
     public SettlementSiteKind SettlementSite { get; }
+
+    public RiverPath? River { get; }
 }

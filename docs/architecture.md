@@ -74,7 +74,7 @@ engine constraint.
 Feature ownership follows whether a value can change between scenarios or
 during play:
 
-- terrain, resource deposits, settlement sites, and river links are immutable
+- terrain, resource deposits, settlement sites, and per-cell river paths are immutable
   map geography;
 - initial ownership, rail links, and country capitals belong to the scenario;
 - a running `WorldState` copies ownership, rail links, capitals, and year so
@@ -82,10 +82,16 @@ during play:
 - coastlines and national/province borders are derived from adjacent cells and
   ownership instead of stored as duplicated rendering masks.
 
-Rivers and rails use a canonical undirected `CellLink` between adjacent cells,
-not reciprocal direction bits on two records. Symmetry is therefore true by
-construction. Legacy importers may diagnose or normalize asymmetric source
-bits, but that corruption cannot enter the modern world model.
+Rivers are optional per-cell `RiverPath` shapes joining two geometric endpoint
+positions. The endpoints include eight positions around a pointy-top hex plus
+`Source` and `Mouth`. A path is undirected: it records local geometry, not
+flow direction or an inferred connection to another cell. Cross-cell river
+connectivity remains an evidence-backed transport concern for a later phase.
+
+Rails use a canonical undirected `CellLink` between adjacent cells, not
+reciprocal direction bits on two records. Rail symmetry is therefore true by
+construction. Legacy importers diagnose and drop asymmetric source bits so
+that corruption cannot enter the modern world model.
 
 ## Hex coordinates
 

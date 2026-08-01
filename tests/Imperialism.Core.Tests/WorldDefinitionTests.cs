@@ -74,6 +74,32 @@ public sealed class WorldDefinitionTests
     }
 
     [Fact]
+    public void RiverPathsAreUndirectedPerCellShapes()
+    {
+        var forward = new RiverPath(RiverEndpoint.NorthEast, RiverEndpoint.WestLower);
+        var reverse = new RiverPath(RiverEndpoint.WestLower, RiverEndpoint.NorthEast);
+
+        Assert.Equal(forward, reverse);
+        Assert.Equal(RiverEndpoint.NorthEast, reverse.First);
+        Assert.Equal(RiverEndpoint.WestLower, reverse.Second);
+        Assert.Throws<ArgumentException>(() =>
+            new RiverPath(RiverEndpoint.Source, RiverEndpoint.Source));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new RiverPath((RiverEndpoint)200, RiverEndpoint.Mouth));
+    }
+
+    [Fact]
+    public void CellRejectsDefaultRiverPathValue()
+    {
+        Assert.Throws<ArgumentException>(() => new CellDefinition(
+            new CellIndex(0),
+            new HexCoord(0, 0),
+            new TerrainId(0),
+            CellRegion.Unassigned,
+            river: default(RiverPath)));
+    }
+
+    [Fact]
     public void DefinitionsAllowUtf8NamesFarBeyondLegacyPadding()
     {
         var name = "République industrielle de très longue durée 世界";
@@ -103,7 +129,7 @@ public sealed class WorldDefinitionTests
     }
 
     [Fact]
-    public void RiversAreMapGeographyWhileRailsAndCapitalsAreMutableState()
+    public void RiverPathsAreCellGeographyWhileRailsAndCapitalsAreMutableState()
     {
         var dimensions = new MapDimensions(2, 1);
         var link = new CellLink(new CellIndex(0), new CellIndex(1));
@@ -115,7 +141,8 @@ public sealed class WorldDefinitionTests
                     new HexCoord(0, 0),
                     new TerrainId(0),
                     CellRegion.ForProvince(new ProvinceId(0)),
-                    settlementSite: SettlementSiteKind.Urban),
+                    settlementSite: SettlementSiteKind.Urban,
+                    river: new RiverPath(RiverEndpoint.EastUpper, RiverEndpoint.WestUpper)),
                 new CellDefinition(
                     new CellIndex(1),
                     new HexCoord(1, 0),
@@ -126,8 +153,7 @@ public sealed class WorldDefinitionTests
             [
                 new ProvinceDefinition(new ProvinceId(0), "West"),
                 new ProvinceDefinition(new ProvinceId(1), "East"),
-            ],
-            rivers: [link]);
+            ]);
         var scenario = new ScenarioDefinition(
             "Start",
             1815,
@@ -146,7 +172,10 @@ public sealed class WorldDefinitionTests
             scenario);
         var state = new WorldState(world);
 
-        Assert.True(map.HasRiver(link));
+        Assert.Equal(
+            new RiverPath(RiverEndpoint.EastUpper, RiverEndpoint.WestUpper),
+            map.Cells[0].River);
+        Assert.Null(map.Cells[1].River);
         Assert.True(state.HasRail(link));
         Assert.Equal(new CellIndex(0), state.GetCountryCapital(new CountryId(0)));
 
@@ -171,12 +200,6 @@ public sealed class WorldDefinitionTests
             CellRegion.ForProvince(new ProvinceId(0)),
             CellRegion.ForProvince(new ProvinceId(0)));
         var provinces = new[] { new ProvinceDefinition(new ProvinceId(0), "Province") };
-
-        Assert.Throws<ArgumentException>(() => new MapDefinition(
-            dimensions,
-            cells,
-            provinces,
-            rivers: [new CellLink(new CellIndex(0), new CellIndex(2))]));
 
         var map = new MapDefinition(dimensions, cells, provinces);
         var countries = new[] { new CountryDefinition(new CountryId(0), "Country") };
