@@ -31,8 +31,11 @@ Two properties drive our architecture:
 - **Step 5 retroactively undoes part of step 2, based on step 4.** We handle
   this by having trade emit *intents* that only step 6 commits, so
   cancellation is a filter rather than a rollback. See `architecture.md`.
-- **A one-turn lag is universal**: transported goods, traded goods, built
-  units and purchased technology all land the following turn.
+- **Most outputs are deferred one turn**: traded goods, built units and
+  purchased technology land the following turn, and transported goods are not
+  generally available to production immediately. Two explicit same-resolution
+  exceptions matter: workers eat newly transported raw food before warehouse
+  food, and power is created and consumed as labour during production.
 
 Any implementation that resolves powers sequentially rather than
 simultaneously will produce visibly different games.

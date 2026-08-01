@@ -59,6 +59,78 @@ class ScenarioFile:
         return cls.from_bytes(data)
 
     @classmethod
+    def load_text(cls, path: str) -> "ScenarioFile":
+        """Load the editor's CR-delimited plaintext scenario form.
+
+        The shipped files are ASCII.  Reading strictly is intentional: a
+        non-ASCII byte is evidence that the format needs further research,
+        rather than something to replace silently.
+        """
+        with open(path, "r", encoding="ascii", newline=None) as f:
+            return cls.from_text(f.read())
+
+    @classmethod
+    def from_text(cls, text: str) -> "ScenarioFile":
+        """Parse one whitespace-delimited scenario record per line.
+
+        CR, LF, and CRLF line endings are accepted.  Name records consume the
+        remainder of their line as the name, so names may contain spaces.
+        Formatting is not retained; :meth:`to_text` emits a canonical form.
+        """
+        records = []
+        for line_no, raw_line in enumerate(text.splitlines(), start=1):
+            line = raw_line.strip()
+            if not line:
+                continue
+
+            head = line.split(maxsplit=1)
+            tag = head[0]
+            remainder = head[1] if len(head) == 2 else ""
+            count = TAG_FIELD_COUNTS.get(tag)
+            if count is None:
+                raise ValueError(f"line {line_no}: unknown tag {tag!r}")
+
+            if tag in NAME_TAGS:
+                parts = remainder.split(maxsplit=count)
+                expected_parts = count + 1
+                if len(parts) != expected_parts:
+                    raise ValueError(
+                        f"line {line_no}: tag {tag!r} expects {count} integer "
+                        "fields followed by a name"
+                    )
+                raw_fields = parts[:count]
+                name = parts[count].rstrip()
+                if not name:
+                    raise ValueError(f"line {line_no}: tag {tag!r} requires a name")
+            else:
+                raw_fields = remainder.split()
+                if len(raw_fields) != count:
+                    raise ValueError(
+                        f"line {line_no}: tag {tag!r} expects {count} integer "
+                        f"fields, got {len(raw_fields)}"
+                    )
+                name = None
+
+            fields = []
+            for field_no, raw_value in enumerate(raw_fields, start=1):
+                try:
+                    value = int(raw_value, 10)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"line {line_no}: field {field_no} for tag {tag!r} "
+                        f"is not a decimal integer: {raw_value!r}"
+                    ) from exc
+                if not 0 <= value <= 0xFFFFFFFF:
+                    raise ValueError(
+                        f"line {line_no}: field {field_no} for tag {tag!r} "
+                        f"is outside uint32 range: {value}"
+                    )
+                fields.append(value)
+
+            records.append(Record(tag=tag, fields=fields, name=name))
+        return cls(records=records)
+
+    @classmethod
     def from_bytes(cls, data: bytes) -> "ScenarioFile":
         records = []
         offset = 0
@@ -123,9 +195,47 @@ class ScenarioFile:
         chunks.extend((b"TERM", self.trailing_bytes))
         return b"".join(chunks)
 
+    def to_text(self) -> str:
+        """Return canonical ASCII text using CR line endings.
+
+        Binary-only details such as name-field padding, trailing bytes, and
+        the ``TERM`` sentinel have no representation in the editor format.
+        """
+        lines = []
+        for rec in self.records:
+            expected = TAG_FIELD_COUNTS.get(rec.tag)
+            if expected is None:
+                raise ValueError(f"unknown tag {rec.tag!r}")
+            if len(rec.fields) != expected:
+                raise ValueError(
+                    f"tag {rec.tag!r} expects {expected} fields, "
+                    f"got {len(rec.fields)}"
+                )
+
+            parts = [rec.tag]
+            for value in rec.fields:
+                if not 0 <= int(value) <= 0xFFFFFFFF:
+                    raise ValueError(f"field value {value!r} is outside uint32 range")
+                parts.append(str(int(value)))
+
+            if rec.tag in NAME_TAGS:
+                if rec.name is None or not rec.name.strip():
+                    raise ValueError(f"tag {rec.tag!r} requires a name")
+                if "\r" in rec.name or "\n" in rec.name:
+                    raise ValueError(f"name for tag {rec.tag!r} cannot contain a newline")
+                rec.name.encode("ascii")
+                parts.append(rec.name.strip())
+
+            lines.append(" ".join(parts))
+        return "\r".join(lines) + ("\r" if lines else "")
+
     def save(self, path: str) -> None:
         with open(path, "wb") as f:
             f.write(self.to_bytes())
+
+    def save_text(self, path: str) -> None:
+        with open(path, "wb") as f:
+            f.write(self.to_text().encode("ascii"))
 
     def add(self, tag: str, *fields: int, name: str = None) -> Record:
         rec = Record(tag=tag, fields=list(fields), name=name)

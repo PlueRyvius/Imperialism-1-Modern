@@ -3,9 +3,9 @@
 A ground-up reimplementation of *Imperialism* (SSG/Frog City, 1997), built on
 the original's own `.map`/`.scn` file formats.
 
-**Read `docs/architecture.md` and `docs/game-systems.md` before doing design
-work.** They are the accumulated findings of this project and will save you
-rediscovering them.
+**Read `README.md`, `docs/architecture.md`, and `docs/game-systems.md` before
+doing design work.** This file is only a cold-session index; the repository
+documentation and tests are authoritative when a summary here becomes stale.
 
 ## Orientation
 
@@ -20,10 +20,11 @@ rediscovering them.
 
 ## Hard rules
 
-**Never commit game data.** `.map`, `.scn`, `.inf`, `.imp`, `.gob`, the `.alf`
-disassembly, extracted art — all copyrighted (Ubisoft). Real files live in
-`fixtures/local_only/` (gitignored) or outside the repo. CI enforces this via
-`tools/check_no_game_assets.py`; run it before committing.
+**Never commit original game data.** `.map`, `.scn`, `.inf`, `.imp`, `.gob`,
+the `.alf` disassembly, and extracted art stay in `fixtures/local_only/`
+(gitignored) or outside the repo. This is repository policy regardless of a
+file's legal status. CI enforces it via `tools/check_no_game_assets.py`; run it
+before committing.
 
 **Byte-exact round-trip is a hard requirement, not an aspiration.** All 20
 original files (10 `.map` + 10 `.scn`) round-trip byte-for-byte today. Any
@@ -56,13 +57,18 @@ reported confidently. Cheap to check, expensive to inherit.
 
 ## Current state
 
-Python library (`src/imperialism_format/`) parses `.map`/`.scn`/`.inf`,
-byte-exact, 41 tests passing. `tools/alf/` indexes the original binary's
-disassembly. The C# port has not started.
+Phase 0 is in progress. The Python library (`src/imperialism_format/`) provides
+byte-exact `.map`/`.scn` readers and writers, `.inf` parsing, and semantic
+plaintext-scenario read/write support. The extensionless plaintext filenames
+do not reliably pair with same-numbered `.scn` files; use
+`tools/audit_scenario_corpus.py` rather than assuming equality. The suite has
+57 tests at this point. `tools/alf/` indexes the original binary's disassembly.
+The production C# formats port has not started.
 
-The Python library is retained permanently as the **reference oracle** the C#
-port is tested against — it is verified, so if the two disagree, C# is at
-fault.
+Python is a **structural reference**, not an infallible oracle. A Python/C#
+disagreement triggers byte-level and evidence-based triage; neither side wins
+by definition. Editable `.inf` writing and the independent C# cross-check are
+still required before Phase 0 is complete.
 
 ## Conventions
 

@@ -48,9 +48,9 @@ Local corpus verification should additionally cover:
 - byte-identical load/save for every unchanged `.scn`;
 - semantic snapshots for `.map`, `.scn`, and `.inf` triplets;
 - cross-file validation of province, country, sea-zone, and location IDs;
-- equivalence between the binary `.scn` and the CR-delimited plaintext form
-  shipped with the tutorial scenarios — effectively a test of the tag arity
-  table, which is the easiest thing to get subtly wrong.
+- parsing every CR-delimited plaintext scenario and auditing it against every
+  binary `.scn`; the shipped source numbers are not reliable pairings, so
+  same-name equality is not an invariant.
 
 ## Next decoding targets
 
