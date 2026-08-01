@@ -11,4 +11,12 @@ venv/
 fixtures/local_only/*
 !fixtures/local_only/.gitkeep
 
+# The disassembly index is derived from the copyrighted Imperialism.exe: it
+# embeds the original instruction stream verbatim. Build it locally, never
+# commit it. tools/alf/index.py defaults to a path outside the repo anyway.
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.alfdb
+
 .DS_Store
