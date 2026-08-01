@@ -15,3 +15,14 @@ jobs:
           cache: pip
       - run: python -m pip install -e ".[test]"
       - run: python -m pytest
+
+  no-game-assets:
+    # The project ships tools, never original content. This makes that a
+    # build failure rather than a convention.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python tools/check_no_game_assets.py
