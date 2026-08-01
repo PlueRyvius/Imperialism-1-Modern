@@ -82,7 +82,7 @@ whenever it's wanted.
 - [x] Independent static-map and mutable-state presentation layers
 - [x] Local viewer verification across all ten original scenario triples
 
-The viewer updates current ownership, rails, capitals, and year without
+The viewer updates current ownership, rails, capitals, and quarterly date without
 rebuilding immutable terrain or resetting camera and selection. Original art is
 an optional local presentation source; the procedural fallback keeps assets
 from blocking simulation work. The next shortest-path milestone is the Phase 3
@@ -94,7 +94,7 @@ transport graph and deterministic turn skeleton.
 - [x] Lazy connectivity rebuild after rail construction, removal, or conquest
 - [x] Generated 64,800-cell scale regression (ten times the original map area)
 - [ ] Capital/depot collection and evidence-backed port/river/sea connectivity
-- [ ] Deterministic turn pipeline and event log
+- [x] Deterministic quarterly turn pipeline and immutable event log
 - [ ] Inventory, labour, production, feeding, and deferred delivery
 
 The tactical battle engine is deliberately early: the original runs it for

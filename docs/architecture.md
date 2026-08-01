@@ -56,7 +56,7 @@ Modern content uses three layers:
 1. `MapDefinition` is immutable geography: dimensions, cells, terrain,
    provinces, sea zones, resources, and settlements.
 2. `ScenarioDefinition` is an immutable starting setup over a map, initially
-   including year and province ownership.
+   including starting year and province ownership.
 3. `WorldState` is the mutable state of one running game. It copies scenario
    values on creation, so loading or simulating a game cannot mutate reusable
    content definitions.
@@ -78,7 +78,7 @@ during play:
 - terrain, resource deposits, settlement sites, and per-cell river paths are immutable
   map geography;
 - initial ownership, rail links, and country capitals belong to the scenario;
-- a running `WorldState` copies ownership, rail links, capitals, and year so
+- a running `WorldState` copies ownership, rail links, capitals, and date so
   play never mutates reusable definitions;
 - coastlines and national/province borders are derived from adjacent cells and
   ownership instead of stored as duplicated rendering masks.
@@ -125,7 +125,7 @@ The first viewer uses two multimesh batches (terrain and ownership), one static
 map-feature surface, one mutable rail/capital surface, and one lightweight
 hover/selection surface. `MapViewDefinition` contains immutable geography;
 `WorldViewState` is a detached presentation snapshot of current ownership,
-rails, capitals, and year. State refreshes recolor or redraw only mutable layers
+rails, capitals, and quarterly date. State refreshes recolor or redraw only mutable layers
 and preserve camera and selection. The viewer does not create one Godot node per
 cell or rebuild static overlays on pointer movement. Debug mode is an overlay
 policy on the same viewer rather than a separate diagnostic client. See
@@ -146,16 +146,25 @@ save will version and hash mutable `WorldState` independently. See
 
 ## Simultaneous turn resolution
 
-Mutable `GameState` POCO, **inert** order objects (data only — no `Execute()`
+Mutable `WorldState` POCO, **inert** order objects (data only — no `Execute()`
 method), and a fixed phase pipeline emitting an event log. Not event
 sourcing, not snapshot-and-diff.
 
 ```
-TurnResolver.Resolve(GameState, TurnOrders[7], seed)
+TurnResolver.Resolve(WorldState state, TurnOrders orders, ulong seed)
 ```
 
 Phases run in the original's fixed order: Diplomacy → Trade → Production →
 Conflict → TradeCancellation → Delivery → Connectivity.
+
+`TurnOrders` stores one dense, country-id-ordered `CountryTurnOrders` object
+per country, so simultaneous submission has no dictionary iteration path.
+`TurnDate` records an unrestricted year plus quarter 1–4; four successful
+resolutions advance one year. `CompletedTurnCount` starts at zero and advances
+only after all phases finish. The initial shell emits immutable phase-complete
+events, records the supplied seed, and materializes final rail connectivity.
+System-specific phase events and mutations replace the empty phase bodies as
+economy, conflict, and diplomacy enter the model.
 
 **The central trick.** The original's step 5 retroactively cancels trades that
 step 4's blockades invalidated. That's only a hard rollback if trade committed

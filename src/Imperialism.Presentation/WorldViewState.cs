@@ -18,14 +18,14 @@ public sealed class WorldViewState
         string mapKey,
         string scenarioKey,
         string scenarioName,
-        int currentYear,
+        TurnDate currentDate,
         IEnumerable<WorldCellView> cells,
         IEnumerable<CellLink> rails)
     {
         MapKey = mapKey;
         ScenarioKey = scenarioKey;
         ScenarioName = scenarioName;
-        CurrentYear = currentYear;
+        CurrentDate = currentDate;
         _cells = Array.AsReadOnly(cells.ToArray());
         _rails = Array.AsReadOnly(rails.ToArray());
     }
@@ -36,7 +36,9 @@ public sealed class WorldViewState
 
     public string ScenarioName { get; }
 
-    public int CurrentYear { get; }
+    public TurnDate CurrentDate { get; }
+
+    public int CurrentYear => CurrentDate.Year;
 
     public IReadOnlyList<WorldCellView> Cells => _cells;
 
@@ -91,7 +93,7 @@ public sealed class WorldViewState
             package.MapKey,
             scenarioKey,
             world.Scenario.Name,
-            state.CurrentYear,
+            state.CurrentDate,
             cells,
             state.GetRailLinks());
     }
