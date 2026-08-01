@@ -5,6 +5,13 @@ venv/
 *.egg-info/
 .pytest_cache/
 .pytest_tmp/
+.pytest-*/
+
+# .NET build and test output
+bin/
+obj/
+TestResults/
+.vs/
 
 # Real Imperialism game data is copyrighted and must never be committed.
 # Put actual .map/.scn/.inf files here for local testing only.
