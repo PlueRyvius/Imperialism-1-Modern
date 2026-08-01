@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Real Imperialism game data is copyrighted and must never be committed.
+# Put actual .map/.scn/.inf files here for local testing only.
+fixtures/local_only/*
+!fixtures/local_only/.gitkeep
+
+.DS_Store
