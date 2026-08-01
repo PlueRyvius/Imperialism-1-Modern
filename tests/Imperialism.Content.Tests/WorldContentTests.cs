@@ -32,6 +32,7 @@ public sealed class WorldContentTests
         Assert.DoesNotContain((byte)'\r', first);
         Assert.False(first.AsSpan().StartsWith(new byte[] { 0xef, 0xbb, 0xbf }));
         Assert.Contains("République 世界", Encoding.UTF8.GetString(first));
+        Assert.Contains("\"first\": \"eastUpper\"", Encoding.UTF8.GetString(first));
     }
 
     [Fact]
@@ -95,11 +96,12 @@ public sealed class WorldContentTests
     public void CompiledWorldSeparatesGeographyFromScenarioState()
     {
         var compiled = WorldContentCompiler.Compile(CreateValidDocument());
-        var river = new CellLink(new CellIndex(1), new CellIndex(4));
         var rail = new CellLink(new CellIndex(0), new CellIndex(1));
         var state = new WorldState(compiled.World);
 
-        Assert.True(compiled.World.Map.HasRiver(river));
+        Assert.Equal(
+            new RiverPath(RiverEndpoint.EastUpper, RiverEndpoint.WestLower),
+            compiled.World.Map.Cells[4].River);
         Assert.True(state.HasRail(rail));
         Assert.Equal(new CellIndex(0), state.GetCountryCapital(new CountryId(1)));
 
@@ -278,6 +280,19 @@ public sealed class WorldContentTests
             WorldContentCodec.Decode("{ not json"u8));
     }
 
+    [Fact]
+    public void DecoderRejectsUnknownOrNumericRiverEndpoints()
+    {
+        var valid = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()));
+        var unknown = valid.Replace("\"eastUpper\"", "\"sideways\"", StringComparison.Ordinal);
+        var numeric = valid.Replace("\"eastUpper\"", "1", StringComparison.Ordinal);
+
+        Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(unknown)));
+        Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(numeric)));
+    }
+
     [Theory]
     [InlineData("Terrain.Plains")]
     [InlineData("-terrain")]
@@ -322,9 +337,13 @@ public sealed class WorldContentTests
     [Fact]
     public void CompilerRejectsInvalidLinksAndCapitalSites()
     {
-        var nonAdjacentRiver = CreateValidDocument();
-        nonAdjacentRiver.Map.Rivers[0] = new CellLinkContent { First = 0, Second = 5 };
-        AssertPath("map", nonAdjacentRiver);
+        var invalidRiver = CreateValidDocument();
+        invalidRiver.Map.Cells[4].River = new RiverPathContent
+        {
+            First = RiverEndpoint.Source,
+            Second = RiverEndpoint.Source,
+        };
+        AssertPath("map.cells[4].river", invalidRiver);
 
         var seaRail = CreateValidDocument();
         seaRail.Scenarios[0].Rails[0] = new CellLinkContent { First = 1, Second = 2 };
@@ -383,10 +402,16 @@ public sealed class WorldContentTests
                 Cell("terrain.plains", province: "province.west"),
                 Cell("terrain.ocean", seaZone: "sea.west"),
                 Cell("terrain.plains", province: "province.east", settlement: true),
-                Cell("terrain.plains", province: "province.east"),
+                Cell(
+                    "terrain.plains",
+                    province: "province.east",
+                    river: new RiverPathContent
+                    {
+                        First = RiverEndpoint.EastUpper,
+                        Second = RiverEndpoint.WestLower,
+                    }),
                 Cell("terrain.ocean", seaZone: "sea.west"),
             ],
-            Rivers = [new CellLinkContent { First = 1, Second = 4 }],
         },
         Countries =
         [
@@ -420,11 +445,13 @@ public sealed class WorldContentTests
         string? province = null,
         string? seaZone = null,
         bool settlement = false,
-        string[]? resources = null) => new()
+        string[]? resources = null,
+        RiverPathContent? river = null) => new()
         {
             Terrain = terrain,
             Region = new CellRegionContent { Province = province, SeaZone = seaZone },
             HasSettlementSite = settlement,
             Resources = resources ?? [],
+            River = river,
         };
 }

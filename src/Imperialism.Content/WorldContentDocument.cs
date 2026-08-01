@@ -1,3 +1,5 @@
+using Imperialism.Core;
+
 namespace Imperialism.Content;
 
 public sealed class WorldContentDocument
@@ -33,7 +35,6 @@ public sealed class MapContentDocument
 
     public CellContentDocument[] Cells { get; set; } = [];
 
-    public CellLinkContent[] Rivers { get; set; } = [];
 }
 
 public sealed class ScenarioContentDocument
@@ -67,6 +68,15 @@ public sealed class CellContentDocument
     public string[] Resources { get; set; } = [];
 
     public bool HasSettlementSite { get; set; }
+
+    public RiverPathContent? River { get; set; }
+}
+
+public sealed class RiverPathContent
+{
+    public RiverEndpoint First { get; set; }
+
+    public RiverEndpoint Second { get; set; }
 }
 
 public sealed class CellRegionContent

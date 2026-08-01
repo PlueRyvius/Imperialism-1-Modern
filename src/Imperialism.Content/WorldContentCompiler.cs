@@ -100,14 +100,10 @@ public static class WorldContentCompiler
             new ProvinceDefinition(new ProvinceId(index), definition.Name)).ToArray();
         var seaZones = seaZoneContent.Select((definition, index) =>
             new SeaZoneDefinition(new SeaZoneId(index), definition.Name)).ToArray();
-        var rivers = CompileLinks(
-            RequireArray(mapContent.Rivers, "map.rivers"),
-            "map.rivers");
-
         MapDefinition map;
         try
         {
-            map = new MapDefinition(dimensions, cells, provinces, seaZones, rivers);
+            map = new MapDefinition(dimensions, cells, provinces, seaZones);
         }
         catch (ArgumentException exception)
         {
@@ -239,6 +235,19 @@ public static class WorldContentCompiler
             resourceIds,
             key,
             $"{path}.resources[{index}]")));
+        RiverPath? river = null;
+        if (content.River is not null)
+        {
+            try
+            {
+                river = new RiverPath(content.River.First, content.River.Second);
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error($"{path}.river", exception.Message, exception);
+            }
+        }
+
         var index = new CellIndex(value);
         return new CellDefinition(
             index,
@@ -246,7 +255,8 @@ public static class WorldContentCompiler
             new TerrainId(terrain),
             region,
             resources,
-            content.HasSettlementSite ? SettlementSiteKind.Urban : SettlementSiteKind.None);
+            content.HasSettlementSite ? SettlementSiteKind.Urban : SettlementSiteKind.None,
+            river);
     }
 
     private static CountryId?[] CompileOwners(

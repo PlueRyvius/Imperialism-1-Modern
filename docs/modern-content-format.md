@@ -57,15 +57,20 @@ The top-level document contains:
 
 - ordered terrain and resource key palettes;
 - a keyed map with dimensions, named provinces and sea zones, row-major cells,
-  and rivers;
+  and optional per-cell river paths;
 - named countries;
 - one or more keyed scenarios containing name/year, explicit province owners,
   rails, and capitals.
 
 Each cell references one terrain key, zero or more unique resource keys, and
-at most one province or sea-zone key. Settlement sites are map geography.
-Rivers and rails are pairs of adjacent cell indices represented internally as
-canonical undirected `CellLink` values.
+at most one province or sea-zone key. Settlement sites and river paths are map
+geography. A river path is an undirected pair drawn from `northEast`,
+`eastUpper`, `eastLower`, `southEast`, `southWest`, `westUpper`, `westLower`,
+`northWest`, `source`, and `mouth`. It records only the shape inside that cell;
+the package does not infer cross-cell river connectivity.
+
+Rails are pairs of adjacent cell indices represented internally as canonical
+undirected `CellLink` values.
 
 Within every scenario, each province has exactly one ownership entry; a null
 country means unowned. Capital cells must be urban province cells initially

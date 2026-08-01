@@ -17,6 +17,10 @@ public static class WorldContentCodec
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
         WriteIndented = true,
+        Converters =
+        {
+            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false),
+        },
     };
 
     public static WorldContentDocument Decode(ReadOnlySpan<byte> bytes)
