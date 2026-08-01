@@ -39,16 +39,19 @@ public sealed class MapViewStateTests
         state.SetProvinceOwner(new ProvinceId(0), new CountryId(1));
         Assert.True(state.RemoveRail(rail));
         state.SetCountryCapital(new CountryId(0), null);
+        _ = TurnResolver.Resolve(state, TurnOrders.Empty(2), 0);
         var changed = WorldViewState.Create(package, "scenario.demo", state);
 
         Assert.Equal("Opening", changed.ScenarioName);
         Assert.Equal(1815, changed.CurrentYear);
+        Assert.Equal(new TurnDate(1815, 2), changed.CurrentDate);
         Assert.Equal("country.red", changed[new CellIndex(0)].OwnerKey);
         Assert.Equal("Red Empire", changed[new CellIndex(0)].OwnerName);
         Assert.Null(changed[new CellIndex(0)].CapitalCountry);
         Assert.Empty(changed.Rails);
 
         Assert.Equal("country.blue", initial[new CellIndex(0)].OwnerKey);
+        Assert.Equal(new TurnDate(1815, 1), initial.CurrentDate);
         Assert.Equal(new CountryId(0), initial[new CellIndex(0)].CapitalCountry);
         Assert.Single(initial.Rails);
     }

@@ -128,7 +128,7 @@ public sealed class WorldState
     {
         ArgumentNullException.ThrowIfNull(definition);
         Definition = definition;
-        CurrentYear = definition.Scenario.StartingYear;
+        CurrentDate = new TurnDate(definition.Scenario.StartingYear, 1);
         _provinceOwners = definition.Scenario.InitialProvinceOwners.ToArray();
         _railLinks = definition.Scenario.InitialRailLinks.ToHashSet();
         _countryCapitals = new CellIndex?[definition.Countries.Count];
@@ -141,7 +141,11 @@ public sealed class WorldState
 
     public WorldDefinition Definition { get; }
 
-    public int CurrentYear { get; internal set; }
+    public int CompletedTurnCount { get; private set; }
+
+    public TurnDate CurrentDate { get; private set; }
+
+    public int CurrentYear => CurrentDate.Year;
 
     public CountryId? GetProvinceOwner(ProvinceId province)
     {
@@ -264,5 +268,11 @@ public sealed class WorldState
         {
             _railConnectivity[country.Value.Value] = null;
         }
+    }
+
+    internal void CompleteTurn()
+    {
+        CurrentDate = CurrentDate.Next();
+        CompletedTurnCount = checked(CompletedTurnCount + 1);
     }
 }

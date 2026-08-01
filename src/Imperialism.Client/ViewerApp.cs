@@ -274,7 +274,7 @@ public sealed partial class ViewerApp : Node
         if (_status is not null)
         {
             _status.Text =
-                $"{_mapDefinition.Dimensions.Width}×{_mapDefinition.Dimensions.Height}  •  {_viewState.CurrentYear}";
+                $"{_mapDefinition.Dimensions.Width}×{_mapDefinition.Dimensions.Height}  •  {_viewState.CurrentDate}";
         }
 
         UpdateInspector();

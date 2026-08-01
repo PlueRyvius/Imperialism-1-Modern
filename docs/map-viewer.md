@@ -12,7 +12,7 @@ The viewer is split at an intentionally narrow engine boundary:
 - `Imperialism.Presentation` is a plain .NET 8 library. It projects the
   pointy-top odd-row grid into map space, performs deterministic hit-testing,
   resolves immutable geography into `MapViewDefinition`, and captures current
-  `WorldState` in `WorldViewState`. Its geometry and state mapping are
+  `WorldState` in `WorldViewState`, including the current year and quarter. Its geometry and state mapping are
   xUnit-tested without Godot.
 - `Imperialism.Client` owns the Godot nodes, rendering, camera input, and UI.
   It converts presentation points to `Vector2` only at this boundary.
@@ -49,7 +49,7 @@ play presentation and for later economy, transport, AI, and editor inspection.
 The scenario picker switches among every scenario embedded in one `.iworld`
 package without rebuilding or reimporting its shared map. The debug state probe
 is a development harness, not a gameplay command; it proves that mutable Core
-state reaches the ownership and feature layers before the turn engine exists.
+state reaches the ownership and feature layers independently of gameplay orders.
 
 ## Asset policy
 

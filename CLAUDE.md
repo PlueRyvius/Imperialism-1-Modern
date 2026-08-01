@@ -37,8 +37,10 @@ actually edited.
 
 **Historical format limits stop at the importer boundary.** The 108x60 grid
 constrains the 1997 files, not this engine. Import takes a `MapFormatProfile`;
-the in-memory model carries its own dimensions. Never hardcode 108, 60, or
-6480 outside the importer.
+the in-memory model carries its own dimensions. Never make runtime code assume
+108, 60, or 6480 outside the legacy profile/importer. Documentation and tests
+may name those values only to identify the original corpus or prove a larger
+regression baseline.
 
 ## Traps that have already bitten
 
@@ -95,6 +97,13 @@ without Godot. `src/Imperialism.Client/` is the single Godot 4.7.1 project. It
 reads only `.iworld`, uses batched cell rendering, updates ownership and dynamic
 features without rebuilding terrain, and offers normal and debug-overlay modes;
 see `docs/map-viewer.md`.
+
+Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
+with lazy invalidation and generated coverage at 64,800 cells. It also has an
+inert dense order bundle, unrestricted quarterly `TurnDate`, fixed seven-phase
+`TurnResolver`, and immutable event log. Only connectivity has phase behavior
+so far; economy, conflict, trade, diplomacy, ports, and river traversal remain
+explicitly pending rather than represented by placeholders that imply rules.
 
 ## Conventions
 

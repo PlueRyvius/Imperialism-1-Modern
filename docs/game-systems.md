@@ -40,6 +40,13 @@ Two properties drive our architecture:
 Any implementation that resolves powers sequentially rather than
 simultaneously will produce visibly different games.
 
+**Current implementation boundary.** `TurnResolver` now enforces this seven-
+phase pipeline over dense country-id-ordered submissions and emits an immutable
+phase event log. Strategic time is an explicit year and quarter with no legacy
+date cap. Only the final rail-connectivity materialization has system behavior
+in the initial shell; economy, conflict, trade, and diplomacy mutations remain
+deliberately unimplemented rather than filled with guessed rules.
+
 ## Economy
 
 **Commodity tiers.** 13 raw resources (grain, livestock, fruit, fish, cotton,
