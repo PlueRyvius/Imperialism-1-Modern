@@ -16,6 +16,18 @@ jobs:
       - run: python -m pip install -e ".[test]"
       - run: python -m pytest
 
+  dotnet-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+          cache: true
+          cache-dependency-path: "**/*.csproj"
+      - run: dotnet restore Imperialism.sln
+      - run: dotnet test Imperialism.sln --no-restore --configuration Release
+
   no-game-assets:
     # The project ships tools, never original content. This makes that a
     # build failure rather than a convention.
