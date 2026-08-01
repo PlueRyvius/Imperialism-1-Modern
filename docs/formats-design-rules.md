@@ -1,8 +1,8 @@
 # Formats layer: design rules
 
 Rules governing how this project reads and writes the original game's file
-formats. They apply to the Python library here and carry over unchanged to
-the C# `Imperialism.Formats` port.
+formats. They apply to both the Python structural reference and the production
+C# `Imperialism.Formats` library.
 
 For the project roadmap, see the phase table in the README — this document
 covers the formats layer only.
@@ -37,12 +37,13 @@ Real source files remain outside version control. Put local test pairs in
 `fixtures/local_only/`; CI exercises generated fixtures, malformed-input
 checks, arbitrary map dimensions, and lossless name-field handling.
 
-**Status: byte-exact round-trip is verified** against all 20 original files
-(10 `.map` + 10 `.scn`) from the shipped scenario set. This is a hard
-requirement, not an aspiration — the C# port must match it, and any parser
-that cannot is wrong.
+**Status: byte-exact round-trip is verified** in both implementations against
+all 30 original files (10 `.map` + 10 `.scn` + 10 `.inf`) from the shipped
+scenario set. The seven extensionless sources round-trip semantically. This is
+a hard requirement, not an aspiration — any parser that cannot match the
+evidence is wrong.
 
-Local corpus verification should additionally cover:
+Local corpus verification covers:
 
 - byte-identical load/save for every `.map`;
 - byte-identical load/save for every unchanged `.scn`;
@@ -51,6 +52,8 @@ Local corpus verification should additionally cover:
 - parsing every CR-delimited plaintext scenario and auditing it against every
   binary `.scn`; the shipped source numbers are not reliable pairings, so
   same-name equality is not an invariant.
+- independent Python/C# comparison of per-field map hashes, scenario record
+  hashes and counts, INF section hashes and metadata, and preserved-byte hashes.
 
 ## Next decoding targets
 
