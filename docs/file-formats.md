@@ -86,6 +86,17 @@ place.
   the name is unchanged. Editing a name intentionally replaces the field
   with a null-padded representation.
 
+### Plaintext scenario form
+
+- The extensionless editor sources use the same tags and field arities, one
+  whitespace-delimited record per line, with the remainder of a name record's
+  line holding its name. They have no `TERM` sentinel.
+- Input accepts CR, LF, or CRLF. Canonical output is ASCII with single spaces
+  between fields and CR line endings; whitespace-exact preservation is not a
+  goal.
+- Source numbers do not reliably pair with same-numbered `.scn` files. Use the
+  all-pairs corpus audit described in `scenario-semantics.md`.
+
 ## `.inf`
 
 - Plain-text scenario description split into `#`-delimited sections, using
@@ -103,9 +114,12 @@ place.
   — consistent with the reading, though the difficulty scale itself is still
   **inferred**.
 - `^^` denotes a paragraph break within a section.
-- `ScenarioInfo` writes by splicing edited regions into the preserved original,
-  so an untouched file re-emits byte-for-byte and an edit disturbs only its own
-  section. All ten round-trip exactly (`tests/test_inf_file.py`).
+- Unchanged documents retain their original bytes, including newline style and
+  final-newline choice, so all ten round-trip exactly
+  (`tests/test_inf_file.py`). Once edited, writers emit canonical CP1252 with CR
+  line endings and enforce exactly seven country sections and eight integers.
+  The C# `ScenarioInfoCodec` follows the same unchanged-or-canonical rule, which
+  is what lets the two implementations be compared on edited files at all.
 
 ## Semantics
 

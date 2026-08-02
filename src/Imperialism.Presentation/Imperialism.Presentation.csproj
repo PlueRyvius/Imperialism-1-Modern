@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Imperialism.Content\Imperialism.Content.csproj" />
+    <ProjectReference Include="..\Imperialism.Core\Imperialism.Core.csproj" />
+  </ItemGroup>
+</Project>

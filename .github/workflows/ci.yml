@@ -15,6 +15,24 @@ jobs:
           cache: pip
       - run: python -m pip install -e ".[test]"
       - run: python -m pytest
+      - run: python -m compileall -q src tools
+
+  dotnet-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.404"
+          cache: true
+          cache-dependency-path: "**/*.csproj"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: dotnet restore Imperialism.sln
+      - run: dotnet build Imperialism.sln --no-restore --configuration Release
+      - run: dotnet test Imperialism.sln --no-build --configuration Release
+      - run: python tools/compare_format_oracles.py --generated --no-build
 
   no-game-assets:
     # The project ships tools, never original content. This makes that a

@@ -80,7 +80,7 @@ def render(conn, *, min_span: int = 512) -> str:
             r.filename, {"funcs": 0, "bytes": 0, "anchors": 0, "spans": 0, "conf": set()}
         )
         s["funcs"] += r.function_count
-        s["bytes"] += r.end - r.start
+        s["bytes"] += r.end - r.start + 1  # range end is inclusive
         s["anchors"] += r.anchor_count
         s["spans"] += 1
         s["conf"].add(r.confidence)

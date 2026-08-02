@@ -23,7 +23,8 @@ What the module name buys you: it says which subsystem to distrust before you
 have read a single instruction. `UMap.cpp` and `UMapper.cpp` are map data,
 `UOcean.cpp` sea zones, `UArmyMgr.cpp` units. From there the productive move
 has consistently been to diff generated output against the shipped files for
-something they never contain -- see `docs/handoff.md`.
+something they never contain. Imperialism-1-Forge's `preflight.py` automates
+that diff for a generated scenario.
 """
 from __future__ import annotations
 

@@ -130,6 +130,10 @@ class HexCell:
         )
 
     def to_bytes(self) -> bytes:
+        if not 0 <= self.province <= 0xFFFF:
+            raise ValueError(
+                f"province {self.province!r} is outside uint16 range"
+            )
         province_hi = (self.province >> 8) & 0xFF
         province_lo = self.province & 0xFF
         return bytes([

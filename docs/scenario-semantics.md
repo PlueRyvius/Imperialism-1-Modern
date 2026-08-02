@@ -48,10 +48,12 @@ grouping. It must never be used as ownership.
 - **Nation byte is duplicated.** Bytes 3 and 4 are byte-identical in all
   6,480 cells of `s1` (**verified**). One is presumably a stale mirror; we
   preserve both and read from the first.
-- The nation byte holds a **country id on land and a sea-zone id on
-  ocean** — the two namespaces share one field, disambiguated by whether the
-  cell is ocean. Land cells in `s1` use exactly the 23 ids 0–22, matching
-  the 23 `cnam` records (**verified**).
+- The nation byte holds a **country id on land and a combined region id on
+  ocean**. Ocean values follow the country namespace, so the scenario `zone`
+  id is `raw_region - country_namespace_size`. All ten maps use 23 country
+  slots: their ocean values decode this way to named `zone` records with no
+  misses (**verified**). Land cells in `s1` use exactly ids 0–22, matching
+  the 23 `cnam` records.
 - Ocean cells use province id **65535** as a null marker.
 - `town_type` distinguishes settlements: 34 = village, 35 = capital,
   **33 = a minor nation's capital**. `s1` has 190 villages and **exactly 23
@@ -142,6 +144,15 @@ zones ("North Atlantic", "English Channel") and 40–62 are **port cities**
 `tran`, `labo`, and `tclr` records — these are the seven Great Powers. Ids
 7–22 are minor nations (**verified**: 7 records each of those tags).
 
+**Industrial setup is a dense power-by-industry table.** Every binary scenario
+contains exactly 42 `capa` records: seven Great Powers times six industries,
+with no duplicate pair or invalid country/industry reference. The corpus has no
+industry-6 oil-refinery capacity record. Historical campaigns use documented
+upgrade steps, but tutorial scenarios also use 3, 5, 6, and 7; therefore
+capacity values are state, not an enum of legal upgrade levels. `ware` records
+use commodity codes 0–20 and sparse nonnegative quantities; the audited corpus
+contains no duplicate country/commodity pair or invalid reference.
+
 ## Corpus notes
 
 - All ten `.map` files are exactly 309,312 bytes. **`s0.map`, `s13.map` and
@@ -158,8 +169,9 @@ zones ("North Atlantic", "English Channel") and 40–62 are **port cities**
   use none: there, all 23 countries get a type-35 capital. 97 villages + 7
   capitals + 16 minor capitals = 120 = one town per province.
 - Every one of the 24 known scenario tags appears somewhere in the corpus;
-  there are no dead tags. Rarest are `coun` (5 records, only in `s0`/`s1`/`s3`)
-  and `flag`/`year` (one per scenario).
+  there are no dead tags. `coun` is rarest: one record in `s0` and four in
+  `s1`. Every scenario has one `flag`; most have one `year`, while `s10` and
+  `s15` each contain two identical `year` records.
 
 ## A ship's sea zone is not the map's ocean zone byte
 
@@ -210,8 +222,8 @@ appear, so treat it as **inferred**.
 
 ## The plaintext scenario form
 
-The tutorials ship an extensionless companion file (`Scenario/s9`, `s10`, …)
-containing the same records as **CR-delimited plain text**, one per line:
+Seven scenarios ship an extensionless file (`Scenario/s9` through `s15`)
+containing **CR-delimited plain text**, one record per line:
 
 ```
 tech 0 1
@@ -220,25 +232,35 @@ army 0 0 4
 labo 0 2 2 2
 ```
 
-These are almost certainly the designers' editor input, left in the shipped
-folder. `src/imperialism_format/scn_text.py` parses them; the results below are
-what `tests/test_scn_text.py` asserts.
+These appear to be editor-source artifacts, but their numbers are **not
+reliable pairings** with the binary files. An all-pairs semantic audit gives:
 
-### The files are named one ahead of the binary they belong to
+| text source | best binary match | relationship |
+|---|---|---|
+| `s9` | `s9.scn` | ordered subset, 512 of 522 records |
+| `s10` | `s12.scn` | near match, 506 shared records |
+| `s11` | `s11.scn` | ordered subset, 383 of 392 records |
+| `s12` | `s10.scn` | ordered subset, 381 of 391 records |
+| `s13` | `s15.scn` | ordered subset, 406 of 416 records |
+| `s14` | `s13.scn` | exact, all 1,091 records |
+| `s15` | `s14.scn` | exact, all 1,091 records |
 
-**Verified.** `s14` (the text file) reproduces **`s13.scn`** exactly — 1,091
-records, every tag, every field value and every name identical. `s15`
-reproduces **`s14.scn`** exactly. The off-by-one is easy to miss because
-`s13.scn` and `s14.scn` themselves differ by a single record, so text `s14`
-also *nearly* matches `s14.scn` — one `labo` record apart.
+Notably, `s14` and `s14.scn` have the same record count but differ in one
+semantic record after whitespace normalisation. Same-name text/binary equality
+must not be used as a format invariant.
 
-The remaining five text files (`s9`–`s13`) match no shipped binary, by record
-count or tag histogram. They are stale drafts superseded before release, and
-must not be treated as descriptions of the scenarios that share their names.
+Three consequences:
+
+1. Successfully parsing every line is useful evidence for the tag arity table,
+   but binary equality is not: the source/binary pairing is uncertain.
+2. It is the natural **human-editable format for our own scenario editor**;
+   we should adopt it rather than invent one.
+3. Run `tools/audit_scenario_corpus.py` after parser changes to compare every
+   source with every binary without committing or printing source records.
 
 ### It is a genuine arity oracle, with three gaps
 
-**Verified.** All 4,373 lines across the seven text files parse cleanly under
+All 4,373 lines across the seven text files parse cleanly under
 `TAG_FIELD_COUNTS`. That is a real check rather than a tautology: the parser
 rejects a line with tokens left over after its declared field count, so a tag
 whose arity we had wrong would fail on any line that used it.
@@ -246,15 +268,14 @@ whose arity we had wrong would fail on any line that used it.
 Coverage is 21 of 24 tags. **`coun`, `tbar` and `tclr` appear in no plaintext
 file**, so their field counts rest on the binary alone and remain unconfirmed.
 
-The two exact reproductions above are the stronger result: they validate field
-*order* and name handling as well as arity, across 2,182 records.
+The two exact reproductions in the table are the stronger result: they validate
+field *order* and name handling as well as arity, across 2,182 records.
 
-### As an editing format
+### The text form is lossy against the binary
 
-The text form remains the natural human-editable representation, but note it
-carries no `TERM` terminator and no trailing bytes, so it is lossy against the
-binary's preserved tail. Round-tripping a `.scn` through text is not
-byte-exact; go binary-to-binary and treat text as import/export.
+It carries no `TERM` terminator and no trailing bytes, so round-tripping a
+`.scn` through text is **not** byte-exact. Go binary-to-binary and treat text as
+import/export only.
 
 Note the CR (`\r`) line endings — the original was a Mac and PC cross-platform
 codebase (`McAppUI`, `UMacViewMgr` appear in the binary's leaked filenames).

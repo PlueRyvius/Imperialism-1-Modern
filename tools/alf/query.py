@@ -29,7 +29,9 @@ from tools.alf.modules import module_ranges
 
 
 def parse_address(text: str) -> int:
-    """Accept ``0x004057A4``, ``004057A4`` or ``4218276``."""
+    """Accept ``0x004057A4`` or ``004057A4``; bare digits are hex, matching the
+    listing's own notation. Decimal is only a fallback for strings that are
+    not valid hex (which no all-digit string ever is)."""
     text = text.strip().rstrip(":").lstrip(":")
     if text.lower().startswith("0x"):
         return int(text, 16)
@@ -207,7 +209,8 @@ def cmd_imports(conn: sqlite3.Connection, args) -> int:
 def cmd_modules(conn: sqlite3.Connection, args) -> int:
     rows = conn.execute(
         "SELECT inferred_module AS m, confidence AS c, COUNT(*) AS n, "
-        "SUM(end_address - start_address) AS bytes FROM functions "
+        # end_address is inclusive (last byte of the last instruction).
+        "SUM(end_address - start_address + 1) AS bytes FROM functions "
         "WHERE inferred_module IS NOT NULL GROUP BY m, c ORDER BY m, c"
     ).fetchall()
     print(f"{'module':<38} {'conf':<8} {'funcs':>6} {'bytes':>9}")

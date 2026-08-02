@@ -3,9 +3,9 @@
 A ground-up reimplementation of *Imperialism* (SSG/Frog City, 1997), built on
 the original's own `.map`/`.scn` file formats.
 
-**Read `docs/architecture.md` and `docs/game-systems.md` before doing design
-work.** They are the accumulated findings of this project and will save you
-rediscovering them.
+**Read `README.md`, `docs/architecture.md`, and `docs/game-systems.md` before
+doing design work.** This file is only a cold-session index; the repository
+documentation and tests are authoritative when a summary here becomes stale.
 
 ## Orientation
 
@@ -16,16 +16,18 @@ rediscovering them.
 | How are files laid out on disk? | `docs/file-formats.md` |
 | What do the fields *mean*? | `docs/scenario-semantics.md` |
 | Which cell bytes are computed, not authored? | `docs/derived-bytes.md` |
+| How does legacy content become `.iworld`? | `docs/legacy-importer.md` |
+| How does the Godot map viewer work? | `docs/map-viewer.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
-| Where did the last session leave off? | `docs/handoff.md` |
 | Navigating the original binary, and resolving a crash | `docs/disasm/README.md`, `docs/disasm/module-map.md` |
 
 ## Hard rules
 
-**Never commit game data.** `.map`, `.scn`, `.inf`, `.imp`, `.gob`, the `.alf`
-disassembly, extracted art — all copyrighted (Ubisoft). Real files live in
-`fixtures/local_only/` (gitignored) or outside the repo. CI enforces this via
-`tools/check_no_game_assets.py`; run it before committing.
+**Never commit original game data.** `.map`, `.scn`, `.inf`, `.imp`, `.gob`,
+the `.alf` disassembly, and extracted art stay in `fixtures/local_only/`
+(gitignored) or outside the repo. This is repository policy regardless of a
+file's legal status. CI enforces it via `tools/check_no_game_assets.py`; run it
+before committing.
 
 **The `.map` trailer is a province table.** 384 slots indexed by province id,
 each holding that province's town cell as a big-endian u16 at offset 4, 65535
@@ -33,17 +35,19 @@ when unused — verified on all ten maps. The other 196 bytes per record are sti
 unread, so the block stays preserved verbatim and `set_province_town` edits only
 the field we understand. See `docs/file-formats.md`.
 
-**Byte-exact round-trip is a hard requirement, not an aspiration.** All 20
-original files (10 `.map` + 10 `.scn`) round-trip byte-for-byte today. Any
-parser change that breaks this is wrong. The trick is preserving uninterpreted
+**Byte-exact round-trip is a hard requirement, not an aspiration.** All 30
+original files (10 `.map` + 10 `.scn` + 10 `.inf`) round-trip byte-for-byte
+today. Any parser change that breaks this is wrong. The trick is preserving uninterpreted
 bytes — map trailer records, name padding after the null terminator, bytes
 past `TERM` — and re-emitting them verbatim unless the decoded value was
 actually edited.
 
 **Historical format limits stop at the importer boundary.** The 108x60 grid
 constrains the 1997 files, not this engine. Import takes a `MapFormatProfile`;
-the in-memory model carries its own dimensions. Never hardcode 108, 60, or
-6480 outside the importer.
+the in-memory model carries its own dimensions. Never make runtime code assume
+108, 60, or 6480 outside the legacy profile/importer. Documentation and tests
+may name those values only to identify the original corpus or prove a larger
+regression baseline.
 
 ## Traps that have already bitten
 
@@ -70,23 +74,20 @@ validation rule to silence across all ten scenarios before believing it.
 
 ## Current state
 
-Python library (`src/imperialism_format/`) parses `.map`/`.scn`/`.inf` and the
-plaintext scenario form, all byte-exact, 285 tests passing. `tools/alf/` indexes
-the original binary's disassembly and resolves a crash to a place in it
-(`python -m tools.alf.crash`). `tools/preflight.py` diffs a scenario against
-the shipped corpus and reports what it holds that no shipped file does — run it
-before launching a generated world. `tools/map_editor/` edits a whole scenario —
-map, `.scn` identity records and `.inf` briefing — behind one undo stack, and an
-edited map is confirmed to load in the real `Imperialism.exe`.
-`src/imperialism_format/generate/` builds whole worlds from a keyword, modelled
-on measurements of the five the game generated itself; `tools/generate_scenario.py`
-writes one as a complete scenario, rivers and all. **A generated world loads in
-the real game and has been played ~15 turns** — six defects found that way are
-listed in `docs/handoff.md`, along with what is still known to differ. The C#
-port has not started.
+Phases 0 and 1 are complete. `src/Imperialism.Formats/` is the production .NET 8
+formats library for `.map`, binary/plaintext scenarios, and editable `.inf`
+files. The Python library (`src/imperialism_format/`) remains an independent
+structural reference. The extensionless plaintext filenames
+do not reliably pair with same-numbered `.scn` files; use
+`tools/audit_scenario_corpus.py` rather than assuming equality. The Python and
+C# suites cover generated fixtures and optional local corpus
+gates. `tools/alf/` indexes the original binary's disassembly and resolves a
+fault address to a place in it (`python -m tools.alf.crash`).
+`tools/compare_format_oracles.py` compares per-field,
+per-record, per-section, and preserved-byte hashes across both implementations.
 
-Point `IMP_SCENARIO_DIR` at a game install's `Scenario` folder to run the tests
-against the originals without copying game data into the tree.
+Point `IMP_SCENARIO_DIR` at a game install's `Scenario` folder to run the Python
+tests against the originals without copying game data into the tree.
 
 **`s0` is the working scenario; `s1` is the reference.** `s0` gets edited and
 launched in the game to see whether it still loads, so it is never ground truth
@@ -95,14 +96,56 @@ Read `s1` when you need to know what an original looks like. Fitting a rule
 against edited data is how three "never fires on shipped data" tests were
 silently weakened once already.
 
-**The map grid is odd-r offset and wraps east-west.** Bit 0 of every direction
-mask is NE, proceeding clockwise. This was measured, not assumed — see
+**The legacy map grid is odd-r offset and wraps east-west.** Bit 0 of every
+direction mask is NE, proceeding clockwise. This was measured, not assumed — see
 `docs/derived-bytes.md`. `src/imperialism_format/derive.py` is the one place
-that encodes it; `static/render.js` mirrors it and the two must stay in step.
+that encodes it. Note this describes the 1997 files: `Imperialism.Core`'s own
+hex grid does not wrap.
 
-The Python library is retained permanently as the **reference oracle** the C#
-port is tested against — it is verified, so if the two disagree, C# is at
-fault.
+**Scenario authoring lives in a separate project.** The world generator, the web
+map editor and `preflight.py` are in
+[Imperialism-1-Forge](https://github.com/PlueRyvius/Imperialism-1-Forge), which
+consumes this repository's `imperialism_format` package. They exist to author
+content for the real 1997 executable, not for this engine, and keeping them out
+stops that goal drifting into the port's scope.
+
+Python is a **structural reference**, not an infallible oracle. A Python/C#
+disagreement triggers byte-level and evidence-based triage; neither side wins
+by definition. Godot and the versioned modern large-map package were delivered
+in Phase 1.
+
+`src/Imperialism.Core/` is the headless modern domain. It owns typed IDs,
+arbitrary map dimensions, verified odd-row hex geometry, immutable map and
+scenario definitions, and mutable world state. It must remain independent of
+Godot, filesystem IO, and legacy format structures. Original files are import
+inputs. `src/Imperialism.Content/` reads and compiles versioned `.iworld`
+UTF-8 JSON using stable external keys and dense runtime IDs; see
+`docs/modern-content-format.md`. New and imported content uses this modern
+package rather than extending the 1997 layouts.
+
+`src/Imperialism.LegacyImport/` conservatively converts viewer-ready legacy
+geography and scenario setup into `.iworld`. Its report counts unsupported
+gameplay and briefing data instead of copying opaque records. River byte 2 is
+a per-cell path-shape code, not an edge mask; see `docs/legacy-importer.md`.
+
+`src/Imperialism.Presentation/` keeps map projection, deterministic picking,
+immutable map presentation, and detached mutable-state snapshots testable
+without Godot. `src/Imperialism.Client/` is the single Godot 4.7.1 project. It
+reads only `.iworld`, uses batched cell rendering, updates ownership and dynamic
+features without rebuilding terrain, and offers normal and debug-overlay modes;
+see `docs/map-viewer.md`.
+
+Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
+with lazy invalidation and generated coverage at 64,800 cells. It also has an
+inert dense order bundle, unrestricted quarterly `TurnDate`, fixed seven-phase
+`TurnResolver`, and immutable event log. `.iworld` v3 defines stable
+commodities, facilities, recipes, and sparse scenario capacity, with explicit
+v1→v2→v3 migration. Core stores checked dense Available inventory and
+identifiable pending transport or trade deliveries. Ordered production requests
+share facility capacity, stage outputs until the next turn, and commit atomically
+with delivery preflight. Labour, feeding, transient power, capacity construction,
+conflict, trade markets, diplomacy, ports, and river traversal remain explicitly
+pending.
 
 ## Conventions
 

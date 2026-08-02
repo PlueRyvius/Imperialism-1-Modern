@@ -43,8 +43,9 @@ def roots() -> list[str]:
 
 #: Scenarios that are never reference data whatever their files look like.
 #:
-#: `s0` is the working scenario. `s5` is the slot `tools/generate_scenario.py`
-#: writes a generated world into for in-game testing — it is *our* output, so
+#: `s0` is the working scenario. `s5` is the slot Imperialism-1-Forge's
+#: `generate_scenario.py` writes a generated world into for in-game testing —
+#: that is *our* output, so
 #: admitting it here would mean holding generated data to a bar set partly by
 #: generated data. It was in the corpus for a while and did exactly that: the
 #: "generated values stay inside what the originals use" check could not see a

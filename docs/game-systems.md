@@ -31,13 +31,35 @@ Two properties drive our architecture:
 - **Step 5 retroactively undoes part of step 2, based on step 4.** We handle
   this by having trade emit *intents* that only step 6 commits, so
   cancellation is a filter rather than a rollback. See `architecture.md`.
-- **A one-turn lag is universal**: transported goods, traded goods, built
-  units and purchased technology all land the following turn.
+- **Most outputs are deferred one turn**: traded goods, built units and
+  purchased technology land the following turn, and transported goods are not
+  generally available to production immediately. Two explicit same-resolution
+  exceptions matter: workers eat newly transported raw food before warehouse
+  food, and power is created and consumed as labour during production.
 
 Any implementation that resolves powers sequentially rather than
 simultaneously will produce visibly different games.
 
+**Current implementation boundary.** `TurnResolver` now enforces this seven-
+phase pipeline over dense country-id-ordered submissions and emits an immutable
+phase event log. Strategic time is an explicit year and quarter with no legacy
+date cap. Rail-connectivity materialization and evidence-backed industrial
+production now have system behavior; conflict, trade, diplomacy, labour, and
+transport remain deliberately unimplemented rather than filled with guessed rules.
+
 ## Economy
+
+**Current implementation boundary.** Commodity and deposit definitions are
+content-defined rather than fixed to legacy slots. Runtime stock uses checked
+64-bit quantities with separate Available inventory and identifiable Pending
+Delivery entries. Trade and transport entries can be cancelled independently;
+the Delivery phase commits the remainder atomically and records events.
+Facilities, recipes, and initial capacity are content-defined. Ordered
+production requests share facility capacity, complete partially when capacity
+or inputs run short, consume only Available stock, and stage outputs so they
+cannot feed another recipe until the following turn. The resolver preflights
+production together with pending deliveries before mutating inventory. Labour,
+feeding, prices, power, capacity construction, and extraction rates remain pending.
 
 **Commodity tiers.** 13 raw resources (grain, livestock, fruit, fish, cotton,
 wool, horses, timber, coal, iron, oil, gold, gems) → 6 materials (canned
@@ -90,6 +112,13 @@ coast or river. Three edge cases matter:
 Towns industrialise on their own once served by a connected depot or port —
 first materials, then consumer goods capped at half the material output,
 gated on your matching factory reaching a capacity threshold.
+
+**Current implementation boundary.** Phase 3 begins with country-specific
+rail components: only rail edges whose two province cells are currently owned
+by that country are usable. The component index is cached and rebuilt lazily
+after conquest or rail changes. Capital/depot service, river continuity,
+ports, naval control, and sea-zone traversal remain explicit later layers;
+the initial graph does not guess those relationships.
 
 ## Trade
 

@@ -5,11 +5,30 @@ venv/
 *.egg-info/
 .pytest_cache/
 .pytest_tmp/
+.pytest-*/
+
+# .NET build and test output
+bin/
+obj/
+TestResults/
+.vs/
+.godot/
+*.csproj.old
 
 # Real Imperialism game data is copyrighted and must never be committed.
 # Put actual .map/.scn/.inf files here for local testing only.
 fixtures/local_only/*
 !fixtures/local_only/.gitkeep
+
+# Second layer: game-asset extensions are ignored repo-wide, so a stray file
+# dropped outside fixtures/local_only/ cannot be committed by accident.
+*.map
+*.scn
+*.inf
+*.imp
+*.gob
+*.alf
+*.wpj
 
 # The disassembly index is derived from the copyrighted Imperialism.exe: it
 # embeds the original instruction stream verbatim. Build it locally, never

@@ -41,8 +41,9 @@ never content.
 
 Godot 4 + C#. The simulation lives in a plain, headless, unit-testable C#
 library with no Godot dependency; Godot is only the presentation layer.
-This Python library is retained as research tooling and as the **reference
-oracle** the C# parsers are tested against.
+This Python library is retained as research tooling and as an independent
+**structural reference** for the C# parsers. A disagreement identifies a bug
+to investigate; it does not make either implementation correct by definition.
 
 ## Project phases
 
@@ -62,6 +63,42 @@ whenever it's wanted.
 | 8 | AI depth, tuned via headless tournaments |
 | 9 | Polish, scenario editor, house rules |
 
+**Phase 0 status: complete.**
+
+- [x] Python research readers/writers for `.map`, `.scn`, editable `.inf`, and plaintext scenarios
+- [x] Python plaintext-scenario reader/writer and corpus relationship audit
+- [x] Production .NET 8 `Imperialism.Formats` codecs with arbitrary map dimensions
+- [x] Byte-exact local verification of all 10 maps, 10 binary scenarios, and 10 INF files
+- [x] Semantic local verification of all seven extensionless scenario sources
+- [x] Independent C#/Python structural-hash comparison over generated and original corpora
+
+**Phase 1 status: complete.**
+
+- [x] Typed identifiers and dimension-independent pointy-top odd-row geometry
+- [x] Immutable map/scenario definitions and mutable `WorldState`
+- [x] Versioned `.iworld` packages without legacy entity or map-size limits
+- [x] Conservative legacy conversion with diagnostics for deferred information
+- [x] Godot 4.7.1 viewer with batched rendering, pan/zoom, picking, and debug mode
+- [x] Independent static-map and mutable-state presentation layers
+- [x] Local viewer verification across all ten original scenario triples
+
+The viewer updates current ownership, rails, capitals, and quarterly date without
+rebuilding immutable terrain or resetting camera and selection. Original art is
+an optional local presentation source; the procedural fallback keeps assets
+from blocking simulation work. The next shortest-path milestone is the Phase 3
+transport graph and deterministic turn skeleton.
+
+**Phase 3 status: in progress.**
+
+- [x] Packed, deterministic rail-connectivity snapshots filtered by current ownership
+- [x] Lazy connectivity rebuild after rail construction, removal, or conquest
+- [x] Generated 64,800-cell scale regression (ten times the original map area)
+- [ ] Capital/depot collection and evidence-backed port/river/sea connectivity
+- [x] Deterministic quarterly turn pipeline and immutable event log
+- [x] Content-defined commodity catalog, checked inventory, and deferred-delivery intents
+- [x] Content-defined facilities/recipes, shared capacity, staged output, and legacy economy import
+- [ ] Labour, transient power, worker feeding, capacity construction, and transport allocation
+
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's
 load-bearing infrastructure rather than a late feature.
@@ -73,6 +110,22 @@ engine. Import takes a format profile; the in-memory model carries its own
 dimensions. Keeping that boundary clean is what makes larger maps cheap —
 the remaining cost is authoring effort, not engine work.
 
+The generated Core regression uses 360x180 (64,800 cells), exactly ten times
+the original cell count. Increasing both dimensions tenfold would instead be
+1080x600 (648,000 cells, one hundred times the area). Core data structures
+remain dimension-independent at that size, but the viewer will need chunked
+rendering and packed presentation state before 648,000 cells becomes a smooth
+interactive target.
+
+### On legacy files
+
+The original formats are import and research inputs, not the engine's native
+data model. `Imperialism.Formats` preserves them faithfully at the boundary;
+Core receives validated modern definitions and has no dependency on legacy
+records, byte layouts, filename pairings, or historical entity limits. New and
+imported content will be saved in an explicit, versioned modern package so it
+can support larger maps, richer metadata, Unicode names, and future migrations.
+
 ## Documentation
 
 | Document | Contents |
@@ -82,8 +135,10 @@ the remaining cost is authoring effort, not engine work.
 | `docs/file-formats.md` | On-disk layout of `.map`, `.scn`, `.inf` |
 | `docs/scenario-semantics.md` | What the fields *mean*, verified against real data |
 | `docs/derived-bytes.md` | Which cell bytes are computed from neighbours, and how well each rule fits |
-| `docs/handoff.md` | Where the last session left off, and what is still open |
 | `docs/formats-design-rules.md` | Rules governing the formats layer |
+| `docs/modern-content-format.md` | Versioned `.iworld` content and stable-key compilation |
+| `docs/legacy-importer.md` | Conservative `.map`/`.scn`/`.inf` to `.iworld` conversion and river codes |
+| `docs/map-viewer.md` | Godot viewer architecture, controls, and smoke-test commands |
 | `docs/formulas/_index.md` | Scoreboard for the undocumented formulas, and where to dig |
 | `docs/disasm/` | Disassembly listing format and the module map |
 
@@ -93,52 +148,77 @@ what's being built.
 ## Layout
 
 ```
-src/imperialism_format/   Python library: MapFile, HexCell, ScenarioFile, Record
-tests/                    pytest suite (round-trip + structural tests)
+src/Imperialism.Formats/  Production .NET 8 format library
+src/Imperialism.Core/     Headless modern world and simulation domain
+src/Imperialism.Content/  Versioned modern world documents and compiler
+src/Imperialism.LegacyImport/ Conservative Phase 1 legacy converter
+src/Imperialism.Presentation/ Testable projection, picking, and viewer snapshots
+src/Imperialism.Client/   Godot 4.7.1 viewer (the solution's only Godot project)
+src/imperialism_format/   Independent Python structural reference
+tests/                    xUnit and pytest round-trip/structural suites
 fixtures/local_only/      gitignored — drop real .map/.scn here for local testing
 docs/                     format notes, systems spec, architecture, research
-tools/                    inspection utilities and the disassembly indexer
-tools/map_editor/         browser-based .map editor for the original game
+tools/                    C#/Python inspectors, corpus checks, disassembly indexer
 ```
 
-## World generation
+## Authoring content for the original game
+
+The world generator and the browser-based map editor live in a separate
+project, **[Imperialism-1-Forge](https://github.com/PlueRyvius/Imperialism-1-Forge)**.
+It generates a complete scenario from a keyword, edits one in a localhost web
+app, and checks it against the shipped corpus before you launch it — all
+targeting the real 1997 executable rather than this engine.
+
+Forge consumes this repository's `imperialism_format` package, so the parser
+stays in one place and remains the C# port's reference oracle:
 
 ```
-python tools/generate_scenario.py --seed Pippin --template /path/to/Scenario/s1.map --out /path/to/Scenario/s5
+pip install git+https://github.com/PlueRyvius/Imperialism-1-Modern.git
 ```
-
-Builds a complete scenario — `.map`, `.scn`, `.inf` — from a keyword, the way
-the original does ("Imperialism generates random worlds based on a key word").
-The model is measured from the five worlds the game's own generator produced,
-which ship as the tutorial scenarios. A template `.map` is required: the
-province table at the end of the format is only partly decoded, so a generated
-map inherits a real one's and rewrites just the field we understand.
-
-## Map editor
-
-Double-click `tools/map_editor/Map Editor.bat`, or from a terminal:
-
-```
-python tools/map_editor/server.py fixtures/local_only/s1.map
-```
-
-A localhost web app for painting terrain, resources, provinces, nations, towns,
-rivers and rail, with borders and shorelines recomputed as you draw. The server
-owns the file and does all the parsing, so the browser never handles map bytes
-and undecoded parts of the format survive editing untouched. See
-`tools/map_editor/README.md`.
 
 ## Running tests
 
 ```
 python -m pip install -e ".[test]"
 python -m pytest
+dotnet test Imperialism.sln --configuration Release
 ```
 
 Inspect source files as stable JSON:
 
 ```
 python tools/inspect_assets.py Scenario/s1.map Scenario/s1.scn Scenario/s1.inf
+```
+
+Audit the relationship between extensionless editor sources and binary
+scenarios (the numbers are not reliable pairings):
+
+```
+python tools/audit_scenario_corpus.py /path/to/Scenario
+```
+
+Compare the independent C# and Python interpretations. CI uses generated
+fixtures; the local corpus gate additionally covers your original files:
+
+```
+python tools/compare_format_oracles.py --generated
+python tools/compare_format_oracles.py --corpus /path/to/Scenario
+```
+
+Convert one legacy scenario triple into viewer-ready modern content:
+
+```
+dotnet run --project tools/Imperialism.LegacyImporter -- \
+  --map /path/to/s1.map --scenario /path/to/s1.scn --inf /path/to/s1.inf \
+  --output /path/to/s1.iworld --package-key s1 --report-json /path/to/report.json
+```
+
+Run the synthetic viewer demo, or open an imported package:
+
+```
+godot --path src/Imperialism.Client
+godot --path src/Imperialism.Client -- --world /path/to/s1.iworld
+godot --headless --path src/Imperialism.Client -- --smoke-test
 ```
 
 Build and query the disassembly index (requires your own copy of the game;

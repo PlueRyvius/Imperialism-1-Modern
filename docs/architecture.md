@@ -13,7 +13,8 @@ One solution. Godot owns exactly one csproj; everything else is plain
 src/
   Imperialism.Formats/   binary + text IO, zero game rules
   Imperialism.Core/      the simulation — no Godot, no IO, no float
-  Imperialism.Content/   static rules data (JSON) + immutable RuleSet
+  Imperialism.Content/   modern world JSON, static rules data + immutable RuleSet
+  Imperialism.Presentation/ engine-free map projection, picking, viewer snapshots
   Imperialism.AI/        strategic, tactical and advisor AI
   Imperialism.Assets/    .gob extraction, cache, upscale orchestration
   Imperialism.Headless/  exe: batch sims, replay, oracle diffing
@@ -43,25 +44,154 @@ the following. A convention that isn't compiled is a convention that decays.
   integer-heavy 1997 C++, so this both matches it more closely and gives
   bit-identical cross-platform replays.
 
+## World data boundaries
+
+The legacy codecs are adapters, not the domain model. They decode original
+files into preserved format documents; a converter will then validate and map
+those documents into Core definitions. Core does not know about 36-byte cells,
+tagged scenario records, CP1252, raw padding, or original filename conventions.
+
+Modern content uses three layers:
+
+1. `MapDefinition` is immutable geography: dimensions, cells, terrain,
+   provinces, sea zones, resources, and settlements.
+2. `ScenarioDefinition` is an immutable starting setup over a map, initially
+   including starting year and province ownership.
+3. `WorldState` is the mutable state of one running game. It copies scenario
+   values on creation, so loading or simulating a game cannot mutate reusable
+   content definitions.
+
+Runtime identifiers are compact typed integers and definitions are dense by
+identifier for predictable lookup and cache behavior. The modern package uses
+stable textual keys; its compiler validates and remaps those keys to dense
+runtime identifiers. This keeps save and authoring stability separate from
+simulation storage.
+
+Cells may contain more than the legacy format's resource count. Names are
+Unicode strings and no original country/province ceiling is part of Core.
+These freedoms are tested so an importer detail cannot silently become an
+engine constraint.
+
+Feature ownership follows whether a value can change between scenarios or
+during play:
+
+- terrain, resource deposits, settlement sites, and per-cell river paths are immutable
+  map geography;
+- commodity definitions and each deposit's produced commodity are immutable rules data;
+- initial ownership, rail links, country capitals, and available inventory belong to the scenario;
+- a running `WorldState` copies ownership, rail links, capitals, inventory, and date so
+  play never mutates reusable definitions;
+- coastlines and national/province borders are derived from adjacent cells and
+  ownership instead of stored as duplicated rendering masks.
+
+Rivers are optional per-cell `RiverPath` shapes joining two geometric endpoint
+positions. The endpoints include eight positions around a pointy-top hex plus
+`Source` and `Mouth`. A path is undirected: it records local geometry, not
+flow direction or an inferred connection to another cell. Cross-cell river
+connectivity remains an evidence-backed transport concern for a later phase.
+
+Rails use a canonical undirected `CellLink` between adjacent cells, not
+reciprocal direction bits on two records. Rail symmetry is therefore true by
+construction. Legacy importers diagnose and drop asymmetric source bits so
+that corruption cannot enter the modern world model.
+
+## Hex coordinates
+
+The original map evidence identifies a pointy-top, odd-row offset grid
+(`odd-r`): odd-numbered rows are shifted right. Storage is row-major and
+`index = row * width + column`. Direction values retain the original six-bit
+ordering because it is useful at the import boundary:
+
+| Direction | Bit | Even row delta | Odd row delta |
+|---|---:|---:|---:|
+| NE | 1 | `(0,-1)` | `(+1,-1)` |
+| E  | 2 | `(+1,0)` | `(+1,0)` |
+| SE | 4 | `(0,+1)` | `(+1,+1)` |
+| SW | 8 | `(-1,+1)` | `(0,+1)` |
+| W  | 16 | `(-1,0)` | `(-1,0)` |
+| NW | 32 | `(-1,-1)` | `(0,-1)` |
+
+This interpretation was checked against original rail reciprocity and named
+city indices. Core owns the coordinate and adjacency math, clips neighbors at
+explicit map dimensions, and converts through axial coordinates for distance.
+No client pixel coordinate enters the simulation API.
+
+`Imperialism.Presentation` owns the floating-point projection from these Core
+coordinates to viewer map space. It stays independent of Godot and legacy
+formats, so center placement, geometric endpoints, arbitrary dimensions, and
+hit-testing are ordinary xUnit contracts. `Imperialism.Client` is a thin
+adapter from those map-space values to Godot vectors and draw calls.
+
+The first viewer uses two multimesh batches (terrain and ownership), one static
+map-feature surface, one mutable rail/capital surface, and one lightweight
+hover/selection surface. `MapViewDefinition` contains immutable geography;
+`WorldViewState` is a detached presentation snapshot of current ownership,
+rails, capitals, and quarterly date. State refreshes recolor or redraw only mutable layers
+and preserve camera and selection. The viewer does not create one Godot node per
+cell or rebuild static overlays on pointer movement. Debug mode is an overlay
+policy on the same viewer rather than a separate diagnostic client. See
+`map-viewer.md` for the renderer and controls.
+
+## Modern content packages
+
+`.iworld` is canonical, versioned UTF-8 JSON. Stable textual keys are remapped
+to dense typed IDs during validation and retained in a bidirectional catalog;
+Core remains string-free in its hot paths. The authored format is deliberately
+diffable and editor-friendly. A future compiled binary cache may accelerate
+startup, but it is disposable and cannot become the only representation.
+
+World content and saved games are separate contracts. `.iworld` describes
+immutable definitions plus one or more keyed scenario starts sharing a map. A
+save will version and hash mutable `WorldState` independently. See
+`modern-content-format.md` for the package contract.
+
 ## Simultaneous turn resolution
 
-Mutable `GameState` POCO, **inert** order objects (data only — no `Execute()`
+Mutable `WorldState` POCO, **inert** order objects (data only — no `Execute()`
 method), and a fixed phase pipeline emitting an event log. Not event
 sourcing, not snapshot-and-diff.
 
 ```
-TurnResolver.Resolve(GameState, TurnOrders[7], seed)
+TurnResolver.Resolve(WorldState state, TurnOrders orders, ulong seed)
 ```
 
 Phases run in the original's fixed order: Diplomacy → Trade → Production →
 Conflict → TradeCancellation → Delivery → Connectivity.
 
+`TurnOrders` stores one dense, country-id-ordered `CountryTurnOrders` object
+per country, so simultaneous submission has no dictionary iteration path.
+`TurnDate` records an unrestricted year plus quarter 1–4; four successful
+resolutions advance one year. `CompletedTurnCount` starts at zero and advances
+only after all phases finish. The initial shell emits immutable phase-complete
+events, records the supplied seed, and materializes final rail connectivity.
+System-specific phase events and mutations replace the empty phase bodies as
+economy, conflict, and diplomacy enter the model.
+
+**Economy storage foundation.** `CommodityId` is separate from `ResourceId`:
+a map deposit points through `ResourceDefinition` to the commodity it yields,
+while materials and goods need no deposit. Commodity catalogs are content-
+defined and compile from stable keys to dense runtime IDs. Available stock is
+a checked 64-bit country-by-commodity array. Pending deliveries remain ordered,
+individually identified entries carrying recipient, commodity, quantity, and
+transport-or-trade source, so cancellation removes one intent without rolling
+back unrelated stock. The Delivery phase validates all additions before making
+any mutation, then commits atomically and emits one `CommodityDeliveredEvent`
+per entry. Production facilities and recipes are content-defined. A deterministic
+planner walks dense countries and each country's explicitly ordered requests,
+shares capacity across recipes attached to the same facility, and partially
+completes against capacity and Available inputs. Outputs are staged rather than
+made eligible as same-turn inputs. Production deltas and existing pending
+deliveries are jointly preflighted before any inventory mutation, preserving
+full-turn atomicity for the currently implemented economy phases. Feeding,
+labour, power, capacity construction, and transport allocation remain later
+rule layers.
+
 **The central trick.** The original's step 5 retroactively cancels trades that
 step 4's blockades invalidated. That's only a hard rollback if trade committed
 something. So `TradePhase` writes *pending shipment intents* and commits
 nothing physical; `TradeCancellationPhase` becomes a filter over a list rather
-than an undo. This is also the faithful reading — the universal one-turn lag
-means a turn's natural output *is* a queue of deferred effects.
+than an undo. This is also the faithful reading: most physical output from a
+turn is a queue of deferred effects.
 
 Money is the only thing that genuinely reverses. Model it as a ledger where
 cancellation appends a compensating entry, never by mutating history.
@@ -72,9 +202,19 @@ impossible. Any `foreach` over a dictionary inside a phase is a latent bug.
 Genuine contention (two powers invading one province) resolves by an explicit
 seeded tiebreak, never by iteration order.
 
-**One-turn lag is modelled once, globally** — an `Available`/`Arriving` pair
-with a single turn-advance that swaps buckets. Five systems inventing five
-subtly different lags is a predictable failure mode.
+**Deferred delivery is modelled once, with explicit exceptions.** Warehouse
+stock is `Available`; transport and trade create `PendingDelivery` entries.
+Production cannot generally use pending goods, but worker feeding consumes
+transported raw food from `PendingDelivery` before warehouse food, matching
+the original's documented priority. Power is separate transient labour: it is
+created and consumed during the same production phase and never enters either
+inventory. After blockade cancellation and food consumption, `Delivery`
+commits the remaining pending goods for use on the following turn.
+
+The current storage layer already enforces this Available/Pending boundary.
+Until worker feeding exists, Delivery commits every uncancelled pending entry;
+feeding will consume its documented same-turn exceptions from identifiable
+transport entries before that commit rather than weakening the boundary.
 
 **The event log is the presentation contract.** The client animates the log
 and never diffs state. This gives newspaper and battle-report views nearly
@@ -147,6 +287,29 @@ connectivity graph must not assume a fixed cell count, and new sizes need a
 content format of our own with dimensions in its header. The remaining cost is
 authoring effort, not engine work.
 
+The first Phase 3 scale regression is 360x180, or 64,800 cells: exactly ten
+times the original area. A tenfold increase in both dimensions is 1080x600,
+or 648,000 cells. Core's packed connectivity arrays support either without a
+format change; the larger interactive case requires map-view chunking and
+packed presentation snapshots so off-screen work does not scale with the full
+map on every refresh.
+
+## Rail connectivity index
+
+`WorldState.GetRailConnectivity(country)` lazily builds an immutable,
+array-backed component index. A rail edge participates only when both endpoint
+cells are provinces currently owned by that country. Rail construction,
+removal, and province ownership changes invalidate affected cached indexes;
+queries rebuild only on demand. Old snapshots stay immutable, which lets a
+turn phase compare before/after topology without copying source state.
+
+Component identifiers are deterministic: components are numbered by their
+lowest cell index, independent of hash-set iteration or link insertion order.
+Cells with no usable rail edge are outside the rail index. The index does not
+yet decide whether a depot is served, infer river continuity, or join ports
+through sea zones. Those are transport rules layered over this physical rail
+topology as their required state enters the model.
+
 ## Traps to avoid
 
 - Logic in the client. Views are id-keyed and rule-free; if a client script
@@ -164,13 +327,18 @@ authoring effort, not engine work.
 
 ## Verification
 
-- Byte-exact round-trip on every original file — a hard requirement, already
-  demonstrated in Python, so any C# parser that can't match it is wrong.
-- Cross-oracle: C# and the Python reference implementation must agree on every
-  corpus file. The Python side is verified, so disagreement means C# is at fault.
+- Byte-exact round-trip on every original file is a hard requirement at the
+  legacy boundary and is independently demonstrated in Python and C#.
+- Core geometry is tested with exhaustive coordinate round-trips,
+  neighbor/opposite properties, arbitrary dimensions, and boundaries that
+  prove edges never wrap into another row.
+- Cross-check: C# and the Python structural reference must agree on every
+  corpus file. A disagreement triggers byte-level and evidence-based triage;
+  neither implementation wins by definition.
 - Arbitrary-dimension tests, to stop 108×60 creeping back in as an assumption.
-- Text/binary equivalence on the plaintext scenarios — effectively a test of
-  the tag arity table.
+- Plaintext corpus audit: every source must parse, and aggregate comparisons
+  track exact, ordered-subset, near, and unrelated binary relationships. The
+  shipped filenames are not assumed to identify matching pairs.
 - Golden replay from day one: record `(seed, scenario, orders)`, assert replay
   reproduces the per-turn state-hash sequence. An all-AI long-run trace is the
   canary for every refactor.

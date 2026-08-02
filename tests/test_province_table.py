@@ -2,14 +2,12 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tools", "map_editor"))
 
-from imperialism_format import MapFile, MapFormatProfile
+from imperialism_format import MapFile, MapFormatProfile, anchors
 from imperialism_format.constants import (
     DORMANT_RECORD_COUNT, NO_PROVINCE, PROVINCE_TOWN_OFFSET,
 )
 
-import anchors
 import originals
 
 

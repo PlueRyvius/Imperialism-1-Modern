@@ -1,9 +1,12 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from imperialism_format import ScenarioFile
+from imperialism_format.scn_file import NAME_FIELD_SIZE, NAME_TAGS, TAG_FIELD_COUNTS
 
 LOCAL_FIXTURE = os.path.join(os.path.dirname(__file__), "..", "fixtures", "local_only", "s1.scn")
 
@@ -74,7 +77,88 @@ def test_rejects_missing_term():
 
 def test_real_game_scn_loads_if_present():
     if not os.path.exists(LOCAL_FIXTURE):
-        return
+        pytest.skip("no real .scn fixture in fixtures/local_only")
     scn = ScenarioFile.load(LOCAL_FIXTURE)
     assert len(scn.records) > 0
     assert scn.to_bytes() == open(LOCAL_FIXTURE, "rb").read()
+
+
+@pytest.mark.parametrize("newline", ["\r", "\n", "\r\n"])
+def test_text_parser_accepts_original_and_modern_line_endings(newline):
+    text = newline.join(("year 5", "zone 40 Port Said", "cash 0 2500")) + newline
+    scn = ScenarioFile.from_text(text)
+
+    assert [record.tag for record in scn.records] == ["year", "zone", "cash"]
+    assert scn.records[1].fields == [40]
+    assert scn.records[1].name == "Port Said"
+
+
+def test_text_parser_handles_all_known_tags():
+    lines = []
+    for tag, field_count in TAG_FIELD_COUNTS.items():
+        fields = " ".join(str(i) for i in range(field_count))
+        suffix = " Example Name" if tag in NAME_TAGS else ""
+        lines.append(f"{tag} {fields}{suffix}".strip())
+
+    scn = ScenarioFile.from_text("\r".join(lines))
+
+    assert [record.tag for record in scn.records] == list(TAG_FIELD_COUNTS)
+
+
+def test_text_parser_normalizes_spacing_and_trailing_whitespace():
+    scn = ScenarioFile.from_text("  zone\t40\tPort Said   \r\nyear   5  \r\n")
+
+    assert scn.to_text() == "zone 40 Port Said\ryear 5\r"
+
+
+def test_text_round_trip_is_semantic_not_whitespace_exact():
+    original = ScenarioFile.from_text("cnam 0 Test Republic\nrela 0 1 100\n")
+    reparsed = ScenarioFile.from_text(original.to_text())
+
+    assert [
+        (record.tag, record.fields, record.name) for record in reparsed.records
+    ] == [
+        (record.tag, record.fields, record.name) for record in original.records
+    ]
+
+
+def test_text_load_and_save_use_ascii_and_canonical_cr(tmp_path):
+    source = tmp_path / "scenario.txt"
+    source.write_bytes(b"year 5\nzone 40 Port Said\n")
+
+    scn = ScenarioFile.load_text(str(source))
+    output = tmp_path / "canonical.txt"
+    scn.save_text(str(output))
+
+    assert output.read_bytes() == b"year 5\rzone 40 Port Said\r"
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ("year 5\nnope 1\n", "line 2: unknown tag"),
+        ("year 5\ncash 0\n", "line 2: tag 'cash' expects 2 integer fields"),
+        ("year 5\nzone 40\n", "line 2: tag 'zone' expects 1 integer fields followed by a name"),
+        ("year 5\ncash zero 1\n", "line 2: field 1 for tag 'cash' is not a decimal integer"),
+        ("year 5\ncash -1 1\n", "line 2: field 1 for tag 'cash' is outside uint32 range"),
+        ("year 5\ncash 0 4294967296\n", "line 2: field 2 for tag 'cash' is outside uint32 range"),
+    ],
+)
+def test_text_parser_reports_line_numbered_errors(text, message):
+    with pytest.raises(ValueError) as exc_info:
+        ScenarioFile.from_text(text)
+    assert message in str(exc_info.value)
+
+
+def test_edited_non_ascii_name_raises_instead_of_silent_replacement():
+    scn = ScenarioFile()
+    scn.add("cnam", 0, name="France")
+    scn.records[0].name = "Café"
+    with pytest.raises(ValueError, match="ASCII"):
+        scn.to_bytes()
+
+
+def test_blank_name_field_round_trips_via_raw_bytes():
+    raw = b"cnam" + (0).to_bytes(4, "big") + bytes(NAME_FIELD_SIZE) + b"TERM"
+    scn = ScenarioFile.from_bytes(raw)
+    assert scn.to_bytes() == raw
