@@ -200,7 +200,12 @@ public sealed class LegacyWorldConverterTests
         Assert.Equal(1, document.Scenarios[0].Rails[0].Second);
         Assert.Equal(0, document.Scenarios[0].Capitals[0].Cell);
         Assert.Equal(1, result.Report.DeferredCounts["scenario.unused-zone-records"]);
-        Assert.Equal(1, result.Report.DeferredCounts["scenario.tag.rail"]);
+
+        // The rail record is a depot, not track, so it is converted rather than
+        // deferred. The map's own rail byte is where the track comes from, and
+        // it is still read into Rails above.
+        Assert.DoesNotContain("scenario.tag.rail", result.Report.DeferredCounts.Keys);
+        Assert.Equal([0], document.Scenarios[0].Depots);
         Assert.Equal(1, result.Report.DeferredCounts["scenario.tag.tech"]);
         Assert.Equal(2, result.Report.DeferredCounts["map.trailer-records"]);
         Assert.Equal(7, result.Report.DeferredCounts["inf.country-briefings"]);
@@ -560,6 +565,22 @@ public sealed class LegacyWorldConverterTests
             ["s13"] = 10,
             ["s14"] = 10,
         };
+
+        // Depots are a strict subset of railed cells: s1 has 310 railed cells
+        // and 76 depots. The generated tutorial worlds ship none at all, which
+        // is why zero is an expected value rather than a broken import.
+        var expectedDepots = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["s1"] = 76,
+            ["s3"] = 28,
+            ["s9"] = 25,
+            ["s12"] = 24,
+            ["s13"] = 2,
+            ["s14"] = 2,
+            ["s10"] = 0,
+            ["s11"] = 0,
+            ["s15"] = 0,
+        };
         var converted = 0;
 
         foreach (var mapPath in Directory.GetFiles(directory, "*.map").OrderBy(static path => path))
@@ -593,6 +614,17 @@ public sealed class LegacyWorldConverterTests
             if (expectedPorts.TryGetValue(key, out var ports))
             {
                 Assert.Equal(ports, result.Document!.Scenarios[0].Ports.Length);
+            }
+
+            if (expectedDepots.TryGetValue(key, out var depots))
+            {
+                Assert.Equal(depots, result.Document!.Scenarios[0].Depots.Length);
+
+                // Every depot in an original stands on track. s5 is our own
+                // generated output and is not part of the corpus.
+                Assert.DoesNotContain(
+                    result.Report.Diagnostics,
+                    item => item.Code == "scenario.depot-without-rail");
             }
 
             converted++;

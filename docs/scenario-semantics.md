@@ -215,6 +215,21 @@ Militia through Siege Artillery, Paddlewheelers and Ironclads; 1848 spans the
 two. A type picker that ignores the year will offer units the scenario has never
 heard of.
 
+**`rail` records are depots, not track.** The tag is misleading: the map's own
+rail byte already carries the lines, and `ReadReciprocalRails` reads them from
+there. A `rail` scenario record is a single cell index naming a **rail depot**
+built on that track. Two independent checks agree:
+
+- They are a **strict subset of railed cells** — 76 of 310 in `s1`, 28 of 125 in
+  `s3`, 25 of 81 in `s9`, 2 of 3 in `s13`. Track vastly outnumbers them.
+- **No depot in any shipped scenario sits within two tiles of another** — zero
+  violations out of 76, 28, 25 and 2. That is exactly the spacing the manual
+  advises so that each tile is gathered by only one structure.
+
+Twelve of `s1`'s depots share a cell with a port, which is what the manual tells
+you to do so that inland rail can reach a coastal port. The generated tutorial
+worlds (`s10`, `s11`, `s15`) ship **no depots at all** — you build your own.
+
 `port` is `[cell]`, a single linear cell index. **Verified** across all nine
 originals: all 124 port records name a land cell, none an ocean one, and every
 one touches sea or carries a river — but only when adjacency **wraps east-west**.

@@ -109,7 +109,7 @@ internal static class ExtractionPlanner
             var strandedPorts = 0;
             if (definition.Extraction.PortFishing is { } fishing)
             {
-                foreach (var port in state.GetPorts())
+                foreach (var port in Harbours(state, country))
                 {
                     var portCell = map[port];
                     if (portCell.Region.Kind != CellRegionKind.Province ||
@@ -179,11 +179,21 @@ internal static class ExtractionPlanner
     }
 
     /// <summary>
-    /// Marks the cells a country can gather from directly: its capital, plus
-    /// every cell sharing the capital's rail component. A rail network that no
-    /// longer reaches the capital collects nothing, which is the connectivity
-    /// rule doing its job rather than an omission.
+    /// Marks the structures a country gathers from: its capital, its connected
+    /// depots, and its ports.
     /// </summary>
+    /// <remarks>
+    /// The capital is always both a connected depot and a connected port, so it
+    /// seeds unconditionally. A depot gathers only when rail carries its goods
+    /// to the capital, which is what the component test is for. A port needs no
+    /// railroad at all — its goods leave by water — so an owned port always
+    /// seeds. The two ways a port can lose that (the province downstream of a
+    /// river port falling, and an undisputed enemy fleet) are not modelled, so
+    /// no port is ever disconnected here.
+    ///
+    /// Rail cells that are not depots gather nothing. Track alone moves goods
+    /// past a tile; a structure is what lifts them off it.
+    /// </remarks>
     private static void SeedCollectionPoints(
         WorldState state,
         CountryId country,
@@ -191,14 +201,26 @@ internal static class ExtractionPlanner
         int[] stamp,
         List<int> frontier)
     {
+        // Connection means a line to the capital, so a country without one has
+        // nothing for anything to connect to — ports included.
         var capital = state.GetCountryCapital(country);
         if (!capital.HasValue)
         {
             return;
         }
 
+        var map = state.Definition.Map;
         stamp[capital.Value.Value] = pass;
         frontier.Add(capital.Value.Value);
+
+        foreach (var port in state.GetPorts())
+        {
+            if (Owns(state, map, port, country) && stamp[port.Value] != pass)
+            {
+                stamp[port.Value] = pass;
+                frontier.Add(port.Value);
+            }
+        }
 
         var rail = state.GetRailConnectivity(country);
         var capitalComponent = rail.GetComponentId(capital.Value);
@@ -207,14 +229,38 @@ internal static class ExtractionPlanner
             return;
         }
 
-        for (var cell = 0; cell < stamp.Length; cell++)
+        foreach (var depot in state.GetDepots())
         {
-            if (stamp[cell] != pass && rail.GetComponentId(new CellIndex(cell)) == capitalComponent)
+            if (stamp[depot.Value] == pass ||
+                !Owns(state, map, depot, country) ||
+                rail.GetComponentId(depot) != capitalComponent)
             {
-                stamp[cell] = pass;
-                frontier.Add(cell);
+                continue;
             }
+
+            stamp[depot.Value] = pass;
+            frontier.Add(depot.Value);
         }
+    }
+
+    /// <summary>
+    /// Every cell that fishes for a country: its ports, plus its capital, which
+    /// the manual makes a connected port whether or not a record names it.
+    /// </summary>
+    private static IEnumerable<CellIndex> Harbours(WorldState state, CountryId country)
+    {
+        var ports = state.GetPorts();
+        var capital = state.GetCountryCapital(country);
+        return capital is { } cell && !state.HasPort(cell)
+            ? ports.Append(cell)
+            : ports;
+    }
+
+    private static bool Owns(WorldState state, MapDefinition map, CellIndex cell, CountryId country)
+    {
+        var region = map[cell].Region;
+        return region.Kind == CellRegionKind.Province &&
+            state.GetProvinceOwner(region.Province) == country;
     }
 
     private static void ExpandCatchment(

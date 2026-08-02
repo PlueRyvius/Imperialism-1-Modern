@@ -36,6 +36,11 @@ internal static class WorldContentMigrator
             MigrateVersionFiveToSix(document);
         }
 
+        if (document.FormatVersion == 6)
+        {
+            MigrateVersionSixToSeven(document);
+        }
+
         return document;
     }
 
@@ -265,6 +270,34 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 6;
+    }
+
+    /// <summary>
+    /// Version 7 adds rail depots, and with them the real collection model:
+    /// gathering happens at connected depots, ports and the capital rather than
+    /// anywhere the rail network reaches.
+    /// </summary>
+    /// <remarks>
+    /// A version 6 package has no depot records and none can be invented, so the
+    /// migration adds none. **That changes behaviour**: such a package now
+    /// gathers only around its capital and its ports, where before every cell of
+    /// its rail network gathered. This is the correct model rather than a
+    /// regression, but it is a visible change for hand-authored worlds and for
+    /// the viewer's demo package, so it is stated here rather than discovered.
+    /// </remarks>
+    private static void MigrateVersionSixToSeven(WorldContentDocument document)
+    {
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.Depots is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 6 cannot contain version 7 depots.");
+            }
+        }
+
+        document.FormatVersion = 7;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

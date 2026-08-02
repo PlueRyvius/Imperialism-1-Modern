@@ -336,11 +336,26 @@ public sealed class ExtractionTests
     }
 
     [Fact]
-    public void APortOffTheNetworkStrandsItsCatch()
+    public void APortNeedsNoRailroadToBeConnected()
     {
-        // Cell 2 has sea beside it but no rail home, and cell 1 is sea-locked
-        // from it, so nothing carries the catch to the capital.
+        // Cell 2 has sea beside it and no rail whatsoever. The manual is
+        // explicit that a port needs no railroad — its goods leave by water —
+        // so it fishes anyway.
         var state = CreatePortState(ports: [2]);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(1, extraction.FishingPortCount);
+        Assert.Equal(0, extraction.StrandedPortCount);
+    }
+
+    [Fact]
+    public void WithNoCapitalThereIsNothingForAPortToConnectTo()
+    {
+        var state = CreatePortState(ports: [2]);
+        state.SetCountryCapital(new CountryId(0), null);
 
         var extraction = Assert.Single(
             TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
@@ -349,9 +364,74 @@ public sealed class ExtractionTests
         Assert.Equal(0, extraction.FishingPortCount);
         Assert.Equal(1, extraction.StrandedPortCount);
         Assert.Empty(extraction.Collected);
+    }
+
+    [Fact]
+    public void TheCapitalFishesWithoutAPortRecord()
+    {
+        // Cell 0 is the capital and cell 1 is sea in this fixture, and the
+        // manual makes the capital a connected port by definition.
+        var state = CreatePortState(ports: [], capitalBesideSea: true);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.False(state.HasPort(new CellIndex(0)));
+        Assert.Equal(1, extraction.FishingPortCount);
         Assert.Equal(
             new CommodityQuantity(new CommodityId(Fish), 1),
-            Assert.Single(extraction.Stranded));
+            Assert.Single(extraction.Collected));
+    }
+
+    [Fact]
+    public void TrackWithoutADepotGathersNothing()
+    {
+        // Rail runs capital -> 1 -> 2 -> 3 but only cell 1 has a depot, so the
+        // catchment stops at cell 2 and the deposit on cell 4 is stranded even
+        // though rail passes right beside it.
+        var state = CreateState(
+            depositCells: [(4, Grain)],
+            extraRails: [(1, 2), (2, 3), (3, 4)]);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(0, extraction.CollectedCellCount);
+        Assert.Equal(1, extraction.StrandedCellCount);
+    }
+
+    [Fact]
+    public void ADepotOffTheCapitalsNetworkGathersNothing()
+    {
+        // A depot at cell 3 sits on rail, but that rail never reaches the
+        // capital, so its goods have no way home.
+        var state = CreateState(
+            depositCells: [(3, Grain)],
+            extraRails: [(3, 4)],
+            depots: [3]);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(0, extraction.CollectedCellCount);
+        Assert.Equal(1, extraction.StrandedCellCount);
+        Assert.Empty(extraction.Collected);
+    }
+
+    [Fact]
+    public void ADepotMustStandOnLand()
+    {
+        var state = CreatePortState(ports: []);
+
+        Assert.Throws<ArgumentException>(() => state.BuildDepot(new CellIndex(3)));
+        Assert.True(state.BuildDepot(new CellIndex(2)));
+        Assert.False(state.BuildDepot(new CellIndex(2)));
+        Assert.True(state.HasDepot(new CellIndex(2)));
+        Assert.True(state.RemoveDepot(new CellIndex(2)));
+        Assert.False(state.HasDepot(new CellIndex(2)));
     }
 
     [Fact]
@@ -408,7 +488,8 @@ public sealed class ExtractionTests
     private static WorldState CreatePortState(
         int[] ports,
         (int First, int Second)[]? extraRails = null,
-        bool withFishing = true)
+        bool withFishing = true,
+        bool capitalBesideSea = false)
     {
         const int width = 4;
         var dimensions = new MapDimensions(width, 1);
@@ -424,7 +505,9 @@ public sealed class ExtractionTests
                     : CellRegion.ForProvince(new ProvinceId(index)),
                 null,
                 index == 0 ? SettlementSiteKind.Urban : SettlementSiteKind.None,
-                index == 2 ? new RiverPath(RiverEndpoint.WestLower, RiverEndpoint.EastUpper) : null);
+                index == 2 || (capitalBesideSea && index == 1)
+                    ? new RiverPath(RiverEndpoint.WestLower, RiverEndpoint.EastUpper)
+                    : null);
         }
 
         var map = new MapDefinition(
@@ -487,7 +570,8 @@ public sealed class ExtractionTests
         bool withMill = false,
         (int Cell, int Level)[]? initialDevelopment = null,
         bool gateGrainBehindTechnology = false,
-        bool startingTechnology = false)
+        bool startingTechnology = false,
+        int[]? depots = null)
     {
         const int width = 5;
         var dimensions = new MapDimensions(width, 1);
@@ -552,7 +636,12 @@ public sealed class ExtractionTests
                 .Select(static item => new InitialCellDevelopment(new CellIndex(item.Cell), item.Level)),
             startingTechnology
                 ? [new InitialCountryTechnology(new CountryId(0), new TechnologyId(0))]
-                : null);
+                : null,
+            null,
+
+            // Cell 1 is railed to the capital, so a depot there is connected and
+            // its catchment reaches cell 2. Track alone gathers nothing.
+            (depots ?? [1]).Select(static cell => new CellIndex(cell)));
 
         var facilities = withMill
             ? new[]
