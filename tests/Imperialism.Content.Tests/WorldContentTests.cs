@@ -51,6 +51,13 @@ public sealed class WorldContentTests
         Assert.Equal(new ProvinceId(1), compiled.Catalog.GetProvinceId("province.east"));
         Assert.Equal(new CommodityId(1), compiled.Catalog.GetCommodityId("commodity.grain"));
         Assert.Equal("commodity.steel", compiled.Catalog.GetKey(new CommodityId(3)));
+        Assert.Equal(
+            new ProductionFacilityId(0),
+            compiled.Catalog.GetProductionFacilityId("facility.steel-mill"));
+        Assert.Equal(
+            "recipe.steel",
+            compiled.Catalog.GetKey(new ProductionRecipeId(0)));
+        Assert.Equal(6, world.Scenario.InitialProductionCapacities[0].Quantity);
         Assert.Throws<KeyNotFoundException>(() => compiled.Catalog.GetTerrainId("terrain.missing"));
     }
 
@@ -261,7 +268,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(3)]
+    [InlineData(4)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -329,7 +336,7 @@ public sealed class WorldContentTests
         var compiled = WorldContentCompiler.Compile(migrated);
         var encoded = Encoding.UTF8.GetString(WorldContentCodec.Encode(migrated));
 
-        Assert.Equal(2, migrated.FormatVersion);
+        Assert.Equal(3, migrated.FormatVersion);
         Assert.Null(migrated.ResourceKeys);
         Assert.Equal(
             ["commodity.grain", "commodity/from-resource/deposit.crude-oil"],
@@ -341,7 +348,7 @@ public sealed class WorldContentTests
             new CommodityId(1),
             compiled.World.Map.Resources[1].Commodity);
         Assert.DoesNotContain("\"resourceKeys\"", encoded, StringComparison.Ordinal);
-        Assert.Contains("\"formatVersion\": 2", encoded, StringComparison.Ordinal);
+        Assert.Contains("\"formatVersion\": 3", encoded, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -363,6 +370,59 @@ public sealed class WorldContentTests
 
         var exception = Assert.Throws<ContentValidationException>(() =>
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(mixed)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    [Fact]
+    public void DecoderMigratesVersionTwoToEmptyVersionThreeProductionCollections()
+    {
+        var versionTwo = """
+            {
+              "format": "imperialism-world",
+              "formatVersion": 2,
+              "terrainKeys": ["terrain.plains"],
+              "commodities": [],
+              "resources": [],
+              "map": {
+                "key": "map.v2",
+                "name": "Version Two",
+                "width": 1,
+                "height": 1,
+                "provinces": [],
+                "seaZones": [],
+                "cells": [{ "terrain": "terrain.plains", "region": {}, "resources": [], "hasSettlementSite": false }]
+              },
+              "countries": [],
+              "scenarios": [{
+                "key": "scenario.v2",
+                "name": "Version Two",
+                "startingYear": 1815,
+                "provinceOwners": [],
+                "rails": [],
+                "capitals": [],
+                "initialInventory": []
+              }]
+            }
+            """;
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(versionTwo));
+
+        Assert.Equal(3, migrated.FormatVersion);
+        Assert.Empty(migrated.ProductionFacilities);
+        Assert.Empty(migrated.ProductionRecipes);
+        Assert.Empty(migrated.Scenarios[0].ProductionCapacities);
+    }
+
+    [Fact]
+    public void VersionTwoMigrationRejectsVersionThreeProductionData()
+    {
+        var document = CreateValidDocument();
+        var json = Encoding.UTF8.GetString(WorldContentCodec.Encode(document))
+            .Replace("\"formatVersion\": 3", "\"formatVersion\": 2", StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
 
         Assert.Equal("formatVersion", exception.Path);
     }
@@ -393,8 +453,8 @@ public sealed class WorldContentTests
     {
         var valid = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()));
         var unknown = valid.Replace(
-            "\"formatVersion\": 2,",
-            "\"formatVersion\": 2,\n  \"mystery\": true,",
+            "\"formatVersion\": 3,",
+            "\"formatVersion\": 3,\n  \"mystery\": true,",
             StringComparison.Ordinal);
 
         Assert.Throws<ContentValidationException>(() =>
@@ -487,6 +547,26 @@ public sealed class WorldContentTests
     }
 
     [Fact]
+    public void CompilerValidatesProductionDefinitionsAndCapacitiesWithPaths()
+    {
+        var missingFacility = CreateValidDocument();
+        missingFacility.ProductionRecipes[0].Facility = "facility.missing";
+        AssertPath("productionRecipes[0].facility", missingFacility);
+
+        var zeroInput = CreateValidDocument();
+        zeroInput.ProductionRecipes[0].Inputs[0].Quantity = 0;
+        AssertPath("productionRecipes[0].inputs[0].quantity", zeroInput);
+
+        var duplicateInput = CreateValidDocument();
+        duplicateInput.ProductionRecipes[0].Inputs[1].Commodity = "commodity.coal";
+        AssertPath("productionRecipes[0].inputs[1]", duplicateInput);
+
+        var unlimitedCapacity = CreateValidDocument();
+        unlimitedCapacity.ProductionFacilities[0].CapacityMode = ProductionCapacityMode.Unlimited;
+        AssertPath("scenarios[0].productionCapacities[0].facility", unlimitedCapacity);
+    }
+
+    [Fact]
     public void CompilerRequiresExactlyOneOwnershipEntryPerProvince()
     {
         var missing = CreateValidDocument();
@@ -576,6 +656,34 @@ public sealed class WorldContentTests
             new ResourceContentDefinition { Key = "resource.grain", Commodity = "commodity.grain" },
             new ResourceContentDefinition { Key = "resource.oil", Commodity = "commodity.oil" },
         ],
+        ProductionFacilities =
+        [
+            new ProductionFacilityContentDefinition
+            {
+                Key = "facility.steel-mill",
+                Name = "Steel Mill",
+                CapacityMode = ProductionCapacityMode.Limited,
+            },
+        ],
+        ProductionRecipes =
+        [
+            new ProductionRecipeContentDefinition
+            {
+                Key = "recipe.steel",
+                Name = "Steel",
+                Facility = "facility.steel-mill",
+                CapacityCost = 1,
+                Inputs =
+                [
+                    new CommodityQuantityContent { Commodity = "commodity.coal", Quantity = 1 },
+                    new CommodityQuantityContent { Commodity = "commodity.oil", Quantity = 1 },
+                ],
+                Outputs =
+                [
+                    new CommodityQuantityContent { Commodity = "commodity.steel", Quantity = 1 },
+                ],
+            },
+        ],
         Map = new MapContentDocument
         {
             Key = "map.demo",
@@ -639,6 +747,15 @@ public sealed class WorldContentTests
                         Country = "empire.a",
                         Commodity = "commodity.grain",
                         Quantity = 12,
+                    },
+                ],
+                ProductionCapacities =
+                [
+                    new InitialProductionCapacityContent
+                    {
+                        Country = "empire.a",
+                        Facility = "facility.steel-mill",
+                        Quantity = 6,
                     },
                 ],
             },

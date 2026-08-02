@@ -42,6 +42,8 @@ public static class WorldContentCompiler
         var terrainKeys = RequireArray(document.TerrainKeys, "terrainKeys");
         var commodityContent = RequireArray(document.Commodities, "commodities");
         var resourceContent = RequireArray(document.Resources, "resources");
+        var facilityContent = RequireArray(document.ProductionFacilities, "productionFacilities");
+        var recipeContent = RequireArray(document.ProductionRecipes, "productionRecipes");
         if (document.ResourceKeys is not null)
         {
             throw Error("resourceKeys", "This version uses resource definitions instead of resourceKeys.");
@@ -65,6 +67,8 @@ public static class WorldContentCompiler
         var terrainIds = BuildKeyMap(terrainKeys, "terrainKeys", requireAtLeastOne: true);
         var commodityIds = BuildCommodityKeyMap(commodityContent);
         var resourceIds = BuildResourceKeyMap(resourceContent);
+        var facilityIds = BuildProductionFacilityKeyMap(facilityContent);
+        var recipeIds = BuildProductionRecipeKeyMap(recipeContent);
         var provinceContent = RequireArray(mapContent.Provinces, "map.provinces");
         var seaZoneContent = RequireArray(mapContent.SeaZones, "map.seaZones");
         var provinceIds = BuildNamedKeyMap(provinceContent, "map.provinces");
@@ -79,6 +83,12 @@ public static class WorldContentCompiler
                     commodityIds,
                     definition.Commodity,
                     $"resources[{index}].commodity")))).ToArray();
+        var facilities = facilityContent.Select((definition, index) =>
+            new ProductionFacilityDefinition(
+                new ProductionFacilityId(index),
+                definition.Name,
+                definition.CapacityMode)).ToArray();
+        var recipes = CompileProductionRecipes(recipeContent, facilityIds, commodityIds);
 
         MapDimensions dimensions;
         try
@@ -134,7 +144,9 @@ public static class WorldContentCompiler
             commodityContent.Select(static item => item.Key),
             provinceContent.Select(static item => item.Key),
             seaZoneContent.Select(static item => item.Key),
-            countriesContent.Select(static item => item.Key));
+            countriesContent.Select(static item => item.Key),
+            facilityContent.Select(static item => item.Key),
+            recipeContent.Select(static item => item.Key));
         var scenarioKeys = new string?[scenariosContent.Length];
         for (var index = 0; index < scenariosContent.Length; index++)
         {
@@ -155,10 +167,13 @@ public static class WorldContentCompiler
                     map,
                     countries,
                     commodities,
+                    facilities,
+                    recipes,
                     provinceContent,
                     provinceIds,
                     countryIds,
-                    commodityIds));
+                    commodityIds,
+                    facilityIds));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -170,10 +185,13 @@ public static class WorldContentCompiler
         MapDefinition map,
         CountryDefinition[] countries,
         CommodityDefinition[] commodities,
+        ProductionFacilityDefinition[] facilities,
+        ProductionRecipeDefinition[] recipes,
         NamedContentDefinition[] provinceContent,
         IReadOnlyDictionary<string, int> provinceIds,
         IReadOnlyDictionary<string, int> countryIds,
-        IReadOnlyDictionary<string, int> commodityIds)
+        IReadOnlyDictionary<string, int> commodityIds,
+        IReadOnlyDictionary<string, int> facilityIds)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -193,6 +211,12 @@ public static class WorldContentCompiler
             countryIds,
             commodityIds,
             path);
+        var productionCapacities = CompileProductionCapacities(
+            RequireArray(scenarioContent.ProductionCapacities, $"{path}.productionCapacities"),
+            countryIds,
+            facilityIds,
+            facilities,
+            path);
 
         if (string.IsNullOrWhiteSpace(scenarioContent.Name))
         {
@@ -207,8 +231,9 @@ public static class WorldContentCompiler
                 owners,
                 rails,
                 capitals,
-                initialInventory);
-            return new WorldDefinition(map, countries, scenario, commodities);
+                initialInventory,
+                productionCapacities);
+            return new WorldDefinition(map, countries, scenario, commodities, facilities, recipes);
         }
         catch (ArgumentException exception)
         {
@@ -393,6 +418,118 @@ public static class WorldContentCompiler
         return inventory;
     }
 
+    private static InitialProductionCapacity[] CompileProductionCapacities(
+        InitialProductionCapacityContent?[] capacityContent,
+        IReadOnlyDictionary<string, int> countryIds,
+        IReadOnlyDictionary<string, int> facilityIds,
+        IReadOnlyList<ProductionFacilityDefinition> facilities,
+        string scenarioPath)
+    {
+        var path = $"{scenarioPath}.productionCapacities";
+        var capacities = new InitialProductionCapacity[capacityContent.Length];
+        var seen = new HashSet<(int Country, int Facility)>();
+        for (var index = 0; index < capacityContent.Length; index++)
+        {
+            var content = capacityContent[index] ?? throw Error($"{path}[{index}]", "Value is required.");
+            var country = FindKey(countryIds, content.Country, $"{path}[{index}].country");
+            var facility = FindKey(facilityIds, content.Facility, $"{path}[{index}].facility");
+            if (content.Quantity <= 0)
+            {
+                throw Error($"{path}[{index}].quantity", "Quantity must be positive.");
+            }
+
+            if (facilities[facility].CapacityMode == ProductionCapacityMode.Unlimited)
+            {
+                throw Error($"{path}[{index}].facility", "Unlimited facilities cannot have stored capacity.");
+            }
+
+            if (!seen.Add((country, facility)))
+            {
+                throw Error($"{path}[{index}]", "A country and facility can have only one capacity entry.");
+            }
+
+            capacities[index] = new InitialProductionCapacity(
+                new CountryId(country),
+                new ProductionFacilityId(facility),
+                content.Quantity);
+        }
+
+        return capacities;
+    }
+
+    private static ProductionRecipeDefinition[] CompileProductionRecipes(
+        ProductionRecipeContentDefinition?[] recipeContent,
+        IReadOnlyDictionary<string, int> facilityIds,
+        IReadOnlyDictionary<string, int> commodityIds)
+    {
+        var recipes = new ProductionRecipeDefinition[recipeContent.Length];
+        for (var index = 0; index < recipeContent.Length; index++)
+        {
+            var path = $"productionRecipes[{index}]";
+            var content = recipeContent[index] ?? throw Error(path, "Value is required.");
+            if (string.IsNullOrWhiteSpace(content.Name))
+            {
+                throw Error($"{path}.name", "Value cannot be blank.");
+            }
+
+            if (content.CapacityCost <= 0)
+            {
+                throw Error($"{path}.capacityCost", "Capacity cost must be positive.");
+            }
+
+            var facility = FindKey(facilityIds, content.Facility, $"{path}.facility");
+            var inputs = CompileCommodityQuantities(
+                RequireArray(content.Inputs, $"{path}.inputs"),
+                commodityIds,
+                $"{path}.inputs");
+            var outputs = CompileCommodityQuantities(
+                RequireArray(content.Outputs, $"{path}.outputs"),
+                commodityIds,
+                $"{path}.outputs");
+            if (inputs.Length == 0 || outputs.Length == 0)
+            {
+                throw Error(path, "A production recipe requires at least one input and one output.");
+            }
+
+            recipes[index] = new ProductionRecipeDefinition(
+                new ProductionRecipeId(index),
+                content.Name,
+                new ProductionFacilityId(facility),
+                content.CapacityCost,
+                inputs,
+                outputs);
+        }
+
+        return recipes;
+    }
+
+    private static CommodityQuantity[] CompileCommodityQuantities(
+        CommodityQuantityContent?[] content,
+        IReadOnlyDictionary<string, int> commodityIds,
+        string path)
+    {
+        var result = new CommodityQuantity[content.Length];
+        var seen = new HashSet<int>();
+        for (var index = 0; index < content.Length; index++)
+        {
+            var item = content[index] ?? throw Error($"{path}[{index}]", "Value is required.");
+            var commodity = FindKey(commodityIds, item.Commodity, $"{path}[{index}].commodity");
+            if (item.Quantity <= 0)
+            {
+                throw Error($"{path}[{index}].quantity", "Quantity must be positive.");
+            }
+
+            if (!seen.Add(commodity))
+            {
+                throw Error($"{path}[{index}]", "A commodity can appear only once in this collection.");
+            }
+
+            result[index] = new CommodityQuantity(new CommodityId(commodity), item.Quantity);
+        }
+
+        return result;
+    }
+
     private static CellLink[] CompileLinks(CellLinkContent?[] linkContent, string path)
     {
         var links = new CellLink[linkContent.Length];
@@ -445,6 +582,44 @@ public static class WorldContentCompiler
         ResourceContentDefinition?[] definitions)
     {
         const string path = "resources";
+        var keys = new string?[definitions.Length];
+        for (var index = 0; index < definitions.Length; index++)
+        {
+            var definition = definitions[index] ?? throw Error($"{path}[{index}]", "Value is required.");
+            keys[index] = definition.Key;
+        }
+
+        return BuildKeyMap(keys, path);
+    }
+
+    private static Dictionary<string, int> BuildProductionFacilityKeyMap(
+        ProductionFacilityContentDefinition?[] definitions)
+    {
+        const string path = "productionFacilities";
+        var keys = new string?[definitions.Length];
+        for (var index = 0; index < definitions.Length; index++)
+        {
+            var definition = definitions[index] ?? throw Error($"{path}[{index}]", "Value is required.");
+            if (string.IsNullOrWhiteSpace(definition.Name))
+            {
+                throw Error($"{path}[{index}].name", "Value cannot be blank.");
+            }
+
+            if (!Enum.IsDefined(definition.CapacityMode))
+            {
+                throw Error($"{path}[{index}].capacityMode", "Unknown production capacity mode.");
+            }
+
+            keys[index] = definition.Key;
+        }
+
+        return BuildKeyMap(keys, path);
+    }
+
+    private static Dictionary<string, int> BuildProductionRecipeKeyMap(
+        ProductionRecipeContentDefinition?[] definitions)
+    {
+        const string path = "productionRecipes";
         var keys = new string?[definitions.Length];
         for (var index = 0; index < definitions.Length; index++)
         {

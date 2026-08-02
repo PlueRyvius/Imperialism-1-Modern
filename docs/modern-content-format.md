@@ -29,17 +29,17 @@ Every document starts with:
 ```json
 {
   "format": "imperialism-world",
-  "formatVersion": 2
+  "formatVersion": 3
 }
 ```
 
-Version 2 is the authored version. The loader explicitly migrates version 1
-documents by turning every old resource key into a raw commodity plus a
-resource-to-commodity mapping; encoding then writes version 2. This preserves
-all information version 1 could express without pretending it contained
-manufactured goods. Mixed v1/v2 schemas, unknown fields, and unsupported
-versions fail with a path-qualified validation error. Generic migrated keys use
-the valid `commodity/from-resource/...` form; `/` is part of the key grammar below.
+Version 3 is the authored version. Migration is explicit and sequential:
+version 1 resource palettes become version 2 commodities/resources, then
+version 2 packages gain empty version 3 production collections. This preserves
+everything older packages could express without inventing factories, recipes,
+or capacity. Mixed-version schemas, unknown fields, and unsupported versions
+fail with a path-qualified validation error. Generic migrated keys use the
+valid `commodity/from-resource/...` form; `/` is part of the key grammar below.
 
 ## Stable keys and runtime IDs
 
@@ -64,11 +64,16 @@ The top-level document contains:
 - ordered commodity definitions with stable key, Unicode name, and `raw`,
   `material`, or `goods` category;
 - ordered resource definitions mapping each deposit key to one commodity key;
+- ordered production-facility definitions with stable key, Unicode name, and
+  `limited` or `unlimited` capacity mode;
+- ordered recipes naming a facility, positive capacity cost, and one or more
+  positive commodity inputs and outputs;
 - a keyed map with dimensions, named provinces and sea zones, row-major cells,
   and optional per-cell river paths;
 - named countries;
 - one or more keyed scenarios containing name/year, explicit province owners,
-  rails, capitals, and optional positive initial commodity quantities.
+  rails, capitals, optional positive initial commodity quantities, and sparse
+  positive capacities for limited facilities.
 
 Each cell references one terrain key, zero or more unique resource keys, and
 at most one province or sea-zone key. Settlement sites and river paths are map
@@ -86,13 +91,20 @@ owned by that country. Rail links must join land cells. Several scenarios in
 one package compile to `WorldDefinition` values sharing the same immutable
 `MapDefinition`, so alternate starts do not duplicate map data. Width multiplied
 by height uses checked arithmetic, but there is no historical map, country,
-province, resource, commodity, or name-size limit in the content compiler.
+province, resource, commodity, facility, recipe, or name-size limit in the
+content compiler.
 
 Commodity definitions are package content rather than a fixed Core enum. The
 original importer emits the standard 13 raw, 6 material, and 4 goods
 commodities, while mods may define a different catalog. Power and money are
 not commodities. Initial inventory entries are sparse authored data; runtime
 inventory is a dense checked 64-bit array indexed by country and commodity.
+
+Facility capacity is shared by every recipe that names that facility. An
+unlimited facility has no stored capacity entry. Recipes are general data, not
+fixed original-game slots: they may have multiple inputs and outputs, and
+alternative inputs are separate recipes so allocation stays explicit. Runtime
+orders refer to dense recipe IDs after compilation.
 
 ## APIs
 

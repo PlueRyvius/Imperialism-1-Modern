@@ -7,7 +7,7 @@ namespace Imperialism.Content;
 public static class WorldContentCodec
 {
     public const string FormatName = "imperialism-world";
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
     public const string FileExtension = ".iworld";
 
     private static readonly JsonSerializerOptions JsonOptions = new()

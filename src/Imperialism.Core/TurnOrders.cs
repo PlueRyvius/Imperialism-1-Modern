@@ -6,12 +6,47 @@ namespace Imperialism.Core;
 /// </summary>
 public sealed class CountryTurnOrders
 {
-    public CountryTurnOrders(CountryId country)
+    private readonly IReadOnlyList<ProductionOrder> _production;
+
+    public CountryTurnOrders(CountryId country, IEnumerable<ProductionOrder>? production = null)
     {
+        var productionArray = production?.ToArray() ?? [];
+        if (productionArray.Any(static item => item.RequestedCycles <= 0))
+        {
+            throw new ArgumentException("Production order cycles must be positive.", nameof(production));
+        }
+
+        if (productionArray.Select(static item => item.Recipe).Distinct().Count() != productionArray.Length)
+        {
+            throw new ArgumentException("Production orders cannot repeat a recipe.", nameof(production));
+        }
+
         Country = country;
+        _production = Array.AsReadOnly(productionArray);
     }
 
     public CountryId Country { get; }
+
+    /// <summary>Production requests in explicit allocation-priority order.</summary>
+    public IReadOnlyList<ProductionOrder> Production => _production;
+}
+
+public readonly record struct ProductionOrder
+{
+    public ProductionOrder(ProductionRecipeId recipe, long requestedCycles)
+    {
+        if (requestedCycles <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(requestedCycles), "Requested cycles must be positive.");
+        }
+
+        Recipe = recipe;
+        RequestedCycles = requestedCycles;
+    }
+
+    public ProductionRecipeId Recipe { get; }
+
+    public long RequestedCycles { get; }
 }
 
 /// <summary>A dense, country-id-ordered set of simultaneous turn submissions.</summary>

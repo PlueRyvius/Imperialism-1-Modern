@@ -43,9 +43,9 @@ simultaneously will produce visibly different games.
 **Current implementation boundary.** `TurnResolver` now enforces this seven-
 phase pipeline over dense country-id-ordered submissions and emits an immutable
 phase event log. Strategic time is an explicit year and quarter with no legacy
-date cap. Only the final rail-connectivity materialization has system behavior
-in the initial shell; economy, conflict, trade, and diplomacy mutations remain
-deliberately unimplemented rather than filled with guessed rules.
+date cap. Rail-connectivity materialization and evidence-backed industrial
+production now have system behavior; conflict, trade, diplomacy, labour, and
+transport remain deliberately unimplemented rather than filled with guessed rules.
 
 ## Economy
 
@@ -53,9 +53,13 @@ deliberately unimplemented rather than filled with guessed rules.
 content-defined rather than fixed to legacy slots. Runtime stock uses checked
 64-bit quantities with separate Available inventory and identifiable Pending
 Delivery entries. Trade and transport entries can be cancelled independently;
-the Delivery phase commits the remainder atomically and records events. No
-recipe, capacity, labour, feeding, price, or extraction-rate formula is implied
-by this storage layer.
+the Delivery phase commits the remainder atomically and records events.
+Facilities, recipes, and initial capacity are content-defined. Ordered
+production requests share facility capacity, complete partially when capacity
+or inputs run short, consume only Available stock, and stage outputs so they
+cannot feed another recipe until the following turn. The resolver preflights
+production together with pending deliveries before mutating inventory. Labour,
+feeding, prices, power, capacity construction, and extraction rates remain pending.
 
 **Commodity tiers.** 13 raw resources (grain, livestock, fruit, fish, cotton,
 wool, horses, timber, coal, iron, oil, gold, gems) → 6 materials (canned

@@ -101,12 +101,14 @@ see `docs/map-viewer.md`.
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an
 inert dense order bundle, unrestricted quarterly `TurnDate`, fixed seven-phase
-`TurnResolver`, and immutable event log. `.iworld` v2 defines separate stable
-resource and commodity keys and migrates v1 resource palettes explicitly. Core
-stores available inventory in checked dense 64-bit arrays and pending transport
-or trade deliveries as identifiable entries; Delivery commits them atomically.
-Production formulas, labour, feeding, conflict, trade markets, diplomacy,
-ports, and river traversal remain explicitly pending.
+`TurnResolver`, and immutable event log. `.iworld` v3 defines stable
+commodities, facilities, recipes, and sparse scenario capacity, with explicit
+v1→v2→v3 migration. Core stores checked dense Available inventory and
+identifiable pending transport or trade deliveries. Ordered production requests
+share facility capacity, stage outputs until the next turn, and commit atomically
+with delivery preflight. Labour, feeding, transient power, capacity construction,
+conflict, trade markets, diplomacy, ports, and river traversal remain explicitly
+pending.
 
 ## Conventions
 

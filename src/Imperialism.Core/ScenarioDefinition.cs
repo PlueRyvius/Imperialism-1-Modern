@@ -6,6 +6,7 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<CellLink> _initialRailLinks;
     private readonly IReadOnlyList<CountryCapital> _initialCountryCapitals;
     private readonly IReadOnlyList<InitialCommodityStock> _initialInventory;
+    private readonly IReadOnlyList<InitialProductionCapacity> _initialProductionCapacities;
 
     public ScenarioDefinition(
         string name,
@@ -13,13 +14,21 @@ public sealed class ScenarioDefinition
         IEnumerable<CountryId?> initialProvinceOwners,
         IEnumerable<CellLink>? initialRailLinks = null,
         IEnumerable<CountryCapital>? initialCountryCapitals = null,
-        IEnumerable<InitialCommodityStock>? initialInventory = null)
+        IEnumerable<InitialCommodityStock>? initialInventory = null,
+        IEnumerable<InitialProductionCapacity>? initialProductionCapacities = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
         var railArray = initialRailLinks?.ToArray() ?? [];
         var capitalArray = initialCountryCapitals?.ToArray() ?? [];
         var inventoryArray = initialInventory?.ToArray() ?? [];
+        var capacityArray = initialProductionCapacities?.ToArray() ?? [];
+        if (capacityArray.Any(static item => item.Quantity <= 0))
+        {
+            throw new ArgumentException(
+                "Initial production capacity quantities must be positive.",
+                nameof(initialProductionCapacities));
+        }
         if (railArray.Length != railArray.Distinct().Count())
         {
             throw new ArgumentException("Initial rail links cannot contain duplicates.", nameof(initialRailLinks));
@@ -47,12 +56,21 @@ public sealed class ScenarioDefinition
                 nameof(initialInventory));
         }
 
+        if (capacityArray.Select(static item => (item.Country, item.Facility)).Distinct().Count() !=
+            capacityArray.Length)
+        {
+            throw new ArgumentException(
+                "Initial production capacities cannot contain duplicate country and facility entries.",
+                nameof(initialProductionCapacities));
+        }
+
         Name = name;
         StartingYear = startingYear;
         _initialProvinceOwners = Array.AsReadOnly(initialProvinceOwners.ToArray());
         _initialRailLinks = Array.AsReadOnly(railArray);
         _initialCountryCapitals = Array.AsReadOnly(capitalArray);
         _initialInventory = Array.AsReadOnly(inventoryArray);
+        _initialProductionCapacities = Array.AsReadOnly(capacityArray);
     }
 
     public string Name { get; }
@@ -66,4 +84,7 @@ public sealed class ScenarioDefinition
     public IReadOnlyList<CountryCapital> InitialCountryCapitals => _initialCountryCapitals;
 
     public IReadOnlyList<InitialCommodityStock> InitialInventory => _initialInventory;
+
+    public IReadOnlyList<InitialProductionCapacity> InitialProductionCapacities =>
+        _initialProductionCapacities;
 }

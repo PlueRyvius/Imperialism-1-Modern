@@ -4,10 +4,21 @@ internal static class WorldContentMigrator
 {
     public static WorldContentDocument ToCurrent(WorldContentDocument document)
     {
-        if (document.FormatVersion != 1)
+        if (document.FormatVersion == 1)
         {
-            return document;
+            MigrateVersionOneToTwo(document);
         }
+
+        if (document.FormatVersion == 2)
+        {
+            MigrateVersionTwoToThree(document);
+        }
+
+        return document;
+    }
+
+    private static void MigrateVersionOneToTwo(WorldContentDocument document)
+    {
 
         if (document.ResourceKeys is null)
         {
@@ -59,11 +70,31 @@ internal static class WorldContentMigrator
             };
         }
 
-        document.FormatVersion = WorldContentCodec.CurrentVersion;
+        document.FormatVersion = 2;
         document.Commodities = commodities;
         document.Resources = resources;
         document.ResourceKeys = null;
-        return document;
+    }
+
+    private static void MigrateVersionTwoToThree(WorldContentDocument document)
+    {
+        if (document.ProductionFacilities is null || document.ProductionRecipes is null)
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 2 production collections cannot be null.");
+        }
+
+        if (document.ProductionFacilities.Length != 0 || document.ProductionRecipes.Length != 0 ||
+            (document.Scenarios?.Any(static scenario =>
+                scenario?.ProductionCapacities is { Length: > 0 }) ?? false))
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 2 cannot contain version 3 production definitions or capacities.");
+        }
+
+        document.FormatVersion = 3;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

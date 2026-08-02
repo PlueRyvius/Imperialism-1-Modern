@@ -25,6 +25,7 @@ bottom of this file.
 
 | Mechanic | Confidence | Doc | Implemented in | Tests |
 |---|---|---|---|---|
+| Industrial recipes and capacity | `inferred` | [production](production.md) | Core, Content, LegacyImport | generated + local corpus |
 | Trade clearing price | `guess` | _trade-pricing_ | — | — |
 | Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |
 | Diplomatic relation deltas | `guess` | _relations_ | — | — |
@@ -34,8 +35,9 @@ bottom of this file.
 | Town auto-industrialisation | `guess` | _town-development_ | — | — |
 | Credit limit + interest curve | `guess` | _credit_ | — | — |
 
-Nothing is above `guess` yet — this file exists so that stays visible rather
-than being quietly forgotten.
+Industrial production is the first evidence-backed entry, but remains
+`inferred` until controlled original-behaviour traces verify the resolver's
+shortage and persistence semantics.
 
 ## Where to dig
 

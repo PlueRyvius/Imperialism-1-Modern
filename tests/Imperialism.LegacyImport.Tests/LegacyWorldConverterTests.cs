@@ -212,6 +212,114 @@ public sealed class LegacyWorldConverterTests
     }
 
     [Fact]
+    public void ConverterEmitsEvidenceBackedProductionCatalogAndScenarioEconomy()
+    {
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+            Record("ware", 0, 0, 9),
+            Record("ware", 0, 11, 4),
+            Record("ware", 0, 12, 0),
+            Record("capa", 0, 0, 3),
+            Record("capa", 0, 2, 7),
+            Record("capa", 0, 6, 1),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(1, 1, LandCell(0, 0)),
+            scenario,
+            null,
+            "production");
+
+        Assert.True(result.Success);
+        var document = result.Document!;
+        Assert.Equal(8, document.ProductionFacilities.Length);
+        Assert.Equal(12, document.ProductionRecipes.Length);
+        Assert.Equal(2, document.Scenarios[0].InitialInventory.Length);
+        Assert.Equal(3, document.Scenarios[0].ProductionCapacities.Length);
+        Assert.DoesNotContain("scenario.tag.ware", result.Report.DeferredCounts.Keys);
+        Assert.DoesNotContain("scenario.tag.capa", result.Report.DeferredCounts.Keys);
+
+        var compiled = WorldContentCompiler.Compile(document);
+        Assert.Equal(9, compiled.World.Scenario.InitialInventory[0].Quantity);
+        Assert.Equal(7, compiled.World.Scenario.InitialProductionCapacities[1].Quantity);
+        Assert.Equal(
+            ProductionCapacityMode.Unlimited,
+            compiled.World.ProductionFacilities[7].CapacityMode);
+        var food = compiled.World.ProductionRecipes[10];
+        Assert.Equal(3, food.Inputs.Count);
+        Assert.Equal(2, Assert.Single(food.Outputs).Quantity);
+        Assert.Equal("recipe.canned-food-from-fish", compiled.Catalog.GetKey(food.Id));
+    }
+
+    [Fact]
+    public void UnknownLegacyProductionCodesAreReportedWithoutInventingContent()
+    {
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+            Record("ware", 0, 99, 4),
+            Record("capa", 0, 99, 4),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(1, 1, LandCell(0, 0)),
+            scenario,
+            null,
+            "unknown-production");
+
+        Assert.True(result.Success);
+        Assert.Empty(result.Document!.Scenarios[0].InitialInventory);
+        Assert.Empty(result.Document.Scenarios[0].ProductionCapacities);
+        Assert.Contains(result.Report.Diagnostics, static item => item.Code == "scenario.unknown-ware-commodity");
+        Assert.Contains(result.Report.Diagnostics, static item => item.Code == "scenario.unknown-capa-industry");
+    }
+
+    [Fact]
+    public void EveryStandardProductionRecipeMatchesDocumentedRatiosAndSharedFacilities()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(1, 1, LandCell(0, 0)),
+            new ScenarioDocument(
+            [
+                Record("year", 1815),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "recipes");
+        var actual = result.Document!.ProductionRecipes.Select(static recipe => (
+            recipe.Key,
+            recipe.Facility,
+            Inputs: string.Join(",", recipe.Inputs.Select(static item => $"{item.Commodity}:{item.Quantity}")),
+            Outputs: string.Join(",", recipe.Outputs.Select(static item => $"{item.Commodity}:{item.Quantity}"))))
+            .ToArray();
+
+        var expected = new[]
+        {
+            ("recipe.fabric-from-cotton", "facility.textile-mill", "commodity.cotton:2", "commodity.fabric:1"),
+            ("recipe.fabric-from-wool", "facility.textile-mill", "commodity.wool:2", "commodity.fabric:1"),
+            ("recipe.clothing-from-fabric", "facility.clothing-factory", "commodity.fabric:2", "commodity.clothing:1"),
+            ("recipe.steel-from-coal-and-iron", "facility.steel-mill", "commodity.coal:1,commodity.iron:1", "commodity.steel:1"),
+            ("recipe.hardware-from-steel", "facility.metal-works", "commodity.steel:2", "commodity.hardware:1"),
+            ("recipe.armaments-from-steel", "facility.metal-works", "commodity.steel:2", "commodity.armaments:1"),
+            ("recipe.lumber-from-timber", "facility.lumber-mill", "commodity.timber:2", "commodity.lumber:1"),
+            ("recipe.paper-from-timber", "facility.lumber-mill", "commodity.timber:2", "commodity.paper:1"),
+            ("recipe.furniture-from-lumber", "facility.furniture-factory", "commodity.lumber:2", "commodity.furniture:1"),
+            ("recipe.fuel-from-oil", "facility.oil-refinery", "commodity.oil:2", "commodity.fuel:1"),
+            ("recipe.canned-food-from-fish", "facility.food-processing", "commodity.grain:2,commodity.fruit:1,commodity.fish:1", "commodity.canned-food:2"),
+            ("recipe.canned-food-from-livestock", "facility.food-processing", "commodity.grain:2,commodity.fruit:1,commodity.livestock:1", "commodity.canned-food:2"),
+        };
+
+        Assert.Equal(expected, actual);
+        Assert.All(result.Document.ProductionRecipes, static recipe => Assert.Equal(1, recipe.CapacityCost));
+    }
+
+    [Fact]
     public void AsymmetricRailEndpointIsDroppedWithOneWarning()
     {
         var map = CreateMap(

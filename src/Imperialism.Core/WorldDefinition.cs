@@ -4,18 +4,24 @@ public sealed class WorldDefinition
 {
     private readonly IReadOnlyList<CountryDefinition> _countries;
     private readonly IReadOnlyList<CommodityDefinition> _commodities;
+    private readonly IReadOnlyList<ProductionFacilityDefinition> _productionFacilities;
+    private readonly IReadOnlyList<ProductionRecipeDefinition> _productionRecipes;
 
     public WorldDefinition(
         MapDefinition map,
         IEnumerable<CountryDefinition> countries,
         ScenarioDefinition scenario,
-        IEnumerable<CommodityDefinition>? commodities = null)
+        IEnumerable<CommodityDefinition>? commodities = null,
+        IEnumerable<ProductionFacilityDefinition>? productionFacilities = null,
+        IEnumerable<ProductionRecipeDefinition>? productionRecipes = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
         ArgumentNullException.ThrowIfNull(scenario);
         var countryArray = countries.ToArray();
         var commodityArray = commodities?.ToArray() ?? [];
+        var facilityArray = productionFacilities?.ToArray() ?? [];
+        var recipeArray = productionRecipes?.ToArray() ?? [];
         if (countryArray.Any(static country => country is null))
         {
             throw new ArgumentException("Countries cannot contain null entries.", nameof(countries));
@@ -24,6 +30,16 @@ public sealed class WorldDefinition
         if (commodityArray.Any(static commodity => commodity is null))
         {
             throw new ArgumentException("Commodities cannot contain null entries.", nameof(commodities));
+        }
+
+        if (facilityArray.Any(static facility => facility is null))
+        {
+            throw new ArgumentException("Production facilities cannot contain null entries.", nameof(productionFacilities));
+        }
+
+        if (recipeArray.Any(static recipe => recipe is null))
+        {
+            throw new ArgumentException("Production recipes cannot contain null entries.", nameof(productionRecipes));
         }
 
         for (var index = 0; index < countryArray.Length; index++)
@@ -45,6 +61,45 @@ public sealed class WorldDefinition
                     $"Modern commodity IDs must be dense and ordered; expected {index}, " +
                     $"got {commodityArray[index].Id.Value}.",
                     nameof(commodities));
+            }
+        }
+
+        for (var index = 0; index < facilityArray.Length; index++)
+        {
+            if (facilityArray[index].Id.Value != index)
+            {
+                throw new ArgumentException(
+                    $"Modern production facility IDs must be dense and ordered; expected {index}, " +
+                    $"got {facilityArray[index].Id.Value}.",
+                    nameof(productionFacilities));
+            }
+        }
+
+        for (var index = 0; index < recipeArray.Length; index++)
+        {
+            var recipe = recipeArray[index];
+            if (recipe.Id.Value != index)
+            {
+                throw new ArgumentException(
+                    $"Modern production recipe IDs must be dense and ordered; expected {index}, got {recipe.Id.Value}.",
+                    nameof(productionRecipes));
+            }
+
+            if ((uint)recipe.Facility.Value >= (uint)facilityArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Production recipe {index} refers to missing facility {recipe.Facility.Value}.",
+                    nameof(productionRecipes));
+            }
+
+            foreach (var quantity in recipe.Inputs.Concat(recipe.Outputs))
+            {
+                if ((uint)quantity.Commodity.Value >= (uint)commodityArray.Length)
+                {
+                    throw new ArgumentException(
+                        $"Production recipe {index} refers to missing commodity {quantity.Commodity.Value}.",
+                        nameof(productionRecipes));
+                }
             }
         }
 
@@ -138,6 +193,30 @@ public sealed class WorldDefinition
             }
         }
 
+        foreach (var capacity in scenario.InitialProductionCapacities)
+        {
+            if ((uint)capacity.Country.Value >= (uint)countryArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Initial production capacity refers to missing country {capacity.Country.Value}.",
+                    nameof(scenario));
+            }
+
+            if ((uint)capacity.Facility.Value >= (uint)facilityArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Initial production capacity refers to missing facility {capacity.Facility.Value}.",
+                    nameof(scenario));
+            }
+
+            if (facilityArray[capacity.Facility.Value].CapacityMode != ProductionCapacityMode.Limited)
+            {
+                throw new ArgumentException(
+                    $"Unlimited facility {capacity.Facility.Value} cannot have stored capacity.",
+                    nameof(scenario));
+            }
+        }
+
         try
         {
             _ = checked(countryArray.Length * commodityArray.Length);
@@ -150,10 +229,24 @@ public sealed class WorldDefinition
                 exception);
         }
 
+        try
+        {
+            _ = checked(countryArray.Length * facilityArray.Length);
+        }
+        catch (OverflowException exception)
+        {
+            throw new ArgumentException(
+                "Country and facility counts produce a capacity array larger than the runtime can index.",
+                nameof(productionFacilities),
+                exception);
+        }
+
         Map = map;
         Scenario = scenario;
         _countries = Array.AsReadOnly(countryArray);
         _commodities = Array.AsReadOnly(commodityArray);
+        _productionFacilities = Array.AsReadOnly(facilityArray);
+        _productionRecipes = Array.AsReadOnly(recipeArray);
     }
 
     public MapDefinition Map { get; }
@@ -161,6 +254,10 @@ public sealed class WorldDefinition
     public IReadOnlyList<CountryDefinition> Countries => _countries;
 
     public IReadOnlyList<CommodityDefinition> Commodities => _commodities;
+
+    public IReadOnlyList<ProductionFacilityDefinition> ProductionFacilities => _productionFacilities;
+
+    public IReadOnlyList<ProductionRecipeDefinition> ProductionRecipes => _productionRecipes;
 
     public ScenarioDefinition Scenario { get; }
 
@@ -185,6 +282,7 @@ public sealed class WorldState
     private readonly CellIndex?[] _countryCapitals;
     private readonly RailConnectivityIndex?[] _railConnectivity;
     private readonly long[] _availableInventory;
+    private readonly long[] _productionCapacities;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private long _nextDeliveryId = 1;
 
@@ -198,6 +296,7 @@ public sealed class WorldState
         _countryCapitals = new CellIndex?[definition.Countries.Count];
         _railConnectivity = new RailConnectivityIndex?[definition.Countries.Count];
         _availableInventory = new long[checked(definition.Countries.Count * definition.Commodities.Count)];
+        _productionCapacities = new long[checked(definition.Countries.Count * definition.ProductionFacilities.Count)];
         foreach (var capital in definition.Scenario.InitialCountryCapitals)
         {
             _countryCapitals[capital.Country.Value] = capital.Cell;
@@ -206,6 +305,11 @@ public sealed class WorldState
         foreach (var stock in definition.Scenario.InitialInventory)
         {
             _availableInventory[GetInventoryOffset(stock.Country, stock.Commodity)] = stock.Quantity;
+        }
+
+        foreach (var capacity in definition.Scenario.InitialProductionCapacities)
+        {
+            _productionCapacities[GetProductionCapacityOffset(capacity.Country, capacity.Facility)] = capacity.Quantity;
         }
     }
 
@@ -219,6 +323,26 @@ public sealed class WorldState
 
     public long GetAvailableQuantity(CountryId country, CommodityId commodity) =>
         _availableInventory[GetInventoryOffset(country, commodity)];
+
+    public long? GetProductionCapacity(CountryId country, ProductionFacilityId facility)
+    {
+        var offset = GetProductionCapacityOffset(country, facility);
+        return Definition.ProductionFacilities[facility.Value].CapacityMode == ProductionCapacityMode.Unlimited
+            ? null
+            : _productionCapacities[offset];
+    }
+
+    public void SetProductionCapacity(CountryId country, ProductionFacilityId facility, long quantity)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(quantity);
+        var offset = GetProductionCapacityOffset(country, facility);
+        if (Definition.ProductionFacilities[facility.Value].CapacityMode == ProductionCapacityMode.Unlimited)
+        {
+            throw new InvalidOperationException("Unlimited production facilities do not store capacity.");
+        }
+
+        _productionCapacities[offset] = quantity;
+    }
 
     public void AddAvailableQuantity(CountryId country, CommodityId commodity, long quantity)
     {
@@ -459,6 +583,52 @@ public sealed class WorldState
         }
 
         return checked((country.Value * Definition.Commodities.Count) + commodity.Value);
+    }
+
+    internal long[] CopyAvailableInventory() => _availableInventory.ToArray();
+
+    internal void PreflightInventoryChanges(long[] productionDeltas)
+    {
+        ArgumentNullException.ThrowIfNull(productionDeltas);
+        if (productionDeltas.Length != _availableInventory.Length)
+        {
+            throw new ArgumentException("Production inventory delta has the wrong length.", nameof(productionDeltas));
+        }
+
+        var final = new long[_availableInventory.Length];
+        for (var offset = 0; offset < final.Length; offset++)
+        {
+            final[offset] = checked(_availableInventory[offset] + productionDeltas[offset]);
+            if (final[offset] < 0)
+            {
+                throw new InvalidOperationException("Production cannot make available inventory negative.");
+            }
+        }
+
+        foreach (var delivery in _pendingDeliveries)
+        {
+            var offset = GetInventoryOffset(delivery.Recipient, delivery.Commodity);
+            final[offset] = checked(final[offset] + delivery.Quantity);
+        }
+    }
+
+    internal void CommitProduction(long[] inventoryDeltas)
+    {
+        for (var offset = 0; offset < inventoryDeltas.Length; offset++)
+        {
+            _availableInventory[offset] += inventoryDeltas[offset];
+        }
+    }
+
+    private int GetProductionCapacityOffset(CountryId country, ProductionFacilityId facility)
+    {
+        ValidateCountry(country);
+        if ((uint)facility.Value >= (uint)Definition.ProductionFacilities.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(facility));
+        }
+
+        return checked((country.Value * Definition.ProductionFacilities.Count) + facility.Value);
     }
 
     private static void ValidatePositiveQuantity(long quantity)
