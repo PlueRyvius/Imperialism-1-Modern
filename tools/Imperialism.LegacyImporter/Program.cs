@@ -27,7 +27,8 @@ try
     Console.WriteLine($"Wrote {Path.GetFullPath(options.OutputPath)}");
     return 0;
 }
-catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException)
+catch (Exception exception) when (exception is ArgumentException or IOException or InvalidDataException
+    or OverflowException or UnauthorizedAccessException)
 {
     Console.Error.WriteLine($"Legacy import failed: {exception.Message}");
     return 2;

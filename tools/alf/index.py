@@ -220,7 +220,13 @@ def main(argv: list[str] | None = None) -> int:
             if not args.quiet:
                 print("counting lines (one-off, for progress reporting)...", flush=True)
             with alf_path.open("rb") as fh:
-                total = sum(chunk.count(b"\n") for chunk in iter(lambda: fh.read(1 << 22), b""))
+                total = 0
+                last_byte = b""
+                for chunk in iter(lambda: fh.read(1 << 22), b""):
+                    total += chunk.count(b"\n")
+                    last_byte = chunk[-1:]
+            if last_byte and last_byte != b"\n":
+                total += 1  # final line has no trailing newline
             dbmod.set_meta(conn, "source_lines", str(total))
             conn.commit()
         scan(alf_path, conn, quiet=args.quiet)

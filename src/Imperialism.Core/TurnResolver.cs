@@ -14,6 +14,12 @@ public static class TurnResolver
         TurnPhase.Connectivity,
     ];
 
+    /// <summary>
+    /// Runs one simultaneous turn. The <paramref name="seed"/> is recorded on the
+    /// returned <see cref="TurnResolution"/> for replay and is reserved for the
+    /// explicit seeded tiebreaks future contention rules will use; no phase
+    /// consumes it yet because the current pipeline makes no random decisions.
+    /// </summary>
     public static TurnResolution Resolve(WorldState state, TurnOrders orders, ulong seed)
     {
         ArgumentNullException.ThrowIfNull(state);

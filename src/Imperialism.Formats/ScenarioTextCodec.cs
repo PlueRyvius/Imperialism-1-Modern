@@ -5,6 +5,11 @@ namespace Imperialism.Formats;
 
 public static class ScenarioTextCodec
 {
+    private static readonly Encoding StrictAscii = Encoding.GetEncoding(
+        "us-ascii",
+        EncoderFallback.ExceptionFallback,
+        DecoderFallback.ExceptionFallback);
+
     public static ScenarioDocument Decode(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
@@ -107,7 +112,10 @@ public static class ScenarioTextCodec
     public static ScenarioDocument Load(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        return Decode(Encoding.ASCII.GetString(File.ReadAllBytes(path)));
+        // Decode strictly: silently replacing a non-ASCII byte with '?' would
+        // defeat Decode's own EnsureAscii guard. A non-ASCII byte is evidence
+        // the format needs further research, not something to mangle.
+        return Decode(StrictAscii.GetString(File.ReadAllBytes(path)));
     }
 
     public static void Save(string path, ScenarioDocument document)

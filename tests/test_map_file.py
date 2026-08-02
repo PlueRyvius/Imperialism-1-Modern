@@ -1,6 +1,8 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from imperialism_format import HexCell, MapFile, MapFormatProfile
@@ -75,7 +77,20 @@ def test_real_game_map_loads_if_present():
     We never commit actual game data, so this test self-skips otherwise.
     """
     if not os.path.exists(LOCAL_FIXTURE):
-        return
+        pytest.skip("no real .map fixture in fixtures/local_only")
     m = MapFile.load(LOCAL_FIXTURE)
     assert len(m.cells) == MAP_CELL_COUNT
     assert m.to_bytes() == open(LOCAL_FIXTURE, "rb").read()
+
+
+def test_blank_map_round_trip_is_byte_exact():
+    m = MapFile.blank()
+    data = m.to_bytes()
+    reloaded = MapFile.from_bytes(data)
+    assert reloaded.to_bytes() == data
+
+
+def test_province_outside_uint16_raises_instead_of_wrapping():
+    cell = HexCell(province=65536)
+    with pytest.raises(ValueError, match="uint16"):
+        cell.to_bytes()

@@ -4,6 +4,11 @@ namespace Imperialism.Formats;
 
 public sealed class ScenarioRecord
 {
+    private static readonly Encoding StrictAscii = Encoding.GetEncoding(
+        "us-ascii",
+        EncoderFallback.ExceptionFallback,
+        DecoderFallback.ExceptionFallback);
+
     private readonly byte[]? _rawNameField;
     private readonly string? _originalName;
 
@@ -42,7 +47,17 @@ public sealed class ScenarioRecord
             return _rawNameField.ToArray();
         }
 
-        var nameBytes = Encoding.ASCII.GetBytes(Name ?? string.Empty);
+        var name = Name ?? string.Empty;
+        byte[] nameBytes;
+        try
+        {
+            nameBytes = StrictAscii.GetBytes(name);
+        }
+        catch (EncoderFallbackException exception)
+        {
+            throw new InvalidDataException($"Name '{name}' must be ASCII.", exception);
+        }
+
         var encoded = new byte[ScenarioFormat.NameFieldSize];
         nameBytes.AsSpan(0, Math.Min(nameBytes.Length, encoded.Length)).CopyTo(encoded);
         return encoded;
