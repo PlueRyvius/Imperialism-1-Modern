@@ -40,12 +40,15 @@ Two properties drive our architecture:
 Any implementation that resolves powers sequentially rather than
 simultaneously will produce visibly different games.
 
-**Current implementation boundary.** `TurnResolver` now enforces this seven-
+**Current implementation boundary.** `TurnResolver` now enforces this eight-
 phase pipeline over dense country-id-ordered submissions and emits an immutable
 phase event log. Strategic time is an explicit year and quarter with no legacy
-date cap. Rail-connectivity materialization and evidence-backed industrial
-production now have system behavior; conflict, trade, diplomacy, labour, and
-transport remain deliberately unimplemented rather than filled with guessed rules.
+date cap. Rail-connectivity materialization, evidence-backed industrial
+production, and map extraction now have system behavior; conflict, trade,
+diplomacy, and labour remain deliberately unimplemented rather than filled with
+guessed rules. Extraction is a phase of our own between step 5 and step 6: the
+original folds gathering into transport, but separating them keeps the harvest
+readable in the event log and lets it observe post-conflict ownership.
 
 ## Economy
 
@@ -58,8 +61,13 @@ Facilities, recipes, and initial capacity are content-defined. Ordered
 production requests share facility capacity, complete partially when capacity
 or inputs run short, consume only Available stock, and stage outputs so they
 cannot feed another recipe until the following turn. The resolver preflights
-production together with pending deliveries before mutating inventory. Labour,
-feeding, prices, power, capacity construction, and extraction rates remain pending.
+production together with pending deliveries before mutating inventory. Deposits
+inside a connected catchment now pay their owner each turn and reach the
+warehouse through Delivery, with unreachable output reported rather than
+dropped. Labour, feeding, prices, power, capacity construction, depots, ports,
+the transport capacity pool, and the extraction *rates* themselves remain
+pending — see `formulas/extraction.md` for what is inferred and what is a
+placeholder.
 
 **Commodity tiers.** 13 raw resources (grain, livestock, fruit, fish, cotton,
 wool, horses, timber, coal, iron, oil, gold, gems) → 6 materials (canned
@@ -116,9 +124,15 @@ gated on your matching factory reaching a capacity threshold.
 **Current implementation boundary.** Phase 3 begins with country-specific
 rail components: only rail edges whose two province cells are currently owned
 by that country are usable. The component index is cached and rebuilt lazily
-after conquest or rail changes. Capital/depot service, river continuity,
-ports, naval control, and sea-zone traversal remain explicit later layers;
-the initial graph does not guess those relationships.
+after conquest or rail changes. Extraction now consumes that graph: a deposit
+pays its owner only when it sits within the catchment radius of the capital's
+own rail component. River continuity, naval control, and sea-zone traversal
+remain explicit later layers; the graph still does not guess those.
+
+Depots are the one relationship extraction had to stand in for, since it cannot
+work without some notion of a collection point. Every cell of the capital's
+rail component acts as one. That is a placeholder with a known direction of
+error rather than a guess — see `formulas/extraction.md`.
 
 ## Trade
 

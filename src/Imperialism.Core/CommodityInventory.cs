@@ -4,6 +4,7 @@ public enum PendingDeliverySource : byte
 {
     Transport,
     Trade,
+    Extraction,
 }
 
 /// <summary>An identifiable commodity intent that has not entered available stock.</summary>

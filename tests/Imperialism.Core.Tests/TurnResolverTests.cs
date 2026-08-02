@@ -12,6 +12,7 @@ public sealed class TurnResolverTests
         TurnPhase.Production,
         TurnPhase.Conflict,
         TurnPhase.TradeCancellation,
+        TurnPhase.Extraction,
         TurnPhase.Delivery,
         TurnPhase.Connectivity,
     ];

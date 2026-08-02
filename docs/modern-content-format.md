@@ -29,16 +29,21 @@ Every document starts with:
 ```json
 {
   "format": "imperialism-world",
-  "formatVersion": 3
+  "formatVersion": 4
 }
 ```
 
-Version 3 is the authored version. Migration is explicit and sequential:
-version 1 resource palettes become version 2 commodities/resources, then
-version 2 packages gain empty version 3 production collections. This preserves
-everything older packages could express without inventing factories, recipes,
-or capacity. Mixed-version schemas, unknown fields, and unsupported versions
-fail with a path-qualified validation error. Generic migrated keys use the
+Version 4 is the authored version. Migration is explicit and sequential:
+version 1 resource palettes become version 2 commodities/resources, version 2
+packages gain empty version 3 production collections, and version 3 packages
+gain a per-deposit `yieldPerTurn` plus a world-level `extraction` block. This
+preserves everything older packages could express without inventing factories,
+recipes, or capacity. The version 4 step is the one migration that must supply
+values rather than empty collections, because a deposit with no rate would
+silently stop producing; it uses the documented placeholder defaults and says so
+in `formulas/extraction.md`. Mixed-version schemas, unknown fields, and
+unsupported versions fail with a path-qualified validation error. Generic
+migrated keys use the
 valid `commodity/from-resource/...` form; `/` is part of the key grammar below.
 
 ## Stable keys and runtime IDs
@@ -63,7 +68,9 @@ The top-level document contains:
 - an ordered terrain-key palette;
 - ordered commodity definitions with stable key, Unicode name, and `raw`,
   `material`, or `goods` category;
-- ordered resource definitions mapping each deposit key to one commodity key;
+- ordered resource definitions mapping each deposit key to one commodity key and
+  a positive `yieldPerTurn`;
+- a world-level `extraction` block holding the gathering `catchmentRadius`;
 - ordered production-facility definitions with stable key, Unicode name, and
   `limited` or `unlimited` capacity mode;
 - ordered recipes naming a facility, positive capacity cost, and one or more

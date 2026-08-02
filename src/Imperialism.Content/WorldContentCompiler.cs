@@ -77,12 +77,19 @@ public static class WorldContentCompiler
         var commodities = commodityContent.Select((definition, index) =>
             new CommodityDefinition(new CommodityId(index), definition.Name, definition.Category)).ToArray();
         var resources = resourceContent.Select((definition, index) =>
-            new ResourceDefinition(
-                new ResourceId(index),
-                new CommodityId(FindKey(
-                    commodityIds,
-                    definition.Commodity,
-                    $"resources[{index}].commodity")))).ToArray();
+        {
+            var commodity = new CommodityId(FindKey(
+                commodityIds,
+                definition.Commodity,
+                $"resources[{index}].commodity"));
+            if (definition.YieldPerTurn <= 0)
+            {
+                throw Error($"resources[{index}].yieldPerTurn", "Value must be positive.");
+            }
+
+            return new ResourceDefinition(new ResourceId(index), commodity, definition.YieldPerTurn);
+        }).ToArray();
+        var extraction = CompileExtractionSettings(document.Extraction);
         var facilities = facilityContent.Select((definition, index) =>
             new ProductionFacilityDefinition(
                 new ProductionFacilityId(index),
@@ -173,7 +180,8 @@ public static class WorldContentCompiler
                     provinceIds,
                     countryIds,
                     commodityIds,
-                    facilityIds));
+                    facilityIds,
+                    extraction));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -191,7 +199,8 @@ public static class WorldContentCompiler
         IReadOnlyDictionary<string, int> provinceIds,
         IReadOnlyDictionary<string, int> countryIds,
         IReadOnlyDictionary<string, int> commodityIds,
-        IReadOnlyDictionary<string, int> facilityIds)
+        IReadOnlyDictionary<string, int> facilityIds,
+        ExtractionSettings extraction)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -233,11 +242,35 @@ public static class WorldContentCompiler
                 capitals,
                 initialInventory,
                 productionCapacities);
-            return new WorldDefinition(map, countries, scenario, commodities, facilities, recipes);
+            return new WorldDefinition(
+                map,
+                countries,
+                scenario,
+                commodities,
+                facilities,
+                recipes,
+                extraction);
         }
         catch (ArgumentException exception)
         {
             throw Error(path, exception.Message, exception);
+        }
+    }
+
+    private static ExtractionSettings CompileExtractionSettings(ExtractionContentSettings? content)
+    {
+        if (content is null)
+        {
+            throw Error("extraction", "Value is required.");
+        }
+
+        try
+        {
+            return new ExtractionSettings(content.CatchmentRadius);
+        }
+        catch (ArgumentOutOfRangeException exception)
+        {
+            throw Error("extraction.catchmentRadius", exception.Message, exception);
         }
     }
 

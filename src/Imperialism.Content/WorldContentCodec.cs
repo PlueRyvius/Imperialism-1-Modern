@@ -7,8 +7,18 @@ namespace Imperialism.Content;
 public static class WorldContentCodec
 {
     public const string FormatName = "imperialism-world";
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
     public const string FileExtension = ".iworld";
+
+    /// <summary>
+    /// One unit per turn from an undeveloped deposit cell, and the manual's "on
+    /// or within one tile of" gathering catchment. Shared by the version 3
+    /// migration and the legacy importer so a converted world and an upgraded
+    /// one agree. See <c>docs/formulas/extraction.md</c>.
+    /// </summary>
+    public const long DefaultResourceYieldPerTurn = 1;
+
+    public const int DefaultCatchmentRadius = 1;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

@@ -93,8 +93,14 @@ public sealed class MapViewStateTests
         ],
         Resources =
         [
-            new ResourceContentDefinition { Key = "resource.grain", Commodity = "commodity.grain" },
+            new ResourceContentDefinition
+            {
+                Key = "resource.grain",
+                Commodity = "commodity.grain",
+                YieldPerTurn = 1,
+            },
         ],
+        Extraction = new ExtractionContentSettings { CatchmentRadius = 1 },
         Map = new MapContentDocument
         {
             Key = "map.demo",
