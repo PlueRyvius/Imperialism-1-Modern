@@ -134,6 +134,7 @@ can support larger maps, richer metadata, Unicode names, and future migrations.
 | `docs/game-systems.md` | How the original's systems work — the spec we're building to |
 | `docs/file-formats.md` | On-disk layout of `.map`, `.scn`, `.inf` |
 | `docs/scenario-semantics.md` | What the fields *mean*, verified against real data |
+| `docs/derived-bytes.md` | Which cell bytes are computed from neighbours, and how well each rule fits |
 | `docs/formats-design-rules.md` | Rules governing the formats layer |
 | `docs/modern-content-format.md` | Versioned `.iworld` content and stable-key compilation |
 | `docs/legacy-importer.md` | Conservative `.map`/`.scn`/`.inf` to `.iworld` conversion and river codes |
@@ -158,6 +159,21 @@ tests/                    xUnit and pytest round-trip/structural suites
 fixtures/local_only/      gitignored — drop real .map/.scn here for local testing
 docs/                     format notes, systems spec, architecture, research
 tools/                    C#/Python inspectors, corpus checks, disassembly indexer
+```
+
+## Authoring content for the original game
+
+The world generator and the browser-based map editor live in a separate
+project, **[Imperialism-1-Forge](https://github.com/PlueRyvius/Imperialism-1-Forge)**.
+It generates a complete scenario from a keyword, edits one in a localhost web
+app, and checks it against the shipped corpus before you launch it — all
+targeting the real 1997 executable rather than this engine.
+
+Forge consumes this repository's `imperialism_format` package, so the parser
+stays in one place and remains the C# port's reference oracle:
+
+```
+pip install git+https://github.com/PlueRyvius/Imperialism-1-Modern.git
 ```
 
 ## Running tests

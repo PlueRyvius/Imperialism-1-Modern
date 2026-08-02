@@ -57,7 +57,8 @@ Local corpus verification covers:
 
 ## Next decoding targets
 
-- Meaning of the 384 map trailer records
+- The other 196 bytes of each province-table record (the town-cell
+  field at offset 4 is decoded; see `file-formats.md`)
 - Complete field semantics for each scenario tag
 - Scenario-selection metadata in `.inf`
 - Save-game (`.imp`) structure — magic `IBMA`; a serialized game state, so

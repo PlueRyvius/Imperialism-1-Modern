@@ -15,10 +15,11 @@ documentation and tests are authoritative when a summary here becomes stale.
 | What are we building? (the original's rules) | `docs/game-systems.md` |
 | How are files laid out on disk? | `docs/file-formats.md` |
 | What do the fields *mean*? | `docs/scenario-semantics.md` |
+| Which cell bytes are computed, not authored? | `docs/derived-bytes.md` |
 | How does legacy content become `.iworld`? | `docs/legacy-importer.md` |
 | How does the Godot map viewer work? | `docs/map-viewer.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
-| Navigating the original binary | `docs/disasm/README.md`, `docs/disasm/module-map.md` |
+| Navigating the original binary, and resolving a crash | `docs/disasm/README.md`, `docs/disasm/module-map.md` |
 
 ## Hard rules
 
@@ -27,6 +28,12 @@ the `.alf` disassembly, and extracted art stay in `fixtures/local_only/`
 (gitignored) or outside the repo. This is repository policy regardless of a
 file's legal status. CI enforces it via `tools/check_no_game_assets.py`; run it
 before committing.
+
+**The `.map` trailer is a province table.** 384 slots indexed by province id,
+each holding that province's town cell as a big-endian u16 at offset 4, 65535
+when unused — verified on all ten maps. The other 196 bytes per record are still
+unread, so the block stays preserved verbatim and `set_province_town` edits only
+the field we understand. See `docs/file-formats.md`.
 
 **Byte-exact round-trip is a hard requirement, not an aspiration.** All 30
 original files (10 `.map` + 10 `.scn` + 10 `.inf`) round-trip byte-for-byte
@@ -59,6 +66,12 @@ unrendered. It must be fast and headless-capable from the start.
 Two significant errors in this project's history were caught this way, both
 reported confidently. Cheap to check, expensive to inherit.
 
+**A rule that fires on shipped data is a wrong rule, not a bad map.** This has
+caught eleven so far — three map rules fitted against a single map, and four
+cross-file rules that assumed a `.scn` names everything the map references. It
+does not: name records are optional labels, not a registry. Hold every new
+validation rule to silence across all ten scenarios before believing it.
+
 ## Current state
 
 Phases 0 and 1 are complete. `src/Imperialism.Formats/` is the production .NET 8
@@ -68,9 +81,33 @@ structural reference. The extensionless plaintext filenames
 do not reliably pair with same-numbered `.scn` files; use
 `tools/audit_scenario_corpus.py` rather than assuming equality. The Python and
 C# suites cover generated fixtures and optional local corpus
-gates. `tools/alf/` indexes the original binary's disassembly.
+gates. `tools/alf/` indexes the original binary's disassembly and resolves a
+fault address to a place in it (`python -m tools.alf.crash`).
 `tools/compare_format_oracles.py` compares per-field,
 per-record, per-section, and preserved-byte hashes across both implementations.
+
+Point `IMP_SCENARIO_DIR` at a game install's `Scenario` folder to run the Python
+tests against the originals without copying game data into the tree.
+
+**`s0` is the working scenario; `s1` is the reference.** `s0` gets edited and
+launched in the game to see whether it still loads, so it is never ground truth
+— `tests/originals.py` excludes it, along with any scenario carrying a `.bak`.
+Read `s1` when you need to know what an original looks like. Fitting a rule
+against edited data is how three "never fires on shipped data" tests were
+silently weakened once already.
+
+**The legacy map grid is odd-r offset and wraps east-west.** Bit 0 of every
+direction mask is NE, proceeding clockwise. This was measured, not assumed — see
+`docs/derived-bytes.md`. `src/imperialism_format/derive.py` is the one place
+that encodes it. Note this describes the 1997 files: `Imperialism.Core`'s own
+hex grid does not wrap.
+
+**Scenario authoring lives in a separate project.** The world generator, the web
+map editor and `preflight.py` are in
+[Imperialism-1-Forge](https://github.com/PlueRyvius/Imperialism-1-Forge), which
+consumes this repository's `imperialism_format` package. They exist to author
+content for the real 1997 executable, not for this engine, and keeping them out
+stops that goal drifting into the port's scope.
 
 Python is a **structural reference**, not an infallible oracle. A Python/C#
 disagreement triggers byte-level and evidence-based triage; neither side wins

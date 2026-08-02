@@ -55,6 +55,79 @@ python -m tools.alf.query stats
 
 `tools/alf/query.py` also works as a script if you would rather not use `-m`.
 
+## Resolving a crash
+
+`tools/alf/crash.py` runs the whole loop — read the Windows Application log,
+add the image base, resolve the address, name the module — in one command:
+
+```sh
+python -m tools.alf.crash                     # the newest fault
+python -m tools.alf.crash --list 10           # what has crashed recently
+python -m tools.alf.crash --offset 0x11465c   # resolve one by hand, no event log
+```
+
+**The offset in the log is not an address.** It is relative to the module base,
+so `Fault offset: 0x0011465C` at the usual `0x400000` is `0x0051465C`. The tool
+prints the arithmetic, because getting it wrong lands you in an unrelated
+function that still looks plausible. A fault inside a DLL is reported but not
+resolved: its offset belongs to that DLL, not to `Imperialism.exe`.
+
+## Where the world generator lives
+
+**`UMap.cpp`, roughly `0050F860`-`00528B5F`.** Found by locating the RNG rather
+than by guessing: the game inlines a Borland LCG whose multiplier `015A4E35`
+(22695477) appears at 242 sites, and they cluster hard —
+
+| sites | module |
+|---|---|
+| 75 | `UMap.cpp` |
+| 16 | `UMapper.cpp` |
+| 4 | `UOcean.cpp` |
+| 3 | `UArmyMgr.cpp` |
+| 144 | unattributed, mostly `005C4C60`-`005D4200` (a second cluster, likely battle AI) |
+
+Within `UMap.cpp` they concentrate in a handful of large functions —
+`005267F0`-`00528B5F` (9,072 bytes, 25 RNG sites) is the biggest, with
+`005114B0`, `005108D0`, `00525A30` and `0050F860` behind it. The same block
+holds 173 references to `0000006C` (108, the map width), so it is walking the
+grid.
+
+This matters because the generator here is the authority on questions the
+project has otherwise had to infer from five sample outputs: coastline shaping,
+what happens at the east-west seam, landmass and province layout. Reading it is
+a real reverse-engineering task, not a quick look — but it is the ground truth,
+and `docs/handoff.md` lists the open questions it would settle.
+
+To find a subsystem this way generally: pick a behaviour that must use
+randomness, then cluster the RNG sites by module.
+
+## Two global object tables worth knowing
+
+Crash sites repeatedly land on one of two adjacent arrays of object pointers.
+Telling them apart is usually the whole diagnosis, because **they are indexed
+by different id spaces**:
+
+| Address | Slots | Indexed by |
+|---|---|---|
+| `006A4310` | 24 | nation id, 0–22 (the map's nation byte), `FFFF` = none |
+| `006A4370` | 7 | Great Power slot, 0–6 |
+
+The 7 is measured, not assumed: the walk at `004A344E` steps by 4 and stops at
+`006A438C`, giving `(0x6A438C - 0x6A4370) / 4 = 7`. The 24-slot table starts
+`0x60` earlier.
+
+The trap: an index into the 24-slot table is valid for a minor nation and
+**runs off the end of the 7-slot table**. Sites reading `006A4310` tend to
+guard (`cmp ax, FFFF` at `005142A6`); sites reading `006A4370` often do not —
+`0051465C` in `UMap.cpp` indexes it from a `movsx`-ed word and dereferences
+the result immediately, which is where a bad owner id surfaces as
+`call dword ptr [eax]` on nil. That path carries the compiled-out
+`"Nil Pointer"` assert.
+
+Related: the cell record is 36 bytes, so `[map+0x0C] + cell*36 + N` is cell
+byte `N`. `005145F2` reads bit 2 of byte 28 — one of the bytes the format docs
+still call unused.
+
 ## The W32Dasm listing format
 
 The file is a fixed-column *report*, not a machine format. Reverse-engineered
