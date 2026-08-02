@@ -18,6 +18,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | Which cell bytes are computed, not authored? | `docs/derived-bytes.md` |
 | How does legacy content become `.iworld`? | `docs/legacy-importer.md` |
 | How does the Godot map viewer work? | `docs/map-viewer.md` |
+| What fills the warehouse from the map? | `docs/formulas/extraction.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Navigating the original binary, and resolving a crash | `docs/disasm/README.md`, `docs/disasm/module-map.md` |
 
@@ -137,15 +138,25 @@ see `docs/map-viewer.md`.
 
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an
-inert dense order bundle, unrestricted quarterly `TurnDate`, fixed seven-phase
+inert dense order bundle, unrestricted quarterly `TurnDate`, fixed eight-phase
 `TurnResolver`, and immutable event log. `.iworld` v3 defines stable
 commodities, facilities, recipes, and sparse scenario capacity, with explicit
 v1→v2→v3 migration. Core stores checked dense Available inventory and
-identifiable pending transport or trade deliveries. Ordered production requests
-share facility capacity, stage outputs until the next turn, and commit atomically
-with delivery preflight. Labour, feeding, transient power, capacity construction,
-conflict, trade markets, diplomacy, ports, and river traversal remain explicitly
-pending.
+identifiable pending extraction, transport or trade deliveries. Ordered production
+requests share facility capacity, stage outputs until the next turn, and commit
+atomically with delivery preflight. `.iworld` v4 adds a per-deposit
+`yieldPerTurn` and a world-level catchment radius: deposits inside the catchment
+of the capital's own rail component pay their owner each turn through the
+`Extraction` phase, and unreachable output is reported as stranded rather than
+dropped. Labour, feeding, transient power, capacity construction, conflict,
+trade markets, diplomacy, depots, ports, the transport capacity pool, and river
+traversal remain explicitly pending.
+
+**Extraction's numbers are a placeholder, its shape is not.** The gathering and
+connectivity rules come from the manual; every deposit yields 1 per turn because
+a number was needed, not because one was measured, and depots are stood in for
+by the capital's rail cells. `docs/formulas/extraction.md` records which half is
+which — do not treat the rate as evidence.
 
 ## Conventions
 

@@ -7,6 +7,7 @@ public enum TurnPhase : byte
     Production,
     Conflict,
     TradeCancellation,
+    Extraction,
     Delivery,
     Connectivity,
 }
@@ -100,6 +101,48 @@ public sealed record ProductionCompletedEvent : TurnEvent
     public IReadOnlyList<CommodityQuantity> Consumed => _consumed;
 
     public IReadOnlyList<CommodityQuantity> Produced => _produced;
+}
+
+/// <summary>
+/// Records what one country's deposits handed over this turn, and what its own
+/// territory produced but could not move. Stranded output is reported rather
+/// than dropped silently: it is the visible cost of a severed rail network, and
+/// the number a player needs in order to see why a warehouse stopped filling.
+/// </summary>
+public sealed record ResourceExtractedEvent : TurnEvent
+{
+    private readonly IReadOnlyList<CommodityQuantity> _collected;
+    private readonly IReadOnlyList<CommodityQuantity> _stranded;
+
+    public ResourceExtractedEvent(
+        int turnNumber,
+        CountryId country,
+        int collectedCellCount,
+        int strandedCellCount,
+        IEnumerable<CommodityQuantity> collected,
+        IEnumerable<CommodityQuantity> stranded)
+        : base(turnNumber, TurnPhase.Extraction)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(collectedCellCount);
+        ArgumentOutOfRangeException.ThrowIfNegative(strandedCellCount);
+        Country = country;
+        CollectedCellCount = collectedCellCount;
+        StrandedCellCount = strandedCellCount;
+        _collected = Array.AsReadOnly(collected.ToArray());
+        _stranded = Array.AsReadOnly(stranded.ToArray());
+    }
+
+    public CountryId Country { get; }
+
+    /// <summary>Owned cells carrying a deposit that were inside the catchment.</summary>
+    public int CollectedCellCount { get; }
+
+    /// <summary>Owned cells carrying a deposit that no connected route reached.</summary>
+    public int StrandedCellCount { get; }
+
+    public IReadOnlyList<CommodityQuantity> Collected => _collected;
+
+    public IReadOnlyList<CommodityQuantity> Stranded => _stranded;
 }
 
 public sealed class TurnResolution

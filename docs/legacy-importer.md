@@ -17,8 +17,11 @@ conflicting years, or missing dimensions/year block output.
 Every converted package defines the standard 23-commodity catalog independently
 of which deposits happen to occur on that map. The 13 known legacy deposit
 codes become explicit resource definitions pointing to their raw commodities;
-notably forest yields timber and cattle yields livestock. This mapping adds no
-production quantity or extraction-rate assumption.
+notably forest yields timber and cattle yields livestock. The mapping itself
+adds no production quantity, but since `.iworld` v4 every imported deposit does
+carry an extraction rate: the 1997 `.map` stores which deposit sits on a cell
+and never how much it gives, so all of them take the same placeholder rate
+rather than an invented per-resource table. See `formulas/extraction.md`.
 
 The importer also emits the evidenced standard industrial catalog: seven
 limited legacy facilities, unlimited food processing, and twelve recipes.

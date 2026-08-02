@@ -10,6 +10,7 @@ public static class TurnResolver
         TurnPhase.Production,
         TurnPhase.Conflict,
         TurnPhase.TradeCancellation,
+        TurnPhase.Extraction,
         TurnPhase.Delivery,
         TurnPhase.Connectivity,
     ];
@@ -53,6 +54,39 @@ public static class TurnResolver
                         entry.CapacityUsed,
                         entry.Consumed,
                         entry.Produced));
+                }
+            }
+            else if (phase == TurnPhase.Extraction)
+            {
+                // Extraction runs after Conflict so a province lost this turn
+                // stops paying its owner this turn, and queues rather than
+                // credits: gathered output reaches the warehouse through
+                // Delivery, making it available to next turn's production.
+                foreach (var entry in ExtractionPlanner.Create(state))
+                {
+                    // A country holding no deposits at all is not an event. One
+                    // whose deposits are all cut off is: Stranded carries that.
+                    if (entry.Collected.Count == 0 && entry.Stranded.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    foreach (var quantity in entry.Collected)
+                    {
+                        _ = state.QueuePendingDelivery(
+                            entry.Country,
+                            quantity.Commodity,
+                            quantity.Quantity,
+                            PendingDeliverySource.Extraction);
+                    }
+
+                    events.Add(new ResourceExtractedEvent(
+                        turnNumber,
+                        entry.Country,
+                        entry.CollectedCellCount,
+                        entry.StrandedCellCount,
+                        entry.Collected,
+                        entry.Stranded));
                 }
             }
             else if (phase == TurnPhase.Delivery)

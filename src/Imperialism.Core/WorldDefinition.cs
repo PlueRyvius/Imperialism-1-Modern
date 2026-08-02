@@ -13,7 +13,8 @@ public sealed class WorldDefinition
         ScenarioDefinition scenario,
         IEnumerable<CommodityDefinition>? commodities = null,
         IEnumerable<ProductionFacilityDefinition>? productionFacilities = null,
-        IEnumerable<ProductionRecipeDefinition>? productionRecipes = null)
+        IEnumerable<ProductionRecipeDefinition>? productionRecipes = null,
+        ExtractionSettings? extraction = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
@@ -243,6 +244,7 @@ public sealed class WorldDefinition
 
         Map = map;
         Scenario = scenario;
+        Extraction = extraction ?? ExtractionSettings.Default;
         _countries = Array.AsReadOnly(countryArray);
         _commodities = Array.AsReadOnly(commodityArray);
         _productionFacilities = Array.AsReadOnly(facilityArray);
@@ -260,6 +262,8 @@ public sealed class WorldDefinition
     public IReadOnlyList<ProductionRecipeDefinition> ProductionRecipes => _productionRecipes;
 
     public ScenarioDefinition Scenario { get; }
+
+    public ExtractionSettings Extraction { get; }
 
     internal static void ValidateLandLink(
         MapDefinition map,

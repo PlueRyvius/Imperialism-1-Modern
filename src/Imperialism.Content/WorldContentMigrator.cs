@@ -14,6 +14,11 @@ internal static class WorldContentMigrator
             MigrateVersionTwoToThree(document);
         }
 
+        if (document.FormatVersion == 3)
+        {
+            MigrateVersionThreeToFour(document);
+        }
+
         return document;
     }
 
@@ -95,6 +100,49 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 3;
+    }
+
+    /// <summary>
+    /// Version 4 gives every deposit an explicit per-turn yield and states the
+    /// gathering catchment. Both defaults describe an undeveloped cell in the
+    /// original — one unit, gathered from a tile on or within one tile of a
+    /// connected collection point — so a migrated package keeps behaving as its
+    /// author intended rather than silently producing nothing. See
+    /// <c>docs/formulas/extraction.md</c>.
+    /// </summary>
+    private static void MigrateVersionThreeToFour(WorldContentDocument document)
+    {
+        if (document.Resources is null)
+        {
+            throw new ContentValidationException("resources", "Array cannot be null.");
+        }
+
+        if (document.Extraction is not null)
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 3 cannot contain version 4 extraction settings.");
+        }
+
+        for (var index = 0; index < document.Resources.Length; index++)
+        {
+            var resource = document.Resources[index] ??
+                throw new ContentValidationException($"resources[{index}]", "Value cannot be null.");
+            if (resource.YieldPerTurn != 0)
+            {
+                throw new ContentValidationException(
+                    $"resources[{index}].yieldPerTurn",
+                    "Version 3 cannot contain a version 4 yield.");
+            }
+
+            resource.YieldPerTurn = WorldContentCodec.DefaultResourceYieldPerTurn;
+        }
+
+        document.Extraction = new ExtractionContentSettings
+        {
+            CatchmentRadius = WorldContentCodec.DefaultCatchmentRadius,
+        };
+        document.FormatVersion = 4;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

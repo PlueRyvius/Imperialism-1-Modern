@@ -322,7 +322,16 @@ public static class LegacyWorldConverter
             {
                 Key = resourceKeys[code],
                 Commodity = $"commodity.{ResourceCommodityNames[code]}",
+
+                // The 1997 map stores which deposit sits on a cell, never how
+                // much it gives, so every imported deposit takes the undeveloped
+                // base rate rather than a number invented per resource.
+                YieldPerTurn = WorldContentCodec.DefaultResourceYieldPerTurn,
             }).ToArray(),
+            Extraction = new ExtractionContentSettings
+            {
+                CatchmentRadius = WorldContentCodec.DefaultCatchmentRadius,
+            },
             Map = new MapContentDocument
             {
                 Key = $"map.legacy.{options.PackageKey}",

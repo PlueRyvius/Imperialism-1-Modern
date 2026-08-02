@@ -19,6 +19,10 @@ public sealed class WorldContentDocument
 
     public ProductionRecipeContentDefinition[] ProductionRecipes { get; set; } = [];
 
+    /// <summary>Null only in packages written before version 4; the migrator fills it in.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ExtractionContentSettings? Extraction { get; set; }
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string[]? ResourceKeys { get; set; }
 
@@ -80,6 +84,13 @@ public sealed class ResourceContentDefinition
     public string Key { get; set; } = string.Empty;
 
     public string Commodity { get; set; } = string.Empty;
+
+    public long YieldPerTurn { get; set; }
+}
+
+public sealed class ExtractionContentSettings
+{
+    public int CatchmentRadius { get; set; }
 }
 
 public sealed class ProductionFacilityContentDefinition

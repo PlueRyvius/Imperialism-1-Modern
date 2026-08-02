@@ -167,6 +167,11 @@ events, records the supplied seed, and materializes final rail connectivity.
 System-specific phase events and mutations replace the empty phase bodies as
 economy, conflict, and diplomacy enter the model.
 
+`Extraction` sits between `TradeCancellation` and `Delivery`. Placing it after
+`Conflict` is deliberate: a province taken this turn stops paying its former
+owner this turn, so the harvest reads the ownership and connectivity the turn
+actually ended with rather than the ones it opened with.
+
 **Economy storage foundation.** `CommodityId` is separate from `ResourceId`:
 a map deposit points through `ResourceDefinition` to the commodity it yields,
 while materials and goods need no deposit. Commodity catalogs are content-
@@ -203,7 +208,8 @@ Genuine contention (two powers invading one province) resolves by an explicit
 seeded tiebreak, never by iteration order.
 
 **Deferred delivery is modelled once, with explicit exceptions.** Warehouse
-stock is `Available`; transport and trade create `PendingDelivery` entries.
+stock is `Available`; extraction, transport and trade create `PendingDelivery`
+entries.
 Production cannot generally use pending goods, but worker feeding consumes
 transported raw food from `PendingDelivery` before warehouse food, matching
 the original's documented priority. Power is separate transient labour: it is

@@ -169,6 +169,7 @@ public sealed class WorldContentTests
         var document = new WorldContentDocument
         {
             TerrainKeys = ["terrain.plains"],
+            Extraction = new ExtractionContentSettings { CatchmentRadius = 1 },
             Map = new MapContentDocument
             {
                 Key = "map.large",
@@ -205,6 +206,7 @@ public sealed class WorldContentTests
         var document = new WorldContentDocument
         {
             TerrainKeys = ["terrain.plains"],
+            Extraction = new ExtractionContentSettings { CatchmentRadius = 1 },
             Map = new MapContentDocument
             {
                 Key = "map.expanded",
@@ -268,7 +270,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(4)]
+    [InlineData(5)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -336,7 +338,7 @@ public sealed class WorldContentTests
         var compiled = WorldContentCompiler.Compile(migrated);
         var encoded = Encoding.UTF8.GetString(WorldContentCodec.Encode(migrated));
 
-        Assert.Equal(3, migrated.FormatVersion);
+        Assert.Equal(4, migrated.FormatVersion);
         Assert.Null(migrated.ResourceKeys);
         Assert.Equal(
             ["commodity.grain", "commodity/from-resource/deposit.crude-oil"],
@@ -348,7 +350,7 @@ public sealed class WorldContentTests
             new CommodityId(1),
             compiled.World.Map.Resources[1].Commodity);
         Assert.DoesNotContain("\"resourceKeys\"", encoded, StringComparison.Ordinal);
-        Assert.Contains("\"formatVersion\": 3", encoded, StringComparison.Ordinal);
+        Assert.Contains("\"formatVersion\": 4", encoded, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -408,7 +410,7 @@ public sealed class WorldContentTests
 
         var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(versionTwo));
 
-        Assert.Equal(3, migrated.FormatVersion);
+        Assert.Equal(4, migrated.FormatVersion);
         Assert.Empty(migrated.ProductionFacilities);
         Assert.Empty(migrated.ProductionRecipes);
         Assert.Empty(migrated.Scenarios[0].ProductionCapacities);
@@ -419,7 +421,7 @@ public sealed class WorldContentTests
     {
         var document = CreateValidDocument();
         var json = Encoding.UTF8.GetString(WorldContentCodec.Encode(document))
-            .Replace("\"formatVersion\": 3", "\"formatVersion\": 2", StringComparison.Ordinal);
+            .Replace("\"formatVersion\": 4", "\"formatVersion\": 2", StringComparison.Ordinal);
 
         var exception = Assert.Throws<ContentValidationException>(() =>
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
@@ -453,8 +455,8 @@ public sealed class WorldContentTests
     {
         var valid = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()));
         var unknown = valid.Replace(
-            "\"formatVersion\": 3,",
-            "\"formatVersion\": 3,\n  \"mystery\": true,",
+            "\"formatVersion\": 4,",
+            "\"formatVersion\": 4,\n  \"mystery\": true,",
             StringComparison.Ordinal);
 
         Assert.Throws<ContentValidationException>(() =>
@@ -613,6 +615,147 @@ public sealed class WorldContentTests
         Assert.Equal("terrainKeys", exception.Path);
     }
 
+    [Fact]
+    public void DecoderMigratesVersionThreeToUndevelopedYieldsAndAOneTileCatchment()
+    {
+        var versionThree = """
+            {
+              "format": "imperialism-world",
+              "formatVersion": 3,
+              "terrainKeys": ["terrain.plains"],
+              "commodities": [{ "key": "commodity.grain", "name": "Grain", "category": "raw" }],
+              "resources": [{ "key": "resource.grain", "commodity": "commodity.grain" }],
+              "productionFacilities": [],
+              "productionRecipes": [],
+              "map": {
+                "key": "map.v3",
+                "name": "Version Three",
+                "width": 1,
+                "height": 1,
+                "provinces": [],
+                "seaZones": [],
+                "cells": [{ "terrain": "terrain.plains", "region": {}, "resources": [], "hasSettlementSite": false }]
+              },
+              "countries": [],
+              "scenarios": [{
+                "key": "scenario.v3",
+                "name": "Version Three",
+                "startingYear": 1815,
+                "provinceOwners": [],
+                "rails": [],
+                "capitals": [],
+                "initialInventory": [],
+                "productionCapacities": []
+              }]
+            }
+            """;
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(versionThree));
+        var compiled = WorldContentCompiler.Compile(migrated);
+
+        Assert.Equal(4, migrated.FormatVersion);
+        Assert.Equal(
+            WorldContentCodec.DefaultResourceYieldPerTurn,
+            migrated.Resources[0].YieldPerTurn);
+        Assert.Equal(
+            WorldContentCodec.DefaultCatchmentRadius,
+            migrated.Extraction!.CatchmentRadius);
+        Assert.Equal(1, compiled.World.Map.Resources[0].YieldPerTurn);
+        Assert.Equal(1, compiled.World.Extraction.CatchmentRadius);
+    }
+
+    [Fact]
+    public void VersionThreeMigrationRejectsVersionFourExtractionData()
+    {
+        var withSettings = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()))
+            .Replace("\"formatVersion\": 4", "\"formatVersion\": 3", StringComparison.Ordinal)
+            .Replace("\"yieldPerTurn\": 1", "\"yieldPerTurn\": 0", StringComparison.Ordinal)
+            .Replace("\"yieldPerTurn\": 2", "\"yieldPerTurn\": 0", StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(withSettings)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    [Fact]
+    public void VersionThreeMigrationRejectsAYieldItCannotHaveAuthored()
+    {
+        var withYield = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()))
+            .Replace("\"formatVersion\": 4", "\"formatVersion\": 3", StringComparison.Ordinal)
+            .Replace(
+                "\"extraction\": {\n    \"catchmentRadius\": 1\n  },\n  ",
+                string.Empty,
+                StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(withYield)));
+
+        Assert.Equal("resources[0].yieldPerTurn", exception.Path);
+    }
+
+    [Fact]
+    public void CompilerRequiresExtractionSettingsAndAPositiveYield()
+    {
+        var missingSettings = CreateValidDocument();
+        missingSettings.Extraction = null;
+        AssertPath("extraction", missingSettings);
+
+        var negativeRadius = CreateValidDocument();
+        negativeRadius.Extraction = new ExtractionContentSettings { CatchmentRadius = -1 };
+        AssertPath("extraction.catchmentRadius", negativeRadius);
+
+        var zeroYield = CreateValidDocument();
+        zeroYield.Resources[1].YieldPerTurn = 0;
+        AssertPath("resources[1].yieldPerTurn", zeroYield);
+
+        var negativeYield = CreateValidDocument();
+        negativeYield.Resources[0].YieldPerTurn = -3;
+        AssertPath("resources[0].yieldPerTurn", negativeYield);
+    }
+
+    /// <summary>
+    /// The Godot client ships exactly one world and loads it unconditionally, so
+    /// a format bump that its migration path does not cover breaks the viewer
+    /// with nothing else to catch it.
+    /// </summary>
+    [Fact]
+    public void TheShippedDemoPackageStillCompilesAtTheCurrentVersion()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var demoPath = Path.Combine(
+            repositoryRoot,
+            "src",
+            "Imperialism.Client",
+            "demo",
+            "demo.iworld");
+        Assert.True(File.Exists(demoPath), $"Expected the client's demo world at {demoPath}.");
+
+        var document = WorldContentCodec.Load(demoPath);
+        var package = WorldContentCompiler.CompilePackage(document);
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, document.FormatVersion);
+        Assert.NotEmpty(package.ScenarioKeys);
+        Assert.All(
+            package.ScenarioKeys,
+            key => Assert.Equal(1, package.GetWorld(key).Extraction.CatchmentRadius));
+        Assert.All(document.Resources, static resource => Assert.True(resource.YieldPerTurn > 0));
+        Assert.NotNull(document.Extraction);
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null &&
+            !File.Exists(Path.Combine(directory.FullName, "Imperialism.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        Assert.NotNull(directory);
+        return directory.FullName;
+    }
+
     private static void AssertPath(string expected, WorldContentDocument document)
     {
         var exception = Assert.Throws<ContentValidationException>(() =>
@@ -652,10 +795,26 @@ public sealed class WorldContentTests
         ],
         Resources =
         [
-            new ResourceContentDefinition { Key = "resource.coal", Commodity = "commodity.coal" },
-            new ResourceContentDefinition { Key = "resource.grain", Commodity = "commodity.grain" },
-            new ResourceContentDefinition { Key = "resource.oil", Commodity = "commodity.oil" },
+            new ResourceContentDefinition
+            {
+                Key = "resource.coal",
+                Commodity = "commodity.coal",
+                YieldPerTurn = 1,
+            },
+            new ResourceContentDefinition
+            {
+                Key = "resource.grain",
+                Commodity = "commodity.grain",
+                YieldPerTurn = 2,
+            },
+            new ResourceContentDefinition
+            {
+                Key = "resource.oil",
+                Commodity = "commodity.oil",
+                YieldPerTurn = 1,
+            },
         ],
+        Extraction = new ExtractionContentSettings { CatchmentRadius = 1 },
         ProductionFacilities =
         [
             new ProductionFacilityContentDefinition
