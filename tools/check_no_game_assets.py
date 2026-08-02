@@ -29,7 +29,7 @@ FORBIDDEN_SUFFIXES = {
 }
 
 # Media that would indicate extracted assets.
-FORBIDDEN_MEDIA = {".avi", ".ogg", ".wav", ".bmp", ".pcx", ".ttf"}
+FORBIDDEN_MEDIA = {".avi", ".ogg", ".wav", ".bmp", ".pcx", ".ttf", ".png", ".jpg", ".jpeg", ".gif"}
 
 # Any tracked file larger than this is suspicious for a source-only repo.
 MAX_TRACKED_BYTES = 2 * 1024 * 1024

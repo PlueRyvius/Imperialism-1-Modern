@@ -4,8 +4,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from collections import Counter
 from pathlib import Path
+
+if __package__ in (None, ""):  # allow `python tools/inspect_assets.py`
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from imperialism_format import MapFile, MapFormatProfile, ScenarioFile, ScenarioInfo
 

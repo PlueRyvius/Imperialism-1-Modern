@@ -84,6 +84,46 @@ public sealed class ScenarioCodecTests
         Assert.Throws<InvalidDataException>(() => LegacyScenarioCodec.Decode(raw));
     }
 
+    [Fact]
+    public void BinaryCodecRoundTripsBlankNameFieldLosslessly()
+    {
+        var raw = "cnam"u8.ToArray()
+            .Concat(new byte[4])
+            .Concat(new byte[64])
+            .Concat("TERM"u8.ToArray())
+            .ToArray();
+
+        var decoded = LegacyScenarioCodec.Decode(raw);
+
+        Assert.Equal(string.Empty, decoded.Records[0].Name);
+        Assert.Equal(raw, LegacyScenarioCodec.Encode(decoded));
+    }
+
+    [Fact]
+    public void EditedNonAsciiNameThrowsInsteadOfBeingReplaced()
+    {
+        var document = new ScenarioDocument([new ScenarioRecord("cnam", [0u], "France")]);
+        document.Records[0].Name = "Café";
+
+        Assert.Throws<InvalidDataException>(() => LegacyScenarioCodec.Encode(document));
+    }
+
+    [Fact]
+    public void TextLoadRejectsNonAsciiBytesInsteadOfReplacingThem()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllBytes(path, Encoding.Latin1.GetBytes("year 5\rzone 4 Café\r"));
+
+            Assert.Throws<DecoderFallbackException>(() => ScenarioTextCodec.Load(path));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     [Theory]
     [InlineData("\r")]
     [InlineData("\n")]

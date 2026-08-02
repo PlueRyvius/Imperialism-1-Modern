@@ -129,6 +129,29 @@ public sealed class WorldDefinitionTests
     }
 
     [Fact]
+    public void SetCountryCapitalRequiresOwnershipOfTheProvince()
+    {
+        var state = CreateTwoProvinceCapitalState();
+
+        var exception = Assert.Throws<ArgumentException>(
+            () => state.SetCountryCapital(new CountryId(0), new CellIndex(1)));
+
+        Assert.Contains("own provinces", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SetProvinceOwnerClearsCapitalLostToConquest()
+    {
+        var state = CreateTwoProvinceCapitalState();
+
+        state.SetProvinceOwner(new ProvinceId(1), new CountryId(0));
+
+        Assert.Null(state.GetCountryCapital(new CountryId(1)));
+        state.SetCountryCapital(new CountryId(0), new CellIndex(1));
+        Assert.Equal(new CellIndex(1), state.GetCountryCapital(new CountryId(0)));
+    }
+
+    [Fact]
     public void RiverPathsAreCellGeographyWhileRailsAndCapitalsAreMutableState()
     {
         var dimensions = new MapDimensions(2, 1);
@@ -310,6 +333,45 @@ public sealed class WorldDefinitionTests
             map,
             [new CountryDefinition(new CountryId(0), "Only")],
             new ScenarioDefinition("Invalid", 1815, [new CountryId(1)])));
+    }
+
+    private static WorldState CreateTwoProvinceCapitalState()
+    {
+        var dimensions = new MapDimensions(2, 1);
+        var map = new MapDefinition(
+            dimensions,
+            [
+                new CellDefinition(
+                    new CellIndex(0),
+                    new HexCoord(0, 0),
+                    new TerrainId(0),
+                    CellRegion.ForProvince(new ProvinceId(0)),
+                    settlementSite: SettlementSiteKind.Urban),
+                new CellDefinition(
+                    new CellIndex(1),
+                    new HexCoord(1, 0),
+                    new TerrainId(0),
+                    CellRegion.ForProvince(new ProvinceId(1)),
+                    settlementSite: SettlementSiteKind.Urban),
+            ],
+            [
+                new ProvinceDefinition(new ProvinceId(0), "West"),
+                new ProvinceDefinition(new ProvinceId(1), "East"),
+            ]);
+        var scenario = new ScenarioDefinition(
+            "Start",
+            1815,
+            [new CountryId(0), new CountryId(1)],
+            initialCountryCapitals:
+            [
+                new CountryCapital(new CountryId(0), new CellIndex(0)),
+                new CountryCapital(new CountryId(1), new CellIndex(1)),
+            ]);
+        var world = new WorldDefinition(
+            map,
+            [new CountryDefinition(new CountryId(0), "A"), new CountryDefinition(new CountryId(1), "B")],
+            scenario);
+        return new WorldState(world);
     }
 
     private static MapDefinition CreateOneProvinceMap()

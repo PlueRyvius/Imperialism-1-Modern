@@ -1,4 +1,4 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
+Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -88,8 +88,8 @@ Global
 		{6160209A-B059-4578-B748-7FEF96686FF0}.Release|Any CPU.Build.0 = Release|Any CPU
 		{EF26E8F5-0AF2-4EB5-B83E-09767847AE81}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{EF26E8F5-0AF2-4EB5-B83E-09767847AE81}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{EF26E8F5-0AF2-4EB5-B83E-09767847AE81}.Release|Any CPU.ActiveCfg = Debug|Any CPU
-		{EF26E8F5-0AF2-4EB5-B83E-09767847AE81}.Release|Any CPU.Build.0 = Debug|Any CPU
+		{EF26E8F5-0AF2-4EB5-B83E-09767847AE81}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EF26E8F5-0AF2-4EB5-B83E-09767847AE81}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{BE0F9240-337C-47F8-BF79-C8B3CA10A988} = {27E0374C-21E0-4AF8-B958-DEAA3A68EE58}

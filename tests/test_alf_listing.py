@@ -9,6 +9,8 @@ import os
 import sqlite3
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from tools.alf import db as dbmod
@@ -302,13 +304,15 @@ def test_indexing_is_idempotent(tmp_path):
 # Optional: only run where the real (copyrighted, uncommitted) files exist
 # --------------------------------------------------------------------------
 
-REAL_ALF = r"C:\Users\Ryvius\Desktop\Imperialism\Imperialism.alf"
-REAL_EXE = r"C:\Users\Ryvius\Desktop\Imperialism\Imperialism.exe"
+# Optional: only run where the real (copyrighted, uncommitted) files exist.
+# Point these environment variables at a local game install to enable them.
+REAL_ALF = os.environ.get("IMPERIALISM_ALF", "")
+REAL_EXE = os.environ.get("IMPERIALISM_EXE", "")
 
 
 def test_real_listing_header_is_the_shape_we_expect():
-    if not os.path.exists(REAL_ALF):
-        return
+    if not REAL_ALF or not os.path.exists(REAL_ALF):
+        pytest.skip("IMPERIALISM_ALF is not set to a real .alf listing")
     with open(REAL_ALF, "r", encoding="latin-1") as fh:
         head = [next(fh) for _ in range(3)]
     assert head[0].startswith("Disassembly of File:")
@@ -316,8 +320,8 @@ def test_real_listing_header_is_the_shape_we_expect():
 
 
 def test_real_executable_leaks_source_filenames():
-    if not os.path.exists(REAL_EXE):
-        return
+    if not REAL_EXE or not os.path.exists(REAL_EXE):
+        pytest.skip("IMPERIALISM_EXE is not set to a real Imperialism.exe")
     from pathlib import Path
 
     from tools.alf.modules import scan_pe_source_filenames

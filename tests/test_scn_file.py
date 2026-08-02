@@ -6,7 +6,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from imperialism_format import ScenarioFile
-from imperialism_format.scn_file import NAME_TAGS, TAG_FIELD_COUNTS
+from imperialism_format.scn_file import NAME_FIELD_SIZE, NAME_TAGS, TAG_FIELD_COUNTS
 
 LOCAL_FIXTURE = os.path.join(os.path.dirname(__file__), "..", "fixtures", "local_only", "s1.scn")
 
@@ -77,7 +77,7 @@ def test_rejects_missing_term():
 
 def test_real_game_scn_loads_if_present():
     if not os.path.exists(LOCAL_FIXTURE):
-        return
+        pytest.skip("no real .scn fixture in fixtures/local_only")
     scn = ScenarioFile.load(LOCAL_FIXTURE)
     assert len(scn.records) > 0
     assert scn.to_bytes() == open(LOCAL_FIXTURE, "rb").read()
@@ -148,3 +148,17 @@ def test_text_parser_reports_line_numbered_errors(text, message):
     with pytest.raises(ValueError) as exc_info:
         ScenarioFile.from_text(text)
     assert message in str(exc_info.value)
+
+
+def test_edited_non_ascii_name_raises_instead_of_silent_replacement():
+    scn = ScenarioFile()
+    scn.add("cnam", 0, name="France")
+    scn.records[0].name = "Café"
+    with pytest.raises(ValueError, match="ASCII"):
+        scn.to_bytes()
+
+
+def test_blank_name_field_round_trips_via_raw_bytes():
+    raw = b"cnam" + (0).to_bytes(4, "big") + bytes(NAME_FIELD_SIZE) + b"TERM"
+    scn = ScenarioFile.from_bytes(raw)
+    assert scn.to_bytes() == raw

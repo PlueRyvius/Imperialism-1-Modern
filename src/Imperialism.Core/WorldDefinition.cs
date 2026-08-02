@@ -312,6 +312,20 @@ public sealed class WorldState
         _provinceOwners[province.Value] = owner;
         InvalidateRailConnectivity(previousOwner);
         InvalidateRailConnectivity(owner);
+
+        // A capital may only sit in a province its country owns (the same
+        // invariant the WorldDefinition constructor enforces), so a province
+        // changing hands strips the previous owner's capital if it stood here.
+        if (previousOwner.HasValue)
+        {
+            var capital = _countryCapitals[previousOwner.Value.Value];
+            if (capital.HasValue &&
+                Definition.Map[capital.Value].Region.Kind == CellRegionKind.Province &&
+                Definition.Map[capital.Value].Region.Province == province)
+            {
+                _countryCapitals[previousOwner.Value.Value] = null;
+            }
+        }
     }
 
     public bool HasRail(CellLink link) => _railLinks.Contains(link);
@@ -377,6 +391,12 @@ public sealed class WorldState
                 Definition.Map[cell.Value].Region.Kind != CellRegionKind.Province)
             {
                 throw new ArgumentException("A capital must be an urban province cell.", nameof(cell));
+            }
+
+            if (_provinceOwners[Definition.Map[cell.Value].Region.Province.Value] != country)
+            {
+                throw new ArgumentException(
+                    "A capital must be in one of the country's own provinces.", nameof(cell));
             }
 
             if (_countryCapitals.Where((value, index) => index != country.Value).Contains(cell))

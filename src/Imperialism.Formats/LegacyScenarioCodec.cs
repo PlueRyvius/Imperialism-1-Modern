@@ -121,7 +121,12 @@ public static class LegacyScenarioCodec
                 $"Tag '{record.Tag}' expects {expected} fields, got {record.Fields.Count}.");
         }
 
-        if (ScenarioFormat.NameTags.Contains(record.Tag) && string.IsNullOrWhiteSpace(record.Name))
+        // A blank name is acceptable only when the record still carries the raw
+        // 64-byte field it was decoded from, so it can be re-emitted losslessly
+        // (matching the Python reference codec).
+        if (ScenarioFormat.NameTags.Contains(record.Tag) &&
+            string.IsNullOrWhiteSpace(record.Name) &&
+            record.RawNameField.IsEmpty)
         {
             throw new InvalidDataException($"Tag '{record.Tag}' requires a name.");
         }

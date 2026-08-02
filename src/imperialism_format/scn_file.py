@@ -43,7 +43,12 @@ class Record:
             )
             if original_name == (self.name or ""):
                 return self.raw_name_field
-        name_bytes = (self.name or "").encode("ascii", errors="replace")
+        try:
+            name_bytes = (self.name or "").encode("ascii")
+        except UnicodeEncodeError as exc:
+            raise ValueError(
+                f"name for tag {self.tag!r} must be ASCII: {self.name!r}"
+            ) from exc
         return name_bytes[:NAME_FIELD_SIZE].ljust(NAME_FIELD_SIZE, b"\x00")
 
 
