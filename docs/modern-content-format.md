@@ -29,23 +29,25 @@ Every document starts with:
 ```json
 {
   "format": "imperialism-world",
-  "formatVersion": 5
+  "formatVersion": 6
 }
 ```
 
-Version 5 is the authored version. Migration is explicit and sequential:
+Version 6 is the authored version. Migration is explicit and sequential:
 version 1 resource palettes become version 2 commodities/resources, version 2
 packages gain empty version 3 production collections, version 3 packages gain a
 per-deposit `yieldPerTurn` plus a world-level `extraction` block, and version 4
-turns that flat rate into a `yieldByDevelopmentLevel` curve. This preserves
-everything older packages could express without inventing factories, recipes, or
-capacity. Versions 4 and 5 are the migrations that must supply values rather
-than empty collections, because a deposit with no rate would silently stop
-producing; both use documented defaults and say so in `formulas/extraction.md`.
-Every cell in a version 4 package is undeveloped, so putting its flat rate at
-level zero leaves behaviour unchanged. Mixed-version schemas, unknown fields, and
-unsupported versions fail with a path-qualified validation error. Generic
-migrated keys use the
+turns that flat rate into a `yieldByDevelopmentLevel` curve, and version 5 gains
+ports and port fishing. This preserves everything older packages could express
+without inventing factories, recipes, or capacity. Versions 4 and 5 are the
+migrations that must supply values rather than empty collections, because a
+deposit with no rate would silently stop producing; both use documented defaults
+and say so in `formulas/extraction.md`. Every cell in a version 4 package is
+undeveloped, so putting its flat rate at level zero leaves behaviour unchanged.
+The version 6 step adds nothing at all: an older package has no port records,
+and nothing in it says which of its commodities is fish. Mixed-version schemas,
+unknown fields, and unsupported versions fail with a path-qualified validation
+error. Generic migrated keys use the
 valid `commodity/from-resource/...` form; `/` is part of the key grammar below.
 
 ## Stable keys and runtime IDs
@@ -72,7 +74,9 @@ The top-level document contains:
   `material`, or `goods` category;
 - ordered resource definitions mapping each deposit key to one commodity key, a
   `yieldByDevelopmentLevel` curve, and an optional `requiredTechnology`;
-- a world-level `extraction` block holding the gathering `catchmentRadius`;
+- a world-level `extraction` block holding the gathering `catchmentRadius` and an
+  optional `portFishing` naming one commodity and its yield per adjacent water
+  tile;
 - ordered technology definitions with stable key and Unicode name;
 - ordered production-facility definitions with stable key, Unicode name, and
   `limited` or `unlimited` capacity mode;
@@ -84,7 +88,7 @@ The top-level document contains:
 - one or more keyed scenarios containing name/year, explicit province owners,
   rails, capitals, optional positive initial commodity quantities, sparse
   positive capacities for limited facilities, sparse starting cell development,
-  and which technologies each country begins knowing.
+  which technologies each country begins knowing, and the cells carrying a port.
 
 Each cell references one terrain key, zero or more unique resource keys, and
 at most one province or sea-zone key. Settlement sites and river paths are map

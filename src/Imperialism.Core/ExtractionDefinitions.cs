@@ -18,15 +18,53 @@ public sealed record ExtractionSettings
     /// <summary>The manual's "on or within one tile of" catchment.</summary>
     public static readonly ExtractionSettings Default = new(1);
 
-    public ExtractionSettings(int catchmentRadius)
+    public ExtractionSettings(int catchmentRadius, PortFishing? portFishing = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(catchmentRadius);
         CatchmentRadius = catchmentRadius;
+        PortFishing = portFishing;
     }
+
+    /// <summary>
+    /// What a port pulls out of the water beside it, or null where the world has
+    /// no fishing at all. Content names the commodity so nothing in Core has to
+    /// know that "fish" exists.
+    /// </summary>
+    public PortFishing? PortFishing { get; }
 
     /// <summary>
     /// How many hex steps a cell may sit from a connected collection point and
     /// still be gathered. Zero collects only the connection points themselves.
     /// </summary>
     public int CatchmentRadius { get; }
+}
+
+/// <summary>
+/// A port's catch: one commodity, earned per neighbouring water tile.
+/// </summary>
+/// <remarks>
+/// The manual counts rivers as well as coast — "rivers, like coasts, produce one
+/// unit of fish per turn for adjacent ports" — so an inland river port fishes
+/// exactly as a sea port does. 45 of the corpus's 124 ports have no adjacent
+/// sea at all and every one of them sits on a river, which would be a strange
+/// thing to author if river ports could not fish.
+/// </remarks>
+public sealed record PortFishing
+{
+    public PortFishing(CommodityId commodity, long yieldPerAdjacentWaterTile)
+    {
+        if (yieldPerAdjacentWaterTile <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(yieldPerAdjacentWaterTile),
+                "A fishing yield that is zero or less would make every port pointless.");
+        }
+
+        Commodity = commodity;
+        YieldPerAdjacentWaterTile = yieldPerAdjacentWaterTile;
+    }
+
+    public CommodityId Commodity { get; }
+
+    public long YieldPerAdjacentWaterTile { get; }
 }

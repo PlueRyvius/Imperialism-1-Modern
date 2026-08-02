@@ -19,16 +19,22 @@ documentation and tests are authoritative when a summary here becomes stale.
 | How does legacy content become `.iworld`? | `docs/legacy-importer.md` |
 | How does the Godot map viewer work? | `docs/map-viewer.md` |
 | What fills the warehouse from the map? | `docs/formulas/extraction.md` |
+| What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Navigating the original binary, and resolving a crash | `docs/disasm/README.md`, `docs/disasm/module-map.md` |
 
 ## Hard rules
 
-**Never commit original game data.** `.map`, `.scn`, `.inf`, `.imp`, `.gob`,
-the `.alf` disassembly, and extracted art stay in `fixtures/local_only/`
-(gitignored) or outside the repo. This is repository policy regardless of a
-file's legal status. CI enforces it via `tools/check_no_game_assets.py`; run it
-before committing.
+**Reference material lives in `docs/reference/`.** The game manual's text is
+committed there so its mechanics can be searched and cited rather than
+rediscovered. It settled the Resource Development Table, the technology gates on
+improvement levels and the fishing rule, all of which had been guesses.
+
+Binary game data — `.map`, `.scn`, `.inf`, `.gob`, the `.alf` disassembly,
+extracted art — still has no reason to be in the tree: the tests read it from
+`IMP_SCENARIO_DIR` / `IMPERIALISM_SCENARIO_DIR`, and `fixtures/local_only/` is
+gitignored for local copies. There is no longer an automated guard, so this is a
+convention rather than a check.
 
 **The `.map` trailer is a province table.** 384 slots indexed by province id,
 each holding that province's town cell as a big-endian u16 at offset 4, 65535
@@ -144,25 +150,34 @@ commodities, facilities, recipes, and sparse scenario capacity, with explicit
 v1→v2→v3 migration. Core stores checked dense Available inventory and
 identifiable pending extraction, transport or trade deliveries. Ordered production
 requests share facility capacity, stage outputs until the next turn, and commit
-atomically with delivery preflight. `.iworld` v5 adds a per-deposit yield curve indexed by
-development level, an optional technology requirement, a technology catalog, and
-sparse starting development: deposits inside the catchment of the capital's own
-rail component pay their owner each turn through the `Extraction` phase, scaled
-by how far the cell has been improved, and unreachable output is reported as
-stranded rather than dropped. Labour, feeding, transient power, capacity
-construction, research, conflict, trade markets, diplomacy, depots, ports, the
-transport capacity pool, and river traversal remain explicitly pending.
+atomically with delivery preflight. `.iworld` v6 adds a per-deposit yield curve indexed by
+development level, an optional technology requirement, a technology catalog,
+sparse starting development, ports, and port fishing: deposits inside the
+catchment of the capital's own rail component pay their owner each turn through
+the `Extraction` phase, scaled by how far the cell has been improved, ports
+fish their adjacent water, and unreachable output is reported as stranded rather
+than dropped. Labour, feeding, transient power, capacity construction, research,
+conflict, trade markets, diplomacy, depots as distinct from rail, sea routes,
+the transport capacity pool, and river traversal remain explicitly pending.
 
-**Extraction's evidence comes at three strengths and they are not
-interchangeable.** Development levels 1-3 are corpus-verified from `deve`
-records; the base rates (1 for harvested ground, 0 then 2 for dug) come from
-observed play; the doubling between levels is a **design choice nobody has
-measured**. `docs/formulas/extraction.md` tabulates which is which — do not cite
-the progression as evidence.
+**The game manual is in `docs/reference/` and it is authoritative for numbers.**
+It carries a Resource Development Table giving every deposit's yield at each of
+the four levels, names the technologies gating each improvement, and states the
+fishing rule. It has already corrected shipped code once: the yield curve used
+to double and is in fact linear with a slope that differs per deposit. Read
+`docs/reference/manual-mechanics.md` before inventing an extraction number.
 
 **`deve` records can repeat a cell.** `s1` does it three times. The importer
 keeps the highest level and warns. Erroring on it was the first implementation
 and the corpus rejected it on the first run.
+
+**The legacy grid wraps east-west; `Imperialism.Core`'s does not.** Any rule
+about a cell's neighbours must say which grid it means. `s3` has a port whose
+only water is across the seam, so "a port touches water" is true of the 1997 map
+and false of ours — the check lives in the importer, with wrapping adjacency, and
+Core checks only that a port is on land. That is the second rule the corpus has
+overturned; convert the whole corpus before believing a new one
+(`TheWholeShippedCorpusConvertsWhenItIsConfigured`).
 
 ## Conventions
 

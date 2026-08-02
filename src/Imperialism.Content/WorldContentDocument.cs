@@ -73,6 +73,9 @@ public sealed class ScenarioContentDocument
 
     public CellDevelopmentContent[] CellDevelopment { get; set; } = [];
 
+    /// <summary>Cell indices carrying a port.</summary>
+    public int[] Ports { get; set; } = [];
+
     public CountryTechnologyContent[] CountryTechnologies { get; set; } = [];
 }
 
@@ -119,6 +122,17 @@ public sealed class ResourceContentDefinition
 public sealed class ExtractionContentSettings
 {
     public int CatchmentRadius { get; set; }
+
+    /// <summary>Absent in worlds that have no fishing at all.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PortFishingContent? PortFishing { get; set; }
+}
+
+public sealed class PortFishingContent
+{
+    public string Commodity { get; set; } = string.Empty;
+
+    public long YieldPerAdjacentWaterTile { get; set; }
 }
 
 public sealed class ProductionFacilityContentDefinition

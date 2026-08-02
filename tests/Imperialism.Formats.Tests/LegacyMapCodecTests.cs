@@ -175,7 +175,10 @@ public sealed class LegacyMapCodecTests
             .Where(IsNumberedScenarioFile)
             .Order(StringComparer.Ordinal)
             .ToArray();
-        Assert.Equal(10, paths.Length);
+        // At least the ten originals. A live Scenario folder also holds worlds
+        // this project generated into it, which must round-trip too; demanding
+        // exactly ten fails on any install that has been used.
+        Assert.True(paths.Length >= 10, $"Expected the corpus, found {paths.Length} maps.");
         foreach (var path in paths)
         {
             var original = File.ReadAllBytes(path);

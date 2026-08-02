@@ -262,6 +262,11 @@ public sealed class WorldDefinition
             }
         }
 
+        foreach (var port in scenario.InitialPorts)
+        {
+            ValidatePortSite(map, port, nameof(scenario));
+        }
+
         foreach (var known in scenario.InitialCountryTechnologies)
         {
             if ((uint)known.Country.Value >= (uint)countryArray.Length)
@@ -303,9 +308,18 @@ public sealed class WorldDefinition
                 exception);
         }
 
+        var extractionSettings = extraction ?? ExtractionSettings.Default;
+        if (extractionSettings.PortFishing is { } fishing &&
+            (uint)fishing.Commodity.Value >= (uint)commodityArray.Length)
+        {
+            throw new ArgumentException(
+                $"Port fishing refers to missing commodity {fishing.Commodity.Value}.",
+                nameof(extraction));
+        }
+
         Map = map;
         Scenario = scenario;
-        Extraction = extraction ?? ExtractionSettings.Default;
+        Extraction = extractionSettings;
         _technologies = Array.AsReadOnly(technologyArray);
         _countries = Array.AsReadOnly(countryArray);
         _commodities = Array.AsReadOnly(commodityArray);
@@ -328,6 +342,32 @@ public sealed class WorldDefinition
     public ExtractionSettings Extraction { get; }
 
     public IReadOnlyList<TechnologyDefinition> Technologies => _technologies;
+
+    /// <summary>
+    /// A port stands on land. Verified against every <c>port</c> record in the
+    /// shipped corpus: 124 of 124 are on a land cell.
+    /// </summary>
+    /// <remarks>
+    /// The manual also says ports always require access to water, and that holds
+    /// across the whole corpus — but only when adjacency wraps east-west the way
+    /// the 1997 grid does. <c>s3</c> puts a port on the last column of row 0
+    /// whose sole water neighbour lies across the seam. This grid does not wrap,
+    /// so Core cannot tell that port from a landlocked one and does not try; the
+    /// legacy importer checks the rule with wrapping adjacency, where it means
+    /// something.
+    /// </remarks>
+    internal static void ValidatePortSite(MapDefinition map, CellIndex cell, string parameterName)
+    {
+        if (!map.Dimensions.Contains(cell))
+        {
+            throw new ArgumentException($"Port cell {cell} is outside the map.", parameterName);
+        }
+
+        if (map[cell].Region.Kind != CellRegionKind.Province)
+        {
+            throw new ArgumentException($"Port cell {cell} is not on land.", parameterName);
+        }
+    }
 
     internal static void ValidateLandLink(
         MapDefinition map,
@@ -353,6 +393,7 @@ public sealed class WorldState
     private readonly long[] _productionCapacities;
     private readonly int[] _cellDevelopment;
     private readonly bool[] _knownTechnologies;
+    private readonly HashSet<CellIndex> _ports;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private long _nextDeliveryId = 1;
 
@@ -388,6 +429,7 @@ public sealed class WorldState
             _cellDevelopment[development.Cell.Value] = development.Level;
         }
 
+        _ports = definition.Scenario.InitialPorts.ToHashSet();
         _knownTechnologies = new bool[
             checked(definition.Countries.Count * definition.Technologies.Count)];
         foreach (var known in definition.Scenario.InitialCountryTechnologies)
@@ -518,6 +560,20 @@ public sealed class WorldState
 
         _cellDevelopment[cell.Value] = level;
     }
+
+    public bool HasPort(CellIndex cell) => _ports.Contains(cell);
+
+    public IReadOnlyList<CellIndex> GetPorts() => Array.AsReadOnly(_ports
+        .OrderBy(static cell => cell.Value)
+        .ToArray());
+
+    public bool BuildPort(CellIndex cell)
+    {
+        WorldDefinition.ValidatePortSite(Definition.Map, cell, nameof(cell));
+        return _ports.Add(cell);
+    }
+
+    public bool RemovePort(CellIndex cell) => _ports.Remove(cell);
 
     public bool HasTechnology(CountryId country, TechnologyId technology) =>
         _knownTechnologies[GetTechnologyOffset(country, technology)];

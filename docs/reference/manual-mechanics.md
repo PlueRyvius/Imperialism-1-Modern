@@ -1,0 +1,128 @@
+# What the manual actually specifies
+
+The game manual's text is in `imperialism-manual.txt` beside this file. It is
+searchable, and it turns out to state several numbers this project had been
+guessing at. This document records what it says, in our own words, so findings
+can be cited without re-reading it every time.
+
+**Cite this file, not the raw text.** Where the manual and the shipped release
+notes disagree, `game-systems.md` says the release notes win — that rule still
+holds, and nothing here has been checked against them.
+
+## Resource Development Table
+
+Every tile has a development level from 0 to 3. Level 0 is what a tile produces
+before any civilian has worked it. The manual gives the output per turn for a
+single tile at each level, and it is **linear, with a slope that differs by
+deposit**:
+
+| Resource | Improved by | L0 | L1 | L2 | L3 |
+|---|---|---|---|---|---|
+| Grain | Farmer | 1 | 2 | 3 | 4 |
+| Fruit | Farmer | 1 | 2 | 3 | 4 |
+| Cotton | Farmer | 1 | 2 | 3 | 4 |
+| Livestock | Rancher | 1 | 2 | 3 | 4 |
+| Wool | Rancher | 1 | 2 | 3 | 4 |
+| Timber | Forester | 1 | 2 | 3 | 4 |
+| Coal | Miner | 0 | 2 | 4 | 6 |
+| Iron | Miner | 0 | 2 | 4 | 6 |
+| Oil | Driller | 0 | 2 | 4 | 6 |
+| Gold | Miner | 0 | 1 | 2 | 3 |
+| Gems | Miner | 0 | 1 | 2 | 3 |
+| Fish | none | 1 | — | — | — |
+
+The surrounding text puts it three ways that agree with the table: gold and gems
+give one unit per level of the mine; coal and iron give double that, so a level
+III mine gives six; oil is calculated at double the level of the derrick, again
+six at level III.
+
+**Horses are missing from the table.** The Terrain Tiles table lists Horse Ranch
+with a civilian worker of "None", so horses behave like fish: level 0 only.
+
+**Nothing is produced by an unopened mine or derrick.** The manual is explicit
+that until a mine is built the tile produces no minerals, and until a derrick is
+built no oil is produced. That is what the 0 at level 0 means.
+
+## Improvability is a property of terrain, not of the resource
+
+Three terrain types yield but can never be improved: **dry plains** (grain),
+**horse ranch** (horses) and **scrub forest** (timber).
+
+This matters because grain and timber *are* improvable elsewhere — on farms and
+in hardwood forest. So the development curve cannot be selected by resource
+alone. Our model currently keys the curve off the resource, which will need
+revisiting when workers arrive.
+
+## Technology gates improvement levels
+
+The manual names the technologies precisely:
+
+| Gate | Technology |
+|---|---|
+| Mine level II | Square Set Timbering |
+| Mine level III | Dynamite |
+| Prospecting for oil at all | Oil Drilling |
+| Derrick level II | Chemistry |
+| Derrick level III | Internal Combustion |
+| Rancher unit buildable | Feed Grasses |
+| Forester unit buildable | Iron Railroad Bridges |
+
+Note the shape: technology gates the *improvement*, and in oil's case the
+*discovery*. It does not gate extraction from a deposit that is already open.
+That is why our importer declares no technology requirement on any deposit.
+
+## Prospecting
+
+Coal, iron, gold, gems and oil must be found by a Prospector before any other
+civilian can work them, and the four minerals occur only in barren hill and
+mountain tiles. Everything else is visible from the terrain type — a cotton
+plantation obviously has cotton.
+
+## Collection: depots, ports and the catchment
+
+The same sentence appears for the Miner, Farmer, Rancher, Forester and Driller:
+a worked tile must be **on or within one tile of a connected port or rail
+depot**, or its output does not reach the transport network. Tiles next to the
+capital are exempt.
+
+So the collection points are **depots, ports and the capital** — not raw rail.
+Our model currently treats every cell of the capital's rail component as a
+depot, which is a placeholder.
+
+Ports always require access to water, and an Engineer may build one on a river
+tile. Conquered territory works the same way as home territory: resources
+gathered at ports and depots there enter your network.
+
+## Fishing
+
+**Rivers, like coasts, produce one unit of fish per turn for adjacent ports.**
+Any tile with a river can produce fish, in addition to whatever else it holds.
+
+Consequences worth stating:
+
+- A river port fishes exactly like a sea port. 45 of the corpus's 124 ports have
+  no adjacent sea at all.
+- The rate is **1 per adjacent water tile**, matching the table's Fish row.
+- No civilian improves fishing, which is why fish has no level above 0.
+
+**Open question:** the generated maps mark 15–19% of ocean cells with a fish
+deposit, and the historical maps mark none. Under this rule that marker does not
+drive fishing at all, so what it means is unknown.
+
+## Starting state
+
+Farms and orchards adjacent to the capital begin at Level I automatically,
+before any Farmer exists.
+
+## Gold and gems bypass the warehouse
+
+They never reach the industry warehouse and cannot be traded. Everything
+transported converts immediately into cash. Our commodity model does not yet
+distinguish them.
+
+## Worker food, for later
+
+Workers eat in a fixed pattern: half want grain, a quarter want fruit, and the
+remaining quarter want livestock **or** fish, either being acceptable. The
+manual's own advice for satisfying that last group is to build ports and
+transport fish — which is a second reason fishing matters beyond the raw number.

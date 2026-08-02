@@ -4,6 +4,8 @@ internal sealed record PlannedExtraction(
     CountryId Country,
     int CollectedCellCount,
     int StrandedCellCount,
+    int FishingPortCount,
+    int StrandedPortCount,
     IReadOnlyList<CommodityQuantity> Collected,
     IReadOnlyList<CommodityQuantity> Stranded);
 
@@ -29,6 +31,11 @@ internal static class ExtractionPlanner
         // Catchments may overlap between countries but never within one, which
         // is what stops a cell in range of two collection points paying twice.
         var stamp = new int[cellCount];
+
+        // Collection points only, before the catchment widens. A port has to sit
+        // on the network itself: its catch leaves by rail, so being merely
+        // within reach of a railhead is not enough.
+        var connectionStamp = new int[cellCount];
         var frontier = new List<int>();
         var next = new List<int>();
         var collected = new long[commodityCount];
@@ -44,6 +51,11 @@ internal static class ExtractionPlanner
             frontier.Clear();
 
             SeedCollectionPoints(state, country, pass, stamp, frontier);
+            foreach (var seed in frontier)
+            {
+                connectionStamp[seed] = pass;
+            }
+
             ExpandCatchment(dimensions, radius, pass, stamp, ref frontier, ref next);
 
             var collectedCells = 0;
@@ -93,15 +105,77 @@ internal static class ExtractionPlanner
                 }
             }
 
+            var fishingPorts = 0;
+            var strandedPorts = 0;
+            if (definition.Extraction.PortFishing is { } fishing)
+            {
+                foreach (var port in state.GetPorts())
+                {
+                    var portCell = map[port];
+                    if (portCell.Region.Kind != CellRegionKind.Province ||
+                        state.GetProvinceOwner(portCell.Region.Province) != country)
+                    {
+                        continue;
+                    }
+
+                    var water = CountAdjacentWater(map, portCell);
+                    if (water == 0)
+                    {
+                        continue;
+                    }
+
+                    var connected = connectionStamp[port.Value] == pass;
+                    var target = connected ? collected : stranded;
+                    if (connected)
+                    {
+                        fishingPorts++;
+                    }
+                    else
+                    {
+                        strandedPorts++;
+                    }
+
+                    var offset = fishing.Commodity.Value;
+                    target[offset] = checked(
+                        target[offset] + checked(water * fishing.YieldPerAdjacentWaterTile));
+                }
+            }
+
             results[countryValue] = new PlannedExtraction(
                 country,
                 collectedCells,
                 strandedCells,
+                fishingPorts,
+                strandedPorts,
                 ToQuantities(collected),
                 ToQuantities(stranded));
         }
 
         return Array.AsReadOnly(results);
+    }
+
+    /// <summary>
+    /// Neighbouring tiles a port can fish: open sea, or land carrying a river.
+    /// Each neighbour counts once even if it somehow qualifies both ways.
+    /// </summary>
+    private static int CountAdjacentWater(MapDefinition map, CellDefinition port)
+    {
+        var water = 0;
+        foreach (var direction in HexDirections.All)
+        {
+            if (!port.Coordinate.TryGetNeighbor(direction, map.Dimensions, out var neighbor))
+            {
+                continue;
+            }
+
+            var cell = map[neighbor];
+            if (cell.Region.Kind == CellRegionKind.SeaZone || cell.River is not null)
+            {
+                water++;
+            }
+        }
+
+        return water;
     }
 
     /// <summary>

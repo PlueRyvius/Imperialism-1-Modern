@@ -64,12 +64,13 @@ cannot feed another recipe until the following turn. The resolver preflights
 production together with pending deliveries before mutating inventory. Deposits
 inside a connected catchment now pay their owner each turn and reach the
 warehouse through Delivery, with unreachable output reported rather than
-dropped. Yield depends on the deposit and on the cell's development level:
-harvested ground already gives on untouched land, dug ground gives nothing until
-improved, and a deposit may be gated behind a technology. Labour, feeding,
-prices, power, capacity construction, depots, ports, the transport capacity
-pool, research, and the per-level progression itself remain pending — see
-`formulas/extraction.md` for which numbers are evidence and which are chosen.
+dropped. Yield depends on the deposit and on the cell's development level, taken from the
+manual's Resource Development Table: cultivated ground runs 1/2/3/4, coal, iron
+and oil 0/2/4/6, gold and gems 0/1/2/3, and fish and horses have no improvement
+at all. Ports collect one fish per adjacent coast or river tile. Labour,
+feeding, prices, power, capacity construction, depots as distinct from rail, sea
+routes, the transport capacity pool and research remain pending — see
+`formulas/extraction.md` and `reference/manual-mechanics.md`.
 
 **Commodity tiers.** 13 raw resources (grain, livestock, fruit, fish, cotton,
 wool, horses, timber, coal, iron, oil, gold, gems) → 6 materials (canned
@@ -131,10 +132,16 @@ pays its owner only when it sits within the catchment radius of the capital's
 own rail component. River continuity, naval control, and sea-zone traversal
 remain explicit later layers; the graph still does not guess those.
 
-Depots are the one relationship extraction had to stand in for, since it cannot
-work without some notion of a collection point. Every cell of the capital's
-rail component acts as one. That is a placeholder with a known direction of
-error rather than a guess — see `formulas/extraction.md`.
+Ports are now modelled as sites: they are imported from the `port` records, they
+fish their adjacent water, and they must be on the network for that catch to
+count. Depots remain the one relationship extraction has to stand in for, since
+it cannot work without some notion of a collection point — every cell of the
+capital's rail component acts as one. That is a placeholder with a known
+direction of error rather than a guess; see `formulas/extraction.md`.
+
+The manual is clearer than this section was: the collection points are depots,
+ports and the capital, not raw rail, and the "on or within one tile" rule is
+repeated for every civilian worker. See `reference/manual-mechanics.md`.
 
 ## Trade
 

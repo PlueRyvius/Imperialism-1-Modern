@@ -119,15 +119,21 @@ public sealed record ResourceExtractedEvent : TurnEvent
         CountryId country,
         int collectedCellCount,
         int strandedCellCount,
+        int fishingPortCount,
+        int strandedPortCount,
         IEnumerable<CommodityQuantity> collected,
         IEnumerable<CommodityQuantity> stranded)
         : base(turnNumber, TurnPhase.Extraction)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(collectedCellCount);
         ArgumentOutOfRangeException.ThrowIfNegative(strandedCellCount);
+        ArgumentOutOfRangeException.ThrowIfNegative(fishingPortCount);
+        ArgumentOutOfRangeException.ThrowIfNegative(strandedPortCount);
         Country = country;
         CollectedCellCount = collectedCellCount;
         StrandedCellCount = strandedCellCount;
+        FishingPortCount = fishingPortCount;
+        StrandedPortCount = strandedPortCount;
         _collected = Array.AsReadOnly(collected.ToArray());
         _stranded = Array.AsReadOnly(stranded.ToArray());
     }
@@ -139,6 +145,12 @@ public sealed record ResourceExtractedEvent : TurnEvent
 
     /// <summary>Owned cells carrying a deposit that no connected route reached.</summary>
     public int StrandedCellCount { get; }
+
+    /// <summary>Owned ports on the network with water to fish.</summary>
+    public int FishingPortCount { get; }
+
+    /// <summary>Owned ports with water to fish that no connected route reached.</summary>
+    public int StrandedPortCount { get; }
 
     public IReadOnlyList<CommodityQuantity> Collected => _collected;
 

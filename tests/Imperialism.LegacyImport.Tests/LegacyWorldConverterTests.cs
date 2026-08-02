@@ -506,13 +506,15 @@ public sealed class LegacyWorldConverterTests
     }
 
     [Fact]
-    public void DugDepositsYieldNothingUntilImprovedWhileHarvestedOnesAlreadyPay()
+    public void EachDepositTakesItsCurveFromTheManualsDevelopmentTable()
     {
         var map = CreateMap(
-            2,
+            4,
             1,
             LandCell(1, 0) with { ResourceA = 3 },
-            LandCell(1, 0) with { ResourceA = 17 });
+            LandCell(1, 0) with { ResourceA = 17 },
+            LandCell(1, 0) with { ResourceA = 22 },
+            LandCell(1, 0) with { ResourceA = 5 });
 
         var result = LegacyWorldConverter.Convert(map, Scenario(1815), null, "yields");
 
@@ -520,13 +522,83 @@ public sealed class LegacyWorldConverterTests
         var byKey = result.Document!.Resources.ToDictionary(
             static item => item.Key,
             static item => item.YieldByDevelopmentLevel);
-        Assert.Equal([0, 2, 4, 8], byKey["resource.coal"]);
-        Assert.Equal([1, 2, 4, 8], byKey["resource.grain"]);
+
+        // Coal and iron run 0/2/4/6; gold and gems 0/1/2/3; cultivated ground
+        // 1/2/3/4; horses and fish have no improvement at all.
+        Assert.Equal([0, 2, 4, 6], byKey["resource.coal"]);
+        Assert.Equal([1, 2, 3, 4], byKey["resource.grain"]);
+        Assert.Equal([0, 1, 2, 3], byKey["resource.gold"]);
+        Assert.Equal([1], byKey["resource.horses"]);
 
         // Which technology gates which deposit is unmeasured, so the importer
         // declares none rather than inventing the mapping.
         Assert.Empty(result.Document.Technologies);
         Assert.All(result.Document.Resources, static item => Assert.Null(item.RequiredTechnology));
+    }
+
+    /// <summary>
+    /// Converts the real corpus. Every rule in this file was written against
+    /// these files, and two of them were wrong until these files said so — the
+    /// repeated <c>deve</c> cell and the seam-crossing port in <c>s3</c>. A
+    /// synthetic fixture would have agreed with both mistakes.
+    /// </summary>
+    [Fact]
+    public void TheWholeShippedCorpusConvertsWhenItIsConfigured()
+    {
+        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+
+        var expectedPorts = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["s1"] = 49,
+            ["s3"] = 21,
+            ["s9"] = 13,
+            ["s12"] = 13,
+            ["s13"] = 10,
+            ["s14"] = 10,
+        };
+        var converted = 0;
+
+        foreach (var mapPath in Directory.GetFiles(directory, "*.map").OrderBy(static path => path))
+        {
+            var key = Path.GetFileNameWithoutExtension(mapPath);
+            var scenarioPath = Path.Combine(directory, $"{key}.scn");
+
+            // s0 is the working scenario, edited and relaunched, so it is never
+            // reference data.
+            if (key == "s0" || !File.Exists(scenarioPath))
+            {
+                continue;
+            }
+
+            var result = LegacyWorldConverter.Convert(
+                LegacyMapCodec.Decode(File.ReadAllBytes(mapPath), MapFormatProfile.Imperialism1),
+                LegacyScenarioCodec.Decode(File.ReadAllBytes(scenarioPath)),
+                null,
+                $"corpus-{key}");
+
+            Assert.True(
+                result.Success,
+                $"{key} failed to convert: {string.Join("; ", result.Report.Diagnostics)}");
+
+            // A port record that reads as landlocked means our adjacency is
+            // wrong, not that the shipped map is.
+            Assert.DoesNotContain(
+                result.Report.Diagnostics,
+                item => item.Code == "scenario.landlocked-port");
+
+            if (expectedPorts.TryGetValue(key, out var ports))
+            {
+                Assert.Equal(ports, result.Document!.Scenarios[0].Ports.Length);
+            }
+
+            converted++;
+        }
+
+        Assert.True(converted >= 9, $"Expected the full corpus, converted only {converted}.");
     }
 
     [Fact]

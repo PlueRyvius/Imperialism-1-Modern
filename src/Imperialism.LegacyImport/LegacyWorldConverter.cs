@@ -58,12 +58,28 @@ public static class LegacyWorldConverter
         };
 
     /// <summary>
-    /// Deposits a worker digs rather than harvests. They give nothing until
-    /// improved; everything else already yields on untouched ground. Codes are
-    /// coal, iron, oil, gems and gold.
+    /// The manual's Resource Development Table, keyed by legacy deposit code.
+    /// Transcribed rather than derived: the slope differs per deposit and two
+    /// deposits have no improvement at all, so no single formula covers them.
+    /// See <c>docs/reference/manual-mechanics.md</c>.
     /// </summary>
-    private static readonly IReadOnlySet<byte> SubsurfaceResourceCodes =
-        new HashSet<byte> { 3, 4, 6, 21, 22 };
+    private static readonly IReadOnlyDictionary<byte, long[]> ResourceYieldCurves =
+        new Dictionary<byte, long[]>
+        {
+            [0] = WorldContentCodec.CultivatedYieldByDevelopmentLevel,      // cotton
+            [1] = WorldContentCodec.CultivatedYieldByDevelopmentLevel,      // wool
+            [2] = WorldContentCodec.CultivatedYieldByDevelopmentLevel,      // forest / timber
+            [3] = WorldContentCodec.HeavyMineralYieldByDevelopmentLevel,    // coal
+            [4] = WorldContentCodec.HeavyMineralYieldByDevelopmentLevel,    // iron
+            [5] = WorldContentCodec.UnimprovableYieldByDevelopmentLevel,    // horses
+            [6] = WorldContentCodec.HeavyMineralYieldByDevelopmentLevel,    // oil
+            [17] = WorldContentCodec.CultivatedYieldByDevelopmentLevel,     // grain
+            [18] = WorldContentCodec.CultivatedYieldByDevelopmentLevel,     // fruit
+            [19] = WorldContentCodec.UnimprovableYieldByDevelopmentLevel,   // fish
+            [20] = WorldContentCodec.CultivatedYieldByDevelopmentLevel,     // cattle / livestock
+            [21] = WorldContentCodec.PreciousMineralYieldByDevelopmentLevel, // gems
+            [22] = WorldContentCodec.PreciousMineralYieldByDevelopmentLevel, // gold
+        };
 
     private static readonly IReadOnlyDictionary<byte, string> ResourceCommodityNames =
         new Dictionary<byte, string>
@@ -122,7 +138,7 @@ public static class LegacyWorldConverter
         };
 
     private static readonly HashSet<string> ConvertedScenarioTags =
-        new(["cnam", "pnam", "zone", "year", "capa", "ware", "deve"], StringComparer.Ordinal);
+        new(["cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port"], StringComparer.Ordinal);
 
     public static LegacyImportResult Convert(
         MapDocument map,
@@ -318,6 +334,7 @@ public static class LegacyWorldConverter
         var initialInventory = ReadInitialInventory(scenario, countryKeys, report);
         var productionCapacities = ReadProductionCapacities(scenario, countryKeys, report);
         var cellDevelopment = ReadCellDevelopment(scenario, map, report);
+        var ports = ReadPorts(scenario, map, report);
         var title = string.IsNullOrWhiteSpace(info?.Title)
             ? $"Legacy {options.PackageKey}"
             : info.Title;
@@ -333,19 +350,25 @@ public static class LegacyWorldConverter
                 Commodity = $"commodity.{ResourceCommodityNames[code]}",
 
                 // The 1997 map records which deposit sits on a cell and never
-                // its output, so the curve comes from how the original behaves
-                // rather than from the file: dug deposits start at nothing and
-                // open at two, harvested ones already give one untouched, and
-                // both double per level. No deposit declares a technology
-                // requirement because which technology gates which deposit has
-                // not been measured. See docs/formulas/extraction.md.
-                YieldByDevelopmentLevel = SubsurfaceResourceCodes.Contains(code)
-                    ? [.. WorldContentCodec.SubsurfaceYieldByDevelopmentLevel]
-                    : [.. WorldContentCodec.SurfaceYieldByDevelopmentLevel],
+                // its output, so the curve comes from the manual's Resource
+                // Development Table rather than from the file. No deposit
+                // declares a technology requirement: the manual gates
+                // improvement *levels* behind technology, not initial
+                // extraction, and nothing here builds a level yet.
+                YieldByDevelopmentLevel = [.. ResourceYieldCurves[code]],
             }).ToArray(),
             Extraction = new ExtractionContentSettings
             {
                 CatchmentRadius = WorldContentCodec.DefaultCatchmentRadius,
+
+                // Coast and river alike give a port one unit of fish per turn.
+                // Fish is the one resource no civilian unit improves, so it has
+                // no place in the development table and arrives this way instead.
+                PortFishing = new PortFishingContent
+                {
+                    Commodity = "commodity.fish",
+                    YieldPerAdjacentWaterTile = WorldContentCodec.DefaultPortFishYieldPerWaterTile,
+                },
             },
             Map = new MapContentDocument
             {
@@ -371,6 +394,7 @@ public static class LegacyWorldConverter
                     InitialInventory = initialInventory,
                     ProductionCapacities = productionCapacities,
                     CellDevelopment = cellDevelopment,
+                    Ports = ports,
                 },
             ],
         };
@@ -558,6 +582,116 @@ public static class LegacyWorldConverter
         return order
             .Select(cell => new CellDevelopmentContent { Cell = (int)cell, Level = byCell[cell] })
             .ToArray();
+    }
+
+    /// <summary>
+    /// Converts <c>port</c> records into port sites. The record is a single
+    /// linear cell index. Every one of the corpus's 124 ports names a land cell,
+    /// and the 45 with no adjacent sea all carry a river, so the manual's "ports
+    /// always require access to water" holds without exception and is enforced
+    /// rather than merely reported.
+    /// </summary>
+    private static int[] ReadPorts(
+        ScenarioDocument scenario,
+        MapDocument map,
+        LegacyImportReport report)
+    {
+        var result = new List<int>();
+        var seen = new HashSet<uint>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "port")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 1)
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.invalid-port", path, "A port record must contain a single cell.");
+                continue;
+            }
+
+            var cell = record.Fields[0];
+            if (cell >= (uint)map.Cells.Count)
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.invalid-port-cell", path, $"Port refers to cell {cell} outside the map.");
+                continue;
+            }
+
+            if (map.Cells[(int)cell].IsOcean)
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.port-on-ocean", path, $"Port refers to ocean cell {cell}.");
+                continue;
+            }
+
+            // Repeats are collapsed rather than rejected: deve records taught
+            // that the corpus repeats things, and a second port on one cell is
+            // the same port either way.
+            if (!seen.Add(cell))
+            {
+                report.Add(LegacyImportSeverity.Warning, "scenario.repeated-port", path, $"Cell {cell} carries more than one port record.");
+                continue;
+            }
+
+            if (!TouchesWater(map, (int)cell))
+            {
+                report.Add(LegacyImportSeverity.Warning, "scenario.landlocked-port", path, $"Port cell {cell} touches neither sea nor a river.");
+            }
+
+            result.Add((int)cell);
+        }
+
+        return result.ToArray();
+    }
+
+    /// <summary>
+    /// Whether a legacy cell has sea beside it or a river running through it.
+    /// </summary>
+    /// <remarks>
+    /// Adjacency wraps east-west, because the 1997 grid does. That is not a
+    /// detail: <c>s3</c> puts a port on the last column whose only water lies
+    /// across the seam, and without the wrap it reads as landlocked. With the
+    /// wrap, every one of the corpus's 124 ports touches water.
+    /// </remarks>
+    private static bool TouchesWater(MapDocument map, int cell)
+    {
+        if (map.Cells[cell].River != 0)
+        {
+            return true;
+        }
+
+        var width = map.Width;
+        var height = map.Height;
+        var x = cell % width;
+        var y = cell / width;
+        var odd = (y & 1) != 0;
+        ReadOnlySpan<(int DeltaX, int DeltaY)> steps =
+        [
+            (odd ? 1 : 0, -1),
+            (1, 0),
+            (odd ? 1 : 0, 1),
+            (odd ? 0 : -1, 1),
+            (-1, 0),
+            (odd ? 0 : -1, -1),
+        ];
+
+        foreach (var (deltaX, deltaY) in steps)
+        {
+            var neighborY = y + deltaY;
+            if (neighborY < 0 || neighborY >= height)
+            {
+                continue;
+            }
+
+            var neighborX = ((x + deltaX) % width + width) % width;
+            if (map.Cells[(neighborY * width) + neighborX].IsOcean)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static InitialInventoryContent[] ReadInitialInventory(

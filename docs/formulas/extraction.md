@@ -19,19 +19,23 @@ trusting any number below.
 
 | Claim | Support |
 |---|---|
-| Gathered only within one tile of a connected collection point | manual, via `game-systems.md` |
-| Route must reach the capital; overlapping catchments waste coverage | manual |
-| Output lands in the warehouse for next turn | manual |
+| Gathered only within one tile of a connected collection point | **manual**, Terrain Map section |
+| Route must reach the capital; overlapping catchments waste coverage | **manual** |
+| Output lands in the warehouse for next turn | **manual** |
+| Every per-level yield in the table below | **manual**, Resource Development Table |
+| Ports fish 1 per adjacent coast or river tile | **manual** |
 | Development levels run 1–3 | **corpus-verified** — `deve` records across all shipped scenarios |
-| Surface deposits yield 1 undeveloped | observed play |
-| Subsurface deposits yield nothing undeveloped, 2 once dug | observed play |
-| Higher levels and some deposits are gated behind technology | observed play |
-| **Yield doubles at each level** | **a deliberate design choice, not a measurement** |
+| Ports stand on land touching water | **corpus-verified** — 124 of 124 records |
 
-The doubling curve is the one number nobody has checked. It was chosen because a
-progression was needed and doubling is simple and predictable; the original's
-actual curve may well be gentler. It is content data precisely so that
-recalibrating it is an edit rather than a refactor.
+Everything load-bearing here is now transcribed from the manual rather than
+guessed. An earlier version of this file shipped a doubling curve described as
+"a deliberate design choice, not a measurement"; the manual says the progression
+is linear, and the code was corrected. See `docs/reference/manual-mechanics.md`.
+
+Two things keep this below `verified`. The manual is documentation, not observed
+behaviour — the confidence ladder puts manual-derived rules at `inferred` — and
+where the manual and the shipped release notes disagree, `game-systems.md` says
+the release notes win. Nothing here has been checked against them.
 
 What would raise this to `verified`: controlled traces of the original showing a
 known cell at a known level producing a known amount, for one surface and one
@@ -58,13 +62,22 @@ From the corpus, measured directly:
   `[2,1]`, `[1,1]` and `[2,1]`. This is shipped data, so it is legal by
   definition. See the repeated-`deve` section below.
 - The 1997 `.map` records *which* deposit sits on a cell and nothing about its
-  output, so no rate can be recovered from the files. The rates here come from
-  play, not from the corpus.
+  output, so no rate can be recovered from the files. The rates come from the
+  manual.
+- **Ports always name a land cell** — 124 of 124, none on ocean, none off-map.
+- **Every port touches water**, but only once adjacency wraps east-west the way
+  the 1997 grid does. `s3` puts a port on the last column of row 0 whose only
+  sea lies across the seam. `Imperialism.Core`'s grid does not wrap, so that rule
+  lives in the importer and Core checks only that a port is on land.
+- **Fish markers sit on ocean cells only** — none on land in any map — and only
+  in the generated worlds, at 15–19% of ocean. The historical maps carry none.
+  Under the manual's rule those markers do not drive fishing, so what they are
+  for is an open question.
 
 Separate what is observed from what is concluded: the bullets above are
-observed. The split of the thirteen deposits into surface and subsurface is
-concluded from them — coal, iron, oil, gems and gold are dug; cotton, wool,
-timber, horses, grain, fruit, fish and livestock are harvested.
+observed. Assigning horses the fish treatment is concluded rather than stated —
+the development table omits horses, but the Terrain Tiles table gives Horse
+Ranch no civilian worker.
 
 ## Pseudocode
 
@@ -85,26 +98,43 @@ Delivery commits the queue, so the goods are in Available stock when the next
 turn's Production phase reads it.
 ```
 
-The curves currently shipped:
+The curves currently shipped, straight from the manual's table:
 
 | | level 0 | 1 | 2 | 3 |
 |---|---|---|---|---|
-| Surface | 1 | 2 | 4 | 8 |
-| Subsurface | 0 | 2 | 4 | 8 |
+| Grain, fruit, cotton, livestock, wool, timber | 1 | 2 | 3 | 4 |
+| Coal, iron, oil | 0 | 2 | 4 | 6 |
+| Gold, gems | 0 | 1 | 2 | 3 |
+| Fish, horses | 1 | — | — | — |
 
 Zero at level 0 is meaningful rather than a missing value: it is exactly what
 makes a mine worthless until a worker has dug it. A curve that is zero at
 *every* level is rejected, since nothing would ever come of it. Above the top of
-the curve the yield holds rather than throwing, so a scenario carrying a level
-the deposit has no entry for still behaves sensibly.
+the curve the yield holds rather than throwing, which is what lets fish and
+horses have a single-entry curve.
+
+Fishing runs alongside this, not through it. A port collects
+`yieldPerAdjacentWaterTile` for each neighbouring tile that is open sea **or**
+carries a river, and the port must itself be a collection point — the catch
+leaves by rail, so a port merely inside the catchment radius is not enough. No
+port in the corpus depends on the river running through its own cell: all 124
+have at least one neighbouring water tile.
 
 A cell is stamped once per country, so a cell inside two collection points'
 catchments pays once — the manual's "overlapping catchments waste coverage".
 
-**Where this is deliberately conservative.** Depots and ports are not modelled,
-so every cell of the capital's rail component stands in for a depot. Against the
-original this can only *under*-collect where a depot would extend reach that
-rail alone does not.
+**Where this is deliberately conservative.** Depots are not modelled, so every
+cell of the capital's rail component stands in for one. Against the original this
+can only *under*-collect where a depot would extend reach that rail alone does
+not. Ports now exist, but only as fishing sites and land collection points —
+sea routes between them, blockade, and the river-port-downstream rule are not
+modelled.
+
+**Where the missing east-west wrap costs output.** `Imperialism.Core`'s grid does
+not wrap; the 1997 one does. A port or deposit on the first or last column has
+fewer neighbours here than it did in the original, so an edge port catches less
+fish. It affects a handful of cells and is a known consequence of the modern
+grid rather than a bug in this rule.
 
 ## Technology
 
@@ -113,10 +143,14 @@ until the owning country knows it. What is *not* here is any way to learn one �
 no research, no cost, no prerequisites. A scenario states what each country
 begins knowing, and `WorldState.GrantTechnology` is the only other way in.
 
-**No imported deposit declares a requirement.** Which technologies gate which
-deposits has not been measured, and guessing it would quietly make part of every
-converted map worthless. The mechanism is exercised by synthetic content in the
-tests instead.
+**No imported deposit declares a requirement, and that is now a positive
+finding rather than a gap.** The manual gates the *improvement levels* behind
+technology — mine level II needs Square Set Timbering, level III needs Dynamite,
+a derrick needs Chemistry then Internal Combustion — and gates *prospecting* for
+oil behind Oil Drilling. It does not gate extraction from a deposit that is
+already open. Since nothing here builds a level yet, there is nothing for those
+gates to bite on. The full table is in
+`docs/reference/manual-mechanics.md`.
 
 ## The repeated `deve` rule
 
@@ -139,49 +173,62 @@ it within one run. A rule that fires on shipped data is a wrong rule.
 - `WorldState.GetCellDevelopment` / `SetCellDevelopment`, `HasTechnology` /
   `GrantTechnology`.
 - `ExtractionPlanner` and the `TurnPhase.Extraction` branch of `TurnResolver`.
-- `ResourceExtractedEvent` carries collected and stranded totals plus cell counts.
-- `.iworld` v5 `resources[].yieldByDevelopmentLevel`,
+- `WorldState.HasPort` / `BuildPort` / `RemovePort` / `GetPorts`, and
+  `ExtractionSettings.PortFishing`.
+- `ResourceExtractedEvent` carries collected and stranded totals, deposit cell
+  counts, and fishing/stranded port counts.
+- `.iworld` v6 `resources[].yieldByDevelopmentLevel`,
   `resources[].requiredTechnology`, `technologies`,
-  `scenarios[].cellDevelopment` and `scenarios[].countryTechnologies`, with a v4
-  to v5 migration.
-- `LegacyWorldConverter` converts `deve` records and assigns curves from
-  `WorldContentCodec.SurfaceYieldByDevelopmentLevel` /
-  `SubsurfaceYieldByDevelopmentLevel`.
+  `extraction.portFishing`, `scenarios[].cellDevelopment`,
+  `scenarios[].countryTechnologies` and `scenarios[].ports`, with v4→v5→v6
+  migrations.
+- `LegacyWorldConverter` converts `deve` and `port` records and assigns each
+  deposit its curve from the manual's table via `ResourceYieldCurves`.
 
 ## Test data
 
 `tests/Imperialism.Core.Tests/ExtractionTests.cs` pins the catchment radius
 (including 0), connectivity to the capital, an orphaned rail component, a
 country with no capital, province ownership, single payment on overlapping
-catchments, several deposits on one cell, the doubling curve, a mine yielding
+catchments, several deposits on one cell, the yield curve, a mine yielding
 nothing undeveloped, the technology gate, scenario-seeded development and
-technology, and that this turn's harvest only reaches next turn's production.
+technology, a coastal port fishing, a river port fishing, a port off the network
+stranding its catch, port placement, and that this turn's harvest only reaches
+next turn's production.
 
 `tests/Imperialism.LegacyImport.Tests/LegacyWorldConverterTests.cs` pins `deve`
-conversion, the repeated-cell rule, rejection of off-map, ocean and
-out-of-range levels, and the surface/subsurface curve split.
+and `port` conversion, the repeated-cell rules, rejection of off-map, ocean and
+out-of-range levels, and each deposit's curve.
 
-All ten shipped scenarios import with **zero errors**: 317 developed cells in
-`s1`, 59 in `s3`, 4 each in `s13` and `s14`.
+It also converts **the whole shipped corpus** when `IMPERIALISM_SCENARIO_DIR` is
+set, asserting zero errors, no landlocked port, and the port counts per
+scenario. That test exists because the corpus has now caught two wrong rules
+that synthetic fixtures agreed with: the repeated `deve` cell, and the
+seam-crossing port in `s3`. Run it before believing any new invariant.
 
-There is still **no test pinning a rate against original behaviour**, because
-there is no observed input/output pair to pin it to. That is the gap between
-`inferred` and `verified`.
+All ten shipped scenarios import with **zero errors**: 49 ports and 317
+developed cells in `s1`, 21 ports and 59 developed in `s3`, 10 ports each in
+`s13` and `s14`.
+
+There is still **no test pinning a rate against observed original behaviour**,
+only against the manual. That is the gap between `inferred` and `verified`.
 
 ## Open questions
 
-- The real progression per level. Doubling is a placeholder.
-- Whether base rates differ within the surface group, or within the subsurface
-  group. They are uniform here.
-- Which technologies gate which deposits, and which gate *levels* rather than
-  initial extraction.
-- Whether fish behaves like the other surface deposits. It is grouped with them
-  on the assumption that it yields untouched, which is the least certain of the
-  thirteen.
+- Whether the release notes correct any of the manual's numbers.
+- What the ocean fish marker is for. The generated maps put it on 15–19% of
+  ocean and the historical maps use none, yet fishing does not read it.
+- Whether a port on a river tile fishes its own river. No corpus port needs it,
+  so only neighbours are counted.
+- **Improvability is terrain-dependent, not resource-dependent.** Dry plains,
+  horse ranch and scrub forest yield but cannot be improved, while grain and
+  timber are improvable elsewhere. The curve is keyed off the resource alone and
+  will need revisiting when workers land.
 - How a worker actually builds a level, and what it costs. Nothing here creates
   development; only scenarios and direct calls set it.
-- Depots and ports as buildable, losable objects, including the river-port and
-  sea-port edge cases in `game-systems.md`.
+- Depots as distinct from rail cells, and ports as buildable, losable objects —
+  including the river-port and sea-port edge cases in `game-systems.md`.
 - The transport capacity pool. Until it exists, a connected country moves
   everything it gathers.
-- Whether gold and gems bypass the warehouse and convert straight to cash.
+- Gold and gems bypass the warehouse and convert straight to cash. The manual
+  confirms it; the commodity model does not distinguish them yet.
