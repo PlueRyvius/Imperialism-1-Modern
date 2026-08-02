@@ -17,11 +17,18 @@ conflicting years, or missing dimensions/year block output.
 Every converted package defines the standard 23-commodity catalog independently
 of which deposits happen to occur on that map. The 13 known legacy deposit
 codes become explicit resource definitions pointing to their raw commodities;
-notably forest yields timber and cattle yields livestock. The mapping itself
-adds no production quantity, but since `.iworld` v4 every imported deposit does
-carry an extraction rate: the 1997 `.map` stores which deposit sits on a cell
-and never how much it gives, so all of them take the same placeholder rate
-rather than an invented per-resource table. See `formulas/extraction.md`.
+notably forest yields timber and cattle yields livestock. Since `.iworld` v5
+every imported deposit also carries a yield curve indexed by development level.
+The 1997 `.map` stores which deposit sits on a cell and never how much it gives,
+so the curve comes from how the original behaves rather than from the file: dug
+deposits (coal, iron, oil, gems, gold) give nothing until improved and open at
+two, harvested ones already give one untouched, and both double per level. No
+deposit declares a technology requirement, because which technology gates which
+deposit has not been measured. See `formulas/extraction.md`.
+
+`deve` records are converted rather than deferred: the record is `[cell, level]`
+and every level in the corpus is 1, 2 or 3. A cell developed more than once —
+`s1` does it three times — keeps the highest level and reports a warning.
 
 The importer also emits the evidenced standard industrial catalog: seven
 limited legacy facilities, unlimited food processing, and twelve recipes.

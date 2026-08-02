@@ -97,7 +97,7 @@ public sealed class MapViewStateTests
             {
                 Key = "resource.grain",
                 Commodity = "commodity.grain",
-                YieldPerTurn = 1,
+                YieldByDevelopmentLevel = [1, 2, 4, 8],
             },
         ],
         Extraction = new ExtractionContentSettings { CatchmentRadius = 1 },

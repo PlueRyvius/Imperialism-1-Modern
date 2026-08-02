@@ -2,6 +2,13 @@ namespace Imperialism.Content;
 
 internal static class WorldContentMigrator
 {
+    /// <summary>
+    /// What version 4 gave every deposit before yield became a curve. Only the
+    /// version 3 to 4 step uses it; version 5 replaces it outright.
+    /// </summary>
+    private const long VersionFourFlatYield = 1;
+
+
     public static WorldContentDocument ToCurrent(WorldContentDocument document)
     {
         if (document.FormatVersion == 1)
@@ -17,6 +24,11 @@ internal static class WorldContentMigrator
         if (document.FormatVersion == 3)
         {
             MigrateVersionThreeToFour(document);
+        }
+
+        if (document.FormatVersion == 4)
+        {
+            MigrateVersionFourToFive(document);
         }
 
         return document;
@@ -135,7 +147,7 @@ internal static class WorldContentMigrator
                     "Version 3 cannot contain a version 4 yield.");
             }
 
-            resource.YieldPerTurn = WorldContentCodec.DefaultResourceYieldPerTurn;
+            resource.YieldPerTurn = VersionFourFlatYield;
         }
 
         document.Extraction = new ExtractionContentSettings
@@ -143,6 +155,78 @@ internal static class WorldContentMigrator
             CatchmentRadius = WorldContentCodec.DefaultCatchmentRadius,
         };
         document.FormatVersion = 4;
+    }
+
+    /// <summary>
+    /// Version 5 makes yield a function of the cell's development level rather
+    /// than one flat number. A version 4 package only knew the flat rate, and
+    /// every cell in one is undeveloped, so that rate becomes the level-zero
+    /// entry and the improved levels double from it. Behaviour at level zero is
+    /// therefore unchanged, which is the only level a version 4 world could
+    /// express.
+    /// </summary>
+    private static void MigrateVersionFourToFive(WorldContentDocument document)
+    {
+        if (document.Resources is null)
+        {
+            throw new ContentValidationException("resources", "Array cannot be null.");
+        }
+
+        if (document.Technologies is { Length: > 0 })
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 4 cannot contain version 5 technologies.");
+        }
+
+        for (var index = 0; index < document.Resources.Length; index++)
+        {
+            var resource = document.Resources[index] ??
+                throw new ContentValidationException($"resources[{index}]", "Value cannot be null.");
+            if (resource.YieldByDevelopmentLevel is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    $"resources[{index}].yieldByDevelopmentLevel",
+                    "Version 4 cannot contain a version 5 yield curve.");
+            }
+
+            if (resource.RequiredTechnology is not null)
+            {
+                throw new ContentValidationException(
+                    $"resources[{index}].requiredTechnology",
+                    "Version 4 cannot contain a version 5 technology requirement.");
+            }
+
+            if (resource.YieldPerTurn <= 0)
+            {
+                throw new ContentValidationException(
+                    $"resources[{index}].yieldPerTurn",
+                    "Version 4 requires a positive yield.");
+            }
+
+            var flat = resource.YieldPerTurn;
+            resource.YieldByDevelopmentLevel =
+                [flat, checked(flat * 2), checked(flat * 4), checked(flat * 8)];
+            resource.YieldPerTurn = 0;
+        }
+
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario is null)
+            {
+                continue;
+            }
+
+            if (scenario.CellDevelopment is { Length: > 0 } ||
+                scenario.CountryTechnologies is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 4 cannot contain version 5 development or technology state.");
+            }
+        }
+
+        document.FormatVersion = 5;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

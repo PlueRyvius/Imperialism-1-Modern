@@ -69,11 +69,27 @@ internal static class ExtractionPlanner
                     strandedCells++;
                 }
 
+                var level = state.GetCellDevelopment(new CellIndex(cell));
                 foreach (var resource in cellDefinition.Resources)
                 {
                     var deposit = map.Resources[resource.Value];
+
+                    // A deposit nobody knows how to work yields nothing, however
+                    // well connected or improved its cell is.
+                    if (deposit.RequiredTechnology is { } required &&
+                        !state.HasTechnology(country, required))
+                    {
+                        continue;
+                    }
+
+                    var yield = deposit.GetYield(level);
+                    if (yield == 0)
+                    {
+                        continue;
+                    }
+
                     var offset = deposit.Commodity.Value;
-                    target[offset] = checked(target[offset] + deposit.YieldPerTurn);
+                    target[offset] = checked(target[offset] + yield);
                 }
             }
 

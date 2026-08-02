@@ -119,6 +119,19 @@ public readonly record struct ProductionRecipeId
     public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
 }
 
+public readonly record struct TechnologyId
+{
+    public TechnologyId(int value)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(value);
+        Value = value;
+    }
+
+    public int Value { get; }
+
+    public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
+}
+
 public readonly record struct DeliveryId
 {
     public DeliveryId(long value)

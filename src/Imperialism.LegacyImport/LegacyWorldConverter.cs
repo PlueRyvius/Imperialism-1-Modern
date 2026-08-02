@@ -57,6 +57,14 @@ public static class LegacyWorldConverter
             [22] = "gold",
         };
 
+    /// <summary>
+    /// Deposits a worker digs rather than harvests. They give nothing until
+    /// improved; everything else already yields on untouched ground. Codes are
+    /// coal, iron, oil, gems and gold.
+    /// </summary>
+    private static readonly IReadOnlySet<byte> SubsurfaceResourceCodes =
+        new HashSet<byte> { 3, 4, 6, 21, 22 };
+
     private static readonly IReadOnlyDictionary<byte, string> ResourceCommodityNames =
         new Dictionary<byte, string>
         {
@@ -114,7 +122,7 @@ public static class LegacyWorldConverter
         };
 
     private static readonly HashSet<string> ConvertedScenarioTags =
-        new(["cnam", "pnam", "zone", "year", "capa", "ware"], StringComparer.Ordinal);
+        new(["cnam", "pnam", "zone", "year", "capa", "ware", "deve"], StringComparer.Ordinal);
 
     public static LegacyImportResult Convert(
         MapDocument map,
@@ -309,6 +317,7 @@ public static class LegacyWorldConverter
         var rails = ReadReciprocalRails(map, report);
         var initialInventory = ReadInitialInventory(scenario, countryKeys, report);
         var productionCapacities = ReadProductionCapacities(scenario, countryKeys, report);
+        var cellDevelopment = ReadCellDevelopment(scenario, map, report);
         var title = string.IsNullOrWhiteSpace(info?.Title)
             ? $"Legacy {options.PackageKey}"
             : info.Title;
@@ -323,10 +332,16 @@ public static class LegacyWorldConverter
                 Key = resourceKeys[code],
                 Commodity = $"commodity.{ResourceCommodityNames[code]}",
 
-                // The 1997 map stores which deposit sits on a cell, never how
-                // much it gives, so every imported deposit takes the undeveloped
-                // base rate rather than a number invented per resource.
-                YieldPerTurn = WorldContentCodec.DefaultResourceYieldPerTurn,
+                // The 1997 map records which deposit sits on a cell and never
+                // its output, so the curve comes from how the original behaves
+                // rather than from the file: dug deposits start at nothing and
+                // open at two, harvested ones already give one untouched, and
+                // both double per level. No deposit declares a technology
+                // requirement because which technology gates which deposit has
+                // not been measured. See docs/formulas/extraction.md.
+                YieldByDevelopmentLevel = SubsurfaceResourceCodes.Contains(code)
+                    ? [.. WorldContentCodec.SubsurfaceYieldByDevelopmentLevel]
+                    : [.. WorldContentCodec.SurfaceYieldByDevelopmentLevel],
             }).ToArray(),
             Extraction = new ExtractionContentSettings
             {
@@ -355,6 +370,7 @@ public static class LegacyWorldConverter
                     Capitals = capitals,
                     InitialInventory = initialInventory,
                     ProductionCapacities = productionCapacities,
+                    CellDevelopment = cellDevelopment,
                 },
             ],
         };
@@ -462,6 +478,86 @@ public static class LegacyWorldConverter
         }
 
         return (int)values[0];
+    }
+
+    /// <summary>
+    /// Converts <c>deve</c> records into starting development levels. The record
+    /// is <c>[cell, level 1-3]</c>, verified across the corpus; a cell reference
+    /// is a linear row-major index, not a coordinate pair. Levels outside 1-3
+    /// are reported rather than clamped, since a value the original never writes
+    /// means the reading is wrong, not that the file is unusual.
+    /// </summary>
+    /// <remarks>
+    /// A cell may carry more than one record: <c>s1</c> does it three times, as
+    /// <c>[2,1]</c>, <c>[1,1]</c> and <c>[2,1]</c>. That is shipped data, so it
+    /// is legal by definition and treating it as corruption would be the wrong
+    /// rule. The highest level wins, on the grounds that development is a level
+    /// a cell has rather than a stack of separate works, so the largest record
+    /// is the only one consistent with all of them. Last-record-wins is the
+    /// alternative reading and just two cells in one file tell them apart, so
+    /// the choice is recorded here rather than presented as settled.
+    /// </remarks>
+    private static CellDevelopmentContent[] ReadCellDevelopment(
+        ScenarioDocument scenario,
+        MapDocument map,
+        LegacyImportReport report)
+    {
+        const int maximumLegacyLevel = 3;
+        var byCell = new Dictionary<uint, int>();
+        var order = new List<uint>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "deve")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 2)
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.invalid-deve", path, "A deve record must contain a cell and a level.");
+                continue;
+            }
+
+            var cell = record.Fields[0];
+            var level = record.Fields[1];
+            if (cell >= (uint)map.Cells.Count)
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.invalid-deve-cell", path, $"Development refers to cell {cell} outside the map.");
+                continue;
+            }
+
+            if (map.Cells[(int)cell].IsOcean)
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.deve-on-ocean", path, $"Development refers to ocean cell {cell}.");
+                continue;
+            }
+
+            if (level == 0 || level > maximumLegacyLevel)
+            {
+                report.Add(LegacyImportSeverity.Warning, "scenario.unexpected-deve-level", path, $"Development level {level} is outside the corpus range 1-{maximumLegacyLevel}; no level was emitted.");
+                continue;
+            }
+
+            if (byCell.TryGetValue(cell, out var existing))
+            {
+                var kept = Math.Max(existing, (int)level);
+                report.Add(
+                    LegacyImportSeverity.Warning,
+                    "scenario.repeated-deve",
+                    path,
+                    $"Cell {cell} is developed more than once ({existing} and {level}); kept {kept}.");
+                byCell[cell] = kept;
+                continue;
+            }
+
+            byCell.Add(cell, (int)level);
+            order.Add(cell);
+        }
+
+        return order
+            .Select(cell => new CellDevelopmentContent { Cell = (int)cell, Level = byCell[cell] })
+            .ToArray();
     }
 
     private static InitialInventoryContent[] ReadInitialInventory(

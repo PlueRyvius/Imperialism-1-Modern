@@ -76,18 +76,43 @@ public static class WorldContentCompiler
         var countryIds = BuildNamedKeyMap(countriesContent, "countries");
         var commodities = commodityContent.Select((definition, index) =>
             new CommodityDefinition(new CommodityId(index), definition.Name, definition.Category)).ToArray();
+        var technologyContent = RequireArray(document.Technologies, "technologies");
+        var technologyIds = BuildNamedKeyMap(technologyContent, "technologies");
+        var technologies = technologyContent.Select((definition, index) =>
+            new TechnologyDefinition(new TechnologyId(index), definition.Name)).ToArray();
         var resources = resourceContent.Select((definition, index) =>
         {
             var commodity = new CommodityId(FindKey(
                 commodityIds,
                 definition.Commodity,
                 $"resources[{index}].commodity"));
-            if (definition.YieldPerTurn <= 0)
+            if (definition.YieldPerTurn != 0)
             {
-                throw Error($"resources[{index}].yieldPerTurn", "Value must be positive.");
+                throw Error(
+                    $"resources[{index}].yieldPerTurn",
+                    "This version uses yieldByDevelopmentLevel instead.");
             }
 
-            return new ResourceDefinition(new ResourceId(index), commodity, definition.YieldPerTurn);
+            var curve = RequireArray(
+                definition.YieldByDevelopmentLevel,
+                $"resources[{index}].yieldByDevelopmentLevel");
+            TechnologyId? required = definition.RequiredTechnology is null
+                ? null
+                : new TechnologyId(FindKey(
+                    technologyIds,
+                    definition.RequiredTechnology,
+                    $"resources[{index}].requiredTechnology"));
+            try
+            {
+                return new ResourceDefinition(new ResourceId(index), commodity, curve, required);
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error(
+                    $"resources[{index}].yieldByDevelopmentLevel",
+                    exception.Message,
+                    exception);
+            }
         }).ToArray();
         var extraction = CompileExtractionSettings(document.Extraction);
         var facilities = facilityContent.Select((definition, index) =>
@@ -153,7 +178,8 @@ public static class WorldContentCompiler
             seaZoneContent.Select(static item => item.Key),
             countriesContent.Select(static item => item.Key),
             facilityContent.Select(static item => item.Key),
-            recipeContent.Select(static item => item.Key));
+            recipeContent.Select(static item => item.Key),
+            technologyContent.Select(static item => item.Key));
         var scenarioKeys = new string?[scenariosContent.Length];
         for (var index = 0; index < scenariosContent.Length; index++)
         {
@@ -181,7 +207,9 @@ public static class WorldContentCompiler
                     countryIds,
                     commodityIds,
                     facilityIds,
-                    extraction));
+                    extraction,
+                    technologies,
+                    technologyIds));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -200,7 +228,9 @@ public static class WorldContentCompiler
         IReadOnlyDictionary<string, int> countryIds,
         IReadOnlyDictionary<string, int> commodityIds,
         IReadOnlyDictionary<string, int> facilityIds,
-        ExtractionSettings extraction)
+        ExtractionSettings extraction,
+        TechnologyDefinition[] technologies,
+        IReadOnlyDictionary<string, int> technologyIds)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -227,6 +257,15 @@ public static class WorldContentCompiler
             facilities,
             path);
 
+        var cellDevelopment = CompileCellDevelopment(
+            RequireArray(scenarioContent.CellDevelopment, $"{path}.cellDevelopment"),
+            path);
+        var countryTechnologies = CompileCountryTechnologies(
+            RequireArray(scenarioContent.CountryTechnologies, $"{path}.countryTechnologies"),
+            countryIds,
+            technologyIds,
+            path);
+
         if (string.IsNullOrWhiteSpace(scenarioContent.Name))
         {
             throw Error($"{path}.name", "Value cannot be blank.");
@@ -241,7 +280,9 @@ public static class WorldContentCompiler
                 rails,
                 capitals,
                 initialInventory,
-                productionCapacities);
+                productionCapacities,
+                cellDevelopment,
+                countryTechnologies);
             return new WorldDefinition(
                 map,
                 countries,
@@ -249,12 +290,65 @@ public static class WorldContentCompiler
                 commodities,
                 facilities,
                 recipes,
-                extraction);
+                extraction,
+                technologies);
         }
         catch (ArgumentException exception)
         {
             throw Error(path, exception.Message, exception);
         }
+    }
+
+    private static InitialCellDevelopment[] CompileCellDevelopment(
+        CellDevelopmentContent?[] content,
+        string path)
+    {
+        var result = new InitialCellDevelopment[content.Length];
+        for (var index = 0; index < content.Length; index++)
+        {
+            var entry = content[index] ??
+                throw Error($"{path}.cellDevelopment[{index}]", "Value is required.");
+            if (entry.Cell < 0)
+            {
+                throw Error($"{path}.cellDevelopment[{index}].cell", "Value cannot be negative.");
+            }
+
+            if (entry.Level <= 0)
+            {
+                throw Error(
+                    $"{path}.cellDevelopment[{index}].level",
+                    "Undeveloped is the absence of an entry, not level zero.");
+            }
+
+            result[index] = new InitialCellDevelopment(new CellIndex(entry.Cell), entry.Level);
+        }
+
+        return result;
+    }
+
+    private static InitialCountryTechnology[] CompileCountryTechnologies(
+        CountryTechnologyContent?[] content,
+        IReadOnlyDictionary<string, int> countryIds,
+        IReadOnlyDictionary<string, int> technologyIds,
+        string path)
+    {
+        var result = new InitialCountryTechnology[content.Length];
+        for (var index = 0; index < content.Length; index++)
+        {
+            var entry = content[index] ??
+                throw Error($"{path}.countryTechnologies[{index}]", "Value is required.");
+            result[index] = new InitialCountryTechnology(
+                new CountryId(FindKey(
+                    countryIds,
+                    entry.Country,
+                    $"{path}.countryTechnologies[{index}].country")),
+                new TechnologyId(FindKey(
+                    technologyIds,
+                    entry.Technology,
+                    $"{path}.countryTechnologies[{index}].technology")));
+        }
+
+        return result;
     }
 
     private static ExtractionSettings CompileExtractionSettings(ExtractionContentSettings? content)

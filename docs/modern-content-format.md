@@ -29,19 +29,21 @@ Every document starts with:
 ```json
 {
   "format": "imperialism-world",
-  "formatVersion": 4
+  "formatVersion": 5
 }
 ```
 
-Version 4 is the authored version. Migration is explicit and sequential:
+Version 5 is the authored version. Migration is explicit and sequential:
 version 1 resource palettes become version 2 commodities/resources, version 2
-packages gain empty version 3 production collections, and version 3 packages
-gain a per-deposit `yieldPerTurn` plus a world-level `extraction` block. This
-preserves everything older packages could express without inventing factories,
-recipes, or capacity. The version 4 step is the one migration that must supply
-values rather than empty collections, because a deposit with no rate would
-silently stop producing; it uses the documented placeholder defaults and says so
-in `formulas/extraction.md`. Mixed-version schemas, unknown fields, and
+packages gain empty version 3 production collections, version 3 packages gain a
+per-deposit `yieldPerTurn` plus a world-level `extraction` block, and version 4
+turns that flat rate into a `yieldByDevelopmentLevel` curve. This preserves
+everything older packages could express without inventing factories, recipes, or
+capacity. Versions 4 and 5 are the migrations that must supply values rather
+than empty collections, because a deposit with no rate would silently stop
+producing; both use documented defaults and say so in `formulas/extraction.md`.
+Every cell in a version 4 package is undeveloped, so putting its flat rate at
+level zero leaves behaviour unchanged. Mixed-version schemas, unknown fields, and
 unsupported versions fail with a path-qualified validation error. Generic
 migrated keys use the
 valid `commodity/from-resource/...` form; `/` is part of the key grammar below.
@@ -68,9 +70,10 @@ The top-level document contains:
 - an ordered terrain-key palette;
 - ordered commodity definitions with stable key, Unicode name, and `raw`,
   `material`, or `goods` category;
-- ordered resource definitions mapping each deposit key to one commodity key and
-  a positive `yieldPerTurn`;
+- ordered resource definitions mapping each deposit key to one commodity key, a
+  `yieldByDevelopmentLevel` curve, and an optional `requiredTechnology`;
 - a world-level `extraction` block holding the gathering `catchmentRadius`;
+- ordered technology definitions with stable key and Unicode name;
 - ordered production-facility definitions with stable key, Unicode name, and
   `limited` or `unlimited` capacity mode;
 - ordered recipes naming a facility, positive capacity cost, and one or more
@@ -79,8 +82,9 @@ The top-level document contains:
   and optional per-cell river paths;
 - named countries;
 - one or more keyed scenarios containing name/year, explicit province owners,
-  rails, capitals, optional positive initial commodity quantities, and sparse
-  positive capacities for limited facilities.
+  rails, capitals, optional positive initial commodity quantities, sparse
+  positive capacities for limited facilities, sparse starting cell development,
+  and which technologies each country begins knowing.
 
 Each cell references one terrain key, zero or more unique resource keys, and
 at most one province or sea-zone key. Settlement sites and river paths are map

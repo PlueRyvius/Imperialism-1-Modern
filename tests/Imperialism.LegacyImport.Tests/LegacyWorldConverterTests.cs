@@ -428,6 +428,108 @@ public sealed class LegacyWorldConverterTests
     }
 
     [Fact]
+    public void DeveRecordsBecomeStartingDevelopmentLevels()
+    {
+        var map = CreateMap(3, 1, LandCell(1, 0), LandCell(1, 0), OceanCell());
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            Record("deve", 0, 2),
+            Record("deve", 1, 3),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(map, scenario, null, "development");
+
+        Assert.True(result.Success);
+        var development = result.Document!.Scenarios[0].CellDevelopment;
+        Assert.Equal([(0, 2), (1, 3)], development.Select(static item => (item.Cell, item.Level)));
+
+        // The tag is converted now, so it must no longer be counted as deferred.
+        Assert.DoesNotContain("scenario.tag.deve", result.Report.DeferredCounts.Keys);
+    }
+
+    [Fact]
+    public void ARepeatedDeveCellKeepsTheHighestLevelAndSaysSo()
+    {
+        // s1 ships three cells developed twice, so this is legal data rather
+        // than corruption and must not fail the import.
+        var map = CreateMap(2, 1, LandCell(1, 0), LandCell(1, 0));
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            Record("deve", 0, 2),
+            Record("deve", 0, 1),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(map, scenario, null, "repeated");
+
+        Assert.True(result.Success);
+        var entry = Assert.Single(result.Document!.Scenarios[0].CellDevelopment);
+        Assert.Equal(0, entry.Cell);
+        Assert.Equal(2, entry.Level);
+        Assert.Contains(result.Report.Diagnostics, static item => item.Code == "scenario.repeated-deve");
+    }
+
+    [Fact]
+    public void DevelopmentOffTheMapOrOffTheCorpusLevelRangeIsRejected()
+    {
+        var map = CreateMap(2, 1, LandCell(1, 0), OceanCell());
+
+        var offMap = LegacyWorldConverter.Convert(
+            map,
+            new ScenarioDocument([Record("year", 1815), Record("deve", 9, 1)]),
+            null,
+            "off-map");
+        Assert.False(offMap.Success);
+        Assert.Contains(offMap.Report.Diagnostics, static item => item.Code == "scenario.invalid-deve-cell");
+
+        var onOcean = LegacyWorldConverter.Convert(
+            map,
+            new ScenarioDocument([Record("year", 1815), Record("deve", 1, 1)]),
+            null,
+            "on-ocean");
+        Assert.False(onOcean.Success);
+        Assert.Contains(onOcean.Report.Diagnostics, static item => item.Code == "scenario.deve-on-ocean");
+
+        // Level 4 appears nowhere in the corpus; a value the original never
+        // writes means the reading is wrong, so it is reported, not clamped.
+        var tooHigh = LegacyWorldConverter.Convert(
+            map,
+            new ScenarioDocument([Record("year", 1815), Record("deve", 0, 4)]),
+            null,
+            "too-high");
+        Assert.True(tooHigh.Success);
+        Assert.Empty(tooHigh.Document!.Scenarios[0].CellDevelopment);
+        Assert.Contains(
+            tooHigh.Report.Diagnostics,
+            static item => item.Code == "scenario.unexpected-deve-level");
+    }
+
+    [Fact]
+    public void DugDepositsYieldNothingUntilImprovedWhileHarvestedOnesAlreadyPay()
+    {
+        var map = CreateMap(
+            2,
+            1,
+            LandCell(1, 0) with { ResourceA = 3 },
+            LandCell(1, 0) with { ResourceA = 17 });
+
+        var result = LegacyWorldConverter.Convert(map, Scenario(1815), null, "yields");
+
+        Assert.True(result.Success);
+        var byKey = result.Document!.Resources.ToDictionary(
+            static item => item.Key,
+            static item => item.YieldByDevelopmentLevel);
+        Assert.Equal([0, 2, 4, 8], byKey["resource.coal"]);
+        Assert.Equal([1, 2, 4, 8], byKey["resource.grain"]);
+
+        // Which technology gates which deposit is unmeasured, so the importer
+        // declares none rather than inventing the mapping.
+        Assert.Empty(result.Document.Technologies);
+        Assert.All(result.Document.Resources, static item => Assert.Null(item.RequiredTechnology));
+    }
+
+    [Fact]
     public void DependencyDirectionKeepsFormatsIndependentFromModernLayers()
     {
         var importerReferences = typeof(LegacyWorldConverter).Assembly.GetReferencedAssemblies();
@@ -451,6 +553,14 @@ public sealed class LegacyWorldConverterTests
         Province = province,
         NationZoneA = owner,
         NationZoneB = owner,
+    };
+
+    private static HexCell OceanCell() => new()
+    {
+        Terrain = 0,
+        Province = ushort.MaxValue,
+        NationZoneA = 11,
+        NationZoneB = 11,
     };
 
     private static ScenarioDocument Scenario(uint year) => new([Record("year", year)]);

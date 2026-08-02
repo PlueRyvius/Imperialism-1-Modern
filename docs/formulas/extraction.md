@@ -3,34 +3,43 @@
 ## Summary
 
 Every turn, cells carrying a deposit hand their output to the country owning
-their province, provided a connected route reaches them. This is the only rule
-that puts anything into the warehouse from the map, so it sets the ceiling on
-everything industry can do. Output does not arrive immediately: it is queued
-during the Extraction phase and committed during Delivery, so it is available
-to the *following* turn's production.
+their province, provided a connected route reaches them. How much they hand over
+depends on the deposit and on how far the cell has been improved. This is the
+only rule that puts anything into the warehouse from the map, so it sets the
+ceiling on everything industry can do.
+
+Output does not arrive immediately: it is queued during the Extraction phase and
+committed during Delivery, so it is available to the *following* turn's
+production.
 
 ## Confidence
 
-`guess`, and the label is doing real work — the shape and the numbers are not
-equally well supported:
+`inferred`, and the parts are not equally supported. Read this table before
+trusting any number below.
 
-- **The gathering rule is `inferred`.** That a tile pays only when it is on or
-  within one tile of a connected collection point, that overlapping catchments
-  waste coverage, that the route must reach the capital, and that output lands
-  in the warehouse for next turn all come from the manual and release-note
-  summary in `game-systems.md`.
-- **The rate is a plain `guess`.** Nothing in the corpus or the documentation
-  read so far states how much a deposit produces. Every deposit currently
-  yields 1 per turn because a number was required, not because 1 was measured.
+| Claim | Support |
+|---|---|
+| Gathered only within one tile of a connected collection point | manual, via `game-systems.md` |
+| Route must reach the capital; overlapping catchments waste coverage | manual |
+| Output lands in the warehouse for next turn | manual |
+| Development levels run 1–3 | **corpus-verified** — `deve` records across all shipped scenarios |
+| Surface deposits yield 1 undeveloped | observed play |
+| Subsurface deposits yield nothing undeveloped, 2 once dug | observed play |
+| Higher levels and some deposits are gated behind technology | observed play |
+| **Yield doubles at each level** | **a deliberate design choice, not a measurement** |
 
-Raising it needs two different things: controlled original-game traces to pin
-the rate, and modelling depots, ports and development levels to make the
-gathering rule itself faithful rather than merely conservative.
+The doubling curve is the one number nobody has checked. It was chosen because a
+progression was needed and doubling is simple and predictable; the original's
+actual curve may well be gentler. It is content data precisely so that
+recalibrating it is an edit rather than a refactor.
+
+What would raise this to `verified`: controlled traces of the original showing a
+known cell at a known level producing a known amount, for one surface and one
+subsurface deposit.
 
 ## Evidence
 
-From `docs/game-systems.md`, itself condensed from the manual and shipped
-release notes:
+From `docs/game-systems.md`, itself condensed from the manual and release notes:
 
 - "A tile's output is gathered only if it is **on or within one tile** of a
   connected depot or port. Overlapping catchments waste coverage."
@@ -38,17 +47,24 @@ release notes:
   holding both a port and a depot (goods then travel by sea)."
 - Turn step 6: "Commodities transported and delivered into the warehouse **for
   next turn**."
-- "Transport capacity is a single pool of units-moved-per-turn, allocated
-  across commodities by slider."
 
-From the file formats: the 1997 `.map` records *which* deposit sits on a cell
-and nothing about its output, so no rate can be recovered from the corpus. This
-is why `LegacyWorldConverter` now stamps every imported deposit with the same
-placeholder rather than inventing a table per resource.
+From the corpus, measured directly:
 
-Separate what is observed from what is concluded: the four bullets above are
-observed. The conclusion drawn from them here is only that *connectivity to the
-capital gates gathering*, which is the part implemented.
+- `deve` is `[cell, level]` and **every level in every shipped scenario is 1, 2
+  or 3**, which is what fixes the length of the yield curve. Counts: `s1` 320
+  records over 317 cells, `s3` 59, `s13` and `s14` 4 each, and none at all in
+  `s9`–`s12` or `s15`.
+- **A cell can be developed more than once.** `s1` does it three times — levels
+  `[2,1]`, `[1,1]` and `[2,1]`. This is shipped data, so it is legal by
+  definition. See the repeated-`deve` section below.
+- The 1997 `.map` records *which* deposit sits on a cell and nothing about its
+  output, so no rate can be recovered from the files. The rates here come from
+  play, not from the corpus.
+
+Separate what is observed from what is concluded: the bullets above are
+observed. The split of the thirteen deposits into surface and subsurface is
+concluded from them — coal, iron, oil, gems and gold are dug; cotton, wool,
+timber, horses, grain, fruit, fish and livestock are harvested.
 
 ## Pseudocode
 
@@ -58,58 +74,114 @@ for each country by dense id:
                         rail component
     catchment = collection points, widened by CatchmentRadius hex steps
     for each cell holding a deposit whose province this country owns:
-        if the cell is in the catchment:
-            collected[deposit.commodity] += deposit.yieldPerTurn
-        else:
-            stranded[deposit.commodity] += deposit.yieldPerTurn
+        for each deposit on the cell:
+            if deposit is gated and the country lacks the technology: skip
+            amount = deposit.yieldByDevelopmentLevel[cell development level]
+            if the cell is in the catchment: collected += amount
+            else:                            stranded  += amount
     queue collected as pending deliveries; report stranded
 
 Delivery commits the queue, so the goods are in Available stock when the next
 turn's Production phase reads it.
 ```
 
+The curves currently shipped:
+
+| | level 0 | 1 | 2 | 3 |
+|---|---|---|---|---|
+| Surface | 1 | 2 | 4 | 8 |
+| Subsurface | 0 | 2 | 4 | 8 |
+
+Zero at level 0 is meaningful rather than a missing value: it is exactly what
+makes a mine worthless until a worker has dug it. A curve that is zero at
+*every* level is rejected, since nothing would ever come of it. Above the top of
+the curve the yield holds rather than throwing, so a scenario carrying a level
+the deposit has no entry for still behaves sensibly.
+
 A cell is stamped once per country, so a cell inside two collection points'
 catchments pays once — the manual's "overlapping catchments waste coverage".
 
 **Where this is deliberately conservative.** Depots and ports are not modelled,
-so every cell of the capital's rail component stands in for a depot. Against
-the original this can only *under*-collect where a depot would extend reach
-that rail alone does not, and it over-collects only if the original required an
-explicitly built depot on a railed tile. The substitution is recorded here
-rather than hidden because it will change when depots arrive.
+so every cell of the capital's rail component stands in for a depot. Against the
+original this can only *under*-collect where a depot would extend reach that
+rail alone does not.
+
+## Technology
+
+The gate is real and enforced: a deposit naming a technology yields nothing
+until the owning country knows it. What is *not* here is any way to learn one —
+no research, no cost, no prerequisites. A scenario states what each country
+begins knowing, and `WorldState.GrantTechnology` is the only other way in.
+
+**No imported deposit declares a requirement.** Which technologies gate which
+deposits has not been measured, and guessing it would quietly make part of every
+converted map worthless. The mechanism is exercised by synthetic content in the
+tests instead.
+
+## The repeated `deve` rule
+
+`s1` develops three cells twice. The importer keeps the **highest** level and
+emits a warning naming the cell and what it kept.
+
+The reasoning: development is a level a cell *has*, not a stack of separate
+works, so the largest record is the only one consistent with all of them.
+Last-record-wins is the alternative reading, and exactly two cells in one file
+tell the two apart — `[1,1]` gives 1 either way. This is recorded as a choice
+rather than a finding.
+
+Erroring on the duplicate was the first implementation, and the corpus rejected
+it within one run. A rule that fires on shipped data is a wrong rule.
 
 ## Where implemented
 
-- `ExtractionSettings` and `ResourceDefinition.YieldPerTurn` in `Imperialism.Core`.
+- `ResourceDefinition.YieldByDevelopmentLevel` / `GetYield`, `RequiredTechnology`,
+  and `ExtractionSettings` in `Imperialism.Core`.
+- `WorldState.GetCellDevelopment` / `SetCellDevelopment`, `HasTechnology` /
+  `GrantTechnology`.
 - `ExtractionPlanner` and the `TurnPhase.Extraction` branch of `TurnResolver`.
-- `ResourceExtractedEvent` carries both collected and stranded totals.
-- `.iworld` v4 `resources[].yieldPerTurn` and `extraction.catchmentRadius`, with
-  a v3 to v4 migration in `WorldContentMigrator`.
-- Defaults shared by the migration and the legacy importer live on
-  `WorldContentCodec.DefaultResourceYieldPerTurn` / `DefaultCatchmentRadius`.
+- `ResourceExtractedEvent` carries collected and stranded totals plus cell counts.
+- `.iworld` v5 `resources[].yieldByDevelopmentLevel`,
+  `resources[].requiredTechnology`, `technologies`,
+  `scenarios[].cellDevelopment` and `scenarios[].countryTechnologies`, with a v4
+  to v5 migration.
+- `LegacyWorldConverter` converts `deve` records and assigns curves from
+  `WorldContentCodec.SurfaceYieldByDevelopmentLevel` /
+  `SubsurfaceYieldByDevelopmentLevel`.
 
 ## Test data
 
 `tests/Imperialism.Core.Tests/ExtractionTests.cs` pins the catchment radius
-(including radius 0), connectivity to the capital, a rail component that no
-longer reaches the capital, a country with no capital, province ownership,
-single-payment on overlapping catchments, multiple deposits on one cell, and
-that this turn's harvest only reaches next turn's production.
-`tests/Imperialism.Content.Tests/WorldContentTests.cs` pins the v3 to v4
-migration and the content validation.
+(including 0), connectivity to the capital, an orphaned rail component, a
+country with no capital, province ownership, single payment on overlapping
+catchments, several deposits on one cell, the doubling curve, a mine yielding
+nothing undeveloped, the technology gate, scenario-seeded development and
+technology, and that this turn's harvest only reaches next turn's production.
 
-There is **no test pinning the rate against original behaviour**, because there
-is no observed input/output pair to pin it to. That is the gap between `guess`
-and `verified` here.
+`tests/Imperialism.LegacyImport.Tests/LegacyWorldConverterTests.cs` pins `deve`
+conversion, the repeated-cell rule, rejection of off-map, ocean and
+out-of-range levels, and the surface/subsurface curve split.
+
+All ten shipped scenarios import with **zero errors**: 317 developed cells in
+`s1`, 59 in `s3`, 4 each in `s13` and `s14`.
+
+There is still **no test pinning a rate against original behaviour**, because
+there is no observed input/output pair to pin it to. That is the gap between
+`inferred` and `verified`.
 
 ## Open questions
 
-- The actual per-deposit rates, and whether they differ by resource.
-- Development levels: the original raises a cell's output as engineers improve
-  it, which is why a flat rate is a placeholder rather than a simplification.
+- The real progression per level. Doubling is a placeholder.
+- Whether base rates differ within the surface group, or within the subsurface
+  group. They are uniform here.
+- Which technologies gate which deposits, and which gate *levels* rather than
+  initial extraction.
+- Whether fish behaves like the other surface deposits. It is grouped with them
+  on the assumption that it yields untouched, which is the least certain of the
+  thirteen.
+- How a worker actually builds a level, and what it costs. Nothing here creates
+  development; only scenarios and direct calls set it.
 - Depots and ports as buildable, losable objects, including the river-port and
   sea-port edge cases in `game-systems.md`.
 - The transport capacity pool. Until it exists, a connected country moves
-  everything it gathers, which is the most optimistic possible reading.
-- Whether gold and gems bypass the warehouse and convert straight to cash on
-  transport, as `game-systems.md` states for money.
+  everything it gathers.
+- Whether gold and gems bypass the warehouse and convert straight to cash.

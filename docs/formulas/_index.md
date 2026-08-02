@@ -26,7 +26,7 @@ bottom of this file.
 | Mechanic | Confidence | Doc | Implemented in | Tests |
 |---|---|---|---|---|
 | Industrial recipes and capacity | `inferred` | [production](production.md) | Core, Content, LegacyImport | generated + local corpus |
-| Resource extraction and catchment | `guess` | [extraction](extraction.md) | Core, Content, LegacyImport | generated |
+| Resource extraction and catchment | `inferred` | [extraction](extraction.md) | Core, Content, LegacyImport | generated + local corpus |
 | Trade clearing price | `guess` | _trade-pricing_ | — | — |
 | Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |
 | Diplomatic relation deltas | `guess` | _relations_ | — | — |
@@ -40,11 +40,13 @@ Industrial production is the first evidence-backed entry, but remains
 `inferred` until controlled original-behaviour traces verify the resolver's
 shortage and persistence semantics.
 
-Extraction is the first entry whose *shape* is inferred while its *numbers* are
-not supported at all: the gathering and connectivity rules come from the manual,
-but every deposit yields a placeholder 1 per turn because no source read so far
-states a rate. It is listed at the lower of the two confidences deliberately —
-a mechanic is only as trustworthy as its weakest half.
+Extraction carries its evidence at three different strengths at once, and its
+document tabulates them rather than averaging them: the development levels are
+corpus-verified (`deve` records are 1–3 everywhere), the base rates come from
+observed play, and the doubling progression between levels is a deliberate
+design choice nobody has measured. It sits at `inferred` because that is the
+weakest thing load-bearing in it — a mechanic is only as trustworthy as the
+number you would notice being wrong.
 
 ## Where to dig
 

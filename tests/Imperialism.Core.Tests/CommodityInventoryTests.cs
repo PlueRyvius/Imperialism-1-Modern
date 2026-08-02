@@ -189,7 +189,7 @@ public sealed class CommodityInventoryTests
         var map = new MapDefinition(
             dimensions,
             [cell],
-            resources: [new ResourceDefinition(new ResourceId(0), new CommodityId(1), 1)]);
+            resources: [new ResourceDefinition(new ResourceId(0), new CommodityId(1), [1])]);
         Assert.Throws<ArgumentException>(() => new WorldDefinition(
             map,
             [],
@@ -258,7 +258,7 @@ public sealed class CommodityInventoryTests
                 CellRegion.ForProvince(new ProvinceId(0)),
                 [new ResourceId(0)])],
             [new ProvinceDefinition(new ProvinceId(0), "Province")],
-            resources: [new ResourceDefinition(new ResourceId(0), new CommodityId(0), 1)]);
+            resources: [new ResourceDefinition(new ResourceId(0), new CommodityId(0), [1])]);
         var inventory = initialQuantity > 0
             ? new[] { new InitialCommodityStock(new CountryId(0), new CommodityId(0), initialQuantity) }
             : [];

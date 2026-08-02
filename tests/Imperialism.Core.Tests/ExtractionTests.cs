@@ -12,6 +12,7 @@ public sealed class ExtractionTests
 {
     private const int Grain = 0;
     private const int Coal = 1;
+    private const int Iron = 2;
 
     [Fact]
     public void DepositsOnTheCapitalRailNetworkAreGatheredWithinTheCatchment()
@@ -196,21 +197,122 @@ public sealed class ExtractionTests
     }
 
     [Fact]
-    public void ResourceYieldMustBePositive()
+    public void AYieldCurveMustDescribeSomethingWorthCollecting()
     {
+        // Zero at the undeveloped level is the whole point of a mine, so it is
+        // allowed; zero at every level is not, because nothing would ever come
+        // of it.
+        _ = new ResourceDefinition(new ResourceId(0), new CommodityId(0), [0, 2]);
+        Assert.Throws<ArgumentException>(() =>
+            new ResourceDefinition(new ResourceId(0), new CommodityId(0), []));
+        Assert.Throws<ArgumentException>(() =>
+            new ResourceDefinition(new ResourceId(0), new CommodityId(0), [0, 0]));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new ResourceDefinition(new ResourceId(0), new CommodityId(0), 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new ResourceDefinition(new ResourceId(0), new CommodityId(0), -1));
+            new ResourceDefinition(new ResourceId(0), new CommodityId(0), [1, -1]));
         Assert.Throws<ArgumentOutOfRangeException>(() => new ExtractionSettings(-1));
         Assert.Equal(1, ExtractionSettings.Default.CatchmentRadius);
+    }
+
+    [Fact]
+    public void YieldHoldsAtTheTopOfTheCurveRatherThanThrowing()
+    {
+        var deposit = new ResourceDefinition(new ResourceId(0), new CommodityId(0), [1, 2, 4, 8]);
+
+        Assert.Equal(1, deposit.GetYield(0));
+        Assert.Equal(8, deposit.GetYield(3));
+        Assert.Equal(8, deposit.GetYield(9));
+        Assert.Equal(3, deposit.MaxDevelopmentLevel);
+        Assert.Throws<ArgumentOutOfRangeException>(() => deposit.GetYield(-1));
+    }
+
+    [Fact]
+    public void ImprovingACellDoublesWhatItHandsOver()
+    {
+        var state = CreateState(depositCells: [(2, Grain)]);
+
+        // Cell 2 carries grain on the [2, 4, 8, 16] curve.
+        Assert.Equal(2, Harvest(state, Grain));
+        state.SetCellDevelopment(new CellIndex(2), 1);
+        Assert.Equal(4, Harvest(state, Grain));
+        state.SetCellDevelopment(new CellIndex(2), 2);
+        Assert.Equal(8, Harvest(state, Grain));
+        state.SetCellDevelopment(new CellIndex(2), 3);
+        Assert.Equal(16, Harvest(state, Grain));
+    }
+
+    [Fact]
+    public void AMineGivesNothingUntilItHasBeenDug()
+    {
+        // Iron's curve starts at zero: connected and owned is not enough.
+        var state = CreateState(depositCells: [(2, Iron)]);
+
+        var before = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+        Assert.Equal(1, before.CollectedCellCount);
+        Assert.Empty(before.Collected);
+
+        state.SetCellDevelopment(new CellIndex(2), 1);
+
+        Assert.Equal(3, Harvest(state, Iron));
+    }
+
+    [Fact]
+    public void ADepositNobodyKnowsHowToWorkYieldsNothing()
+    {
+        var state = CreateState(depositCells: [(2, Grain)], gateGrainBehindTechnology: true);
+
+        Assert.Equal(0, Harvest(state, Grain));
+
+        state.GrantTechnology(new CountryId(0), new TechnologyId(0));
+
+        Assert.Equal(2, Harvest(state, Grain));
+    }
+
+    [Fact]
+    public void AScenarioCanStartCellsAlreadyImprovedAndCountriesAlreadyInformed()
+    {
+        var state = CreateState(
+            depositCells: [(2, Coal)],
+            initialDevelopment: [(2, 2)],
+            gateGrainBehindTechnology: true,
+            startingTechnology: true);
+
+        Assert.Equal(2, state.GetCellDevelopment(new CellIndex(2)));
+        Assert.True(state.HasTechnology(new CountryId(0), new TechnologyId(0)));
+        Assert.False(state.HasTechnology(new CountryId(1), new TechnologyId(0)));
+
+        // Coal's curve is [3, 6, 12, 24], so a level-2 cell hands over 12.
+        Assert.Equal(12, Harvest(state, Coal));
+    }
+
+    [Fact]
+    public void OnlyLandCanBeDeveloped()
+    {
+        var state = CreateState(depositCells: []);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            state.SetCellDevelopment(new CellIndex(0), -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            state.GetCellDevelopment(new CellIndex(99)));
+    }
+
+    /// <summary>Resolves one turn and returns what reached the warehouse.</summary>
+    private static long Harvest(WorldState state, int commodity)
+    {
+        var before = state.GetAvailableQuantity(new CountryId(0), new CommodityId(commodity));
+        _ = TurnResolver.Resolve(state, TurnOrders.Empty(2), 0);
+        return state.GetAvailableQuantity(new CountryId(0), new CommodityId(commodity)) - before;
     }
 
     private static WorldState CreateState(
         (int Cell, int Resource)[] depositCells,
         (int First, int Second)[]? extraRails = null,
         int catchmentRadius = 1,
-        bool withMill = false)
+        bool withMill = false,
+        (int Cell, int Level)[]? initialDevelopment = null,
+        bool gateGrainBehindTechnology = false,
+        bool startingTechnology = false)
     {
         const int width = 5;
         var dimensions = new MapDimensions(width, 1);
@@ -238,9 +340,17 @@ public sealed class ExtractionTests
                     new ProvinceDefinition(new ProvinceId(index), $"Province {index}")),
             [],
             [
-                // Distinct yields keep a mixed-up commodity index visible.
-                new ResourceDefinition(new ResourceId(Grain), new CommodityId(Grain), 2),
-                new ResourceDefinition(new ResourceId(Coal), new CommodityId(Coal), 3),
+                // Distinct yields keep a mixed-up commodity index visible, and
+                // the curves double the way the surface and subsurface ones do.
+                new ResourceDefinition(
+                    new ResourceId(Grain),
+                    new CommodityId(Grain),
+                    [2, 4, 8, 16],
+                    gateGrainBehindTechnology ? new TechnologyId(0) : null),
+                new ResourceDefinition(new ResourceId(Coal), new CommodityId(Coal), [3, 6, 12, 24]),
+
+                // The one deposit here that behaves like a real mine.
+                new ResourceDefinition(new ResourceId(Iron), new CommodityId(Iron), [0, 3, 6, 12]),
             ]);
 
         var rails = new List<CellLink> { new(new CellIndex(0), new CellIndex(1)) };
@@ -262,6 +372,11 @@ public sealed class ExtractionTests
             null,
             withMill
                 ? [new InitialProductionCapacity(new CountryId(0), new ProductionFacilityId(0), 10)]
+                : null,
+            (initialDevelopment ?? [])
+                .Select(static item => new InitialCellDevelopment(new CellIndex(item.Cell), item.Level)),
+            startingTechnology
+                ? [new InitialCountryTechnology(new CountryId(0), new TechnologyId(0))]
                 : null);
 
         var facilities = withMill
@@ -296,10 +411,12 @@ public sealed class ExtractionTests
             [
                 new CommodityDefinition(new CommodityId(Grain), "Grain", CommodityCategory.Raw),
                 new CommodityDefinition(new CommodityId(Coal), "Coal", CommodityCategory.Raw),
+                new CommodityDefinition(new CommodityId(Iron), "Iron", CommodityCategory.Raw),
             ],
             facilities,
             recipes,
-            new ExtractionSettings(catchmentRadius));
+            new ExtractionSettings(catchmentRadius),
+            [new TechnologyDefinition(new TechnologyId(0), "Mechanised Farming")]);
         return new WorldState(definition);
     }
 }

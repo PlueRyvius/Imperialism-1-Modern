@@ -6,6 +6,7 @@ public sealed class WorldDefinition
     private readonly IReadOnlyList<CommodityDefinition> _commodities;
     private readonly IReadOnlyList<ProductionFacilityDefinition> _productionFacilities;
     private readonly IReadOnlyList<ProductionRecipeDefinition> _productionRecipes;
+    private readonly IReadOnlyList<TechnologyDefinition> _technologies;
 
     public WorldDefinition(
         MapDefinition map,
@@ -14,11 +15,29 @@ public sealed class WorldDefinition
         IEnumerable<CommodityDefinition>? commodities = null,
         IEnumerable<ProductionFacilityDefinition>? productionFacilities = null,
         IEnumerable<ProductionRecipeDefinition>? productionRecipes = null,
-        ExtractionSettings? extraction = null)
+        ExtractionSettings? extraction = null,
+        IEnumerable<TechnologyDefinition>? technologies = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
         ArgumentNullException.ThrowIfNull(scenario);
+        var technologyArray = technologies?.ToArray() ?? [];
+        if (technologyArray.Any(static technology => technology is null))
+        {
+            throw new ArgumentException("Technologies cannot contain null entries.", nameof(technologies));
+        }
+
+        for (var index = 0; index < technologyArray.Length; index++)
+        {
+            if (technologyArray[index].Id.Value != index)
+            {
+                throw new ArgumentException(
+                    $"Modern technology IDs must be dense and ordered; expected {index}, " +
+                    $"got {technologyArray[index].Id.Value}.",
+                    nameof(technologies));
+            }
+        }
+
         var countryArray = countries.ToArray();
         var commodityArray = commodities?.ToArray() ?? [];
         var facilityArray = productionFacilities?.ToArray() ?? [];
@@ -110,6 +129,14 @@ public sealed class WorldDefinition
             {
                 throw new ArgumentException(
                     $"Resource {resource.Id.Value} refers to missing commodity {resource.Commodity.Value}.",
+                    nameof(map));
+            }
+
+            if (resource.RequiredTechnology is { } required &&
+                (uint)required.Value >= (uint)technologyArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Resource {resource.Id.Value} requires missing technology {required.Value}.",
                     nameof(map));
             }
         }
@@ -218,6 +245,40 @@ public sealed class WorldDefinition
             }
         }
 
+        foreach (var development in scenario.InitialCellDevelopment)
+        {
+            if (!map.Dimensions.Contains(development.Cell))
+            {
+                throw new ArgumentException(
+                    $"Initial development refers to cell {development.Cell} outside the map.",
+                    nameof(scenario));
+            }
+
+            if (map[development.Cell].Region.Kind != CellRegionKind.Province)
+            {
+                throw new ArgumentException(
+                    $"Initial development on cell {development.Cell} is not on land.",
+                    nameof(scenario));
+            }
+        }
+
+        foreach (var known in scenario.InitialCountryTechnologies)
+        {
+            if ((uint)known.Country.Value >= (uint)countryArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Initial technology refers to missing country {known.Country.Value}.",
+                    nameof(scenario));
+            }
+
+            if ((uint)known.Technology.Value >= (uint)technologyArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Initial technology refers to missing technology {known.Technology.Value}.",
+                    nameof(scenario));
+            }
+        }
+
         try
         {
             _ = checked(countryArray.Length * commodityArray.Length);
@@ -245,6 +306,7 @@ public sealed class WorldDefinition
         Map = map;
         Scenario = scenario;
         Extraction = extraction ?? ExtractionSettings.Default;
+        _technologies = Array.AsReadOnly(technologyArray);
         _countries = Array.AsReadOnly(countryArray);
         _commodities = Array.AsReadOnly(commodityArray);
         _productionFacilities = Array.AsReadOnly(facilityArray);
@@ -264,6 +326,8 @@ public sealed class WorldDefinition
     public ScenarioDefinition Scenario { get; }
 
     public ExtractionSettings Extraction { get; }
+
+    public IReadOnlyList<TechnologyDefinition> Technologies => _technologies;
 
     internal static void ValidateLandLink(
         MapDefinition map,
@@ -287,6 +351,8 @@ public sealed class WorldState
     private readonly RailConnectivityIndex?[] _railConnectivity;
     private readonly long[] _availableInventory;
     private readonly long[] _productionCapacities;
+    private readonly int[] _cellDevelopment;
+    private readonly bool[] _knownTechnologies;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private long _nextDeliveryId = 1;
 
@@ -314,6 +380,19 @@ public sealed class WorldState
         foreach (var capacity in definition.Scenario.InitialProductionCapacities)
         {
             _productionCapacities[GetProductionCapacityOffset(capacity.Country, capacity.Facility)] = capacity.Quantity;
+        }
+
+        _cellDevelopment = new int[definition.Map.Dimensions.CellCount];
+        foreach (var development in definition.Scenario.InitialCellDevelopment)
+        {
+            _cellDevelopment[development.Cell.Value] = development.Level;
+        }
+
+        _knownTechnologies = new bool[
+            checked(definition.Countries.Count * definition.Technologies.Count)];
+        foreach (var known in definition.Scenario.InitialCountryTechnologies)
+        {
+            _knownTechnologies[GetTechnologyOffset(known.Country, known.Technology)] = true;
         }
     }
 
@@ -416,6 +495,40 @@ public sealed class WorldState
 
         return quantity;
     }
+
+    /// <summary>How far a cell has been improved. Zero is undeveloped.</summary>
+    public int GetCellDevelopment(CellIndex cell)
+    {
+        ValidateCell(cell);
+        return _cellDevelopment[cell.Value];
+    }
+
+    /// <summary>
+    /// Sets a cell's improvement level. Land only: the original's own
+    /// <c>deve</c> records never name an ocean cell in any shipped scenario.
+    /// </summary>
+    public void SetCellDevelopment(CellIndex cell, int level)
+    {
+        ValidateCell(cell);
+        ArgumentOutOfRangeException.ThrowIfNegative(level);
+        if (Definition.Map[cell].Region.Kind != CellRegionKind.Province)
+        {
+            throw new ArgumentException("Only land cells can be developed.", nameof(cell));
+        }
+
+        _cellDevelopment[cell.Value] = level;
+    }
+
+    public bool HasTechnology(CountryId country, TechnologyId technology) =>
+        _knownTechnologies[GetTechnologyOffset(country, technology)];
+
+    /// <summary>
+    /// Grants knowledge outright. There is no research system yet, so this is
+    /// how a technology is acquired at all; it is deliberately not tied to a
+    /// cost, a turn, or a prerequisite.
+    /// </summary>
+    public void GrantTechnology(CountryId country, TechnologyId technology) =>
+        _knownTechnologies[GetTechnologyOffset(country, technology)] = true;
 
     public CountryId? GetProvinceOwner(ProvinceId province)
     {
@@ -542,6 +655,25 @@ public sealed class WorldState
         {
             throw new ArgumentOutOfRangeException(nameof(province));
         }
+    }
+
+    private void ValidateCell(CellIndex cell)
+    {
+        if (!Definition.Map.Dimensions.Contains(cell))
+        {
+            throw new ArgumentOutOfRangeException(nameof(cell));
+        }
+    }
+
+    private int GetTechnologyOffset(CountryId country, TechnologyId technology)
+    {
+        ValidateCountry(country);
+        if ((uint)technology.Value >= (uint)Definition.Technologies.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(technology));
+        }
+
+        return checked((country.Value * Definition.Technologies.Count) + technology.Value);
     }
 
     private void ValidateCountry(CountryId country)

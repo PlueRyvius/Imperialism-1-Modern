@@ -28,6 +28,8 @@ public sealed class WorldContentDocument
 
     public MapContentDocument Map { get; set; } = new();
 
+    public NamedContentDefinition[] Technologies { get; set; } = [];
+
     public NamedContentDefinition[] Countries { get; set; } = [];
 
     public ScenarioContentDocument[] Scenarios { get; set; } = [];
@@ -68,6 +70,24 @@ public sealed class ScenarioContentDocument
     public InitialInventoryContent[] InitialInventory { get; set; } = [];
 
     public InitialProductionCapacityContent[] ProductionCapacities { get; set; } = [];
+
+    public CellDevelopmentContent[] CellDevelopment { get; set; } = [];
+
+    public CountryTechnologyContent[] CountryTechnologies { get; set; } = [];
+}
+
+public sealed class CellDevelopmentContent
+{
+    public int Cell { get; set; }
+
+    public int Level { get; set; }
+}
+
+public sealed class CountryTechnologyContent
+{
+    public string Country { get; set; } = string.Empty;
+
+    public string Technology { get; set; } = string.Empty;
 }
 
 public sealed class CommodityContentDefinition
@@ -85,7 +105,15 @@ public sealed class ResourceContentDefinition
 
     public string Commodity { get; set; } = string.Empty;
 
+    /// <summary>Version 4's flat rate. Superseded by the curve; never written at version 5.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public long YieldPerTurn { get; set; }
+
+    /// <summary>Yield per turn indexed by development level; index 0 is undeveloped.</summary>
+    public long[] YieldByDevelopmentLevel { get; set; } = [];
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequiredTechnology { get; set; }
 }
 
 public sealed class ExtractionContentSettings
