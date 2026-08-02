@@ -139,8 +139,26 @@ public static class LegacyWorldConverter
 
     private static readonly HashSet<string> ConvertedScenarioTags =
         new(
-            ["cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port", "rail"],
+            ["cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port", "rail", "labo"],
             StringComparer.Ordinal);
+
+    /// <summary>
+    /// The original's food rules: half the workers want grain, a quarter fruit,
+    /// and the rest livestock or fish. Expressed as a repeating cycle of four so
+    /// that any headcount splits in those proportions without a rounding rule.
+    /// </summary>
+    private static FeedingContentSettings CreateStandardFeeding() => new()
+    {
+        PreferenceCycle =
+        [
+            new FoodPreferenceContent { Accepted = ["commodity.grain"] },
+            new FoodPreferenceContent { Accepted = ["commodity.fruit"] },
+            new FoodPreferenceContent { Accepted = ["commodity.grain"] },
+            new FoodPreferenceContent { Accepted = ["commodity.livestock", "commodity.fish"] },
+        ],
+        LabourByGrade = [1, 2, 4],
+        CannedFood = "commodity.canned-food",
+    };
 
     public static LegacyImportResult Convert(
         MapDocument map,
@@ -338,6 +356,7 @@ public static class LegacyWorldConverter
         var cellDevelopment = ReadCellDevelopment(scenario, map, report);
         var ports = ReadPorts(scenario, map, report);
         var depots = ReadDepots(scenario, map, report);
+        var workers = ReadWorkforce(scenario, countryKeys, report);
         var title = string.IsNullOrWhiteSpace(info?.Title)
             ? $"Legacy {options.PackageKey}"
             : info.Title;
@@ -360,6 +379,7 @@ public static class LegacyWorldConverter
                 // extraction, and nothing here builds a level yet.
                 YieldByDevelopmentLevel = [.. ResourceYieldCurves[code]],
             }).ToArray(),
+            Feeding = CreateStandardFeeding(),
             Extraction = new ExtractionContentSettings
             {
                 CatchmentRadius = WorldContentCodec.DefaultCatchmentRadius,
@@ -399,6 +419,7 @@ public static class LegacyWorldConverter
                     CellDevelopment = cellDevelopment,
                     Ports = ports,
                     Depots = depots,
+                    Workers = workers,
                 },
             ],
         };
@@ -644,6 +665,68 @@ public static class LegacyWorldConverter
             }
 
             result.Add((int)cell);
+        }
+
+        return result.ToArray();
+    }
+
+    /// <summary>
+    /// Converts <c>labo</c> records into starting workforces. The record is
+    /// <c>[country, untrained, trained, expert]</c>.
+    /// </summary>
+    /// <remarks>
+    /// The grade order is settled by the data rather than assumed: <c>s1</c>
+    /// gives country 2 <c>[60, 5, 0]</c>, which reads as a backward power with
+    /// sixty untrained labourers and no experts. Reversed it would be a power
+    /// with sixty experts and nobody to train, which no scenario would author.
+    /// Every shipped scenario carries all seven records.
+    /// </remarks>
+    private static WorkforceContent[] ReadWorkforce(
+        ScenarioDocument scenario,
+        IReadOnlyDictionary<uint, string> countryKeys,
+        LegacyImportReport report)
+    {
+        var result = new List<WorkforceContent>();
+        var seen = new HashSet<uint>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "labo")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 4)
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.invalid-labo", path, "A labo record must contain a country and three worker counts.");
+                continue;
+            }
+
+            var country = record.Fields[0];
+            if (!countryKeys.TryGetValue(country, out var countryKey))
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.invalid-labo-country", path, $"Workforce refers to unknown country {country}.");
+                continue;
+            }
+
+            if (!seen.Add(country))
+            {
+                report.Add(LegacyImportSeverity.Warning, "scenario.repeated-labo", path, $"Country {country} has more than one workforce record.");
+                continue;
+            }
+
+            if (record.Fields.Skip(1).All(static value => value == 0))
+            {
+                continue;
+            }
+
+            result.Add(new WorkforceContent
+            {
+                Country = countryKey,
+                Untrained = record.Fields[1],
+                Trained = record.Fields[2],
+                Expert = record.Fields[3],
+            });
         }
 
         return result.ToArray();

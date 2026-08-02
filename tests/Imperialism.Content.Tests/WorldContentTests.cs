@@ -270,7 +270,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(8)]
+    [InlineData(9)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -350,7 +350,7 @@ public sealed class WorldContentTests
             new CommodityId(1),
             compiled.World.Map.Resources[1].Commodity);
         Assert.DoesNotContain("\"resourceKeys\"", encoded, StringComparison.Ordinal);
-        Assert.Contains("\"formatVersion\": 7", encoded, StringComparison.Ordinal);
+        Assert.Contains("\"formatVersion\": 8", encoded, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -421,7 +421,7 @@ public sealed class WorldContentTests
     {
         var document = CreateValidDocument();
         var json = Encoding.UTF8.GetString(WorldContentCodec.Encode(document))
-            .Replace("\"formatVersion\": 7", "\"formatVersion\": 2", StringComparison.Ordinal);
+            .Replace("\"formatVersion\": 8", "\"formatVersion\": 2", StringComparison.Ordinal);
 
         var exception = Assert.Throws<ContentValidationException>(() =>
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
@@ -455,8 +455,8 @@ public sealed class WorldContentTests
     {
         var valid = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()));
         var unknown = valid.Replace(
-            "\"formatVersion\": 7,",
-            "\"formatVersion\": 7,\n  \"mystery\": true,",
+            "\"formatVersion\": 8,",
+            "\"formatVersion\": 8,\n  \"mystery\": true,",
             StringComparison.Ordinal);
 
         Assert.Throws<ContentValidationException>(() =>
@@ -676,7 +676,7 @@ public sealed class WorldContentTests
         var current = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()));
 
         var labelledThree = current.Replace(
-            "\"formatVersion\": 7", "\"formatVersion\": 3", StringComparison.Ordinal);
+            "\"formatVersion\": 8", "\"formatVersion\": 3", StringComparison.Ordinal);
         Assert.Equal(
             "formatVersion",
             Assert.Throws<ContentValidationException>(() =>
@@ -689,7 +689,7 @@ public sealed class WorldContentTests
         withoutTechnologies.Resources[2].RequiredTechnology = null;
         var labelledFour = Encoding.UTF8
             .GetString(WorldContentCodec.Encode(withoutTechnologies))
-            .Replace("\"formatVersion\": 7", "\"formatVersion\": 4", StringComparison.Ordinal);
+            .Replace("\"formatVersion\": 8", "\"formatVersion\": 4", StringComparison.Ordinal);
         Assert.Equal(
             "resources[0].yieldByDevelopmentLevel",
             Assert.Throws<ContentValidationException>(() =>
@@ -776,7 +776,7 @@ public sealed class WorldContentTests
         var withPorts = CreateValidDocument();
         withPorts.Scenarios[0].Ports = [0];
         var json = Encoding.UTF8.GetString(WorldContentCodec.Encode(withPorts))
-            .Replace("\"formatVersion\": 7", "\"formatVersion\": 5", StringComparison.Ordinal);
+            .Replace("\"formatVersion\": 8", "\"formatVersion\": 5", StringComparison.Ordinal);
 
         var exception = Assert.Throws<ContentValidationException>(() =>
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));

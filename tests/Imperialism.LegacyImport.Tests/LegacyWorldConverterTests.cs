@@ -616,6 +616,19 @@ public sealed class LegacyWorldConverterTests
                 Assert.Equal(ports, result.Document!.Scenarios[0].Ports.Length);
             }
 
+            // Every scenario carries all seven workforces, and s1's spread is
+            // what settles the grade order: country 2 is 60 untrained with no
+            // experts, which only reads sensibly one way round.
+            var workers = result.Document!.Scenarios[0].Workers;
+            Assert.Equal(7, workers.Length);
+            if (key == "s1")
+            {
+                var first = workers.Single(item => item.Country.EndsWith("000", StringComparison.Ordinal));
+                Assert.Equal((15, 15, 30), (first.Untrained, first.Trained, first.Expert));
+                var third = workers.Single(item => item.Country.EndsWith("002", StringComparison.Ordinal));
+                Assert.Equal((60, 5, 0), (third.Untrained, third.Trained, third.Expert));
+            }
+
             if (expectedDepots.TryGetValue(key, out var depots))
             {
                 Assert.Equal(depots, result.Document!.Scenarios[0].Depots.Length);
@@ -631,6 +644,59 @@ public sealed class LegacyWorldConverterTests
         }
 
         Assert.True(converted >= 9, $"Expected the full corpus, converted only {converted}.");
+    }
+
+    /// <summary>
+    /// Runs a real turn on a real scenario, end to end: import, compile,
+    /// resolve. Unit fixtures are four cells and four workers; this is 6,480
+    /// cells and seven powers, and it is the only check that the phases compose
+    /// on data nobody tailored for them.
+    /// </summary>
+    [Fact]
+    public void AnImportedScenarioResolvesATurn()
+    {
+        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
+        var mapPath = Path.Combine(directory ?? string.Empty, "s1.map");
+        if (string.IsNullOrWhiteSpace(directory) || !File.Exists(mapPath))
+        {
+            return;
+        }
+
+        var result = LegacyWorldConverter.Convert(
+            LegacyMapCodec.Decode(File.ReadAllBytes(mapPath), MapFormatProfile.Imperialism1),
+            LegacyScenarioCodec.Decode(File.ReadAllBytes(Path.Combine(directory, "s1.scn"))),
+            null,
+            "corpus-turn");
+        Assert.True(result.Success);
+
+        var world = WorldContentCompiler.Compile(result.Document!).World;
+        var state = new WorldState(world);
+        var britain = new CountryId(0);
+        var headcountBefore = state.GetTotalWorkers(britain);
+
+        // 15 untrained + 15 trained + 30 expert = 60 workers, 165 labour.
+        Assert.Equal(60, headcountBefore);
+        Assert.Equal(165, state.GetAvailableLabour(britain));
+
+        var resolution = TurnResolver.Resolve(
+            state,
+            TurnOrders.Empty(world.Countries.Count),
+            0);
+
+        var fed = resolution.Events.OfType<WorkersFedEvent>().Single(item => item.Country == britain);
+        Assert.Equal(headcountBefore, fed.WellFed + fed.Sick + fed.Starved);
+        Assert.Equal(headcountBefore - fed.Starved, state.GetTotalWorkers(britain));
+
+        // A shipped scenario feeds its whole workforce properly on turn one:
+        // its starting warehouse and its first harvest cover the demand with
+        // nobody reduced to the wrong food. If this ever goes red, the feeding
+        // rules or the food supply have drifted, not the scenario.
+        Assert.Equal(headcountBefore, fed.WellFed);
+        Assert.Equal(0, fed.Sick);
+        Assert.Equal(0, fed.Starved);
+
+        // Every power has deposits and a capital, so extraction must report.
+        Assert.NotEmpty(resolution.Events.OfType<ResourceExtractedEvent>());
     }
 
     [Fact]

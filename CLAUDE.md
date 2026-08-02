@@ -19,6 +19,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | How does legacy content become `.iworld`? | `docs/legacy-importer.md` |
 | How does the Godot map viewer work? | `docs/map-viewer.md` |
 | What fills the warehouse from the map? | `docs/formulas/extraction.md` |
+| Who eats it, and what labour they supply | `docs/formulas/feeding.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Navigating the original binary, and resolving a crash | `docs/disasm/README.md`, `docs/disasm/module-map.md` |
@@ -144,8 +145,8 @@ see `docs/map-viewer.md`.
 
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an
-inert dense order bundle, unrestricted quarterly `TurnDate`, fixed eight-phase
-`TurnResolver`, and immutable event log. `.iworld` v3 defines stable
+inert dense order bundle, unrestricted quarterly `TurnDate`, fixed nine-phase
+`TurnResolver`, and immutable event log. `.iworld` defines stable
 commodities, facilities, recipes, and sparse scenario capacity, with explicit
 v1→v2→v3 migration. Core stores checked dense Available inventory and
 identifiable pending extraction, transport or trade deliveries. Ordered production
@@ -157,9 +158,17 @@ happens at **connected depots, connected ports and the capital** — never at ba
 track. Deposits within the catchment of one of those pay their owner each turn
 through the `Extraction` phase, scaled by the cell's development level; ports
 and the capital fish their adjacent water; unreachable output is reported as
-stranded rather than dropped. Labour, feeding, transient power, capacity
-construction, research, conflict, trade markets, diplomacy, sea routes between
-ports, blockade, and the transport capacity pool remain explicitly pending.
+stranded rather than dropped. `.iworld` v8 adds the workforce and feeding: every
+worker eats one unit a turn on the grain / fruit / grain / meat cycle, canned
+food substitutes without illness, the wrong food means sick and no labour, and
+nothing at all means permanent loss. Transient power, capacity construction,
+research, conflict, trade markets, diplomacy, sea routes between ports,
+blockade, and the transport capacity pool remain explicitly pending.
+
+**Labour is computed but nothing spends it.** The manual says production needs
+labour and never says how much per cycle, so `GetAvailableLabour` exists and
+`ProductionPlanner` ignores it rather than pricing it by guesswork. Sickness is
+therefore real state with no effect on output yet.
 
 **The game manual is in `docs/reference/` and it is authoritative for numbers.**
 It carries a Resource Development Table giving every deposit's yield at each of

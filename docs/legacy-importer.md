@@ -30,6 +30,11 @@ deposit has not been measured. See `formulas/extraction.md`.
 and every level in the corpus is 1, 2 or 3. A cell developed more than once —
 `s1` does it three times — keeps the highest level and reports a warning.
 
+`labo` records become the starting workforce, and the importer emits the
+standard feeding rules alongside them: the grain / fruit / grain /
+livestock-or-fish cycle, canned food as the substitute, and 1/2/4 labour by
+grade.
+
 `rail` records are converted as **depots**, not as track — the map's rail byte is
 where the lines come from. They are a strict subset of railed cells and no two
 sit within two tiles of each other, both of which the manual predicts. A depot
