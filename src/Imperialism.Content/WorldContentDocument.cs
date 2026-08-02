@@ -76,6 +76,9 @@ public sealed class ScenarioContentDocument
     /// <summary>Cell indices carrying a port.</summary>
     public int[] Ports { get; set; } = [];
 
+    /// <summary>Cell indices carrying a rail depot.</summary>
+    public int[] Depots { get; set; } = [];
+
     public CountryTechnologyContent[] CountryTechnologies { get; set; } = [];
 }
 

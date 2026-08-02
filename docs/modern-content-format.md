@@ -29,11 +29,11 @@ Every document starts with:
 ```json
 {
   "format": "imperialism-world",
-  "formatVersion": 6
+  "formatVersion": 7
 }
 ```
 
-Version 6 is the authored version. Migration is explicit and sequential:
+Version 7 is the authored version. Migration is explicit and sequential:
 version 1 resource palettes become version 2 commodities/resources, version 2
 packages gain empty version 3 production collections, version 3 packages gain a
 per-deposit `yieldPerTurn` plus a world-level `extraction` block, and version 4
@@ -45,7 +45,11 @@ deposit with no rate would silently stop producing; both use documented defaults
 and say so in `formulas/extraction.md`. Every cell in a version 4 package is
 undeveloped, so putting its flat rate at level zero leaves behaviour unchanged.
 The version 6 step adds nothing at all: an older package has no port records,
-and nothing in it says which of its commodities is fish. Mixed-version schemas,
+and nothing in it says which of its commodities is fish. Version 7 adds depots
+and likewise supplies none — which **changes behaviour**, since a package with
+no depots now gathers only around its capital and ports rather than anywhere its
+rail reaches. That is the correct model, but it is visible, so it is stated here
+and in the migration's own comment. Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the
 valid `commodity/from-resource/...` form; `/` is part of the key grammar below.
@@ -88,7 +92,8 @@ The top-level document contains:
 - one or more keyed scenarios containing name/year, explicit province owners,
   rails, capitals, optional positive initial commodity quantities, sparse
   positive capacities for limited facilities, sparse starting cell development,
-  which technologies each country begins knowing, and the cells carrying a port.
+  which technologies each country begins knowing, and the cells carrying a port
+  or a rail depot.
 
 Each cell references one terrain key, zero or more unique resource keys, and
 at most one province or sea-zone key. Settlement sites and river paths are map

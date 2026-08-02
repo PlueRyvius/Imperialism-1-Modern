@@ -10,6 +10,7 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<InitialCellDevelopment> _initialCellDevelopment;
     private readonly IReadOnlyList<InitialCountryTechnology> _initialCountryTechnologies;
     private readonly IReadOnlyList<CellIndex> _initialPorts;
+    private readonly IReadOnlyList<CellIndex> _initialDepots;
 
     public ScenarioDefinition(
         string name,
@@ -21,7 +22,8 @@ public sealed class ScenarioDefinition
         IEnumerable<InitialProductionCapacity>? initialProductionCapacities = null,
         IEnumerable<InitialCellDevelopment>? initialCellDevelopment = null,
         IEnumerable<InitialCountryTechnology>? initialCountryTechnologies = null,
-        IEnumerable<CellIndex>? initialPorts = null)
+        IEnumerable<CellIndex>? initialPorts = null,
+        IEnumerable<CellIndex>? initialDepots = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
@@ -35,6 +37,12 @@ public sealed class ScenarioDefinition
         if (portArray.Distinct().Count() != portArray.Length)
         {
             throw new ArgumentException("Initial ports cannot contain duplicates.", nameof(initialPorts));
+        }
+
+        var depotArray = initialDepots?.ToArray() ?? [];
+        if (depotArray.Distinct().Count() != depotArray.Length)
+        {
+            throw new ArgumentException("Initial depots cannot contain duplicates.", nameof(initialDepots));
         }
 
         if (developmentArray.Select(static item => item.Cell).Distinct().Count() != developmentArray.Length)
@@ -102,6 +110,7 @@ public sealed class ScenarioDefinition
         _initialCellDevelopment = Array.AsReadOnly(developmentArray);
         _initialCountryTechnologies = Array.AsReadOnly(technologyArray);
         _initialPorts = Array.AsReadOnly(portArray);
+        _initialDepots = Array.AsReadOnly(depotArray);
     }
 
     public string Name { get; }
@@ -125,4 +134,6 @@ public sealed class ScenarioDefinition
         _initialCountryTechnologies;
 
     public IReadOnlyList<CellIndex> InitialPorts => _initialPorts;
+
+    public IReadOnlyList<CellIndex> InitialDepots => _initialDepots;
 }

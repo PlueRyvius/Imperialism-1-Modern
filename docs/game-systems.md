@@ -132,16 +132,17 @@ pays its owner only when it sits within the catchment radius of the capital's
 own rail component. River continuity, naval control, and sea-zone traversal
 remain explicit later layers; the graph still does not guess those.
 
-Ports are now modelled as sites: they are imported from the `port` records, they
-fish their adjacent water, and they must be on the network for that catch to
-count. Depots remain the one relationship extraction has to stand in for, since
-it cannot work without some notion of a collection point — every cell of the
-capital's rail component acts as one. That is a placeholder with a known
-direction of error rather than a guess; see `formulas/extraction.md`.
+Depots and ports are now modelled as sites, imported from the `rail` and `port`
+records. Gathering happens at **connected depots, connected ports and the
+capital** — never at bare track. A depot is connected when rail carries its goods
+to the capital; a port needs no rail at all, since its goods leave by water; and
+the capital is always both. Replacing the old placeholder, where every railed
+cell gathered, cut `s1` from 319 collection points to 134.
 
-The manual is clearer than this section was: the collection points are depots,
-ports and the capital, not raw rail, and the "on or within one tile" rule is
-repeated for every civilian worker. See `reference/manual-mechanics.md`.
+Still missing: the route that lets a depot reach the capital by rail to a
+port-plus-depot tile and then by sea, and the two ways a port loses its
+connection (losing the province downstream of a river port, and undisputed enemy
+naval command). See `reference/manual-mechanics.md`.
 
 ## Trade
 

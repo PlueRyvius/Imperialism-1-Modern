@@ -30,6 +30,12 @@ deposit has not been measured. See `formulas/extraction.md`.
 and every level in the corpus is 1, 2 or 3. A cell developed more than once —
 `s1` does it three times — keeps the highest level and reports a warning.
 
+`rail` records are converted as **depots**, not as track — the map's rail byte is
+where the lines come from. They are a strict subset of railed cells and no two
+sit within two tiles of each other, both of which the manual predicts. A depot
+on a cell with no rail is a warning; no original does it, though our own
+generated `s5` does it on all 32 of its depots.
+
 `port` records are converted too. Each names a land cell; repeats collapse with
 a warning. The importer also checks that a port touches sea or a river, using
 **wrapping** east-west adjacency because the 1997 grid wraps and

@@ -138,7 +138,9 @@ public static class LegacyWorldConverter
         };
 
     private static readonly HashSet<string> ConvertedScenarioTags =
-        new(["cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port"], StringComparer.Ordinal);
+        new(
+            ["cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port", "rail"],
+            StringComparer.Ordinal);
 
     public static LegacyImportResult Convert(
         MapDocument map,
@@ -335,6 +337,7 @@ public static class LegacyWorldConverter
         var productionCapacities = ReadProductionCapacities(scenario, countryKeys, report);
         var cellDevelopment = ReadCellDevelopment(scenario, map, report);
         var ports = ReadPorts(scenario, map, report);
+        var depots = ReadDepots(scenario, map, report);
         var title = string.IsNullOrWhiteSpace(info?.Title)
             ? $"Legacy {options.PackageKey}"
             : info.Title;
@@ -395,6 +398,7 @@ public static class LegacyWorldConverter
                     ProductionCapacities = productionCapacities,
                     CellDevelopment = cellDevelopment,
                     Ports = ports,
+                    Depots = depots,
                 },
             ],
         };
@@ -637,6 +641,70 @@ public static class LegacyWorldConverter
             if (!TouchesWater(map, (int)cell))
             {
                 report.Add(LegacyImportSeverity.Warning, "scenario.landlocked-port", path, $"Port cell {cell} touches neither sea nor a river.");
+            }
+
+            result.Add((int)cell);
+        }
+
+        return result.ToArray();
+    }
+
+    /// <summary>
+    /// Converts <c>rail</c> records into rail depots.
+    /// </summary>
+    /// <remarks>
+    /// The tag is misleading: the map's own rail byte already carries the track,
+    /// and these records are the depots built on it. The corpus says so twice
+    /// over. They are a strict subset of railed cells — 76 of 310 in <c>s1</c>,
+    /// 28 of 125 in <c>s3</c>, 25 of 81 in <c>s9</c> — and **no depot in any
+    /// shipped scenario sits within two tiles of another**, which is exactly the
+    /// spacing the manual recommends so that each tile is gathered once.
+    /// </remarks>
+    private static int[] ReadDepots(
+        ScenarioDocument scenario,
+        MapDocument map,
+        LegacyImportReport report)
+    {
+        var result = new List<int>();
+        var seen = new HashSet<uint>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "rail")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 1)
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.invalid-depot", path, "A rail depot record must contain a single cell.");
+                continue;
+            }
+
+            var cell = record.Fields[0];
+            if (cell >= (uint)map.Cells.Count)
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.invalid-depot-cell", path, $"Depot refers to cell {cell} outside the map.");
+                continue;
+            }
+
+            if (map.Cells[(int)cell].IsOcean)
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.depot-on-ocean", path, $"Depot refers to ocean cell {cell}.");
+                continue;
+            }
+
+            if (!seen.Add(cell))
+            {
+                report.Add(LegacyImportSeverity.Warning, "scenario.repeated-depot", path, $"Cell {cell} carries more than one depot record.");
+                continue;
+            }
+
+            // Every corpus depot stands on track. Warn rather than reject: the
+            // last two rules stated this confidently were both wrong.
+            if (map.Cells[(int)cell].Rail == 0)
+            {
+                report.Add(LegacyImportSeverity.Warning, "scenario.depot-without-rail", path, $"Depot cell {cell} carries no rail.");
             }
 
             result.Add((int)cell);

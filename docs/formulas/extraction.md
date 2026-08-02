@@ -26,6 +26,9 @@ trusting any number below.
 | Ports fish 1 per adjacent coast or river tile | **manual** |
 | Development levels run 1–3 | **corpus-verified** — `deve` records across all shipped scenarios |
 | Ports stand on land touching water | **corpus-verified** — 124 of 124 records |
+| Gathering happens at connected depots, ports and the capital | **manual**, transport-network section |
+| Ports need no railroad; the capital is always both | **manual** |
+| `rail` records are depots | **corpus-verified** — a strict subset of railed cells, and none within two tiles of another |
 
 Everything load-bearing here is now transcribed from the manual rather than
 guessed. An earlier version of this file shipped a doubling curve described as
@@ -83,8 +86,10 @@ Ranch no civilian worker.
 
 ```text
 for each country by dense id:
-    collection points = the capital, plus every cell sharing the capital's
-                        rail component
+    if the country has no capital: it gathers nothing
+    collection points = the capital (always a connected depot and port)
+                      + every owned port      (needs no rail; goods go by water)
+                      + every owned depot in the capital's rail component
     catchment = collection points, widened by CatchmentRadius hex steps
     for each cell holding a deposit whose province this country owns:
         for each deposit on the cell:
@@ -115,20 +120,28 @@ horses have a single-entry curve.
 
 Fishing runs alongside this, not through it. A port collects
 `yieldPerAdjacentWaterTile` for each neighbouring tile that is open sea **or**
-carries a river, and the port must itself be a collection point — the catch
-leaves by rail, so a port merely inside the catchment radius is not enough. No
-port in the corpus depends on the river running through its own cell: all 124
-have at least one neighbouring water tile.
+carries a river. The **capital fishes too**, being a connected port by
+definition, whether or not a `port` record names it. No port in the corpus
+depends on the river running through its own cell: all 124 have at least one
+neighbouring water tile.
+
+A port needs no rail, so the only thing that strands a catch is having no
+capital for it to reach.
 
 A cell is stamped once per country, so a cell inside two collection points'
 catchments pays once — the manual's "overlapping catchments waste coverage".
 
-**Where this is deliberately conservative.** Depots are not modelled, so every
-cell of the capital's rail component stands in for one. Against the original this
-can only *under*-collect where a depot would extend reach that rail alone does
-not. Ports now exist, but only as fishing sites and land collection points —
-sea routes between them, blockade, and the river-port-downstream rule are not
-modelled.
+**Track alone gathers nothing.** Rail moves goods past a tile; a depot is what
+lifts them off it. Treating every railed cell as a collection point was a
+placeholder, and a costly one: `s1` has 310 railed cells and 76 depots, and
+replacing the placeholder with the real model cut that scenario from 319
+collection points to 134.
+
+**What is still missing.** A depot may also reach the capital by rail to a tile
+holding both a port and a depot, from which goods travel by water; that route is
+not modelled, so such a depot reads as disconnected here. Nor are the two ways a
+port loses its connection — the province downstream of a river port falling, and
+an undisputed enemy fleet — so every owned port is connected.
 
 **Where the missing east-west wrap costs output.** `Imperialism.Core`'s grid does
 not wrap; the 1997 one does. A port or deposit on the first or last column has

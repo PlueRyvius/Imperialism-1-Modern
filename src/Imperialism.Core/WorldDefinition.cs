@@ -267,6 +267,11 @@ public sealed class WorldDefinition
             ValidatePortSite(map, port, nameof(scenario));
         }
 
+        foreach (var depot in scenario.InitialDepots)
+        {
+            ValidateDepotSite(map, depot, nameof(scenario));
+        }
+
         foreach (var known in scenario.InitialCountryTechnologies)
         {
             if ((uint)known.Country.Value >= (uint)countryArray.Length)
@@ -356,16 +361,32 @@ public sealed class WorldDefinition
     /// legacy importer checks the rule with wrapping adjacency, where it means
     /// something.
     /// </remarks>
-    internal static void ValidatePortSite(MapDefinition map, CellIndex cell, string parameterName)
+    internal static void ValidatePortSite(MapDefinition map, CellIndex cell, string parameterName) =>
+        ValidateStructureSite(map, cell, "Port", parameterName);
+
+    /// <summary>
+    /// A depot stands on land. Every depot in the shipped corpus also sits on a
+    /// railed cell, but rail is mutable state — tearing up a line would turn a
+    /// legal world illegal — so that is not enforced here. The importer warns
+    /// about it instead, where it is a statement about the source file.
+    /// </summary>
+    internal static void ValidateDepotSite(MapDefinition map, CellIndex cell, string parameterName) =>
+        ValidateStructureSite(map, cell, "Depot", parameterName);
+
+    private static void ValidateStructureSite(
+        MapDefinition map,
+        CellIndex cell,
+        string description,
+        string parameterName)
     {
         if (!map.Dimensions.Contains(cell))
         {
-            throw new ArgumentException($"Port cell {cell} is outside the map.", parameterName);
+            throw new ArgumentException($"{description} cell {cell} is outside the map.", parameterName);
         }
 
         if (map[cell].Region.Kind != CellRegionKind.Province)
         {
-            throw new ArgumentException($"Port cell {cell} is not on land.", parameterName);
+            throw new ArgumentException($"{description} cell {cell} is not on land.", parameterName);
         }
     }
 
@@ -394,6 +415,7 @@ public sealed class WorldState
     private readonly int[] _cellDevelopment;
     private readonly bool[] _knownTechnologies;
     private readonly HashSet<CellIndex> _ports;
+    private readonly HashSet<CellIndex> _depots;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private long _nextDeliveryId = 1;
 
@@ -430,6 +452,7 @@ public sealed class WorldState
         }
 
         _ports = definition.Scenario.InitialPorts.ToHashSet();
+        _depots = definition.Scenario.InitialDepots.ToHashSet();
         _knownTechnologies = new bool[
             checked(definition.Countries.Count * definition.Technologies.Count)];
         foreach (var known in definition.Scenario.InitialCountryTechnologies)
@@ -574,6 +597,20 @@ public sealed class WorldState
     }
 
     public bool RemovePort(CellIndex cell) => _ports.Remove(cell);
+
+    public bool HasDepot(CellIndex cell) => _depots.Contains(cell);
+
+    public IReadOnlyList<CellIndex> GetDepots() => Array.AsReadOnly(_depots
+        .OrderBy(static cell => cell.Value)
+        .ToArray());
+
+    public bool BuildDepot(CellIndex cell)
+    {
+        WorldDefinition.ValidateDepotSite(Definition.Map, cell, nameof(cell));
+        return _depots.Add(cell);
+    }
+
+    public bool RemoveDepot(CellIndex cell) => _depots.Remove(cell);
 
     public bool HasTechnology(CountryId country, TechnologyId technology) =>
         _knownTechnologies[GetTechnologyOffset(country, technology)];

@@ -150,15 +150,16 @@ commodities, facilities, recipes, and sparse scenario capacity, with explicit
 v1→v2→v3 migration. Core stores checked dense Available inventory and
 identifiable pending extraction, transport or trade deliveries. Ordered production
 requests share facility capacity, stage outputs until the next turn, and commit
-atomically with delivery preflight. `.iworld` v6 adds a per-deposit yield curve indexed by
+atomically with delivery preflight. `.iworld` v7 adds a per-deposit yield curve indexed by
 development level, an optional technology requirement, a technology catalog,
-sparse starting development, ports, and port fishing: deposits inside the
-catchment of the capital's own rail component pay their owner each turn through
-the `Extraction` phase, scaled by how far the cell has been improved, ports
-fish their adjacent water, and unreachable output is reported as stranded rather
-than dropped. Labour, feeding, transient power, capacity construction, research,
-conflict, trade markets, diplomacy, depots as distinct from rail, sea routes,
-the transport capacity pool, and river traversal remain explicitly pending.
+sparse starting development, ports, port fishing, and rail depots. Gathering
+happens at **connected depots, connected ports and the capital** — never at bare
+track. Deposits within the catchment of one of those pay their owner each turn
+through the `Extraction` phase, scaled by the cell's development level; ports
+and the capital fish their adjacent water; unreachable output is reported as
+stranded rather than dropped. Labour, feeding, transient power, capacity
+construction, research, conflict, trade markets, diplomacy, sea routes between
+ports, blockade, and the transport capacity pool remain explicitly pending.
 
 **The game manual is in `docs/reference/` and it is authoritative for numbers.**
 It carries a Resource Development Table giving every deposit's yield at each of
@@ -170,6 +171,12 @@ to double and is in fact linear with a slope that differs per deposit. Read
 **`deve` records can repeat a cell.** `s1` does it three times. The importer
 keeps the highest level and warns. Erroring on it was the first implementation
 and the corpus rejected it on the first run.
+
+**`rail` scenario records are depots, not track.** The map's rail byte carries
+the lines; the records name the depots built on them. They are a strict subset
+of railed cells (76 of 310 in `s1`) and no two sit within two tiles, exactly as
+the manual advises. Bare track gathers nothing — assuming otherwise cost `s1`
+185 phantom collection points.
 
 **The legacy grid wraps east-west; `Imperialism.Core`'s does not.** Any rule
 about a cell's neighbours must say which grid it means. `s3` has a port whose

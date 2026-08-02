@@ -260,7 +260,12 @@ public static class WorldContentCompiler
         var cellDevelopment = CompileCellDevelopment(
             RequireArray(scenarioContent.CellDevelopment, $"{path}.cellDevelopment"),
             path);
-        var ports = CompilePorts(RequireArray(scenarioContent.Ports, $"{path}.ports"), path);
+        var ports = CompileCells(
+            RequireArray(scenarioContent.Ports, $"{path}.ports"),
+            $"{path}.ports");
+        var depots = CompileCells(
+            RequireArray(scenarioContent.Depots, $"{path}.depots"),
+            $"{path}.depots");
         var countryTechnologies = CompileCountryTechnologies(
             RequireArray(scenarioContent.CountryTechnologies, $"{path}.countryTechnologies"),
             countryIds,
@@ -284,7 +289,8 @@ public static class WorldContentCompiler
                 productionCapacities,
                 cellDevelopment,
                 countryTechnologies,
-                ports);
+                ports,
+                depots);
             return new WorldDefinition(
                 map,
                 countries,
@@ -328,14 +334,14 @@ public static class WorldContentCompiler
         return result;
     }
 
-    private static CellIndex[] CompilePorts(int[] content, string path)
+    private static CellIndex[] CompileCells(int[] content, string path)
     {
         var result = new CellIndex[content.Length];
         for (var index = 0; index < content.Length; index++)
         {
             if (content[index] < 0)
             {
-                throw Error($"{path}.ports[{index}]", "Value cannot be negative.");
+                throw Error($"{path}[{index}]", "Value cannot be negative.");
             }
 
             result[index] = new CellIndex(content[index]);

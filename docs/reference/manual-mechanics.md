@@ -86,12 +86,27 @@ depot**, or its output does not reach the transport network. Tiles next to the
 capital are exempt.
 
 So the collection points are **depots, ports and the capital** — not raw rail.
-Our model currently treats every cell of the capital's rail component as a
-depot, which is a placeholder.
+The transport-network section spells the rest out:
 
-Ports always require access to water, and an Engineer may build one on a river
-tile. Conquered territory works the same way as home territory: resources
-gathered at ports and depots there enter your network.
+- Depots and ports, once connected, gather everything in their own tile and in
+  adjacent tiles **within your country**.
+- **Unconnected depots and ports gather nothing.** A depot's signal post shows
+  red when it is not connected.
+- **The capital city is always both a connected depot and a connected port.**
+- A depot is connected when it has a rail line to the capital — or rail to a
+  tile holding both a port *and* a depot, from which goods travel by water.
+- **Ports need no railroad.** "In general, a port is always connected." They may
+  be built only on coasts and river tiles, and they cost more than depots.
+- Build depots and ports **at least two tiles apart**, so each tile is gathered
+  by only one structure and coverage is not wasted.
+
+Connections are lost when a province along the line to the capital is taken;
+when the province downstream of a river port is lost; or when an enemy fleet
+holds **undisputed** command of a sea zone — undisputed meaning you have no
+warship of your own present.
+
+Conquered territory works the same way as home territory: resources gathered at
+ports and depots there enter your network.
 
 ## Fishing
 
