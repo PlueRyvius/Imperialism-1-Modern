@@ -81,6 +81,8 @@ the remaining cost is authoring effort, not engine work.
 | `docs/game-systems.md` | How the original's systems work — the spec we're building to |
 | `docs/file-formats.md` | On-disk layout of `.map`, `.scn`, `.inf` |
 | `docs/scenario-semantics.md` | What the fields *mean*, verified against real data |
+| `docs/derived-bytes.md` | Which cell bytes are computed from neighbours, and how well each rule fits |
+| `docs/handoff.md` | Where the last session left off, and what is still open |
 | `docs/formats-design-rules.md` | Rules governing the formats layer |
 | `docs/formulas/_index.md` | Scoreboard for the undocumented formulas, and where to dig |
 | `docs/disasm/` | Disassembly listing format and the module map |
@@ -96,7 +98,35 @@ tests/                    pytest suite (round-trip + structural tests)
 fixtures/local_only/      gitignored — drop real .map/.scn here for local testing
 docs/                     format notes, systems spec, architecture, research
 tools/                    inspection utilities and the disassembly indexer
+tools/map_editor/         browser-based .map editor for the original game
 ```
+
+## World generation
+
+```
+python tools/generate_scenario.py --seed Pippin --template /path/to/Scenario/s1.map --out /path/to/Scenario/s5
+```
+
+Builds a complete scenario — `.map`, `.scn`, `.inf` — from a keyword, the way
+the original does ("Imperialism generates random worlds based on a key word").
+The model is measured from the five worlds the game's own generator produced,
+which ship as the tutorial scenarios. A template `.map` is required: the
+province table at the end of the format is only partly decoded, so a generated
+map inherits a real one's and rewrites just the field we understand.
+
+## Map editor
+
+Double-click `tools/map_editor/Map Editor.bat`, or from a terminal:
+
+```
+python tools/map_editor/server.py fixtures/local_only/s1.map
+```
+
+A localhost web app for painting terrain, resources, provinces, nations, towns,
+rivers and rail, with borders and shorelines recomputed as you draw. The server
+owns the file and does all the parsing, so the browser never handles map bytes
+and undecoded parts of the format survive editing untouched. See
+`tools/map_editor/README.md`.
 
 ## Running tests
 

@@ -1,10 +1,25 @@
 """Reader/writer for Imperialism's .map binary format.
 
 Grid is MAP_WIDTH x MAP_HEIGHT hex cells, row-major (left to right, top to
-bottom), each cell a fixed 36-byte record. After the cell grid, the file
-carries DORMANT_RECORD_COUNT fixed-size trailer records whose exact
-purpose isn't fully understood (likely stale scenario-adjacent data); we
-preserve them byte-for-byte on round-trip without interpreting them.
+bottom), each cell a fixed 36-byte record.
+
+After the grid comes a **province table**: DORMANT_RECORD_COUNT records of
+DORMANT_RECORD_SIZE bytes, indexed by province id, so 384 is the format's
+province cap. Each record holds that province's **town cell index** as a
+big-endian u16 at PROVINCE_TOWN_OFFSET, with NO_PROVINCE for unused slots.
+Verified on all ten shipped maps: every province's town sits at its own slot,
+`s1` filling 213 of the 384 and `s9` filling 120.
+
+The rest of each record is still unread. Rebuilding a table from the town field
+alone reproduces that field exactly but only about two thirds of the bytes —
+offsets around 58-65, 130-135 and 158-190 carry more, and some of the tail
+varies even in *unused* slots, which is the signature of uninitialised memory
+written to disk.
+
+So the block is still preserved byte-for-byte by default, exactly as name
+padding and the bytes past `TERM` are elsewhere. `set_province_town` edits the
+one field we understand and leaves the rest of the record alone, which is what
+lets a generated map inherit a real one's table.
 """
 from __future__ import annotations
 
@@ -13,6 +28,7 @@ from dataclasses import dataclass, field
 from .constants import (
     MAP_WIDTH, MAP_HEIGHT, MAP_CELL_SIZE,
     DORMANT_RECORD_COUNT, DORMANT_RECORD_SIZE,
+    NO_PROVINCE, PROVINCE_TOWN_OFFSET,
 )
 
 
@@ -168,15 +184,23 @@ class MapFile:
 
     @classmethod
     def blank(cls, profile: MapFormatProfile = LEGACY_MAP_PROFILE) -> "MapFile":
+        """An all-ocean map with an empty province table.
+
+        The table is zero-filled apart from the town field, which is set to
+        NO_PROVINCE in every slot: zeroes there would claim that every province
+        has its town at cell 0.
+        """
         cells = [
-            HexCell(terrain=0, terrain_underlay=5, province=65535)
+            HexCell(terrain=0, terrain_underlay=5, province=NO_PROVINCE)
             for _ in range(profile.cell_count)
         ]
-        return cls(
-            profile=profile,
-            cells=cells,
-            dormant_trailer=bytes(profile.trailer_size),
-        )
+        table = bytearray(profile.trailer_size)
+        for slot in range(profile.trailer_record_count):
+            at = slot * profile.trailer_record_size + PROVINCE_TOWN_OFFSET
+            if at + 1 < len(table):
+                table[at] = NO_PROVINCE >> 8
+                table[at + 1] = NO_PROVINCE & 0xFF
+        return cls(profile=profile, cells=cells, dormant_trailer=bytes(table))
 
     @property
     def width(self) -> int:
@@ -214,3 +238,41 @@ class MapFile:
 
     def set(self, x: int, y: int, cell: HexCell) -> None:
         self.cells[self.index(x, y)] = cell
+
+    # --- the province table ------------------------------------------------
+
+    def _province_slot(self, province: int) -> int:
+        if not 0 <= province < self.profile.trailer_record_count:
+            raise IndexError(
+                f"province {province} is outside the table's "
+                f"{self.profile.trailer_record_count} slots")
+        return province * self.profile.trailer_record_size + PROVINCE_TOWN_OFFSET
+
+    def province_town(self, province: int) -> int | None:
+        """The cell index of a province's town, or None if the slot is unused."""
+        at = self._province_slot(province)
+        value = (self.dormant_trailer[at] << 8) | self.dormant_trailer[at + 1]
+        return None if value == NO_PROVINCE else value
+
+    def set_province_town(self, province: int, cell: int | None) -> None:
+        """Point a province's slot at a town cell, or clear it.
+
+        Writes only those two bytes. The rest of the record is undecoded, so
+        editing a real map's table leaves whatever else it holds intact — and a
+        generated map can inherit a table it does not fully understand.
+        """
+        if cell is None:
+            cell = NO_PROVINCE
+        elif not 0 <= cell <= 0xFFFF:
+            raise ValueError(f"cell index {cell} does not fit in the field")
+        at = self._province_slot(province)
+        table = bytearray(self.dormant_trailer)
+        table[at] = (cell >> 8) & 0xFF
+        table[at + 1] = cell & 0xFF
+        self.dormant_trailer = bytes(table)
+
+    def province_towns(self) -> dict:
+        """Every populated slot, as province id -> town cell index."""
+        return {p: town
+                for p in range(self.profile.trailer_record_count)
+                if (town := self.province_town(p)) is not None}

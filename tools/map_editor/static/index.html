@@ -1,0 +1,205 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Imperialism map editor</title>
+<style>
+  :root {
+    --bg: #0c0f14; --panel: #161b23; --line: #262e3a;
+    --text: #e6ebf2; --muted: #8b97a8; --accent: #4fc3f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; height: 100vh; display: grid;
+    grid-template-columns: 232px 1fr 264px;
+    background: var(--bg); color: var(--text);
+    font: 13px/1.45 system-ui, sans-serif;
+  }
+  aside { background: var(--panel); overflow-y: auto; padding: 12px; }
+  aside.left { border-right: 1px solid var(--line); }
+  aside.right { border-left: 1px solid var(--line); }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+       color: var(--muted); margin: 18px 0 7px; font-weight: 600; }
+  h2:first-child { margin-top: 0; }
+  #stage { position: relative; overflow: hidden; }
+  canvas { display: block; cursor: crosshair; }
+  button {
+    font: inherit; color: var(--text); background: #202836;
+    border: 1px solid var(--line); border-radius: 5px;
+    padding: 5px 8px; cursor: pointer;
+  }
+  button:hover { border-color: #3d4a5e; }
+  button.on { background: var(--accent); color: #06121a; border-color: var(--accent); }
+  button:disabled { opacity: .4; cursor: default; }
+  .row { display: flex; gap: 5px; flex-wrap: wrap; }
+  .row > button { flex: 1 1 auto; }
+  label.check { display: flex; align-items: center; gap: 7px; padding: 2px 0;
+                cursor: pointer; user-select: none; }
+  #currentPath { word-break: break-all; }
+
+  #scenarioPanel { position: absolute; inset: 0; background: var(--bg);
+                   display: flex; flex-direction: column; z-index: 5; }
+  /* An id selector outranks the browser's `[hidden] { display: none }`, so the
+     panel would otherwise sit over the map permanently and eat every click. */
+  #scenarioPanel[hidden] { display: none; }
+  #unitsPanel { position: absolute; inset: 0; background: var(--bg);
+                display: flex; flex-direction: column; z-index: 5; }
+  #unitsPanel[hidden] { display: none; }
+  #unitsPanel header { display: flex; gap: 8px; align-items: center;
+                       padding: 9px 12px; border-bottom: 1px solid var(--line);
+                       background: var(--panel); }
+  #unitsPanel header .row { flex: 1 1 auto; }
+  #unitsBody { flex: 1 1 auto; overflow-y: auto; padding: 14px 16px;
+               max-width: 880px; width: 100%; }
+  .row-entry.stranded { background: #3a1512; }
+  .row-entry.stranded:hover { background: #4a1a16; }
+  #scenarioPanel header { display: flex; gap: 8px; align-items: center;
+                          padding: 9px 12px; border-bottom: 1px solid var(--line);
+                          background: var(--panel); }
+  #scenarioPanel header .row { flex: 1 1 auto; }
+  #scenarioBody { flex: 1 1 auto; overflow-y: auto; padding: 14px 16px;
+                  max-width: 880px; width: 100%; }
+  #scenarioBody h3 { font-size: 12px; text-transform: uppercase;
+                     letter-spacing: .07em; color: var(--muted);
+                     margin: 18px 0 6px; }
+  .panel-note { color: var(--muted); font-size: 12px; margin-bottom: 12px;
+                line-height: 1.5; }
+  .rows { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .row-entry { display: flex; align-items: center; gap: 8px; padding: 3px 8px;
+               border-bottom: 1px solid #1b2029; }
+  .row-entry:last-child { border-bottom: none; }
+  .row-entry:hover { background: #171d26; }
+  .row-id { width: 34px; color: var(--muted); font-variant-numeric: tabular-nums;
+            text-align: right; font-size: 12px; flex: 0 0 auto; }
+  .row-entry input[type=text] { flex: 1 1 auto; }
+  .row-entry .cash { width: 92px; flex: 0 0 auto; text-align: right; }
+  input.filter { margin: 0 0 8px; }
+  .field { display: block; margin-bottom: 12px; }
+  .field > span { display: block; color: var(--muted); font-size: 12px;
+                  margin-bottom: 4px; }
+  .field textarea { width: 100%; font: inherit; color: var(--text);
+                    background: #202836; border: 1px solid var(--line);
+                    border-radius: 5px; padding: 6px 8px; resize: vertical;
+                    line-height: 1.5; }
+  .meta-row { display: flex; gap: 5px; }
+  .meta-row input { width: 100%; text-align: center; }
+  select, input[type=number] {
+    width: 100%; font: inherit; color: var(--text); background: #202836;
+    border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px;
+  }
+  input[type=range] { width: 100%; }
+  #status { position: absolute; left: 10px; bottom: 10px; padding: 5px 9px;
+            background: rgba(12,15,20,.86); border: 1px solid var(--line);
+            border-radius: 5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%);
+           padding: 7px 13px; border-radius: 6px; background: #202836;
+           border: 1px solid var(--line); opacity: 0; transition: opacity .25s; }
+  #toast.show { opacity: 1; }
+  #ask { position: absolute; inset: 0; z-index: 9; display: flex;
+         align-items: center; justify-content: center;
+         background: rgba(6,8,12,.66); }
+  #ask[hidden] { display: none; }
+  .ask-box { background: var(--panel); border: 1px solid var(--line);
+             border-radius: 8px; padding: 16px 18px; max-width: 460px;
+             box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+  .ask-box h3 { margin: 0 0 8px; font-size: 14px; }
+  #askBody { color: var(--muted); font-size: 12px; line-height: 1.55;
+             margin-bottom: 12px; max-height: 220px; overflow-y: auto; }
+  table.bytes { width: 100%; border-collapse: collapse; font-size: 11px;
+                font-variant-numeric: tabular-nums; }
+  table.bytes td { padding: 1px 3px; border-bottom: 1px solid #1d242e; }
+  table.bytes td:last-child { text-align: right; color: var(--accent); }
+  table.bytes tr.derived td:first-child::after { content: ' ·'; color: var(--muted); }
+  .issue { padding: 4px 6px; border-left: 3px solid #e0564a; margin-bottom: 4px;
+           background: #1b1f27; cursor: pointer; font-size: 12px; }
+  .issue.warning { border-left-color: #e0a94a; }
+  .muted { color: var(--muted); }
+  .hint { color: var(--muted); font-size: 11px; margin-top: 5px; }
+</style>
+
+<aside class="left">
+  <h2>Tool</h2>
+  <div class="row" id="tools"></div>
+  <div class="hint" id="toolHint"></div>
+
+  <h2>Brush</h2>
+  <input type="range" id="brush" min="1" max="5" value="1">
+  <div class="muted">radius <span id="brushLabel">1</span></div>
+
+  <h2>Value</h2>
+  <select id="palette"></select>
+  <div id="provinceWrap" style="display:none; margin-top:6px">
+    <input type="number" id="provinceId" min="0" max="65535" value="0">
+  </div>
+  <div id="slotWrap" style="display:none; margin-top:6px">
+    <div class="row" id="slots">
+      <button data-slot="resource_a" class="on">Primary</button>
+      <button data-slot="resource_b">Secondary</button>
+    </div>
+    <div class="hint">Secondary stacks a second deposit, e.g. coal + gold.</div>
+  </div>
+
+  <h2>File</h2>
+  <div class="row">
+    <button id="undo">Undo</button>
+    <button id="redo">Redo</button>
+  </div>
+  <div class="row" style="margin-top:5px">
+    <button id="scenario">Scenario…</button>
+    <button id="units">Units…</button>
+  </div>
+  <div class="row" style="margin-top:5px">
+    <button id="open">Open…</button>
+  </div>
+  <div class="row" style="margin-top:5px">
+    <button id="save">Save</button>
+    <button id="saveAs">Save As…</button>
+  </div>
+  <div class="hint" id="fileInfo"></div>
+  <div class="hint" id="currentPath"></div>
+</aside>
+
+<div id="stage">
+  <canvas id="map"></canvas>
+  <div id="status">loading…</div>
+  <div id="toast"></div>
+
+  <div id="ask" hidden>
+    <div class="ask-box">
+      <h3 id="askTitle"></h3>
+      <div id="askBody"></div>
+      <div class="row" id="askButtons"></div>
+    </div>
+  </div>
+
+  <section id="unitsPanel" hidden>
+    <header>
+      <div class="row" id="unitsTabs"></div>
+      <button id="unitsClose">Back to map</button>
+    </header>
+    <div id="unitsBody"></div>
+  </section>
+
+  <section id="scenarioPanel" hidden>
+    <header>
+      <div class="row" id="scenarioTabs"></div>
+      <button id="scenarioClose">Back to map</button>
+    </header>
+    <div id="scenarioBody"></div>
+  </section>
+</div>
+
+<aside class="right">
+  <h2>Layers</h2>
+  <div id="layers"></div>
+
+  <h2>Scenario objects</h2>
+  <div id="unitLayers"></div>
+
+  <h2>Cell</h2>
+  <div id="cellInfo" class="muted">hover a cell</div>
+
+  <h2>Validation</h2>
+  <div class="row"><button id="check">Run checks</button></div>
+  <div id="issues" class="hint">not run</div>
+</aside>
+
+<script type="module" src="./app.js"></script>

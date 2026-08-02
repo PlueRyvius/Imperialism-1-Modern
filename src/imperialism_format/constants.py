@@ -9,8 +9,12 @@ MAP_WIDTH = 108
 MAP_HEIGHT = 60
 MAP_CELL_COUNT = MAP_WIDTH * MAP_HEIGHT
 MAP_CELL_SIZE = 36
+# The province table after the cell grid: one record per province id, so the
+# count is the format's province cap. Only the town-cell field is decoded.
 DORMANT_RECORD_COUNT = 384
 DORMANT_RECORD_SIZE = 198
+PROVINCE_TOWN_OFFSET = 4       # big-endian u16 within the record
+NO_PROVINCE = 65535            # empty slot, and an ocean cell's province
 
 TERRAIN_UNDERLAY = {
     0: "level_grass",
@@ -60,14 +64,52 @@ RESOURCE = {
     255: "none",
 }
 
+# Terrain types that represent *developed* land — a resource that has been
+# improved into a farm, ranch, orchard or managed forest. Each carries exactly
+# the resource it exploits; across all 1,245 such cells in the shipped maps the
+# pairing never breaks, so the terrain and the resource cannot be set
+# independently.
+#
+# The implication runs one way only. A resource on undeveloped land is a normal
+# state — the fruit on clear ground at (63, 15) of s1 is waiting for a Farmer —
+# so a resource does *not* imply a developed terrain.
+DEVELOPED_TERRAIN_RESOURCE = {
+    2: 0,    # cotton       -> cotton
+    3: 20,   # cattle ranch -> cattle
+    4: 5,    # horse ranch  -> horses
+    5: 17,   # grain farm   -> grain
+    6: 18,   # orchard      -> fruit
+    7: 1,    # wool hill    -> wool
+    13: 2,   # forest       -> forest
+}
+
+# Every province holds exactly one town cell (120/120 and 213/213 in the
+# shipped maps). What distinguishes them is this marker, not the terrain —
+# terrain 16 ("capital") is never used by any shipped map.
 TOWN_TYPE = {
     0: "none",
+    # A minor nation's capital. Exactly one per minor (nations 7-22) in every
+    # generated world and absent from the historical maps, which give all 23
+    # countries a type-35 capital instead.
+    33: "minor_capital",
     34: "village",
     35: "capital",
 }
 
+# Resources that may sit on an ocean cell. Fish is the only one the shipped
+# maps use there, on 3,848 cells across the tutorial scenarios.
+OCEAN_RESOURCES = frozenset({19, 255})  # fish, none
+
 # Six-bit directional overlay used for rail/borders/coastline/adjacency bytes.
 DIRECTIONS = ["NE", "E", "SE", "SW", "W", "NW"]
+
+#: Country ids below this are the playable Great Powers; 7-22 are minors.
+#:
+#: A format-level fact, not a design choice: the engine keeps its powers in a
+#: **7-slot** table at `006A4370` and indexes it with a country id in several
+#: places without a range check, so a minor's id reads past the end. Only ids
+#: 0-6 receive `cash`/`tran`/`labo`/`tclr` records in any shipped scenario.
+GREAT_POWERS = 7
 
 COUNTRIES_1882 = {
     0: "France", 1: "Austria", 2: "Ottoman", 3: "Russia", 4: "Germany",
