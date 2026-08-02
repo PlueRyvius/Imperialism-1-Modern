@@ -67,6 +67,7 @@ public sealed class WorldContentCatalog
     private readonly IReadOnlyList<string> _countryKeys;
     private readonly IReadOnlyList<string> _productionFacilityKeys;
     private readonly IReadOnlyList<string> _productionRecipeKeys;
+    private readonly IReadOnlyList<string> _technologyKeys;
     private readonly IReadOnlyDictionary<string, int> _terrainIds;
     private readonly IReadOnlyDictionary<string, int> _resourceIds;
     private readonly IReadOnlyDictionary<string, int> _commodityIds;
@@ -75,6 +76,7 @@ public sealed class WorldContentCatalog
     private readonly IReadOnlyDictionary<string, int> _countryIds;
     private readonly IReadOnlyDictionary<string, int> _productionFacilityIds;
     private readonly IReadOnlyDictionary<string, int> _productionRecipeIds;
+    private readonly IReadOnlyDictionary<string, int> _technologyIds;
 
     internal WorldContentCatalog(
         IEnumerable<string> terrainKeys,
@@ -84,7 +86,8 @@ public sealed class WorldContentCatalog
         IEnumerable<string> seaZoneKeys,
         IEnumerable<string> countryKeys,
         IEnumerable<string> productionFacilityKeys,
-        IEnumerable<string> productionRecipeKeys)
+        IEnumerable<string> productionRecipeKeys,
+        IEnumerable<string> technologyKeys)
     {
         _terrainKeys = Freeze(terrainKeys);
         _resourceKeys = Freeze(resourceKeys);
@@ -94,6 +97,7 @@ public sealed class WorldContentCatalog
         _countryKeys = Freeze(countryKeys);
         _productionFacilityKeys = Freeze(productionFacilityKeys);
         _productionRecipeKeys = Freeze(productionRecipeKeys);
+        _technologyKeys = Freeze(technologyKeys);
         _terrainIds = Index(_terrainKeys);
         _resourceIds = Index(_resourceKeys);
         _commodityIds = Index(_commodityKeys);
@@ -102,6 +106,7 @@ public sealed class WorldContentCatalog
         _countryIds = Index(_countryKeys);
         _productionFacilityIds = Index(_productionFacilityKeys);
         _productionRecipeIds = Index(_productionRecipeKeys);
+        _technologyIds = Index(_technologyKeys);
     }
 
     public IReadOnlyList<string> TerrainKeys => _terrainKeys;
@@ -120,6 +125,8 @@ public sealed class WorldContentCatalog
 
     public IReadOnlyList<string> ProductionRecipeKeys => _productionRecipeKeys;
 
+    public IReadOnlyList<string> TechnologyKeys => _technologyKeys;
+
     public string GetKey(TerrainId id) => Get(_terrainKeys, id.Value, nameof(id));
 
     public string GetKey(ResourceId id) => Get(_resourceKeys, id.Value, nameof(id));
@@ -136,6 +143,8 @@ public sealed class WorldContentCatalog
 
     public string GetKey(ProductionRecipeId id) => Get(_productionRecipeKeys, id.Value, nameof(id));
 
+    public string GetKey(TechnologyId id) => Get(_technologyKeys, id.Value, nameof(id));
+
     public TerrainId GetTerrainId(string key) => new(Get(_terrainIds, key));
 
     public ResourceId GetResourceId(string key) => new(Get(_resourceIds, key));
@@ -151,6 +160,8 @@ public sealed class WorldContentCatalog
     public ProductionFacilityId GetProductionFacilityId(string key) => new(Get(_productionFacilityIds, key));
 
     public ProductionRecipeId GetProductionRecipeId(string key) => new(Get(_productionRecipeIds, key));
+
+    public TechnologyId GetTechnologyId(string key) => new(Get(_technologyIds, key));
 
     private static IReadOnlyList<string> Freeze(IEnumerable<string> values) =>
         Array.AsReadOnly(values.ToArray());

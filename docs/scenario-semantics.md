@@ -215,7 +215,10 @@ Militia through Siege Artillery, Paddlewheelers and Ironclads; 1848 spans the
 two. A type picker that ignores the year will offer units the scenario has never
 heard of.
 
-`deve` is `[cell, level 1-3]`. `ware` is `[country, commodity, amount]` with
+`deve` is `[cell, level 1-3]`. **A cell may carry more than one `deve` record**:
+`s1` develops three cells twice, as `[2,1]`, `[1,1]` and `[2,1]`. Treating a
+repeat as corruption is a rule that fires on shipped data, so it is not one.
+Levels are 1, 2 and 3 everywhere; no shipped scenario writes 0 or 4. `ware` is `[country, commodity, amount]` with
 field 1 matching `COMMODITY` exactly. `capa` is `[country, 0-5, capacity]` —
 probably industry, but `INDUSTRY_TYPE` has seven entries and only six values
 appear, so treat it as **inferred**.

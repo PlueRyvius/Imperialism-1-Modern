@@ -64,10 +64,12 @@ cannot feed another recipe until the following turn. The resolver preflights
 production together with pending deliveries before mutating inventory. Deposits
 inside a connected catchment now pay their owner each turn and reach the
 warehouse through Delivery, with unreachable output reported rather than
-dropped. Labour, feeding, prices, power, capacity construction, depots, ports,
-the transport capacity pool, and the extraction *rates* themselves remain
-pending — see `formulas/extraction.md` for what is inferred and what is a
-placeholder.
+dropped. Yield depends on the deposit and on the cell's development level:
+harvested ground already gives on untouched land, dug ground gives nothing until
+improved, and a deposit may be gated behind a technology. Labour, feeding,
+prices, power, capacity construction, depots, ports, the transport capacity
+pool, research, and the per-level progression itself remain pending — see
+`formulas/extraction.md` for which numbers are evidence and which are chosen.
 
 **Commodity tiers.** 13 raw resources (grain, livestock, fruit, fish, cotton,
 wool, horses, timber, coal, iron, oil, gold, gems) → 6 materials (canned

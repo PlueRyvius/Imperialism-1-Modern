@@ -144,19 +144,25 @@ commodities, facilities, recipes, and sparse scenario capacity, with explicit
 v1→v2→v3 migration. Core stores checked dense Available inventory and
 identifiable pending extraction, transport or trade deliveries. Ordered production
 requests share facility capacity, stage outputs until the next turn, and commit
-atomically with delivery preflight. `.iworld` v4 adds a per-deposit
-`yieldPerTurn` and a world-level catchment radius: deposits inside the catchment
-of the capital's own rail component pay their owner each turn through the
-`Extraction` phase, and unreachable output is reported as stranded rather than
-dropped. Labour, feeding, transient power, capacity construction, conflict,
-trade markets, diplomacy, depots, ports, the transport capacity pool, and river
-traversal remain explicitly pending.
+atomically with delivery preflight. `.iworld` v5 adds a per-deposit yield curve indexed by
+development level, an optional technology requirement, a technology catalog, and
+sparse starting development: deposits inside the catchment of the capital's own
+rail component pay their owner each turn through the `Extraction` phase, scaled
+by how far the cell has been improved, and unreachable output is reported as
+stranded rather than dropped. Labour, feeding, transient power, capacity
+construction, research, conflict, trade markets, diplomacy, depots, ports, the
+transport capacity pool, and river traversal remain explicitly pending.
 
-**Extraction's numbers are a placeholder, its shape is not.** The gathering and
-connectivity rules come from the manual; every deposit yields 1 per turn because
-a number was needed, not because one was measured, and depots are stood in for
-by the capital's rail cells. `docs/formulas/extraction.md` records which half is
-which — do not treat the rate as evidence.
+**Extraction's evidence comes at three strengths and they are not
+interchangeable.** Development levels 1-3 are corpus-verified from `deve`
+records; the base rates (1 for harvested ground, 0 then 2 for dug) come from
+observed play; the doubling between levels is a **design choice nobody has
+measured**. `docs/formulas/extraction.md` tabulates which is which — do not cite
+the progression as evidence.
+
+**`deve` records can repeat a cell.** `s1` does it three times. The importer
+keeps the highest level and warns. Erroring on it was the first implementation
+and the corpus rejected it on the first run.
 
 ## Conventions
 

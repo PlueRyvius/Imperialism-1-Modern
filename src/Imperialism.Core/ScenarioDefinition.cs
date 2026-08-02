@@ -7,6 +7,8 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<CountryCapital> _initialCountryCapitals;
     private readonly IReadOnlyList<InitialCommodityStock> _initialInventory;
     private readonly IReadOnlyList<InitialProductionCapacity> _initialProductionCapacities;
+    private readonly IReadOnlyList<InitialCellDevelopment> _initialCellDevelopment;
+    private readonly IReadOnlyList<InitialCountryTechnology> _initialCountryTechnologies;
 
     public ScenarioDefinition(
         string name,
@@ -15,7 +17,9 @@ public sealed class ScenarioDefinition
         IEnumerable<CellLink>? initialRailLinks = null,
         IEnumerable<CountryCapital>? initialCountryCapitals = null,
         IEnumerable<InitialCommodityStock>? initialInventory = null,
-        IEnumerable<InitialProductionCapacity>? initialProductionCapacities = null)
+        IEnumerable<InitialProductionCapacity>? initialProductionCapacities = null,
+        IEnumerable<InitialCellDevelopment>? initialCellDevelopment = null,
+        IEnumerable<InitialCountryTechnology>? initialCountryTechnologies = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
@@ -23,6 +27,22 @@ public sealed class ScenarioDefinition
         var capitalArray = initialCountryCapitals?.ToArray() ?? [];
         var inventoryArray = initialInventory?.ToArray() ?? [];
         var capacityArray = initialProductionCapacities?.ToArray() ?? [];
+        var developmentArray = initialCellDevelopment?.ToArray() ?? [];
+        var technologyArray = initialCountryTechnologies?.ToArray() ?? [];
+        if (developmentArray.Select(static item => item.Cell).Distinct().Count() != developmentArray.Length)
+        {
+            throw new ArgumentException(
+                "A cell cannot have more than one initial development level.",
+                nameof(initialCellDevelopment));
+        }
+
+        if (technologyArray.Distinct().Count() != technologyArray.Length)
+        {
+            throw new ArgumentException(
+                "Initial technologies cannot repeat a country and technology pair.",
+                nameof(initialCountryTechnologies));
+        }
+
         if (capacityArray.Any(static item => item.Quantity <= 0))
         {
             throw new ArgumentException(
@@ -71,6 +91,8 @@ public sealed class ScenarioDefinition
         _initialCountryCapitals = Array.AsReadOnly(capitalArray);
         _initialInventory = Array.AsReadOnly(inventoryArray);
         _initialProductionCapacities = Array.AsReadOnly(capacityArray);
+        _initialCellDevelopment = Array.AsReadOnly(developmentArray);
+        _initialCountryTechnologies = Array.AsReadOnly(technologyArray);
     }
 
     public string Name { get; }
@@ -87,4 +109,9 @@ public sealed class ScenarioDefinition
 
     public IReadOnlyList<InitialProductionCapacity> InitialProductionCapacities =>
         _initialProductionCapacities;
+
+    public IReadOnlyList<InitialCellDevelopment> InitialCellDevelopment => _initialCellDevelopment;
+
+    public IReadOnlyList<InitialCountryTechnology> InitialCountryTechnologies =>
+        _initialCountryTechnologies;
 }

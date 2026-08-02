@@ -7,18 +7,27 @@ namespace Imperialism.Content;
 public static class WorldContentCodec
 {
     public const string FormatName = "imperialism-world";
-    public const int CurrentVersion = 4;
+    public const int CurrentVersion = 5;
     public const string FileExtension = ".iworld";
 
     /// <summary>
-    /// One unit per turn from an undeveloped deposit cell, and the manual's "on
-    /// or within one tile of" gathering catchment. Shared by the version 3
-    /// migration and the legacy importer so a converted world and an upgraded
-    /// one agree. See <c>docs/formulas/extraction.md</c>.
+    /// The manual's "on or within one tile of" gathering catchment. Shared by
+    /// the version 3 migration and the legacy importer so a converted world and
+    /// an upgraded one agree. See <c>docs/formulas/extraction.md</c>.
     /// </summary>
-    public const long DefaultResourceYieldPerTurn = 1;
-
     public const int DefaultCatchmentRadius = 1;
+
+    /// <summary>
+    /// A surface deposit — field, orchard, forest, pasture — yields one per turn
+    /// with no improvement at all, and doubles with each level a worker builds.
+    /// </summary>
+    public static readonly long[] SurfaceYieldByDevelopmentLevel = [1, 2, 4, 8];
+
+    /// <summary>
+    /// A subsurface deposit — coal, iron, oil, gold, gems — gives nothing until
+    /// it has been dug, then starts at two and doubles like the rest.
+    /// </summary>
+    public static readonly long[] SubsurfaceYieldByDevelopmentLevel = [0, 2, 4, 8];
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

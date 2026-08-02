@@ -270,7 +270,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(5)]
+    [InlineData(6)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -338,7 +338,7 @@ public sealed class WorldContentTests
         var compiled = WorldContentCompiler.Compile(migrated);
         var encoded = Encoding.UTF8.GetString(WorldContentCodec.Encode(migrated));
 
-        Assert.Equal(4, migrated.FormatVersion);
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
         Assert.Null(migrated.ResourceKeys);
         Assert.Equal(
             ["commodity.grain", "commodity/from-resource/deposit.crude-oil"],
@@ -350,7 +350,7 @@ public sealed class WorldContentTests
             new CommodityId(1),
             compiled.World.Map.Resources[1].Commodity);
         Assert.DoesNotContain("\"resourceKeys\"", encoded, StringComparison.Ordinal);
-        Assert.Contains("\"formatVersion\": 4", encoded, StringComparison.Ordinal);
+        Assert.Contains("\"formatVersion\": 5", encoded, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -410,7 +410,7 @@ public sealed class WorldContentTests
 
         var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(versionTwo));
 
-        Assert.Equal(4, migrated.FormatVersion);
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
         Assert.Empty(migrated.ProductionFacilities);
         Assert.Empty(migrated.ProductionRecipes);
         Assert.Empty(migrated.Scenarios[0].ProductionCapacities);
@@ -421,7 +421,7 @@ public sealed class WorldContentTests
     {
         var document = CreateValidDocument();
         var json = Encoding.UTF8.GetString(WorldContentCodec.Encode(document))
-            .Replace("\"formatVersion\": 4", "\"formatVersion\": 2", StringComparison.Ordinal);
+            .Replace("\"formatVersion\": 5", "\"formatVersion\": 2", StringComparison.Ordinal);
 
         var exception = Assert.Throws<ContentValidationException>(() =>
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
@@ -455,8 +455,8 @@ public sealed class WorldContentTests
     {
         var valid = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()));
         var unknown = valid.Replace(
-            "\"formatVersion\": 4,",
-            "\"formatVersion\": 4,\n  \"mystery\": true,",
+            "\"formatVersion\": 5,",
+            "\"formatVersion\": 5,\n  \"mystery\": true,",
             StringComparison.Ordinal);
 
         Assert.Throws<ContentValidationException>(() =>
@@ -653,49 +653,51 @@ public sealed class WorldContentTests
         var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(versionThree));
         var compiled = WorldContentCompiler.Compile(migrated);
 
-        Assert.Equal(4, migrated.FormatVersion);
+        // Version 3 knew no yields at all, so it lands on version 5's curve via
+        // version 4's flat rate: one undeveloped, doubling per level.
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
         Assert.Equal(
-            WorldContentCodec.DefaultResourceYieldPerTurn,
-            migrated.Resources[0].YieldPerTurn);
+            WorldContentCodec.SurfaceYieldByDevelopmentLevel,
+            migrated.Resources[0].YieldByDevelopmentLevel);
         Assert.Equal(
             WorldContentCodec.DefaultCatchmentRadius,
             migrated.Extraction!.CatchmentRadius);
-        Assert.Equal(1, compiled.World.Map.Resources[0].YieldPerTurn);
+        Assert.Equal(1, compiled.World.Map.Resources[0].GetYield(0));
+        Assert.Equal(8, compiled.World.Map.Resources[0].GetYield(3));
         Assert.Equal(1, compiled.World.Extraction.CatchmentRadius);
     }
 
     [Fact]
-    public void VersionThreeMigrationRejectsVersionFourExtractionData()
+    public void AnOlderVersionCannotCarryDataItsSchemaNeverHad()
     {
-        var withSettings = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()))
-            .Replace("\"formatVersion\": 4", "\"formatVersion\": 3", StringComparison.Ordinal)
-            .Replace("\"yieldPerTurn\": 1", "\"yieldPerTurn\": 0", StringComparison.Ordinal)
-            .Replace("\"yieldPerTurn\": 2", "\"yieldPerTurn\": 0", StringComparison.Ordinal);
+        // Each migration step refuses a document labelled with the older version
+        // while holding the newer version's fields, so a hand-edited version
+        // number cannot smuggle state past the step meant to create it.
+        var current = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()));
 
-        var exception = Assert.Throws<ContentValidationException>(() =>
-            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(withSettings)));
+        var labelledThree = current.Replace(
+            "\"formatVersion\": 5", "\"formatVersion\": 3", StringComparison.Ordinal);
+        Assert.Equal(
+            "formatVersion",
+            Assert.Throws<ContentValidationException>(() =>
+                WorldContentCodec.Decode(Encoding.UTF8.GetBytes(labelledThree))).Path);
 
-        Assert.Equal("formatVersion", exception.Path);
+        // Labelled 4 and carrying a version 5 curve. Technologies are stripped
+        // first so this trips the curve guard rather than the technology one.
+        var withoutTechnologies = CreateValidDocument();
+        withoutTechnologies.Technologies = [];
+        withoutTechnologies.Resources[2].RequiredTechnology = null;
+        var labelledFour = Encoding.UTF8
+            .GetString(WorldContentCodec.Encode(withoutTechnologies))
+            .Replace("\"formatVersion\": 5", "\"formatVersion\": 4", StringComparison.Ordinal);
+        Assert.Equal(
+            "resources[0].yieldByDevelopmentLevel",
+            Assert.Throws<ContentValidationException>(() =>
+                WorldContentCodec.Decode(Encoding.UTF8.GetBytes(labelledFour))).Path);
     }
 
     [Fact]
-    public void VersionThreeMigrationRejectsAYieldItCannotHaveAuthored()
-    {
-        var withYield = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()))
-            .Replace("\"formatVersion\": 4", "\"formatVersion\": 3", StringComparison.Ordinal)
-            .Replace(
-                "\"extraction\": {\n    \"catchmentRadius\": 1\n  },\n  ",
-                string.Empty,
-                StringComparison.Ordinal);
-
-        var exception = Assert.Throws<ContentValidationException>(() =>
-            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(withYield)));
-
-        Assert.Equal("resources[0].yieldPerTurn", exception.Path);
-    }
-
-    [Fact]
-    public void CompilerRequiresExtractionSettingsAndAPositiveYield()
+    public void CompilerRequiresExtractionSettingsAndAUsableYieldCurve()
     {
         var missingSettings = CreateValidDocument();
         missingSettings.Extraction = null;
@@ -705,13 +707,52 @@ public sealed class WorldContentTests
         negativeRadius.Extraction = new ExtractionContentSettings { CatchmentRadius = -1 };
         AssertPath("extraction.catchmentRadius", negativeRadius);
 
-        var zeroYield = CreateValidDocument();
-        zeroYield.Resources[1].YieldPerTurn = 0;
-        AssertPath("resources[1].yieldPerTurn", zeroYield);
+        var emptyCurve = CreateValidDocument();
+        emptyCurve.Resources[1].YieldByDevelopmentLevel = [];
+        AssertPath("resources[1].yieldByDevelopmentLevel", emptyCurve);
+
+        // Zero undeveloped is how a mine is expressed, so only an all-zero curve
+        // is rejected.
+        var barrenCurve = CreateValidDocument();
+        barrenCurve.Resources[0].YieldByDevelopmentLevel = [0, 0, 0];
+        AssertPath("resources[0].yieldByDevelopmentLevel", barrenCurve);
 
         var negativeYield = CreateValidDocument();
-        negativeYield.Resources[0].YieldPerTurn = -3;
-        AssertPath("resources[0].yieldPerTurn", negativeYield);
+        negativeYield.Resources[0].YieldByDevelopmentLevel = [1, -3];
+        AssertPath("resources[0].yieldByDevelopmentLevel", negativeYield);
+
+        var legacyField = CreateValidDocument();
+        legacyField.Resources[0].YieldPerTurn = 4;
+        AssertPath("resources[0].yieldPerTurn", legacyField);
+
+        var unknownTechnology = CreateValidDocument();
+        unknownTechnology.Resources[0].RequiredTechnology = "technology.missing";
+        AssertPath("resources[0].requiredTechnology", unknownTechnology);
+    }
+
+    [Fact]
+    public void ScenariosCanSeedDevelopmentAndKnownTechnologies()
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].CellDevelopment = [new CellDevelopmentContent { Cell = 0, Level = 2 }];
+        document.Scenarios[0].CountryTechnologies =
+        [
+            new CountryTechnologyContent
+            {
+                Country = document.Countries[0].Key,
+                Technology = "technology.drilling",
+            },
+        ];
+
+        var world = WorldContentCompiler.Compile(document).World;
+        var state = new WorldState(world);
+
+        Assert.Equal(2, state.GetCellDevelopment(new CellIndex(0)));
+        Assert.True(state.HasTechnology(new CountryId(0), new TechnologyId(0)));
+
+        var levelZero = CreateValidDocument();
+        levelZero.Scenarios[0].CellDevelopment = [new CellDevelopmentContent { Cell = 0, Level = 0 }];
+        AssertPath("scenarios[0].cellDevelopment[0].level", levelZero);
     }
 
     /// <summary>
@@ -739,7 +780,9 @@ public sealed class WorldContentTests
         Assert.All(
             package.ScenarioKeys,
             key => Assert.Equal(1, package.GetWorld(key).Extraction.CatchmentRadius));
-        Assert.All(document.Resources, static resource => Assert.True(resource.YieldPerTurn > 0));
+        Assert.All(
+            document.Resources,
+            static resource => Assert.NotEmpty(resource.YieldByDevelopmentLevel));
         Assert.NotNull(document.Extraction);
     }
 
@@ -799,20 +842,25 @@ public sealed class WorldContentTests
             {
                 Key = "resource.coal",
                 Commodity = "commodity.coal",
-                YieldPerTurn = 1,
+                YieldByDevelopmentLevel = [0, 2, 4, 8],
             },
             new ResourceContentDefinition
             {
                 Key = "resource.grain",
                 Commodity = "commodity.grain",
-                YieldPerTurn = 2,
+                YieldByDevelopmentLevel = [2, 4, 8, 16],
             },
             new ResourceContentDefinition
             {
                 Key = "resource.oil",
                 Commodity = "commodity.oil",
-                YieldPerTurn = 1,
+                YieldByDevelopmentLevel = [0, 2, 4, 8],
+                RequiredTechnology = "technology.drilling",
             },
+        ],
+        Technologies =
+        [
+            new NamedContentDefinition { Key = "technology.drilling", Name = "Oil Drilling" },
         ],
         Extraction = new ExtractionContentSettings { CatchmentRadius = 1 },
         ProductionFacilities =
