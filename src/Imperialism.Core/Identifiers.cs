@@ -93,6 +93,32 @@ public readonly record struct CommodityId
     public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
 }
 
+public readonly record struct ProductionFacilityId
+{
+    public ProductionFacilityId(int value)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(value);
+        Value = value;
+    }
+
+    public int Value { get; }
+
+    public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
+}
+
+public readonly record struct ProductionRecipeId
+{
+    public ProductionRecipeId(int value)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(value);
+        Value = value;
+    }
+
+    public int Value { get; }
+
+    public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
+}
+
 public readonly record struct DeliveryId
 {
     public DeliveryId(long value)

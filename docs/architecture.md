@@ -176,7 +176,14 @@ individually identified entries carrying recipient, commodity, quantity, and
 transport-or-trade source, so cancellation removes one intent without rolling
 back unrelated stock. The Delivery phase validates all additions before making
 any mutation, then commits atomically and emits one `CommodityDeliveredEvent`
-per entry. Production recipes, feeding, and transport allocation remain later
+per entry. Production facilities and recipes are content-defined. A deterministic
+planner walks dense countries and each country's explicitly ordered requests,
+shares capacity across recipes attached to the same facility, and partially
+completes against capacity and Available inputs. Outputs are staged rather than
+made eligible as same-turn inputs. Production deltas and existing pending
+deliveries are jointly preflighted before any inventory mutation, preserving
+full-turn atomicity for the currently implemented economy phases. Feeding,
+labour, power, capacity construction, and transport allocation remain later
 rule layers.
 
 **The central trick.** The original's step 5 retroactively cancels trades that

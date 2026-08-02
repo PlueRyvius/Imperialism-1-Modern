@@ -75,8 +75,46 @@ public static class LegacyWorldConverter
             [22] = "gold",
         };
 
+    private static readonly IReadOnlyDictionary<uint, string> WarehouseCommodityNames =
+        new Dictionary<uint, string>
+        {
+            [0] = "cotton",
+            [1] = "wool",
+            [2] = "timber",
+            [3] = "coal",
+            [4] = "iron",
+            [5] = "horses",
+            [6] = "oil",
+            [7] = "canned-food",
+            [8] = "fabric",
+            [9] = "lumber",
+            [10] = "paper",
+            [11] = "steel",
+            [12] = "fuel",
+            [13] = "clothing",
+            [14] = "furniture",
+            [15] = "hardware",
+            [16] = "armaments",
+            [17] = "grain",
+            [18] = "fruit",
+            [19] = "fish",
+            [20] = "livestock",
+        };
+
+    private static readonly IReadOnlyDictionary<uint, string> CapacityFacilityNames =
+        new Dictionary<uint, string>
+        {
+            [0] = "textile-mill",
+            [1] = "clothing-factory",
+            [2] = "steel-mill",
+            [3] = "metal-works",
+            [4] = "lumber-mill",
+            [5] = "furniture-factory",
+            [6] = "oil-refinery",
+        };
+
     private static readonly HashSet<string> ConvertedScenarioTags =
-        new(["cnam", "pnam", "zone", "year"], StringComparer.Ordinal);
+        new(["cnam", "pnam", "zone", "year", "capa", "ware"], StringComparer.Ordinal);
 
     public static LegacyImportResult Convert(
         MapDocument map,
@@ -269,6 +307,8 @@ public static class LegacyWorldConverter
             Cell = pair.Value,
         }).ToArray();
         var rails = ReadReciprocalRails(map, report);
+        var initialInventory = ReadInitialInventory(scenario, countryKeys, report);
+        var productionCapacities = ReadProductionCapacities(scenario, countryKeys, report);
         var title = string.IsNullOrWhiteSpace(info?.Title)
             ? $"Legacy {options.PackageKey}"
             : info.Title;
@@ -276,6 +316,8 @@ public static class LegacyWorldConverter
         {
             TerrainKeys = terrainCodes.Select(code => terrainKeys[code]).ToArray(),
             Commodities = CreateStandardCommodities(),
+            ProductionFacilities = CreateStandardProductionFacilities(),
+            ProductionRecipes = CreateStandardProductionRecipes(),
             Resources = resourceCodes.Select(code => new ResourceContentDefinition
             {
                 Key = resourceKeys[code],
@@ -302,6 +344,8 @@ public static class LegacyWorldConverter
                     ProvinceOwners = ownerContent,
                     Rails = rails,
                     Capitals = capitals,
+                    InitialInventory = initialInventory,
+                    ProductionCapacities = productionCapacities,
                 },
             ],
         };
@@ -409,6 +453,122 @@ public static class LegacyWorldConverter
         }
 
         return (int)values[0];
+    }
+
+    private static InitialInventoryContent[] ReadInitialInventory(
+        ScenarioDocument scenario,
+        IReadOnlyDictionary<uint, string> countryKeys,
+        LegacyImportReport report)
+    {
+        var result = new List<InitialInventoryContent>();
+        var seen = new HashSet<(uint Country, uint Commodity)>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "ware")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 3)
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.invalid-ware", path, "A ware record must contain country, commodity, and quantity values.");
+                continue;
+            }
+
+            var country = record.Fields[0];
+            var commodity = record.Fields[1];
+            if (!countryKeys.TryGetValue(country, out var countryKey))
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.invalid-ware-country", path, $"Warehouse stock refers to unknown country {country}.");
+                continue;
+            }
+
+            if (!WarehouseCommodityNames.TryGetValue(commodity, out var commodityName))
+            {
+                report.Add(LegacyImportSeverity.Warning, "scenario.unknown-ware-commodity", path, $"Warehouse stock uses unknown commodity code {commodity}; no stock was emitted.");
+                continue;
+            }
+
+            if (!seen.Add((country, commodity)))
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.duplicate-ware", path, "Warehouse stock repeats a country and commodity pair.");
+                continue;
+            }
+
+            var quantity = record.Fields[2];
+            if (quantity == 0)
+            {
+                continue;
+            }
+
+            result.Add(new InitialInventoryContent
+            {
+                Country = countryKey,
+                Commodity = $"commodity.{commodityName}",
+                Quantity = quantity,
+            });
+        }
+
+        return result.ToArray();
+    }
+
+    private static InitialProductionCapacityContent[] ReadProductionCapacities(
+        ScenarioDocument scenario,
+        IReadOnlyDictionary<uint, string> countryKeys,
+        LegacyImportReport report)
+    {
+        var result = new List<InitialProductionCapacityContent>();
+        var seen = new HashSet<(uint Country, uint Facility)>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "capa")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 3)
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.invalid-capa", path, "A capa record must contain country, industry, and capacity values.");
+                continue;
+            }
+
+            var country = record.Fields[0];
+            var facility = record.Fields[1];
+            if (!countryKeys.TryGetValue(country, out var countryKey))
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.invalid-capa-country", path, $"Production capacity refers to unknown country {country}.");
+                continue;
+            }
+
+            if (!CapacityFacilityNames.TryGetValue(facility, out var facilityName))
+            {
+                report.Add(LegacyImportSeverity.Warning, "scenario.unknown-capa-industry", path, $"Production capacity uses unknown industry code {facility}; no capacity was emitted.");
+                continue;
+            }
+
+            if (!seen.Add((country, facility)))
+            {
+                report.Add(LegacyImportSeverity.Error, "scenario.duplicate-capa", path, "Production capacity repeats a country and facility pair.");
+                continue;
+            }
+
+            var quantity = record.Fields[2];
+            if (quantity == 0)
+            {
+                continue;
+            }
+
+            result.Add(new InitialProductionCapacityContent
+            {
+                Country = countryKey,
+                Facility = $"facility.{facilityName}",
+                Quantity = quantity,
+            });
+        }
+
+        return result.ToArray();
     }
 
     private static Dictionary<uint, uint?> ReadProvinceOwners(MapDocument map, LegacyImportReport report)
@@ -687,6 +847,65 @@ public static class LegacyWorldConverter
             Name = name,
             Category = category,
         };
+
+    private static ProductionFacilityContentDefinition[] CreateStandardProductionFacilities() =>
+    [
+        Facility("textile-mill", "Textile Mill", ProductionCapacityMode.Limited),
+        Facility("clothing-factory", "Clothing Factory", ProductionCapacityMode.Limited),
+        Facility("steel-mill", "Steel Mill", ProductionCapacityMode.Limited),
+        Facility("metal-works", "Metal Works", ProductionCapacityMode.Limited),
+        Facility("lumber-mill", "Lumber Mill", ProductionCapacityMode.Limited),
+        Facility("furniture-factory", "Furniture Factory", ProductionCapacityMode.Limited),
+        Facility("oil-refinery", "Oil Refinery", ProductionCapacityMode.Limited),
+        Facility("food-processing", "Food Processing", ProductionCapacityMode.Unlimited),
+    ];
+
+    private static ProductionRecipeContentDefinition[] CreateStandardProductionRecipes() =>
+    [
+        Recipe("fabric-from-cotton", "Fabric from Cotton", "textile-mill", [("cotton", 2)], [("fabric", 1)]),
+        Recipe("fabric-from-wool", "Fabric from Wool", "textile-mill", [("wool", 2)], [("fabric", 1)]),
+        Recipe("clothing-from-fabric", "Clothing", "clothing-factory", [("fabric", 2)], [("clothing", 1)]),
+        Recipe("steel-from-coal-and-iron", "Steel", "steel-mill", [("coal", 1), ("iron", 1)], [("steel", 1)]),
+        Recipe("hardware-from-steel", "Hardware", "metal-works", [("steel", 2)], [("hardware", 1)]),
+        Recipe("armaments-from-steel", "Armaments", "metal-works", [("steel", 2)], [("armaments", 1)]),
+        Recipe("lumber-from-timber", "Lumber", "lumber-mill", [("timber", 2)], [("lumber", 1)]),
+        Recipe("paper-from-timber", "Paper", "lumber-mill", [("timber", 2)], [("paper", 1)]),
+        Recipe("furniture-from-lumber", "Furniture", "furniture-factory", [("lumber", 2)], [("furniture", 1)]),
+        Recipe("fuel-from-oil", "Fuel", "oil-refinery", [("oil", 2)], [("fuel", 1)]),
+        Recipe("canned-food-from-fish", "Canned Food from Fish", "food-processing", [("grain", 2), ("fruit", 1), ("fish", 1)], [("canned-food", 2)]),
+        Recipe("canned-food-from-livestock", "Canned Food from Livestock", "food-processing", [("grain", 2), ("fruit", 1), ("livestock", 1)], [("canned-food", 2)]),
+    ];
+
+    private static ProductionFacilityContentDefinition Facility(
+        string key,
+        string name,
+        ProductionCapacityMode capacityMode) => new()
+        {
+            Key = $"facility.{key}",
+            Name = name,
+            CapacityMode = capacityMode,
+        };
+
+    private static ProductionRecipeContentDefinition Recipe(
+        string key,
+        string name,
+        string facility,
+        IEnumerable<(string Commodity, long Quantity)> inputs,
+        IEnumerable<(string Commodity, long Quantity)> outputs) => new()
+        {
+            Key = $"recipe.{key}",
+            Name = name,
+            Facility = $"facility.{facility}",
+            CapacityCost = 1,
+            Inputs = inputs.Select(static item => Quantity(item.Commodity, item.Quantity)).ToArray(),
+            Outputs = outputs.Select(static item => Quantity(item.Commodity, item.Quantity)).ToArray(),
+        };
+
+    private static CommodityQuantityContent Quantity(string commodity, long quantity) => new()
+    {
+        Commodity = $"commodity.{commodity}",
+        Quantity = quantity,
+    };
 
     private static string CountryKey(uint id) => $"country.legacy.{id.ToString("D3", CultureInfo.InvariantCulture)}";
 

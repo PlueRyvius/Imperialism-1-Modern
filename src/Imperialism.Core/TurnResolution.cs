@@ -56,6 +56,52 @@ public sealed record CommodityDeliveredEvent : TurnEvent
     public PendingDelivery Delivery { get; }
 }
 
+/// <summary>Records the deterministic result of one production request.</summary>
+public sealed record ProductionCompletedEvent : TurnEvent
+{
+    private readonly IReadOnlyList<CommodityQuantity> _consumed;
+    private readonly IReadOnlyList<CommodityQuantity> _produced;
+
+    public ProductionCompletedEvent(
+        int turnNumber,
+        CountryId country,
+        ProductionRecipeId recipe,
+        long requestedCycles,
+        long completedCycles,
+        long capacityUsed,
+        IEnumerable<CommodityQuantity> consumed,
+        IEnumerable<CommodityQuantity> produced)
+        : base(turnNumber, TurnPhase.Production)
+    {
+        if (requestedCycles <= 0 || completedCycles < 0 || completedCycles > requestedCycles || capacityUsed < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(completedCycles));
+        }
+
+        Country = country;
+        Recipe = recipe;
+        RequestedCycles = requestedCycles;
+        CompletedCycles = completedCycles;
+        CapacityUsed = capacityUsed;
+        _consumed = Array.AsReadOnly(consumed.ToArray());
+        _produced = Array.AsReadOnly(produced.ToArray());
+    }
+
+    public CountryId Country { get; }
+
+    public ProductionRecipeId Recipe { get; }
+
+    public long RequestedCycles { get; }
+
+    public long CompletedCycles { get; }
+
+    public long CapacityUsed { get; }
+
+    public IReadOnlyList<CommodityQuantity> Consumed => _consumed;
+
+    public IReadOnlyList<CommodityQuantity> Produced => _produced;
+}
+
 public sealed class TurnResolution
 {
     private readonly IReadOnlyList<TurnEvent> _events;

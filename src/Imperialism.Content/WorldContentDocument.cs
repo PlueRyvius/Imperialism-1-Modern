@@ -15,6 +15,10 @@ public sealed class WorldContentDocument
 
     public ResourceContentDefinition[] Resources { get; set; } = [];
 
+    public ProductionFacilityContentDefinition[] ProductionFacilities { get; set; } = [];
+
+    public ProductionRecipeContentDefinition[] ProductionRecipes { get; set; } = [];
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string[]? ResourceKeys { get; set; }
 
@@ -58,6 +62,8 @@ public sealed class ScenarioContentDocument
     public CountryCapitalContent[] Capitals { get; set; } = [];
 
     public InitialInventoryContent[] InitialInventory { get; set; } = [];
+
+    public InitialProductionCapacityContent[] ProductionCapacities { get; set; } = [];
 }
 
 public sealed class CommodityContentDefinition
@@ -74,6 +80,37 @@ public sealed class ResourceContentDefinition
     public string Key { get; set; } = string.Empty;
 
     public string Commodity { get; set; } = string.Empty;
+}
+
+public sealed class ProductionFacilityContentDefinition
+{
+    public string Key { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    public ProductionCapacityMode CapacityMode { get; set; }
+}
+
+public sealed class ProductionRecipeContentDefinition
+{
+    public string Key { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    public string Facility { get; set; } = string.Empty;
+
+    public long CapacityCost { get; set; }
+
+    public CommodityQuantityContent[] Inputs { get; set; } = [];
+
+    public CommodityQuantityContent[] Outputs { get; set; } = [];
+}
+
+public sealed class CommodityQuantityContent
+{
+    public string Commodity { get; set; } = string.Empty;
+
+    public long Quantity { get; set; }
 }
 
 public sealed class NamedContentDefinition
@@ -136,6 +173,15 @@ public sealed class InitialInventoryContent
     public string Country { get; set; } = string.Empty;
 
     public string Commodity { get; set; } = string.Empty;
+
+    public long Quantity { get; set; }
+}
+
+public sealed class InitialProductionCapacityContent
+{
+    public string Country { get; set; } = string.Empty;
+
+    public string Facility { get; set; } = string.Empty;
 
     public long Quantity { get; set; }
 }

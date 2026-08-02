@@ -28,10 +28,28 @@ public static class TurnResolver
 
         var turnNumber = checked(state.CompletedTurnCount + 1);
         var startedAt = state.CurrentDate;
-        var events = new List<TurnEvent>(Pipeline.Length);
+        var production = ProductionPlanner.Create(state, orders);
+        state.PreflightInventoryChanges(production.InventoryDeltas);
+        var events = new List<TurnEvent>(Pipeline.Length + production.Entries.Count);
         foreach (var phase in Pipeline)
         {
-            if (phase == TurnPhase.Delivery)
+            if (phase == TurnPhase.Production)
+            {
+                state.CommitProduction(production.InventoryDeltas);
+                foreach (var entry in production.Entries)
+                {
+                    events.Add(new ProductionCompletedEvent(
+                        turnNumber,
+                        entry.Country,
+                        entry.Order.Recipe,
+                        entry.Order.RequestedCycles,
+                        entry.CompletedCycles,
+                        entry.CapacityUsed,
+                        entry.Consumed,
+                        entry.Produced));
+                }
+            }
+            else if (phase == TurnPhase.Delivery)
             {
                 foreach (var delivery in state.CommitPendingDeliveries())
                 {

@@ -82,6 +82,15 @@ zones ("North Atlantic", "English Channel") and 40–62 are **port cities**
 `tran`, `labo`, and `tclr` records — these are the seven Great Powers. Ids
 7–22 are minor nations (**verified**: 7 records each of those tags).
 
+**Industrial setup is a dense power-by-industry table.** Every binary scenario
+contains exactly 42 `capa` records: seven Great Powers times six industries,
+with no duplicate pair or invalid country/industry reference. The corpus has no
+industry-6 oil-refinery capacity record. Historical campaigns use documented
+upgrade steps, but tutorial scenarios also use 3, 5, 6, and 7; therefore
+capacity values are state, not an enum of legal upgrade levels. `ware` records
+use commodity codes 0–20 and sparse nonnegative quantities; the audited corpus
+contains no duplicate country/commodity pair or invalid reference.
+
 ## Corpus notes
 
 - All ten `.map` files are exactly 309,312 bytes. **`s0.map`, `s13.map` and
