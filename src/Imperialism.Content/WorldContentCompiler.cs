@@ -115,6 +115,7 @@ public static class WorldContentCompiler
             }
         }).ToArray();
         var extraction = CompileExtractionSettings(document.Extraction, commodityIds);
+        var feeding = CompileFeedingSettings(document.Feeding, commodityIds);
         var facilities = facilityContent.Select((definition, index) =>
             new ProductionFacilityDefinition(
                 new ProductionFacilityId(index),
@@ -209,7 +210,8 @@ public static class WorldContentCompiler
                     facilityIds,
                     extraction,
                     technologies,
-                    technologyIds));
+                    technologyIds,
+                    feeding));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -230,7 +232,8 @@ public static class WorldContentCompiler
         IReadOnlyDictionary<string, int> facilityIds,
         ExtractionSettings extraction,
         TechnologyDefinition[] technologies,
-        IReadOnlyDictionary<string, int> technologyIds)
+        IReadOnlyDictionary<string, int> technologyIds,
+        FeedingSettings? feeding)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -266,6 +269,10 @@ public static class WorldContentCompiler
         var depots = CompileCells(
             RequireArray(scenarioContent.Depots, $"{path}.depots"),
             $"{path}.depots");
+        var workers = CompileWorkforce(
+            RequireArray(scenarioContent.Workers, $"{path}.workers"),
+            countryIds,
+            path);
         var countryTechnologies = CompileCountryTechnologies(
             RequireArray(scenarioContent.CountryTechnologies, $"{path}.countryTechnologies"),
             countryIds,
@@ -290,7 +297,8 @@ public static class WorldContentCompiler
                 cellDevelopment,
                 countryTechnologies,
                 ports,
-                depots);
+                depots,
+                workers);
             return new WorldDefinition(
                 map,
                 countries,
@@ -299,7 +307,8 @@ public static class WorldContentCompiler
                 facilities,
                 recipes,
                 extraction,
-                technologies);
+                technologies,
+                feeding);
         }
         catch (ArgumentException exception)
         {
@@ -373,6 +382,84 @@ public static class WorldContentCompiler
         }
 
         return result;
+    }
+
+    private static InitialWorkforce[] CompileWorkforce(
+        WorkforceContent?[] content,
+        IReadOnlyDictionary<string, int> countryIds,
+        string path)
+    {
+        var result = new InitialWorkforce[content.Length];
+        for (var index = 0; index < content.Length; index++)
+        {
+            var entry = content[index] ??
+                throw Error($"{path}.workers[{index}]", "Value is required.");
+            var country = new CountryId(FindKey(
+                countryIds,
+                entry.Country,
+                $"{path}.workers[{index}].country"));
+            try
+            {
+                result[index] = new InitialWorkforce(
+                    country,
+                    entry.Untrained,
+                    entry.Trained,
+                    entry.Expert);
+            }
+            catch (ArgumentOutOfRangeException exception)
+            {
+                throw Error($"{path}.workers[{index}]", exception.Message, exception);
+            }
+        }
+
+        return result;
+    }
+
+    private static FeedingSettings? CompileFeedingSettings(
+        FeedingContentSettings? content,
+        IReadOnlyDictionary<string, int> commodityIds)
+    {
+        if (content is null)
+        {
+            return null;
+        }
+
+        var cycleContent = RequireArray(content.PreferenceCycle, "feeding.preferenceCycle");
+        var cycle = new FoodPreference[cycleContent.Length];
+        for (var index = 0; index < cycleContent.Length; index++)
+        {
+            var entry = cycleContent[index] ??
+                throw Error($"feeding.preferenceCycle[{index}]", "Value is required.");
+            var accepted = RequireArray(entry.Accepted, $"feeding.preferenceCycle[{index}].accepted");
+            try
+            {
+                cycle[index] = new FoodPreference(accepted.Select((key, position) =>
+                    new CommodityId(FindKey(
+                        commodityIds,
+                        key,
+                        $"feeding.preferenceCycle[{index}].accepted[{position}]"))));
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error($"feeding.preferenceCycle[{index}].accepted", exception.Message, exception);
+            }
+        }
+
+        CommodityId? cannedFood = content.CannedFood is null
+            ? null
+            : new CommodityId(FindKey(commodityIds, content.CannedFood, "feeding.cannedFood"));
+
+        try
+        {
+            return new FeedingSettings(
+                cycle,
+                RequireArray(content.LabourByGrade, "feeding.labourByGrade"),
+                cannedFood);
+        }
+        catch (ArgumentException exception)
+        {
+            throw Error("feeding", exception.Message, exception);
+        }
     }
 
     private static ExtractionSettings CompileExtractionSettings(

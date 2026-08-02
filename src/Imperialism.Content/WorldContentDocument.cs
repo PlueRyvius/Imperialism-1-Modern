@@ -23,6 +23,10 @@ public sealed class WorldContentDocument
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ExtractionContentSettings? Extraction { get; set; }
 
+    /// <summary>Absent in worlds whose workers never eat.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public FeedingContentSettings? Feeding { get; set; }
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string[]? ResourceKeys { get; set; }
 
@@ -79,6 +83,8 @@ public sealed class ScenarioContentDocument
     /// <summary>Cell indices carrying a rail depot.</summary>
     public int[] Depots { get; set; } = [];
 
+    public WorkforceContent[] Workers { get; set; } = [];
+
     public CountryTechnologyContent[] CountryTechnologies { get; set; } = [];
 }
 
@@ -129,6 +135,38 @@ public sealed class ExtractionContentSettings
     /// <summary>Absent in worlds that have no fishing at all.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PortFishingContent? PortFishing { get; set; }
+}
+
+public sealed class FeedingContentSettings
+{
+    /// <summary>
+    /// Repeating preference cycle, walked one worker at a time. The original's
+    /// is grain, fruit, grain, then livestock-or-fish.
+    /// </summary>
+    public FoodPreferenceContent[] PreferenceCycle { get; set; } = [];
+
+    /// <summary>Labour per worker per turn: untrained, trained, expert.</summary>
+    public long[] LabourByGrade { get; set; } = [];
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CannedFood { get; set; }
+}
+
+public sealed class FoodPreferenceContent
+{
+    /// <summary>Commodities this position in the cycle will eat happily.</summary>
+    public string[] Accepted { get; set; } = [];
+}
+
+public sealed class WorkforceContent
+{
+    public string Country { get; set; } = string.Empty;
+
+    public long Untrained { get; set; }
+
+    public long Trained { get; set; }
+
+    public long Expert { get; set; }
 }
 
 public sealed class PortFishingContent

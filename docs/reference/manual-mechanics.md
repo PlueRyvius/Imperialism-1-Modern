@@ -135,9 +135,24 @@ They never reach the industry warehouse and cannot be traded. Everything
 transported converts immediately into cash. Our commodity model does not yet
 distinguish them.
 
-## Worker food, for later
+## Workers, labour and food
 
-Workers eat in a fixed pattern: half want grain, a quarter want fruit, and the
-remaining quarter want livestock **or** fish, either being acceptable. The
-manual's own advice for satisfying that last group is to build ports and
-transport fish — which is a second reason fishing matters beyond the raw number.
+**Labour per worker per turn:** untrained 1, trained 2, expert 4. Power is not a
+commodity and needs no labour to create; on the turn it is generated it adds
+directly to the labour pool and is spent before any human labour.
+
+Labour is required to produce — "without some labour you cannot produce fabric" —
+but the manual never states how much a production run costs.
+
+**Food.** Every worker eats one unit per turn, and each enjoys only one type:
+
+- **Half** want grain, **a quarter** fruit, and the remaining quarter livestock
+  **or** fish, either being acceptable. The manual's own advice for satisfying
+  that last group is to build ports and transport fish.
+- A worker that cannot get its type eats **canned food** instead and works
+  normally — "workers do not get sick when they eat canned food".
+- A worker forced onto an undesired type **reports sick and stays home**,
+  performing no labour that turn.
+- Workers eat any food rather than starve.
+
+Canned food may also be traded, and is used to recruit more workers.

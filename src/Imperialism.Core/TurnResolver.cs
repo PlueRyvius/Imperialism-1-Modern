@@ -11,6 +11,7 @@ public static class TurnResolver
         TurnPhase.Conflict,
         TurnPhase.TradeCancellation,
         TurnPhase.Extraction,
+        TurnPhase.Feeding,
         TurnPhase.Delivery,
         TurnPhase.Connectivity,
     ];
@@ -92,6 +93,22 @@ public static class TurnResolver
                         entry.StrandedPortCount,
                         entry.Collected,
                         entry.Stranded));
+                }
+            }
+            else if (phase == TurnPhase.Feeding)
+            {
+                // After Extraction so this turn's harvest can feed this turn's
+                // workers, and before Delivery so it is eaten off the back of
+                // the cart rather than out of the warehouse.
+                foreach (var entry in FeedingPlanner.Resolve(state))
+                {
+                    events.Add(new WorkersFedEvent(
+                        turnNumber,
+                        entry.Country,
+                        entry.WellFed,
+                        entry.Sick,
+                        entry.Starved,
+                        entry.Eaten));
                 }
             }
             else if (phase == TurnPhase.Delivery)

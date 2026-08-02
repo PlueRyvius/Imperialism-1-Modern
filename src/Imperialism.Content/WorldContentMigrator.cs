@@ -41,6 +41,11 @@ internal static class WorldContentMigrator
             MigrateVersionSixToSeven(document);
         }
 
+        if (document.FormatVersion == 7)
+        {
+            MigrateVersionSevenToEight(document);
+        }
+
         return document;
     }
 
@@ -298,6 +303,34 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 7;
+    }
+
+    /// <summary>
+    /// Version 8 adds the workforce and what it eats. A version 7 package has
+    /// neither, and neither can be invented: nothing in it says which of its
+    /// commodities are food. So it migrates to a world whose workers never eat,
+    /// which is exactly how it behaved before.
+    /// </summary>
+    private static void MigrateVersionSevenToEight(WorldContentDocument document)
+    {
+        if (document.Feeding is not null)
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 7 cannot contain version 8 feeding settings.");
+        }
+
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.Workers is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 7 cannot contain version 8 workers.");
+            }
+        }
+
+        document.FormatVersion = 8;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

@@ -40,15 +40,18 @@ Two properties drive our architecture:
 Any implementation that resolves powers sequentially rather than
 simultaneously will produce visibly different games.
 
-**Current implementation boundary.** `TurnResolver` now enforces this eight-
+**Current implementation boundary.** `TurnResolver` now enforces this nine-
 phase pipeline over dense country-id-ordered submissions and emits an immutable
 phase event log. Strategic time is an explicit year and quarter with no legacy
 date cap. Rail-connectivity materialization, evidence-backed industrial
 production, and map extraction now have system behavior; conflict, trade,
 diplomacy, and labour remain deliberately unimplemented rather than filled with
-guessed rules. Extraction is a phase of our own between step 5 and step 6: the
-original folds gathering into transport, but separating them keeps the harvest
-readable in the event log and lets it observe post-conflict ownership.
+guessed rules. Extraction and Feeding are phases of our own between step 5 and
+step 6: the original folds gathering into transport, but separating them keeps
+the harvest readable in the event log and lets it observe post-conflict
+ownership. Feeding sits between the two because workers eat food transported
+this turn before warehouse stock — one of the two same-resolution exceptions —
+so the harvest is eaten off the cart and only the remainder is delivered.
 
 ## Economy
 
@@ -67,10 +70,13 @@ warehouse through Delivery, with unreachable output reported rather than
 dropped. Yield depends on the deposit and on the cell's development level, taken from the
 manual's Resource Development Table: cultivated ground runs 1/2/3/4, coal, iron
 and oil 0/2/4/6, gold and gems 0/1/2/3, and fish and horses have no improvement
-at all. Ports collect one fish per adjacent coast or river tile. Labour,
-feeding, prices, power, capacity construction, depots as distinct from rail, sea
-routes, the transport capacity pool and research remain pending — see
-`formulas/extraction.md` and `reference/manual-mechanics.md`.
+at all. Ports collect one fish per adjacent coast or river tile. Workers now eat: the
+grain / fruit / grain / meat cycle, canned food as the substitute, sickness for
+the wrong food and permanent loss for none at all, with the labour pool computed
+at 1/2/4 per grade. Prices, power, capacity construction, sea routes, the
+transport capacity pool, research, and **labour consumption by production**
+remain pending — see `formulas/extraction.md`, `formulas/feeding.md` and
+`reference/manual-mechanics.md`.
 
 **Commodity tiers.** 13 raw resources (grain, livestock, fruit, fish, cotton,
 wool, horses, timber, coal, iron, oil, gold, gems) → 6 materials (canned

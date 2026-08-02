@@ -8,6 +8,7 @@ public enum TurnPhase : byte
     Conflict,
     TradeCancellation,
     Extraction,
+    Feeding,
     Delivery,
     Connectivity,
 }
@@ -155,6 +156,48 @@ public sealed record ResourceExtractedEvent : TurnEvent
     public IReadOnlyList<CommodityQuantity> Collected => _collected;
 
     public IReadOnlyList<CommodityQuantity> Stranded => _stranded;
+}
+
+/// <summary>
+/// Records how one country's workforce ate. Sickness and starvation are
+/// reported rather than inferred from a headcount drop, because a player needs
+/// to see the near miss as well as the loss.
+/// </summary>
+public sealed record WorkersFedEvent : TurnEvent
+{
+    private readonly IReadOnlyList<CommodityQuantity> _eaten;
+
+    public WorkersFedEvent(
+        int turnNumber,
+        CountryId country,
+        long wellFed,
+        long sick,
+        long starved,
+        IEnumerable<CommodityQuantity> eaten)
+        : base(turnNumber, TurnPhase.Feeding)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(wellFed);
+        ArgumentOutOfRangeException.ThrowIfNegative(sick);
+        ArgumentOutOfRangeException.ThrowIfNegative(starved);
+        Country = country;
+        WellFed = wellFed;
+        Sick = sick;
+        Starved = starved;
+        _eaten = Array.AsReadOnly(eaten.ToArray());
+    }
+
+    public CountryId Country { get; }
+
+    /// <summary>Workers that got their preference, or canned food instead.</summary>
+    public long WellFed { get; }
+
+    /// <summary>Workers fed something they did not want; they do no labour this turn.</summary>
+    public long Sick { get; }
+
+    /// <summary>Workers that found nothing and were permanently removed.</summary>
+    public long Starved { get; }
+
+    public IReadOnlyList<CommodityQuantity> Eaten => _eaten;
 }
 
 public sealed class TurnResolution

@@ -16,7 +16,8 @@ public sealed class WorldDefinition
         IEnumerable<ProductionFacilityDefinition>? productionFacilities = null,
         IEnumerable<ProductionRecipeDefinition>? productionRecipes = null,
         ExtractionSettings? extraction = null,
-        IEnumerable<TechnologyDefinition>? technologies = null)
+        IEnumerable<TechnologyDefinition>? technologies = null,
+        FeedingSettings? feeding = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
@@ -322,9 +323,35 @@ public sealed class WorldDefinition
                 nameof(extraction));
         }
 
+        if (feeding is not null)
+        {
+            foreach (var commodity in feeding.PreferenceCycle
+                .SelectMany(static preference => preference.Accepted)
+                .Concat(feeding.CannedFood is { } canned ? [canned] : Array.Empty<CommodityId>()))
+            {
+                if ((uint)commodity.Value >= (uint)commodityArray.Length)
+                {
+                    throw new ArgumentException(
+                        $"Feeding refers to missing commodity {commodity.Value}.",
+                        nameof(feeding));
+                }
+            }
+        }
+
+        foreach (var workforce in scenario.InitialWorkforce)
+        {
+            if ((uint)workforce.Country.Value >= (uint)countryArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Initial workforce refers to missing country {workforce.Country.Value}.",
+                    nameof(scenario));
+            }
+        }
+
         Map = map;
         Scenario = scenario;
         Extraction = extractionSettings;
+        Feeding = feeding;
         _technologies = Array.AsReadOnly(technologyArray);
         _countries = Array.AsReadOnly(countryArray);
         _commodities = Array.AsReadOnly(commodityArray);
@@ -347,6 +374,9 @@ public sealed class WorldDefinition
     public ExtractionSettings Extraction { get; }
 
     public IReadOnlyList<TechnologyDefinition> Technologies => _technologies;
+
+    /// <summary>Null in a world whose workers never eat.</summary>
+    public FeedingSettings? Feeding { get; }
 
     /// <summary>
     /// A port stands on land. Verified against every <c>port</c> record in the
@@ -416,6 +446,7 @@ public sealed class WorldState
     private readonly bool[] _knownTechnologies;
     private readonly HashSet<CellIndex> _ports;
     private readonly HashSet<CellIndex> _depots;
+    private readonly long[] _workers;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private long _nextDeliveryId = 1;
 
@@ -453,6 +484,14 @@ public sealed class WorldState
 
         _ports = definition.Scenario.InitialPorts.ToHashSet();
         _depots = definition.Scenario.InitialDepots.ToHashSet();
+        _workers = new long[checked(definition.Countries.Count * WorkerGrades.Count)];
+        foreach (var workforce in definition.Scenario.InitialWorkforce)
+        {
+            foreach (var grade in WorkerGrades.All)
+            {
+                _workers[GetWorkerOffset(workforce.Country, grade)] = workforce[grade];
+            }
+        }
         _knownTechnologies = new bool[
             checked(definition.Countries.Count * definition.Technologies.Count)];
         foreach (var known in definition.Scenario.InitialCountryTechnologies)
@@ -598,6 +637,61 @@ public sealed class WorldState
 
     public bool RemovePort(CellIndex cell) => _ports.Remove(cell);
 
+    public long GetWorkers(CountryId country, WorkerGrade grade) =>
+        _workers[GetWorkerOffset(country, grade)];
+
+    public void SetWorkers(CountryId country, WorkerGrade grade, long count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        _workers[GetWorkerOffset(country, grade)] = count;
+    }
+
+    public long GetTotalWorkers(CountryId country)
+    {
+        var total = 0L;
+        foreach (var grade in WorkerGrades.All)
+        {
+            total = checked(total + _workers[GetWorkerOffset(country, grade)]);
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// What the workforce can do this turn. Nothing consumes it yet: the manual
+    /// says production requires labour but never how much per cycle, so the pool
+    /// is exposed and left unspent rather than priced by guesswork. See
+    /// <c>docs/formulas/feeding.md</c>.
+    /// </summary>
+    public long GetAvailableLabour(CountryId country)
+    {
+        ValidateCountry(country);
+        if (Definition.Feeding is not { } feeding)
+        {
+            return 0;
+        }
+
+        var labour = 0L;
+        foreach (var grade in WorkerGrades.All)
+        {
+            labour = checked(labour +
+                (_workers[GetWorkerOffset(country, grade)] * feeding.GetLabour(grade)));
+        }
+
+        return labour;
+    }
+
+    private int GetWorkerOffset(CountryId country, WorkerGrade grade)
+    {
+        ValidateCountry(country);
+        if (!Enum.IsDefined(grade))
+        {
+            throw new ArgumentOutOfRangeException(nameof(grade));
+        }
+
+        return checked((country.Value * WorkerGrades.Count) + (int)grade);
+    }
+
     public bool HasDepot(CellIndex cell) => _depots.Contains(cell);
 
     public IReadOnlyList<CellIndex> GetDepots() => Array.AsReadOnly(_depots
@@ -622,6 +716,49 @@ public sealed class WorldState
     /// </summary>
     public void GrantTechnology(CountryId country, TechnologyId technology) =>
         _knownTechnologies[GetTechnologyOffset(country, technology)] = true;
+
+    /// <summary>
+    /// Takes up to <paramref name="quantity"/> out of the country's pending
+    /// deliveries and returns how much was actually taken.
+    /// </summary>
+    /// <remarks>
+    /// Workers eat food transported this turn before food already in the
+    /// warehouse — one of the two documented same-resolution exceptions to
+    /// deferred delivery. Entries are consumed oldest first so the order is
+    /// deterministic, and one drained to nothing is removed rather than left as
+    /// a zero-quantity record.
+    /// </remarks>
+    public long ConsumePending(CountryId recipient, CommodityId commodity, long quantity)
+    {
+        _ = GetInventoryOffset(recipient, commodity);
+        ArgumentOutOfRangeException.ThrowIfNegative(quantity);
+        var taken = 0L;
+        for (var index = 0; index < _pendingDeliveries.Count && taken < quantity; index++)
+        {
+            var delivery = _pendingDeliveries[index];
+            if (delivery.Recipient != recipient || delivery.Commodity != commodity)
+            {
+                continue;
+            }
+
+            var take = Math.Min(delivery.Quantity, quantity - taken);
+            taken += take;
+            if (take == delivery.Quantity)
+            {
+                _pendingDeliveries.RemoveAt(index--);
+                continue;
+            }
+
+            _pendingDeliveries[index] = new PendingDelivery(
+                delivery.Id,
+                delivery.Recipient,
+                delivery.Commodity,
+                delivery.Quantity - take,
+                delivery.Source);
+        }
+
+        return taken;
+    }
 
     public CountryId? GetProvinceOwner(ProvinceId province)
     {

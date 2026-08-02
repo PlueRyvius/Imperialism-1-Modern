@@ -215,6 +215,13 @@ Militia through Siege Artillery, Paddlewheelers and Ironclads; 1848 spans the
 two. A type picker that ignores the year will offer units the scenario has never
 heard of.
 
+`labo` is `[country, untrained, trained, expert]` — the starting workforce, seven
+records in every shipped scenario. The grade order is settled by the data rather
+than assumed: `s1` gives country 2 `[60, 5, 0]` and country 3 `[120, 20, 0]`,
+backward powers with a mass of unskilled labour and no experts. Reversed they
+would have 60 and 120 *experts* and nobody in training, which no designer would
+author.
+
 **`rail` records are depots, not track.** The tag is misleading: the map's own
 rail byte already carries the lines, and `ReadReciprocalRails` reads them from
 there. A `rail` scenario record is a single cell index naming a **rail depot**

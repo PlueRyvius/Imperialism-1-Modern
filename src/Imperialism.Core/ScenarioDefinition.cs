@@ -11,6 +11,7 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<InitialCountryTechnology> _initialCountryTechnologies;
     private readonly IReadOnlyList<CellIndex> _initialPorts;
     private readonly IReadOnlyList<CellIndex> _initialDepots;
+    private readonly IReadOnlyList<InitialWorkforce> _initialWorkforce;
 
     public ScenarioDefinition(
         string name,
@@ -23,7 +24,8 @@ public sealed class ScenarioDefinition
         IEnumerable<InitialCellDevelopment>? initialCellDevelopment = null,
         IEnumerable<InitialCountryTechnology>? initialCountryTechnologies = null,
         IEnumerable<CellIndex>? initialPorts = null,
-        IEnumerable<CellIndex>? initialDepots = null)
+        IEnumerable<CellIndex>? initialDepots = null,
+        IEnumerable<InitialWorkforce>? initialWorkforce = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
@@ -43,6 +45,14 @@ public sealed class ScenarioDefinition
         if (depotArray.Distinct().Count() != depotArray.Length)
         {
             throw new ArgumentException("Initial depots cannot contain duplicates.", nameof(initialDepots));
+        }
+
+        var workforceArray = initialWorkforce?.ToArray() ?? [];
+        if (workforceArray.Select(static item => item.Country).Distinct().Count() != workforceArray.Length)
+        {
+            throw new ArgumentException(
+                "A country cannot have more than one initial workforce.",
+                nameof(initialWorkforce));
         }
 
         if (developmentArray.Select(static item => item.Cell).Distinct().Count() != developmentArray.Length)
@@ -111,6 +121,7 @@ public sealed class ScenarioDefinition
         _initialCountryTechnologies = Array.AsReadOnly(technologyArray);
         _initialPorts = Array.AsReadOnly(portArray);
         _initialDepots = Array.AsReadOnly(depotArray);
+        _initialWorkforce = Array.AsReadOnly(workforceArray);
     }
 
     public string Name { get; }
@@ -136,4 +147,6 @@ public sealed class ScenarioDefinition
     public IReadOnlyList<CellIndex> InitialPorts => _initialPorts;
 
     public IReadOnlyList<CellIndex> InitialDepots => _initialDepots;
+
+    public IReadOnlyList<InitialWorkforce> InitialWorkforce => _initialWorkforce;
 }

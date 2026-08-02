@@ -29,11 +29,11 @@ Every document starts with:
 ```json
 {
   "format": "imperialism-world",
-  "formatVersion": 7
+  "formatVersion": 8
 }
 ```
 
-Version 7 is the authored version. Migration is explicit and sequential:
+Version 8 is the authored version. Migration is explicit and sequential:
 version 1 resource palettes become version 2 commodities/resources, version 2
 packages gain empty version 3 production collections, version 3 packages gain a
 per-deposit `yieldPerTurn` plus a world-level `extraction` block, and version 4
@@ -49,7 +49,9 @@ and nothing in it says which of its commodities is fish. Version 7 adds depots
 and likewise supplies none — which **changes behaviour**, since a package with
 no depots now gathers only around its capital and ports rather than anywhere its
 rail reaches. That is the correct model, but it is visible, so it is stated here
-and in the migration's own comment. Mixed-version schemas,
+and in the migration's own comment. Version 8 adds the workforce and what it
+eats, and likewise supplies neither: nothing in an older package says which of
+its commodities are food, so its workers simply never eat. Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the
 valid `commodity/from-resource/...` form; `/` is part of the key grammar below.
@@ -82,6 +84,8 @@ The top-level document contains:
   optional `portFishing` naming one commodity and its yield per adjacent water
   tile;
 - ordered technology definitions with stable key and Unicode name;
+- an optional `feeding` block holding the repeating food-preference cycle, the
+  labour each worker grade supplies, and the canned-food substitute;
 - ordered production-facility definitions with stable key, Unicode name, and
   `limited` or `unlimited` capacity mode;
 - ordered recipes naming a facility, positive capacity cost, and one or more
@@ -92,8 +96,8 @@ The top-level document contains:
 - one or more keyed scenarios containing name/year, explicit province owners,
   rails, capitals, optional positive initial commodity quantities, sparse
   positive capacities for limited facilities, sparse starting cell development,
-  which technologies each country begins knowing, and the cells carrying a port
-  or a rail depot.
+  which technologies each country begins knowing, the cells carrying a port or a
+  rail depot, and each country's starting workforce.
 
 Each cell references one terrain key, zero or more unique resource keys, and
 at most one province or sea-zone key. Settlement sites and river paths are map
