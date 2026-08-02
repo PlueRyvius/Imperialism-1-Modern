@@ -31,14 +31,21 @@ internal static class WorldContentMigrator
                 "Version 1 cannot contain version 2 commodity or resource definitions.");
         }
 
-        var usedCommodityKeys = new HashSet<string>(StringComparer.Ordinal);
+        var resourceKeys = new HashSet<string>(StringComparer.Ordinal);
         var commodities = new CommodityContentDefinition[document.ResourceKeys.Length];
         var resources = new ResourceContentDefinition[document.ResourceKeys.Length];
         for (var index = 0; index < document.ResourceKeys.Length; index++)
         {
             var resourceKey = document.ResourceKeys[index] ??
                 throw new ContentValidationException($"resourceKeys[{index}]", "Value cannot be null.");
-            var commodityKey = CreateCommodityKey(resourceKey, usedCommodityKeys);
+            if (!resourceKeys.Add(resourceKey))
+            {
+                throw new ContentValidationException(
+                    $"resourceKeys[{index}]",
+                    $"Duplicate key '{resourceKey}'.");
+            }
+
+            var commodityKey = CreateCommodityKey(resourceKey);
             commodities[index] = new CommodityContentDefinition
             {
                 Key = commodityKey,
@@ -59,20 +66,10 @@ internal static class WorldContentMigrator
         return document;
     }
 
-    private static string CreateCommodityKey(string resourceKey, HashSet<string> used)
-    {
-        var candidate = resourceKey.StartsWith("resource.", StringComparison.Ordinal) && resourceKey.Length > 9
+    private static string CreateCommodityKey(string resourceKey) =>
+        resourceKey.StartsWith("resource.", StringComparison.Ordinal) && resourceKey.Length > 9
             ? $"commodity.{resourceKey[9..]}"
             : $"commodity/from-resource/{resourceKey}";
-        if (used.Add(candidate))
-        {
-            return candidate;
-        }
-
-        candidate = $"commodity/from-resource/{resourceKey}";
-        _ = used.Add(candidate);
-        return candidate;
-    }
 
     private static string CreateDisplayName(string resourceKey)
     {

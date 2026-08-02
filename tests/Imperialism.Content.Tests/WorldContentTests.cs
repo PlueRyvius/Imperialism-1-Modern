@@ -261,7 +261,6 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(1)]
     [InlineData(3)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
@@ -271,6 +270,18 @@ public sealed class WorldContentTests
 
         var exception = Assert.Throws<ContentValidationException>(() =>
             WorldContentCompiler.Compile(document));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    [Fact]
+    public void CompilerRejectsVersionOneLabelOnVersionTwoShapedDocument()
+    {
+        var versionOneLabelOnVersionTwoContent = CreateValidDocument();
+        versionOneLabelOnVersionTwoContent.FormatVersion = 1;
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCompiler.Compile(versionOneLabelOnVersionTwoContent));
 
         Assert.Equal("formatVersion", exception.Path);
     }
@@ -354,6 +365,27 @@ public sealed class WorldContentTests
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(mixed)));
 
         Assert.Equal("formatVersion", exception.Path);
+    }
+
+    [Fact]
+    public void VersionOneMigrationReportsDuplicateResourceKeysAtTheirSourcePath()
+    {
+        var duplicateResources = """
+            {
+              "format": "imperialism-world",
+              "formatVersion": 1,
+              "terrainKeys": [],
+              "resourceKeys": ["resource.grain", "resource.grain"],
+              "map": {},
+              "countries": [],
+              "scenarios": []
+            }
+            """;
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(duplicateResources)));
+
+        Assert.Equal("resourceKeys[1]", exception.Path);
     }
 
     [Fact]

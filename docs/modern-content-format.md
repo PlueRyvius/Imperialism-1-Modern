@@ -38,7 +38,8 @@ documents by turning every old resource key into a raw commodity plus a
 resource-to-commodity mapping; encoding then writes version 2. This preserves
 all information version 1 could express without pretending it contained
 manufactured goods. Mixed v1/v2 schemas, unknown fields, and unsupported
-versions fail with a path-qualified validation error.
+versions fail with a path-qualified validation error. Generic migrated keys use
+the valid `commodity/from-resource/...` form; `/` is part of the key grammar below.
 
 ## Stable keys and runtime IDs
 

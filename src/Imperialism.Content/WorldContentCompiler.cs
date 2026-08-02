@@ -64,7 +64,7 @@ public static class WorldContentCompiler
 
         var terrainIds = BuildKeyMap(terrainKeys, "terrainKeys", requireAtLeastOne: true);
         var commodityIds = BuildCommodityKeyMap(commodityContent);
-        var resourceIds = BuildResourceKeyMap(resourceContent, commodityIds);
+        var resourceIds = BuildResourceKeyMap(resourceContent);
         var provinceContent = RequireArray(mapContent.Provinces, "map.provinces");
         var seaZoneContent = RequireArray(mapContent.SeaZones, "map.seaZones");
         var provinceIds = BuildNamedKeyMap(provinceContent, "map.provinces");
@@ -442,8 +442,7 @@ public static class WorldContentCompiler
     }
 
     private static Dictionary<string, int> BuildResourceKeyMap(
-        ResourceContentDefinition?[] definitions,
-        IReadOnlyDictionary<string, int> commodityIds)
+        ResourceContentDefinition?[] definitions)
     {
         const string path = "resources";
         var keys = new string?[definitions.Length];
@@ -451,7 +450,6 @@ public static class WorldContentCompiler
         {
             var definition = definitions[index] ?? throw Error($"{path}[{index}]", "Value is required.");
             keys[index] = definition.Key;
-            _ = FindKey(commodityIds, definition.Commodity, $"{path}[{index}].commodity");
         }
 
         return BuildKeyMap(keys, path);
