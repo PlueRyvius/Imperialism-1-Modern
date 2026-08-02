@@ -65,6 +65,55 @@ public sealed class LegacyWorldConverterTests
     }
 
     [Fact]
+    public void EveryLegacyDepositMapsToItsSemanticRawCommodity()
+    {
+        var expected = new (byte Code, string Resource, string Commodity)[]
+        {
+            (0, "resource.cotton", "commodity.cotton"),
+            (1, "resource.wool", "commodity.wool"),
+            (2, "resource.forest", "commodity.timber"),
+            (3, "resource.coal", "commodity.coal"),
+            (4, "resource.iron", "commodity.iron"),
+            (5, "resource.horses", "commodity.horses"),
+            (6, "resource.oil", "commodity.oil"),
+            (17, "resource.grain", "commodity.grain"),
+            (18, "resource.fruit", "commodity.fruit"),
+            (19, "resource.fish", "commodity.fish"),
+            (20, "resource.cattle", "commodity.livestock"),
+            (21, "resource.gems", "commodity.gems"),
+            (22, "resource.gold", "commodity.gold"),
+        };
+        var cells = expected.Select(item => new HexCell
+        {
+            Terrain = 1,
+            Province = 0,
+            NationZoneA = 0,
+            NationZoneB = 0,
+            ResourceA = item.Code,
+        }).ToArray();
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(cells.Length, 1, cells),
+            scenario,
+            null,
+            "resource-map");
+
+        Assert.True(result.Success);
+        var document = Assert.IsType<WorldContentDocument>(result.Document);
+        var mappings = document.Resources.ToDictionary(static item => item.Key, static item => item.Commodity);
+        foreach (var item in expected)
+        {
+            Assert.Equal(item.Commodity, mappings[item.Resource]);
+        }
+    }
+
+    [Fact]
     public void ConverterImportsViewerSliceAndReportsDeferredInformation()
     {
         var map = CreateMap(
@@ -134,9 +183,18 @@ public sealed class LegacyWorldConverterTests
         Assert.Single(document.Map.SeaZones);
         Assert.Equal("sea-zone.legacy.007", document.Map.SeaZones[0].Key);
         Assert.Equal("resource.coal", Assert.Single(document.Map.Cells[0].Resources));
+        Assert.Equal(23, document.Commodities.Length);
+        Assert.Equal(13, document.Commodities.Count(static item => item.Category == CommodityCategory.Raw));
+        Assert.Equal(6, document.Commodities.Count(static item => item.Category == CommodityCategory.Material));
+        Assert.Equal(4, document.Commodities.Count(static item => item.Category == CommodityCategory.Goods));
+        Assert.Equal("commodity.coal", Assert.Single(document.Resources).Commodity);
+        var compiled = WorldContentCompiler.Compile(document);
         Assert.Equal(
             new RiverPath(RiverEndpoint.WestLower, RiverEndpoint.Source),
-            WorldContentCompiler.Compile(document).World.Map.Cells[3].River);
+            compiled.World.Map.Cells[3].River);
+        Assert.Equal(
+            new CommodityId(8),
+            Assert.Single(compiled.World.Map.Resources).Commodity);
         Assert.Single(document.Scenarios[0].Rails);
         Assert.Equal(0, document.Scenarios[0].Rails[0].First);
         Assert.Equal(1, document.Scenarios[0].Rails[0].Second);

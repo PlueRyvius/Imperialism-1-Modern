@@ -5,6 +5,7 @@ public sealed class MapDefinition
     private readonly IReadOnlyList<CellDefinition> _cells;
     private readonly IReadOnlyList<ProvinceDefinition> _provinces;
     private readonly IReadOnlyList<SeaZoneDefinition> _seaZones;
+    private readonly IReadOnlyList<ResourceDefinition> _resources;
     private readonly IReadOnlyList<CellIndex>[] _provinceCells;
     private readonly IReadOnlyList<CellIndex>[] _seaZoneCells;
 
@@ -12,12 +13,14 @@ public sealed class MapDefinition
         MapDimensions dimensions,
         IEnumerable<CellDefinition> cells,
         IEnumerable<ProvinceDefinition>? provinces = null,
-        IEnumerable<SeaZoneDefinition>? seaZones = null)
+        IEnumerable<SeaZoneDefinition>? seaZones = null,
+        IEnumerable<ResourceDefinition>? resources = null)
     {
         ArgumentNullException.ThrowIfNull(cells);
         var cellArray = cells.ToArray();
         var provinceArray = provinces?.ToArray() ?? [];
         var seaZoneArray = seaZones?.ToArray() ?? [];
+        var resourceArray = resources?.ToArray() ?? [];
         if (cellArray.Any(static cell => cell is null))
         {
             throw new ArgumentException("Cells cannot contain null entries.", nameof(cells));
@@ -33,6 +36,11 @@ public sealed class MapDefinition
             throw new ArgumentException("Sea zones cannot contain null entries.", nameof(seaZones));
         }
 
+        if (resourceArray.Any(static resource => resource is null))
+        {
+            throw new ArgumentException("Resources cannot contain null entries.", nameof(resources));
+        }
+
         if (cellArray.Length != dimensions.CellCount)
         {
             throw new ArgumentException(
@@ -42,6 +50,7 @@ public sealed class MapDefinition
 
         ValidateDenseIds(provinceArray.Select(static province => province.Id.Value), "province");
         ValidateDenseIds(seaZoneArray.Select(static seaZone => seaZone.Id.Value), "sea zone");
+        ValidateDenseIds(resourceArray.Select(static resource => resource.Id.Value), "resource");
 
         var provinceCells = CreateMembershipLists(provinceArray.Length);
         var seaZoneCells = CreateMembershipLists(seaZoneArray.Length);
@@ -55,6 +64,16 @@ public sealed class MapDefinition
                 throw new ArgumentException(
                     $"Cell {index} must have index {expectedIndex} and coordinate {expectedCoordinate}.",
                     nameof(cells));
+            }
+
+            foreach (var resource in cell.Resources)
+            {
+                if ((uint)resource.Value >= (uint)resourceArray.Length)
+                {
+                    throw new ArgumentException(
+                        $"Cell {index} refers to missing resource {resource.Value}.",
+                        nameof(cells));
+                }
             }
 
             switch (cell.Region.Kind)
@@ -92,6 +111,7 @@ public sealed class MapDefinition
         _cells = Array.AsReadOnly(cellArray);
         _provinces = Array.AsReadOnly(provinceArray);
         _seaZones = Array.AsReadOnly(seaZoneArray);
+        _resources = Array.AsReadOnly(resourceArray);
         _provinceCells = FreezeMembershipLists(provinceCells);
         _seaZoneCells = FreezeMembershipLists(seaZoneCells);
     }
@@ -103,6 +123,8 @@ public sealed class MapDefinition
     public IReadOnlyList<ProvinceDefinition> Provinces => _provinces;
 
     public IReadOnlyList<SeaZoneDefinition> SeaZones => _seaZones;
+
+    public IReadOnlyList<ResourceDefinition> Resources => _resources;
 
     public CellDefinition this[CellIndex index] => Dimensions.Contains(index)
         ? _cells[index.Value]

@@ -77,8 +77,9 @@ during play:
 
 - terrain, resource deposits, settlement sites, and per-cell river paths are immutable
   map geography;
-- initial ownership, rail links, and country capitals belong to the scenario;
-- a running `WorldState` copies ownership, rail links, capitals, and date so
+- commodity definitions and each deposit's produced commodity are immutable rules data;
+- initial ownership, rail links, country capitals, and available inventory belong to the scenario;
+- a running `WorldState` copies ownership, rail links, capitals, inventory, and date so
   play never mutates reusable definitions;
 - coastlines and national/province borders are derived from adjacent cells and
   ownership instead of stored as duplicated rendering masks.
@@ -166,6 +167,18 @@ events, records the supplied seed, and materializes final rail connectivity.
 System-specific phase events and mutations replace the empty phase bodies as
 economy, conflict, and diplomacy enter the model.
 
+**Economy storage foundation.** `CommodityId` is separate from `ResourceId`:
+a map deposit points through `ResourceDefinition` to the commodity it yields,
+while materials and goods need no deposit. Commodity catalogs are content-
+defined and compile from stable keys to dense runtime IDs. Available stock is
+a checked 64-bit country-by-commodity array. Pending deliveries remain ordered,
+individually identified entries carrying recipient, commodity, quantity, and
+transport-or-trade source, so cancellation removes one intent without rolling
+back unrelated stock. The Delivery phase validates all additions before making
+any mutation, then commits atomically and emits one `CommodityDeliveredEvent`
+per entry. Production recipes, feeding, and transport allocation remain later
+rule layers.
+
 **The central trick.** The original's step 5 retroactively cancels trades that
 step 4's blockades invalidated. That's only a hard rollback if trade committed
 something. So `TradePhase` writes *pending shipment intents* and commits
@@ -190,6 +203,11 @@ the original's documented priority. Power is separate transient labour: it is
 created and consumed during the same production phase and never enters either
 inventory. After blockade cancellation and food consumption, `Delivery`
 commits the remaining pending goods for use on the following turn.
+
+The current storage layer already enforces this Available/Pending boundary.
+Until worker feeding exists, Delivery commits every uncancelled pending entry;
+feeding will consume its documented same-turn exceptions from identifiable
+transport entries before that commit rather than weakening the boundary.
 
 **The event log is the presentation contract.** The client animates the log
 and never diffs state. This gives newspaper and battle-report views nearly

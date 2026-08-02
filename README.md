@@ -95,7 +95,8 @@ transport graph and deterministic turn skeleton.
 - [x] Generated 64,800-cell scale regression (ten times the original map area)
 - [ ] Capital/depot collection and evidence-backed port/river/sea connectivity
 - [x] Deterministic quarterly turn pipeline and immutable event log
-- [ ] Inventory, labour, production, feeding, and deferred delivery
+- [x] Content-defined commodity catalog, checked inventory, and deferred-delivery intents
+- [ ] Labour, production recipes, worker feeding, and transport allocation
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's

@@ -1,4 +1,5 @@
 using Imperialism.Core;
+using System.Text.Json.Serialization;
 
 namespace Imperialism.Content;
 
@@ -10,7 +11,12 @@ public sealed class WorldContentDocument
 
     public string[] TerrainKeys { get; set; } = [];
 
-    public string[] ResourceKeys { get; set; } = [];
+    public CommodityContentDefinition[] Commodities { get; set; } = [];
+
+    public ResourceContentDefinition[] Resources { get; set; } = [];
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string[]? ResourceKeys { get; set; }
 
     public MapContentDocument Map { get; set; } = new();
 
@@ -50,6 +56,24 @@ public sealed class ScenarioContentDocument
     public CellLinkContent[] Rails { get; set; } = [];
 
     public CountryCapitalContent[] Capitals { get; set; } = [];
+
+    public InitialInventoryContent[] InitialInventory { get; set; } = [];
+}
+
+public sealed class CommodityContentDefinition
+{
+    public string Key { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    public CommodityCategory Category { get; set; }
+}
+
+public sealed class ResourceContentDefinition
+{
+    public string Key { get; set; } = string.Empty;
+
+    public string Commodity { get; set; } = string.Empty;
 }
 
 public sealed class NamedContentDefinition
@@ -105,4 +129,13 @@ public sealed class CountryCapitalContent
     public string Country { get; set; } = string.Empty;
 
     public int Cell { get; set; }
+}
+
+public sealed class InitialInventoryContent
+{
+    public string Country { get; set; } = string.Empty;
+
+    public string Commodity { get; set; } = string.Empty;
+
+    public long Quantity { get; set; }
 }

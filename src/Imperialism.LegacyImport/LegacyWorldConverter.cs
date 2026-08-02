@@ -57,6 +57,24 @@ public static class LegacyWorldConverter
             [22] = "gold",
         };
 
+    private static readonly IReadOnlyDictionary<byte, string> ResourceCommodityNames =
+        new Dictionary<byte, string>
+        {
+            [0] = "cotton",
+            [1] = "wool",
+            [2] = "timber",
+            [3] = "coal",
+            [4] = "iron",
+            [5] = "horses",
+            [6] = "oil",
+            [17] = "grain",
+            [18] = "fruit",
+            [19] = "fish",
+            [20] = "livestock",
+            [21] = "gems",
+            [22] = "gold",
+        };
+
     private static readonly HashSet<string> ConvertedScenarioTags =
         new(["cnam", "pnam", "zone", "year"], StringComparer.Ordinal);
 
@@ -257,7 +275,12 @@ public static class LegacyWorldConverter
         var document = new WorldContentDocument
         {
             TerrainKeys = terrainCodes.Select(code => terrainKeys[code]).ToArray(),
-            ResourceKeys = resourceCodes.Select(code => resourceKeys[code]).ToArray(),
+            Commodities = CreateStandardCommodities(),
+            Resources = resourceCodes.Select(code => new ResourceContentDefinition
+            {
+                Key = resourceKeys[code],
+                Commodity = $"commodity.{ResourceCommodityNames[code]}",
+            }).ToArray(),
             Map = new MapContentDocument
             {
                 Key = $"map.legacy.{options.PackageKey}",
@@ -627,6 +650,43 @@ public static class LegacyWorldConverter
         : $"terrain.legacy-unknown-{code.ToString("D3", CultureInfo.InvariantCulture)}";
 
     private static string ResourceKey(byte code) => $"resource.{ResourceNames[code]}";
+
+    private static CommodityContentDefinition[] CreateStandardCommodities() =>
+    [
+        Commodity("grain", "Grain", CommodityCategory.Raw),
+        Commodity("livestock", "Livestock", CommodityCategory.Raw),
+        Commodity("fruit", "Fruit", CommodityCategory.Raw),
+        Commodity("fish", "Fish", CommodityCategory.Raw),
+        Commodity("cotton", "Cotton", CommodityCategory.Raw),
+        Commodity("wool", "Wool", CommodityCategory.Raw),
+        Commodity("horses", "Horses", CommodityCategory.Raw),
+        Commodity("timber", "Timber", CommodityCategory.Raw),
+        Commodity("coal", "Coal", CommodityCategory.Raw),
+        Commodity("iron", "Iron", CommodityCategory.Raw),
+        Commodity("oil", "Oil", CommodityCategory.Raw),
+        Commodity("gold", "Gold", CommodityCategory.Raw),
+        Commodity("gems", "Gems", CommodityCategory.Raw),
+        Commodity("canned-food", "Canned Food", CommodityCategory.Material),
+        Commodity("fabric", "Fabric", CommodityCategory.Material),
+        Commodity("paper", "Paper", CommodityCategory.Material),
+        Commodity("lumber", "Lumber", CommodityCategory.Material),
+        Commodity("steel", "Steel", CommodityCategory.Material),
+        Commodity("fuel", "Fuel", CommodityCategory.Material),
+        Commodity("clothing", "Clothing", CommodityCategory.Goods),
+        Commodity("furniture", "Furniture", CommodityCategory.Goods),
+        Commodity("hardware", "Hardware", CommodityCategory.Goods),
+        Commodity("armaments", "Armaments", CommodityCategory.Goods),
+    ];
+
+    private static CommodityContentDefinition Commodity(
+        string key,
+        string name,
+        CommodityCategory category) => new()
+        {
+            Key = $"commodity.{key}",
+            Name = name,
+            Category = category,
+        };
 
     private static string CountryKey(uint id) => $"country.legacy.{id.ToString("D3", CultureInfo.InvariantCulture)}";
 

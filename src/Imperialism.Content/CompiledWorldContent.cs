@@ -61,11 +61,13 @@ public sealed class WorldContentCatalog
 {
     private readonly IReadOnlyList<string> _terrainKeys;
     private readonly IReadOnlyList<string> _resourceKeys;
+    private readonly IReadOnlyList<string> _commodityKeys;
     private readonly IReadOnlyList<string> _provinceKeys;
     private readonly IReadOnlyList<string> _seaZoneKeys;
     private readonly IReadOnlyList<string> _countryKeys;
     private readonly IReadOnlyDictionary<string, int> _terrainIds;
     private readonly IReadOnlyDictionary<string, int> _resourceIds;
+    private readonly IReadOnlyDictionary<string, int> _commodityIds;
     private readonly IReadOnlyDictionary<string, int> _provinceIds;
     private readonly IReadOnlyDictionary<string, int> _seaZoneIds;
     private readonly IReadOnlyDictionary<string, int> _countryIds;
@@ -73,17 +75,20 @@ public sealed class WorldContentCatalog
     internal WorldContentCatalog(
         IEnumerable<string> terrainKeys,
         IEnumerable<string> resourceKeys,
+        IEnumerable<string> commodityKeys,
         IEnumerable<string> provinceKeys,
         IEnumerable<string> seaZoneKeys,
         IEnumerable<string> countryKeys)
     {
         _terrainKeys = Freeze(terrainKeys);
         _resourceKeys = Freeze(resourceKeys);
+        _commodityKeys = Freeze(commodityKeys);
         _provinceKeys = Freeze(provinceKeys);
         _seaZoneKeys = Freeze(seaZoneKeys);
         _countryKeys = Freeze(countryKeys);
         _terrainIds = Index(_terrainKeys);
         _resourceIds = Index(_resourceKeys);
+        _commodityIds = Index(_commodityKeys);
         _provinceIds = Index(_provinceKeys);
         _seaZoneIds = Index(_seaZoneKeys);
         _countryIds = Index(_countryKeys);
@@ -92,6 +97,8 @@ public sealed class WorldContentCatalog
     public IReadOnlyList<string> TerrainKeys => _terrainKeys;
 
     public IReadOnlyList<string> ResourceKeys => _resourceKeys;
+
+    public IReadOnlyList<string> CommodityKeys => _commodityKeys;
 
     public IReadOnlyList<string> ProvinceKeys => _provinceKeys;
 
@@ -103,6 +110,8 @@ public sealed class WorldContentCatalog
 
     public string GetKey(ResourceId id) => Get(_resourceKeys, id.Value, nameof(id));
 
+    public string GetKey(CommodityId id) => Get(_commodityKeys, id.Value, nameof(id));
+
     public string GetKey(ProvinceId id) => Get(_provinceKeys, id.Value, nameof(id));
 
     public string GetKey(SeaZoneId id) => Get(_seaZoneKeys, id.Value, nameof(id));
@@ -112,6 +121,8 @@ public sealed class WorldContentCatalog
     public TerrainId GetTerrainId(string key) => new(Get(_terrainIds, key));
 
     public ResourceId GetResourceId(string key) => new(Get(_resourceIds, key));
+
+    public CommodityId GetCommodityId(string key) => new(Get(_commodityIds, key));
 
     public ProvinceId GetProvinceId(string key) => new(Get(_provinceIds, key));
 

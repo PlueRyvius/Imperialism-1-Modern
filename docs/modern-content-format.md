@@ -29,14 +29,17 @@ Every document starts with:
 ```json
 {
   "format": "imperialism-world",
-  "formatVersion": 1
+  "formatVersion": 2
 }
 ```
 
-Version 1 is the only accepted version today. Unknown fields and unsupported
-versions fail with a path-qualified validation error; they are never silently
-ignored. When version 2 is introduced, its loader must either migrate older
-documents explicitly or retain a version-specific reader.
+Version 2 is the authored version. The loader explicitly migrates version 1
+documents by turning every old resource key into a raw commodity plus a
+resource-to-commodity mapping; encoding then writes version 2. This preserves
+all information version 1 could express without pretending it contained
+manufactured goods. Mixed v1/v2 schemas, unknown fields, and unsupported
+versions fail with a path-qualified validation error. Generic migrated keys use
+the valid `commodity/from-resource/...` form; `/` is part of the key grammar below.
 
 ## Stable keys and runtime IDs
 
@@ -46,7 +49,9 @@ and `country.france`. Keys contain 1-128 lowercase ASCII letters, digits,
 are unrestricted Unicode strings and are never identifiers.
 
 At load time, the compiler validates all references and maps keys to dense,
-typed integer IDs in document order. `WorldContentCatalog` retains both
+typed integer IDs in document order. Resources and commodities have distinct
+ID types: a map deposit references a resource definition, and that definition
+names the commodity it yields. `WorldContentCatalog` retains both
 directions of that mapping. Simulation code therefore gets compact array
 lookups without making saves, mods, or editor references depend on array
 positions.
@@ -55,12 +60,15 @@ positions.
 
 The top-level document contains:
 
-- ordered terrain and resource key palettes;
+- an ordered terrain-key palette;
+- ordered commodity definitions with stable key, Unicode name, and `raw`,
+  `material`, or `goods` category;
+- ordered resource definitions mapping each deposit key to one commodity key;
 - a keyed map with dimensions, named provinces and sea zones, row-major cells,
   and optional per-cell river paths;
 - named countries;
 - one or more keyed scenarios containing name/year, explicit province owners,
-  rails, and capitals.
+  rails, capitals, and optional positive initial commodity quantities.
 
 Each cell references one terrain key, zero or more unique resource keys, and
 at most one province or sea-zone key. Settlement sites and river paths are map
@@ -78,7 +86,13 @@ owned by that country. Rail links must join land cells. Several scenarios in
 one package compile to `WorldDefinition` values sharing the same immutable
 `MapDefinition`, so alternate starts do not duplicate map data. Width multiplied
 by height uses checked arithmetic, but there is no historical map, country,
-province, resource, or name-size limit in the content compiler.
+province, resource, commodity, or name-size limit in the content compiler.
+
+Commodity definitions are package content rather than a fixed Core enum. The
+original importer emits the standard 13 raw, 6 material, and 4 goods
+commodities, while mods may define a different catalog. Power and money are
+not commodities. Initial inventory entries are sparse authored data; runtime
+inventory is a dense checked 64-bit array indexed by country and commodity.
 
 ## APIs
 
