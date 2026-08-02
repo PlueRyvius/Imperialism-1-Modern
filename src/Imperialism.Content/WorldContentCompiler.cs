@@ -114,7 +114,7 @@ public static class WorldContentCompiler
                     exception);
             }
         }).ToArray();
-        var extraction = CompileExtractionSettings(document.Extraction);
+        var extraction = CompileExtractionSettings(document.Extraction, commodityIds);
         var facilities = facilityContent.Select((definition, index) =>
             new ProductionFacilityDefinition(
                 new ProductionFacilityId(index),
@@ -260,6 +260,7 @@ public static class WorldContentCompiler
         var cellDevelopment = CompileCellDevelopment(
             RequireArray(scenarioContent.CellDevelopment, $"{path}.cellDevelopment"),
             path);
+        var ports = CompilePorts(RequireArray(scenarioContent.Ports, $"{path}.ports"), path);
         var countryTechnologies = CompileCountryTechnologies(
             RequireArray(scenarioContent.CountryTechnologies, $"{path}.countryTechnologies"),
             countryIds,
@@ -282,7 +283,8 @@ public static class WorldContentCompiler
                 initialInventory,
                 productionCapacities,
                 cellDevelopment,
-                countryTechnologies);
+                countryTechnologies,
+                ports);
             return new WorldDefinition(
                 map,
                 countries,
@@ -326,6 +328,22 @@ public static class WorldContentCompiler
         return result;
     }
 
+    private static CellIndex[] CompilePorts(int[] content, string path)
+    {
+        var result = new CellIndex[content.Length];
+        for (var index = 0; index < content.Length; index++)
+        {
+            if (content[index] < 0)
+            {
+                throw Error($"{path}.ports[{index}]", "Value cannot be negative.");
+            }
+
+            result[index] = new CellIndex(content[index]);
+        }
+
+        return result;
+    }
+
     private static InitialCountryTechnology[] CompileCountryTechnologies(
         CountryTechnologyContent?[] content,
         IReadOnlyDictionary<string, int> countryIds,
@@ -351,16 +369,38 @@ public static class WorldContentCompiler
         return result;
     }
 
-    private static ExtractionSettings CompileExtractionSettings(ExtractionContentSettings? content)
+    private static ExtractionSettings CompileExtractionSettings(
+        ExtractionContentSettings? content,
+        IReadOnlyDictionary<string, int> commodityIds)
     {
         if (content is null)
         {
             throw Error("extraction", "Value is required.");
         }
 
+        PortFishing? fishing = null;
+        if (content.PortFishing is { } portFishing)
+        {
+            var commodity = new CommodityId(FindKey(
+                commodityIds,
+                portFishing.Commodity,
+                "extraction.portFishing.commodity"));
+            try
+            {
+                fishing = new PortFishing(commodity, portFishing.YieldPerAdjacentWaterTile);
+            }
+            catch (ArgumentOutOfRangeException exception)
+            {
+                throw Error(
+                    "extraction.portFishing.yieldPerAdjacentWaterTile",
+                    exception.Message,
+                    exception);
+            }
+        }
+
         try
         {
-            return new ExtractionSettings(content.CatchmentRadius);
+            return new ExtractionSettings(content.CatchmentRadius, fishing);
         }
         catch (ArgumentOutOfRangeException exception)
         {

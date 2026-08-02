@@ -215,6 +215,13 @@ Militia through Siege Artillery, Paddlewheelers and Ironclads; 1848 spans the
 two. A type picker that ignores the year will offer units the scenario has never
 heard of.
 
+`port` is `[cell]`, a single linear cell index. **Verified** across all nine
+originals: all 124 port records name a land cell, none an ocean one, and every
+one touches sea or carries a river — but only when adjacency **wraps east-west**.
+`s3` puts a port on the last column of row 0 whose only water lies across the
+seam; without the wrap it reads as landlocked, which is why the check lives in
+the importer rather than in `Imperialism.Core`, whose grid does not wrap.
+
 `deve` is `[cell, level 1-3]`. **A cell may carry more than one `deve` record**:
 `s1` develops three cells twice, as `[2,1]`, `[1,1]` and `[2,1]`. Treating a
 repeat as corruption is a rule that fires on shipped data, so it is not one.

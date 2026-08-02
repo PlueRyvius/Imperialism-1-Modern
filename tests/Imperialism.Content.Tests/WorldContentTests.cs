@@ -270,7 +270,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(6)]
+    [InlineData(7)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -350,7 +350,7 @@ public sealed class WorldContentTests
             new CommodityId(1),
             compiled.World.Map.Resources[1].Commodity);
         Assert.DoesNotContain("\"resourceKeys\"", encoded, StringComparison.Ordinal);
-        Assert.Contains("\"formatVersion\": 5", encoded, StringComparison.Ordinal);
+        Assert.Contains("\"formatVersion\": 6", encoded, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -421,7 +421,7 @@ public sealed class WorldContentTests
     {
         var document = CreateValidDocument();
         var json = Encoding.UTF8.GetString(WorldContentCodec.Encode(document))
-            .Replace("\"formatVersion\": 5", "\"formatVersion\": 2", StringComparison.Ordinal);
+            .Replace("\"formatVersion\": 6", "\"formatVersion\": 2", StringComparison.Ordinal);
 
         var exception = Assert.Throws<ContentValidationException>(() =>
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
@@ -455,8 +455,8 @@ public sealed class WorldContentTests
     {
         var valid = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()));
         var unknown = valid.Replace(
-            "\"formatVersion\": 5,",
-            "\"formatVersion\": 5,\n  \"mystery\": true,",
+            "\"formatVersion\": 6,",
+            "\"formatVersion\": 6,\n  \"mystery\": true,",
             StringComparison.Ordinal);
 
         Assert.Throws<ContentValidationException>(() =>
@@ -657,13 +657,13 @@ public sealed class WorldContentTests
         // version 4's flat rate: one undeveloped, doubling per level.
         Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
         Assert.Equal(
-            WorldContentCodec.SurfaceYieldByDevelopmentLevel,
+            WorldContentCodec.CultivatedYieldByDevelopmentLevel,
             migrated.Resources[0].YieldByDevelopmentLevel);
         Assert.Equal(
             WorldContentCodec.DefaultCatchmentRadius,
             migrated.Extraction!.CatchmentRadius);
         Assert.Equal(1, compiled.World.Map.Resources[0].GetYield(0));
-        Assert.Equal(8, compiled.World.Map.Resources[0].GetYield(3));
+        Assert.Equal(4, compiled.World.Map.Resources[0].GetYield(3));
         Assert.Equal(1, compiled.World.Extraction.CatchmentRadius);
     }
 
@@ -676,7 +676,7 @@ public sealed class WorldContentTests
         var current = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()));
 
         var labelledThree = current.Replace(
-            "\"formatVersion\": 5", "\"formatVersion\": 3", StringComparison.Ordinal);
+            "\"formatVersion\": 6", "\"formatVersion\": 3", StringComparison.Ordinal);
         Assert.Equal(
             "formatVersion",
             Assert.Throws<ContentValidationException>(() =>
@@ -689,7 +689,7 @@ public sealed class WorldContentTests
         withoutTechnologies.Resources[2].RequiredTechnology = null;
         var labelledFour = Encoding.UTF8
             .GetString(WorldContentCodec.Encode(withoutTechnologies))
-            .Replace("\"formatVersion\": 5", "\"formatVersion\": 4", StringComparison.Ordinal);
+            .Replace("\"formatVersion\": 6", "\"formatVersion\": 4", StringComparison.Ordinal);
         Assert.Equal(
             "resources[0].yieldByDevelopmentLevel",
             Assert.Throws<ContentValidationException>(() =>
@@ -728,6 +728,60 @@ public sealed class WorldContentTests
         var unknownTechnology = CreateValidDocument();
         unknownTechnology.Resources[0].RequiredTechnology = "technology.missing";
         AssertPath("resources[0].requiredTechnology", unknownTechnology);
+    }
+
+    [Fact]
+    public void PortsAndFishingCompileAndAreValidated()
+    {
+        var document = CreateValidDocument();
+        document.Extraction!.PortFishing = new PortFishingContent
+        {
+            Commodity = "commodity.grain",
+            YieldPerAdjacentWaterTile = 2,
+        };
+        document.Scenarios[0].Ports = [0];
+
+        var world = WorldContentCompiler.Compile(document).World;
+        var state = new WorldState(world);
+
+        Assert.Equal(new CommodityId(1), world.Extraction.PortFishing!.Commodity);
+        Assert.Equal(2, world.Extraction.PortFishing.YieldPerAdjacentWaterTile);
+        Assert.True(state.HasPort(new CellIndex(0)));
+
+        var unknownCommodity = CreateValidDocument();
+        unknownCommodity.Extraction!.PortFishing = new PortFishingContent
+        {
+            Commodity = "commodity.missing",
+            YieldPerAdjacentWaterTile = 1,
+        };
+        AssertPath("extraction.portFishing.commodity", unknownCommodity);
+
+        var zeroYield = CreateValidDocument();
+        zeroYield.Extraction!.PortFishing = new PortFishingContent
+        {
+            Commodity = "commodity.grain",
+            YieldPerAdjacentWaterTile = 0,
+        };
+        AssertPath("extraction.portFishing.yieldPerAdjacentWaterTile", zeroYield);
+
+        // A port in open water is not a port.
+        var seaPort = CreateValidDocument();
+        seaPort.Scenarios[0].Ports = [2];
+        AssertPath("scenarios[0]", seaPort);
+    }
+
+    [Fact]
+    public void VersionFiveMigrationRejectsVersionSixPortData()
+    {
+        var withPorts = CreateValidDocument();
+        withPorts.Scenarios[0].Ports = [0];
+        var json = Encoding.UTF8.GetString(WorldContentCodec.Encode(withPorts))
+            .Replace("\"formatVersion\": 6", "\"formatVersion\": 5", StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+
+        Assert.Equal("formatVersion", exception.Path);
     }
 
     [Fact]

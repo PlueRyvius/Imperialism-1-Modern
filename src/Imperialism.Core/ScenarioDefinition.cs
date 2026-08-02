@@ -9,6 +9,7 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<InitialProductionCapacity> _initialProductionCapacities;
     private readonly IReadOnlyList<InitialCellDevelopment> _initialCellDevelopment;
     private readonly IReadOnlyList<InitialCountryTechnology> _initialCountryTechnologies;
+    private readonly IReadOnlyList<CellIndex> _initialPorts;
 
     public ScenarioDefinition(
         string name,
@@ -19,7 +20,8 @@ public sealed class ScenarioDefinition
         IEnumerable<InitialCommodityStock>? initialInventory = null,
         IEnumerable<InitialProductionCapacity>? initialProductionCapacities = null,
         IEnumerable<InitialCellDevelopment>? initialCellDevelopment = null,
-        IEnumerable<InitialCountryTechnology>? initialCountryTechnologies = null)
+        IEnumerable<InitialCountryTechnology>? initialCountryTechnologies = null,
+        IEnumerable<CellIndex>? initialPorts = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
@@ -29,6 +31,12 @@ public sealed class ScenarioDefinition
         var capacityArray = initialProductionCapacities?.ToArray() ?? [];
         var developmentArray = initialCellDevelopment?.ToArray() ?? [];
         var technologyArray = initialCountryTechnologies?.ToArray() ?? [];
+        var portArray = initialPorts?.ToArray() ?? [];
+        if (portArray.Distinct().Count() != portArray.Length)
+        {
+            throw new ArgumentException("Initial ports cannot contain duplicates.", nameof(initialPorts));
+        }
+
         if (developmentArray.Select(static item => item.Cell).Distinct().Count() != developmentArray.Length)
         {
             throw new ArgumentException(
@@ -93,6 +101,7 @@ public sealed class ScenarioDefinition
         _initialProductionCapacities = Array.AsReadOnly(capacityArray);
         _initialCellDevelopment = Array.AsReadOnly(developmentArray);
         _initialCountryTechnologies = Array.AsReadOnly(technologyArray);
+        _initialPorts = Array.AsReadOnly(portArray);
     }
 
     public string Name { get; }
@@ -114,4 +123,6 @@ public sealed class ScenarioDefinition
 
     public IReadOnlyList<InitialCountryTechnology> InitialCountryTechnologies =>
         _initialCountryTechnologies;
+
+    public IReadOnlyList<CellIndex> InitialPorts => _initialPorts;
 }

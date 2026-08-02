@@ -26,12 +26,17 @@ content. The historical file format does not set the modern engine's limit.
 
 ## Legal note
 
-This repo contains **no original game assets or data**. `.map`/`.scn`
-files, the disassembly listing, game graphics, and text belong to their
-original copyright holders and are never committed here — see
-`.gitignore` (`fixtures/local_only/` is for local testing only).
-Documentation in `docs/` is written in our own words from what we've
-decoded, not copied from any third-party format write-up.
+*Imperialism* and everything shipped with it belong to their original copyright
+holders. This is a non-commercial reimplementation project.
+
+`docs/reference/` holds the text of the game manual, kept so its documented
+mechanics can be searched and cited. Everything else in `docs/` is written in
+our own words from what we have decoded, not copied from any third-party format
+write-up.
+
+No binary game data is committed: `.map`/`.scn`/`.inf` files, the disassembly
+listing and game graphics are read from a local install at test time, and
+`fixtures/local_only/` is gitignored for local copies.
 
 Playing requires your own copy of the original game: assets are extracted
 from your installation at import time and cached locally. We ship tools,

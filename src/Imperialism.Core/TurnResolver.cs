@@ -64,11 +64,12 @@ public static class TurnResolver
                 // Delivery, making it available to next turn's production.
                 foreach (var entry in ExtractionPlanner.Create(state))
                 {
-                    // A country holding no deposits at all is not an event.
+                    // A country with no deposits and no ports is not an event.
                     // Anything else is, even when every quantity is zero: a
                     // reachable but undeveloped mine yields nothing, and that
                     // is a fact worth showing rather than a silence.
-                    if (entry.CollectedCellCount == 0 && entry.StrandedCellCount == 0)
+                    if (entry.CollectedCellCount == 0 && entry.StrandedCellCount == 0 &&
+                        entry.FishingPortCount == 0 && entry.StrandedPortCount == 0)
                     {
                         continue;
                     }
@@ -87,6 +88,8 @@ public static class TurnResolver
                         entry.Country,
                         entry.CollectedCellCount,
                         entry.StrandedCellCount,
+                        entry.FishingPortCount,
+                        entry.StrandedPortCount,
                         entry.Collected,
                         entry.Stranded));
                 }

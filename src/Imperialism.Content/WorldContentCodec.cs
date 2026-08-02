@@ -7,7 +7,7 @@ namespace Imperialism.Content;
 public static class WorldContentCodec
 {
     public const string FormatName = "imperialism-world";
-    public const int CurrentVersion = 5;
+    public const int CurrentVersion = 6;
     public const string FileExtension = ".iworld";
 
     /// <summary>
@@ -18,16 +18,29 @@ public static class WorldContentCodec
     public const int DefaultCatchmentRadius = 1;
 
     /// <summary>
-    /// A surface deposit — field, orchard, forest, pasture — yields one per turn
-    /// with no improvement at all, and doubles with each level a worker builds.
+    /// One unit of fish per turn from each coast or river tile beside a port.
     /// </summary>
-    public static readonly long[] SurfaceYieldByDevelopmentLevel = [1, 2, 4, 8];
+    public const long DefaultPortFishYieldPerWaterTile = 1;
+
+    // The manual's Resource Development Table, indexed by development level.
+    // These are transcribed, not modelled: the progression is linear and its
+    // slope differs per deposit, which is why there is no single formula here.
+    // See docs/reference/manual-mechanics.md.
+
+    /// <summary>Grain, fruit, livestock, cotton, wool and timber.</summary>
+    public static readonly long[] CultivatedYieldByDevelopmentLevel = [1, 2, 3, 4];
+
+    /// <summary>Coal, iron and oil: nothing until dug, then two per level.</summary>
+    public static readonly long[] HeavyMineralYieldByDevelopmentLevel = [0, 2, 4, 6];
+
+    /// <summary>Gold and gems: nothing until dug, then one per level.</summary>
+    public static readonly long[] PreciousMineralYieldByDevelopmentLevel = [0, 1, 2, 3];
 
     /// <summary>
-    /// A subsurface deposit — coal, iron, oil, gold, gems — gives nothing until
-    /// it has been dug, then starts at two and doubles like the rest.
+    /// Fish and horses. No civilian unit improves either, so the curve stops at
+    /// the level every tile starts on.
     /// </summary>
-    public static readonly long[] SubsurfaceYieldByDevelopmentLevel = [0, 2, 4, 8];
+    public static readonly long[] UnimprovableYieldByDevelopmentLevel = [1];
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

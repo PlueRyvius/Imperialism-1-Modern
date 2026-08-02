@@ -14,6 +14,9 @@ public sealed class ExtractionTests
     private const int Coal = 1;
     private const int Iron = 2;
 
+    /// <summary>Commodity index inside the port fixture, which has only fish.</summary>
+    private const int Fish = 0;
+
     [Fact]
     public void DepositsOnTheCapitalRailNetworkAreGatheredWithinTheCatchment()
     {
@@ -295,6 +298,178 @@ public sealed class ExtractionTests
             state.SetCellDevelopment(new CellIndex(0), -1));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             state.GetCellDevelopment(new CellIndex(99)));
+    }
+
+    [Fact]
+    public void ACoastalPortFishesTheSeaBesideIt()
+    {
+        // Cell 2 is land with the sea at cell 3, railed back to the capital.
+        var state = CreatePortState(ports: [2], extraRails: [(0, 1), (1, 2)]);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(1, extraction.FishingPortCount);
+        Assert.Equal(0, extraction.StrandedPortCount);
+        Assert.Equal(
+            new CommodityQuantity(new CommodityId(Fish), 1),
+            Assert.Single(extraction.Collected));
+    }
+
+    [Fact]
+    public void ARiverPortFishesJustLikeACoastalOne()
+    {
+        // Cell 1 touches no sea at all; its only water is the river on cell 2.
+        // 45 of the corpus's 124 ports are inland like this, so a rule that gave
+        // them nothing would quietly waste a third of the ports ever authored.
+        var state = CreatePortState(ports: [1], extraRails: [(0, 1)]);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(1, extraction.FishingPortCount);
+        Assert.Equal(
+            new CommodityQuantity(new CommodityId(Fish), 1),
+            Assert.Single(extraction.Collected));
+    }
+
+    [Fact]
+    public void APortOffTheNetworkStrandsItsCatch()
+    {
+        // Cell 2 has sea beside it but no rail home, and cell 1 is sea-locked
+        // from it, so nothing carries the catch to the capital.
+        var state = CreatePortState(ports: [2]);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(0, extraction.FishingPortCount);
+        Assert.Equal(1, extraction.StrandedPortCount);
+        Assert.Empty(extraction.Collected);
+        Assert.Equal(
+            new CommodityQuantity(new CommodityId(Fish), 1),
+            Assert.Single(extraction.Stranded));
+    }
+
+    [Fact]
+    public void APortPaysOnlyTheCountryHoldingIt()
+    {
+        var state = CreatePortState(ports: [2], extraRails: [(0, 1), (1, 2)]);
+        state.SetProvinceOwner(new ProvinceId(2), new CountryId(1));
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(new CountryId(1), extraction.Country);
+        Assert.Equal(0, extraction.FishingPortCount);
+        Assert.Equal(1, extraction.StrandedPortCount);
+    }
+
+    [Fact]
+    public void AWorldWithoutFishingRulesGetsNothingFromItsPorts()
+    {
+        var state = CreatePortState(ports: [2], extraRails: [(0, 1), (1, 2)], withFishing: false);
+
+        Assert.Empty(TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+            .Events.OfType<ResourceExtractedEvent>());
+    }
+
+    [Fact]
+    public void APortMustStandOnLand()
+    {
+        var state = CreatePortState(ports: []);
+
+        // Cell 3 is open sea.
+        Assert.Throws<ArgumentException>(() => state.BuildPort(new CellIndex(3)));
+        Assert.True(state.BuildPort(new CellIndex(2)));
+        Assert.False(state.BuildPort(new CellIndex(2)));
+        Assert.True(state.HasPort(new CellIndex(2)));
+        Assert.True(state.RemovePort(new CellIndex(2)));
+        Assert.False(state.HasPort(new CellIndex(2)));
+    }
+
+    [Fact]
+    public void FishingYieldMustBeWorthHaving()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new PortFishing(new CommodityId(0), 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new PortFishing(new CommodityId(0), -1));
+    }
+
+    /// <summary>
+    /// A 4x1 strip: capital, a cell whose only water is the river next door, a
+    /// coastal cell, and the sea. One layout covers a river port and a sea port.
+    /// </summary>
+    private static WorldState CreatePortState(
+        int[] ports,
+        (int First, int Second)[]? extraRails = null,
+        bool withFishing = true)
+    {
+        const int width = 4;
+        var dimensions = new MapDimensions(width, 1);
+        var cells = new CellDefinition[width];
+        for (var index = 0; index < width; index++)
+        {
+            cells[index] = new CellDefinition(
+                new CellIndex(index),
+                dimensions.GetCoordinate(new CellIndex(index)),
+                new TerrainId(0),
+                index == 3
+                    ? CellRegion.ForSeaZone(new SeaZoneId(0))
+                    : CellRegion.ForProvince(new ProvinceId(index)),
+                null,
+                index == 0 ? SettlementSiteKind.Urban : SettlementSiteKind.None,
+                index == 2 ? new RiverPath(RiverEndpoint.WestLower, RiverEndpoint.EastUpper) : null);
+        }
+
+        var map = new MapDefinition(
+            dimensions,
+            cells,
+            [
+                new ProvinceDefinition(new ProvinceId(0), "Capital"),
+                new ProvinceDefinition(new ProvinceId(1), "Inland"),
+                new ProvinceDefinition(new ProvinceId(2), "Shore"),
+            ],
+            [new SeaZoneDefinition(new SeaZoneId(0), "Open Sea")],
+            [new ResourceDefinition(new ResourceId(0), new CommodityId(Fish), [1])]);
+
+        var rails = new List<CellLink>();
+        foreach (var (first, second) in extraRails ?? [])
+        {
+            rails.Add(new CellLink(new CellIndex(first), new CellIndex(second)));
+        }
+
+        var scenario = new ScenarioDefinition(
+            "Ports",
+            1815,
+            [new CountryId(0), new CountryId(0), new CountryId(0)],
+            rails,
+            [new CountryCapital(new CountryId(0), new CellIndex(0))],
+            null,
+            null,
+            null,
+            null,
+            ports.Select(static cell => new CellIndex(cell)));
+
+        var definition = new WorldDefinition(
+            map,
+            [
+                new CountryDefinition(new CountryId(0), "Country 0"),
+                new CountryDefinition(new CountryId(1), "Country 1"),
+            ],
+            scenario,
+            [new CommodityDefinition(new CommodityId(Fish), "Fish", CommodityCategory.Raw)],
+            null,
+            null,
+            new ExtractionSettings(
+                1,
+                withFishing ? new PortFishing(new CommodityId(Fish), 1) : null));
+        return new WorldState(definition);
     }
 
     /// <summary>Resolves one turn and returns what reached the warehouse.</summary>

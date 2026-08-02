@@ -30,6 +30,13 @@ deposit has not been measured. See `formulas/extraction.md`.
 and every level in the corpus is 1, 2 or 3. A cell developed more than once —
 `s1` does it three times — keeps the highest level and reports a warning.
 
+`port` records are converted too. Each names a land cell; repeats collapse with
+a warning. The importer also checks that a port touches sea or a river, using
+**wrapping** east-west adjacency because the 1997 grid wraps and
+`Imperialism.Core`'s does not — `s3` has a port whose only water is across the
+seam. A failure is a warning, not an error: it means our adjacency is wrong
+before it means the map is.
+
 The importer also emits the evidenced standard industrial catalog: seven
 limited legacy facilities, unlimited food processing, and twelve recipes.
 Cotton and wool are separate fabric recipes; hardware and armaments share metal

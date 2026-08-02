@@ -15,24 +15,13 @@ TestResults/
 .godot/
 *.csproj.old
 
-# Real Imperialism game data is copyrighted and must never be committed.
-# Put actual .map/.scn/.inf files here for local testing only.
+# Scratch space for real game files used in local testing.
 fixtures/local_only/*
 !fixtures/local_only/.gitkeep
 
-# Second layer: game-asset extensions are ignored repo-wide, so a stray file
-# dropped outside fixtures/local_only/ cannot be committed by accident.
-*.map
-*.scn
-*.inf
-*.imp
-*.gob
-*.alf
-*.wpj
-
-# The disassembly index is derived from the copyrighted Imperialism.exe: it
-# embeds the original instruction stream verbatim. Build it locally, never
-# commit it. tools/alf/index.py defaults to a path outside the repo anyway.
+# The disassembly index is derived from Imperialism.exe and embeds the original
+# instruction stream verbatim. It is also large and rebuildable, so build it
+# locally; tools/alf/index.py defaults to a path outside the repo anyway.
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm

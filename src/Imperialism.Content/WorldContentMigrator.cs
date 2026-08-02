@@ -31,6 +31,11 @@ internal static class WorldContentMigrator
             MigrateVersionFourToFive(document);
         }
 
+        if (document.FormatVersion == 5)
+        {
+            MigrateVersionFiveToSix(document);
+        }
+
         return document;
     }
 
@@ -161,9 +166,9 @@ internal static class WorldContentMigrator
     /// Version 5 makes yield a function of the cell's development level rather
     /// than one flat number. A version 4 package only knew the flat rate, and
     /// every cell in one is undeveloped, so that rate becomes the level-zero
-    /// entry and the improved levels double from it. Behaviour at level zero is
-    /// therefore unchanged, which is the only level a version 4 world could
-    /// express.
+    /// entry and the improved levels rise linearly from it. Behaviour at level
+    /// zero is therefore unchanged, which is the only level a version 4 world
+    /// could express.
     /// </summary>
     private static void MigrateVersionFourToFive(WorldContentDocument document)
     {
@@ -204,9 +209,13 @@ internal static class WorldContentMigrator
                     "Version 4 requires a positive yield.");
             }
 
+            // Linear, matching the manual's Resource Development Table: a
+            // cultivated tile runs 1, 2, 3, 4 rather than doubling. Level zero
+            // keeps the rate the version 4 package actually authored, and every
+            // cell in one is undeveloped, so nothing observable changes.
             var flat = resource.YieldPerTurn;
             resource.YieldByDevelopmentLevel =
-                [flat, checked(flat * 2), checked(flat * 4), checked(flat * 8)];
+                [flat, checked(flat * 2), checked(flat * 3), checked(flat * 4)];
             resource.YieldPerTurn = 0;
         }
 
@@ -227,6 +236,35 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 5;
+    }
+
+    /// <summary>
+    /// Version 6 adds ports and the fishing they do. Neither can be invented for
+    /// an older package: it has no port records, and nothing in a version 5
+    /// document says which of its commodities is fish. So the migration adds
+    /// nothing and an upgraded world simply has no ports and no fishing, which
+    /// is exactly how it behaved before.
+    /// </summary>
+    private static void MigrateVersionFiveToSix(WorldContentDocument document)
+    {
+        if (document.Extraction?.PortFishing is not null)
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 5 cannot contain version 6 port fishing.");
+        }
+
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.Ports is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 5 cannot contain version 6 ports.");
+            }
+        }
+
+        document.FormatVersion = 6;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

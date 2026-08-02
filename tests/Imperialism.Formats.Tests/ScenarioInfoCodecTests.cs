@@ -70,7 +70,9 @@ public sealed class ScenarioInfoCodecTests
             .Where(IsNumberedScenarioFile)
             .Order(StringComparer.Ordinal)
             .ToArray();
-        Assert.Equal(10, paths.Length);
+        // At least the ten originals; a used Scenario folder also holds worlds
+        // this project generated into it, which must round-trip too.
+        Assert.True(paths.Length >= 10, $"Expected the corpus, found {paths.Length}.");
         foreach (var path in paths)
         {
             var original = File.ReadAllBytes(path);
