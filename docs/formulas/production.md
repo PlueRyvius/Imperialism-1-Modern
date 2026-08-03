@@ -40,6 +40,26 @@ Labour carries its own evidence, tabulated rather than averaged:
   industries. Tutorials contain capacities 3, 5, 6, and 7, proving that imported
   capacity cannot be restricted to the historical upgrade ladder.
 
+### The ladder constrains building, not storing
+
+The manual gives fixed upgrade steps — mills `2→4→8→16→24→+8`, factories
+`1→2→4→8→12→+4` — and **53 shipped `capa` records sit off them**, spread across
+all six limited facilities: metal works at 3, steel mills at 5 and 7, lumber
+mills at 6. Validating stored capacity against the ladder would reject them.
+
+Both facts are true and do not fight, once building and storing are kept apart:
+
+- **A player may only build to the next rung.** That is the manual's rule.
+- **A scenario may author any capacity at all**, and the importer must take it.
+
+The trap is treating the 53 records as proof the ladder is not real. It is real;
+it governs construction. This is the domain split in `CLAUDE.md` in its first
+practical use, and it is the reasoning to cite when expansion is implemented.
+
+A fair start needs no exception: `s10`, `s11` and `s15` give every power mills at
+**2** and factories at **1**, which is precisely the ladder's first rung and
+exactly what the manual says a newly built one costs.
+
 The original recipes represented by the legacy importer are:
 
 - 2 cotton or 2 wool → 1 fabric;

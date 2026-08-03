@@ -17,6 +17,55 @@ template below.
 | `inferred` | Derived from manual text, observed play, or partial disassembly. Shape right, numbers uncertain. |
 | `verified` | Confirmed against the original's behaviour and pinned by a test with real input/output pairs. |
 
+## What counts as evidence *for gameplay*
+
+Not the same thing as evidence for the file format, and the two get mixed up
+here more than anything else. For the format the corpus is the authority. For
+gameplay it is weak, because **the ten scenarios are authored missions**, not a
+picture of how a game plays.
+
+| Source | Weight for a gameplay number |
+|---|---|
+| The engine binary | **decisive** — it is the behaviour |
+| The manual and quick reference | **strong** for anything they state outright |
+| Release notes | **strong**, and they beat the manual where they disagree |
+| A *skirmish-shaped* scenario (`s10`, `s11`, `s15`) | **good** — all seven powers identical, so it shows the intended fair start |
+| A mission scenario (`s1`, `s3`, `s9`, `s12`–`s14`) | **weak** — it shows what one designer authored for one mission |
+| Observed play | **good** for shape, poor for exact numbers |
+
+The trap in practice: `capa`, `labo` and `tran` all look like gameplay
+constants, and in the missions they are nothing of the kind. `s1` gives one
+power `[60, 5, 0]` workers and another `[5, 15, 40]`; that is a scenario design,
+not a rule. The skirmish baseline is `[4, 2, 1]` for everybody.
+
+Corollary worth stating, because it has cost time: **a symmetric default is a
+design decision, not an invented number.** A fair start *is* the design. What
+deserves a warning label is a number picked with no reasoning at all — not one
+picked because every power must begin equal.
+
+## The seven engine defaults
+
+A skirmish scenario carries **none** of these records, so a fair start runs on
+the engine's own value for each:
+
+| Record | What it defaults | Status |
+|---|---|---|
+| `ware` | starting warehouse stock | unrecovered |
+| `cash` | starting treasury | unrecovered |
+| `deve` | cell development levels | none developed |
+| `tech` | starting technologies | none known |
+| `tran` | transport capacity pool | unrecovered |
+| `rail` | depots | none built |
+| `rela` | diplomatic relations | unrecovered |
+
+Verified by record-type comparison: `s10` has no `ware`, `cash`, `deve`, `tech`,
+`tran`, `rail` or `rela` at all, while `s1` carries all seven.
+
+These are **not recoverable from the corpus** — its whole evidence is that they
+are absent. They are constants in the binary, which makes them one target class
+rather than seven scattered guesses, and the strongest argument for decompiling
+the engine rather than reading its disassembly.
+
 ## Status
 
 Doc filenames below are the intended names; none are written yet. Create one
@@ -106,6 +155,10 @@ the indexer and both easy to rediscover the hard way:
 
 Ordered by impact x uncertainty, not by ease:
 
+0. **The seven engine defaults** — every one of them is needed before a fair
+   start can exist at all, they cannot come from the corpus, and they come as a
+   set from one place. Cheapest thing on this list per number recovered, once
+   there is a decompiler to read them with.
 1. **Trade clearing price / favoured-partner ranking** — the central game loop,
    fully undocumented, and emergent (price depends on last turn's clearing,
    which depends on ranking, which depends on relations). Mitigated by an
