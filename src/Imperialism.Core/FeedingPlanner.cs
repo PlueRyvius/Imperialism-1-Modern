@@ -67,7 +67,10 @@ internal static class FeedingPlanner
                 starved++;
             }
 
+            // Starvation first, so illness is assigned among the survivors and
+            // the same worker is never both. Both take the cheapest grades.
             Starve(state, country, starved);
+            state.SetSickWorkers(country, sick);
             results.Add(new PlannedFeeding(country, wellFed, sick, starved, ToQuantities(eaten)));
         }
 
@@ -131,7 +134,9 @@ internal static class FeedingPlanner
     /// **This order is a choice, not a finding.** The manual says a starving
     /// worker is permanently removed but never which one. Taking the untrained
     /// first mirrors the way the pool grows — new arrivals are untrained — and
-    /// costs the player least. See <c>docs/formulas/feeding.md</c>.
+    /// costs the player least. <see cref="WorldState.SetSickWorkers"/> applies
+    /// the same convention to illness, for the same reason. See
+    /// <c>docs/formulas/feeding.md</c>.
     /// </remarks>
     private static void Starve(WorldState state, CountryId country, long starved)
     {

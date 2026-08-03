@@ -29,6 +29,7 @@ bottom of this file.
 | Labour cost per production cycle | `inferred` | [production](production.md) | Core, Content, LegacyImport | generated + local corpus |
 | Resource extraction and catchment | `inferred` | [extraction](extraction.md) | Core, Content, LegacyImport | generated + local corpus |
 | Worker feeding and labour supply | `inferred` | [feeding](feeding.md) | Core, Content, LegacyImport | generated + local corpus |
+| Which grade starves or falls ill | `guess` | [feeding](feeding.md) | Core | generated |
 | Trade clearing price | `guess` | _trade-pricing_ | — | — |
 | Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |
 | Diplomatic relation deltas | `guess` | _relations_ | — | — |

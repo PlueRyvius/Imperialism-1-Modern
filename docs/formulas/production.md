@@ -77,6 +77,11 @@ single arm icon on the screen border that every production dialog draws down,
 against per-facility capacity bars that do not interact. Requests are served in
 submitted priority order, the same rule capacity already used.
 
+It counts only workers who are well. Illness is decided in `Feeding`, which runs
+after `Production`, so a bad harvest shows up in the pool one turn later — see
+`feeding.md`, which also records the one chosen rule in the model: which grade
+takes the damage.
+
 Three things the manual states that are **not modelled yet**: power adds to the
 labour pool on the turn it is generated and is spent before any human labour;
 the Trade School takes a worker out of the pool for the turn it trains; and
@@ -109,7 +114,7 @@ reading on recipes we have no other evidence for.
 ```text
 for each country by dense id:
     remaining capacity = that country's limited facility capacities
-    remaining labour = the whole workforce's labour, or unbounded with no feeding
+    remaining labour = the healthy workforce's labour, or unbounded with no feeding
     starting inputs = a copy of Available inventory
     for each requested recipe in submitted priority order:
         cycles = minimum(requested, shared facility capacity,
@@ -133,7 +138,7 @@ explicit and keeping the content model general.
 - `ProductionFacilityDefinition`, `ProductionRecipeDefinition` (including
   `LabourCost`), and `InitialProductionCapacity` in `Imperialism.Core`.
 - `ProductionPlanner` and `TurnResolver` in `Imperialism.Core`, with the pool
-  read from `WorldState.GetAvailableLabour`.
+  read from `WorldState.GetAvailableLabour`, which excludes the sick.
 - `ProductionCompletedEvent.LabourUsed` reports what each request actually spent.
 - `.iworld` v3 production definitions and capacities in `Imperialism.Content`;
   v9 adds the per-recipe `labourCost`.
