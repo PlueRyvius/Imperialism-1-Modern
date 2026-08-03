@@ -23,6 +23,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Navigating the original binary, and resolving a crash | `docs/disasm/README.md`, `docs/disasm/module-map.md` |
+| Reading the binary's *behaviour* rather than its addresses | `docs/disasm/ghidra.md` |
 
 ## Hard rules
 
