@@ -270,7 +270,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(9)]
+    [InlineData(10)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -350,7 +350,7 @@ public sealed class WorldContentTests
             new CommodityId(1),
             compiled.World.Map.Resources[1].Commodity);
         Assert.DoesNotContain("\"resourceKeys\"", encoded, StringComparison.Ordinal);
-        Assert.Contains("\"formatVersion\": 8", encoded, StringComparison.Ordinal);
+        Assert.Contains(CurrentVersionLabel, encoded, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -420,8 +420,7 @@ public sealed class WorldContentTests
     public void VersionTwoMigrationRejectsVersionThreeProductionData()
     {
         var document = CreateValidDocument();
-        var json = Encoding.UTF8.GetString(WorldContentCodec.Encode(document))
-            .Replace("\"formatVersion\": 8", "\"formatVersion\": 2", StringComparison.Ordinal);
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 2);
 
         var exception = Assert.Throws<ContentValidationException>(() =>
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
@@ -454,9 +453,10 @@ public sealed class WorldContentTests
     public void DecoderRejectsUnknownPropertiesAndMalformedJson()
     {
         var valid = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()));
+        Assert.Contains(CurrentVersionLabel, valid, StringComparison.Ordinal);
         var unknown = valid.Replace(
-            "\"formatVersion\": 8,",
-            "\"formatVersion\": 8,\n  \"mystery\": true,",
+            $"{CurrentVersionLabel},",
+            $"{CurrentVersionLabel},\n  \"mystery\": true,",
             StringComparison.Ordinal);
 
         Assert.Throws<ContentValidationException>(() =>
@@ -675,8 +675,7 @@ public sealed class WorldContentTests
         // number cannot smuggle state past the step meant to create it.
         var current = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()));
 
-        var labelledThree = current.Replace(
-            "\"formatVersion\": 8", "\"formatVersion\": 3", StringComparison.Ordinal);
+        var labelledThree = Relabel(current, 3);
         Assert.Equal(
             "formatVersion",
             Assert.Throws<ContentValidationException>(() =>
@@ -687,9 +686,8 @@ public sealed class WorldContentTests
         var withoutTechnologies = CreateValidDocument();
         withoutTechnologies.Technologies = [];
         withoutTechnologies.Resources[2].RequiredTechnology = null;
-        var labelledFour = Encoding.UTF8
-            .GetString(WorldContentCodec.Encode(withoutTechnologies))
-            .Replace("\"formatVersion\": 8", "\"formatVersion\": 4", StringComparison.Ordinal);
+        var labelledFour = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(withoutTechnologies)), 4);
         Assert.Equal(
             "resources[0].yieldByDevelopmentLevel",
             Assert.Throws<ContentValidationException>(() =>
@@ -775,8 +773,36 @@ public sealed class WorldContentTests
     {
         var withPorts = CreateValidDocument();
         withPorts.Scenarios[0].Ports = [0];
-        var json = Encoding.UTF8.GetString(WorldContentCodec.Encode(withPorts))
-            .Replace("\"formatVersion\": 8", "\"formatVersion\": 5", StringComparison.Ordinal);
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(withPorts)), 5);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    [Fact]
+    public void VersionEightMigrationPricesLabourAtTheRecipesInputTotal()
+    {
+        // The steel recipe takes one coal and one oil, so it costs two labour —
+        // the rate the manual gives for the one recipe it prices outright.
+        var json = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 8);
+        var withoutLabour = json.Replace(
+            "\"labourCost\": 2,\n", string.Empty, StringComparison.Ordinal);
+        Assert.DoesNotContain("labourCost", withoutLabour, StringComparison.Ordinal);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(withoutLabour));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.Equal(2, Assert.Single(migrated.ProductionRecipes).LabourCost);
+    }
+
+    [Fact]
+    public void VersionEightMigrationRejectsAVersionNineLabourCost()
+    {
+        var json = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 8);
 
         var exception = Assert.Throws<ContentValidationException>(() =>
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
@@ -860,6 +886,26 @@ public sealed class WorldContentTests
         Assert.Equal(expected, exception.Path);
     }
 
+    /// <summary>The version label the encoder actually writes right now.</summary>
+    private static string CurrentVersionLabel =>
+        $"\"formatVersion\": {WorldContentCodec.CurrentVersion}";
+
+    /// <summary>
+    /// Rewrites an encoded package's version label to <paramref name="version"/>,
+    /// asserting that the substitution happened. Spelling the current version
+    /// literally is how several of these tests once went vacuously green: after a
+    /// version bump the replacement silently matched nothing, and a document that
+    /// was supposed to be labelled with an older version stayed current.
+    /// </summary>
+    private static string Relabel(string json, int version)
+    {
+        Assert.Contains(CurrentVersionLabel, json, StringComparison.Ordinal);
+        return json.Replace(
+            CurrentVersionLabel,
+            $"\"formatVersion\": {version}",
+            StringComparison.Ordinal);
+    }
+
     private static WorldContentDocument CreateValidDocument() => new()
     {
         TerrainKeys = ["terrain.plains", "terrain.ocean"],
@@ -934,6 +980,7 @@ public sealed class WorldContentTests
                 Name = "Steel",
                 Facility = "facility.steel-mill",
                 CapacityCost = 1,
+                LabourCost = 2,
                 Inputs =
                 [
                     new CommodityQuantityContent { Commodity = "commodity.coal", Quantity = 1 },

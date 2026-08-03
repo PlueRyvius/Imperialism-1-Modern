@@ -94,16 +94,31 @@ because no shipped scenario starves on the turn it begins.
 - `.iworld` v8 `feeding` and `scenarios[].workers`, with a v7 to v8 migration
   that adds neither.
 
-## Labour has no sink yet
+## Labour is spent, but sickness still is not
 
-`GetAvailableLabour` is computed and exposed, and **nothing spends it**. The
-manual says plainly that production needs labour — "without some labour you
-cannot produce fabric" — but never says how much per cycle, and
-`production.md` already lists that as open. Pricing it by guesswork would set
-the pace of the whole economy on an invented number.
+**Production spends the pool.** Each recipe costs its total input units in
+labour, which the manual's tutorial prices outright for clothing and which every
+shipped recipe agrees with; see `production.md` for the evidence and the
+readings it leaves open. `GetAvailableLabour` is what `ProductionPlanner` draws
+against.
 
-So sickness is real state with no effect on output *yet*. Starvation is visible
-immediately, because the workers are gone.
+**Starvation therefore has teeth.** Workers who find nothing are removed, and
+the smaller workforce supplies less labour when the next turn's orders resolve.
+`Production` sits ahead of `Feeding` in the pipeline, so a workforce that
+starves still works the turn it dies — which matches the original's ordering,
+where the labour you allocate is the labour you were shown before ending the
+turn.
+
+**Sickness still does not reduce the pool**, and closing that gap needs a rule
+nobody has evidence for. Feeding walks workers by position in the preference
+cycle and counts how many ate badly; it never learns *which grade* they were.
+Docking the pool would mean deciding whether a sick worker is untrained, trained
+or expert — the same invention this document already declined for starvation,
+except that starvation at least has a cheapest-first convention to fall back on,
+and sickness would need workers ordered by grade as well as by preference.
+
+So a sick worker is reported and costs nothing. That is a known understatement
+of the penalty, recorded here rather than papered over.
 
 ## Test data
 
@@ -123,7 +138,7 @@ scenario's own starting stock agree.
 
 ## Open questions
 
-- Labour cost per production cycle — the gap that keeps the pool unspent.
+- **Which grade falls sick**, which is what keeps sickness free. See above.
 - Power plants, which the manual says add directly to the labour pool and are
   spent before human labour.
 - The Trade School: how workers are promoted between grades.

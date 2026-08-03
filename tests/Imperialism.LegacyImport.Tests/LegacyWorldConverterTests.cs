@@ -322,6 +322,22 @@ public sealed class LegacyWorldConverterTests
 
         Assert.Equal(expected, actual);
         Assert.All(result.Document.ProductionRecipes, static recipe => Assert.Equal(1, recipe.CapacityCost));
+
+        // The manual prices one recipe outright — a unit of clothing costs two
+        // fabric and two labour — and every recipe above spends exactly two
+        // input units per unit of output, so that one quote fixes them all.
+        // Canned food is the only one that differs, and only because its cycle
+        // makes two units at once. See docs/formulas/production.md.
+        Assert.Equal(
+            2,
+            result.Document.ProductionRecipes
+                .Single(static recipe => recipe.Key == "recipe.clothing-from-fabric").LabourCost);
+        Assert.All(result.Document.ProductionRecipes, static recipe => Assert.Equal(
+            2 * recipe.Outputs.Sum(static item => item.Quantity),
+            recipe.LabourCost));
+        Assert.All(result.Document.ProductionRecipes, static recipe => Assert.Equal(
+            recipe.Inputs.Sum(static item => item.Quantity),
+            recipe.LabourCost));
     }
 
     [Fact]
@@ -669,7 +685,8 @@ public sealed class LegacyWorldConverterTests
             "corpus-turn");
         Assert.True(result.Success);
 
-        var world = WorldContentCompiler.Compile(result.Document!).World;
+        var compiled = WorldContentCompiler.Compile(result.Document!);
+        var world = compiled.World;
         var state = new WorldState(world);
         var britain = new CountryId(0);
         var headcountBefore = state.GetTotalWorkers(britain);
@@ -678,10 +695,28 @@ public sealed class LegacyWorldConverterTests
         Assert.Equal(60, headcountBefore);
         Assert.Equal(165, state.GetAvailableLabour(britain));
 
-        var resolution = TurnResolver.Resolve(
-            state,
-            TurnOrders.Empty(world.Countries.Count),
-            0);
+        // Britain's clothing factory, ordered far beyond what it can do. 165
+        // labour would buy 82 cycles at two labour each, so the factory's own
+        // capacity is what stops it at two — which is the point. On a shipped
+        // scenario labour is real on turn one without being the constraint that
+        // bites, exactly as a starting position should read.
+        var clothing = world.ProductionRecipes.Single(recipe =>
+            compiled.Catalog.GetKey(recipe.Id) == "recipe.clothing-from-fabric");
+        Assert.Equal(2, clothing.LabourCost);
+
+        var orders = new TurnOrders(world.Countries
+            .Select(country => country.Id == britain
+                ? new CountryTurnOrders(country.Id, [new ProductionOrder(clothing.Id, 1000)])
+                : new CountryTurnOrders(country.Id, []))
+            .ToArray());
+
+        var resolution = TurnResolver.Resolve(state, orders, 0);
+
+        var produced = resolution.Events.OfType<ProductionCompletedEvent>()
+            .Single(item => item.Country == britain);
+        Assert.Equal(2, produced.CompletedCycles);
+        Assert.Equal(4, produced.LabourUsed);
+        Assert.Equal(2 * produced.CompletedCycles, produced.LabourUsed);
 
         var fed = resolution.Events.OfType<WorkersFedEvent>().Single(item => item.Country == britain);
         Assert.Equal(headcountBefore, fed.WellFed + fed.Sick + fed.Starved);

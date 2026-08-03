@@ -660,6 +660,7 @@ public sealed class ExtractionTests
                     "Mill Grain",
                     new ProductionFacilityId(0),
                     1,
+                    2,
                     [new CommodityQuantity(new CommodityId(Grain), 2)],
                     [new CommodityQuantity(new CommodityId(Coal), 1)]),
             }

@@ -29,11 +29,11 @@ Every document starts with:
 ```json
 {
   "format": "imperialism-world",
-  "formatVersion": 8
+  "formatVersion": 9
 }
 ```
 
-Version 8 is the authored version. Migration is explicit and sequential:
+Version 9 is the authored version. Migration is explicit and sequential:
 version 1 resource palettes become version 2 commodities/resources, version 2
 packages gain empty version 3 production collections, version 3 packages gain a
 per-deposit `yieldPerTurn` plus a world-level `extraction` block, and version 4
@@ -51,7 +51,14 @@ no depots now gathers only around its capital and ports rather than anywhere its
 rail reaches. That is the correct model, but it is visible, so it is stated here
 and in the migration's own comment. Version 8 adds the workforce and what it
 eats, and likewise supplies neither: nothing in an older package says which of
-its commodities are food, so its workers simply never eat. Mixed-version schemas,
+its commodities are food, so its workers simply never eat. Version 9 prices each
+recipe's `labourCost`, and here a value *can* be derived — the recipe's total
+input units, which is the rate the manual gives for the one recipe it prices and
+the same number as two per unit of output for every recipe the original ships.
+That **changes behaviour** for any version 8 package that also defines feeding,
+whose production is now capped by its workforce; a package without feeding is
+unaffected, because labour does not bind where there is no workforce to invent.
+Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the
 valid `commodity/from-resource/...` form; `/` is part of the key grammar below.

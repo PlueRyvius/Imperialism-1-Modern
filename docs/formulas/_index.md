@@ -26,6 +26,7 @@ bottom of this file.
 | Mechanic | Confidence | Doc | Implemented in | Tests |
 |---|---|---|---|---|
 | Industrial recipes and capacity | `inferred` | [production](production.md) | Core, Content, LegacyImport | generated + local corpus |
+| Labour cost per production cycle | `inferred` | [production](production.md) | Core, Content, LegacyImport | generated + local corpus |
 | Resource extraction and catchment | `inferred` | [extraction](extraction.md) | Core, Content, LegacyImport | generated + local corpus |
 | Worker feeding and labour supply | `inferred` | [feeding](feeding.md) | Core, Content, LegacyImport | generated + local corpus |
 | Trade clearing price | `guess` | _trade-pricing_ | — | — |
@@ -40,6 +41,16 @@ bottom of this file.
 Industrial production is the first evidence-backed entry, but remains
 `inferred` until controlled original-behaviour traces verify the resolver's
 shortage and persistence semantics.
+
+Labour per production cycle was the blocking unknown and is now priced from the
+manual's tutorial, which costs one unit of clothing at two fabric and two
+labour. It is worth being precise about how far that goes: it prices *one*
+recipe, and it settles the rest only because every recipe the original ships
+consumes two input units per unit of output, which makes the competing readings
+of that sentence numerically identical. A recipe that broke 2:1 would separate
+them, and none exists yet — the railyard, when it lands, is the first candidate.
+`production.md` records the disassembly search that failed to find the rate, so
+the next attempt does not repeat it.
 
 Extraction carries its evidence at three different strengths at once, and its
 document tabulates them rather than averaging them: the development levels are
@@ -65,6 +76,11 @@ hold the formulas above:
 | `UTacPlayer.cpp` | tactical player | — | 1 |
 
 Query them with `python -m tools.alf.query func --name UCity`.
+
+**One documented dead end.** The labour rate was hunted here first and not
+found; `production.md` lists exactly what was searched, including why the
+obvious pattern for `untrained*1 + trained*2 + expert*4` finds nothing in this
+build. Read it before repeating that search.
 
 **Temper expectations.** Assert density correlates with UI code, not gameplay
 math — `UCityViews` has 73 anchors across 150 KB while `UCountryAuto` has

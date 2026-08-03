@@ -1276,20 +1276,32 @@ public static class LegacyWorldConverter
             CapacityMode = capacityMode,
         };
 
+    /// <summary>
+    /// Labour is not passed in because no original recipe needs it to be: the
+    /// manual prices clothing at two fabric and two labour, and every recipe the
+    /// original ships spends exactly two input units per unit of output, so the
+    /// input total reproduces that rate throughout. See
+    /// <c>docs/formulas/production.md</c>.
+    /// </summary>
     private static ProductionRecipeContentDefinition Recipe(
         string key,
         string name,
         string facility,
         IEnumerable<(string Commodity, long Quantity)> inputs,
-        IEnumerable<(string Commodity, long Quantity)> outputs) => new()
+        IEnumerable<(string Commodity, long Quantity)> outputs)
+    {
+        var inputArray = inputs.ToArray();
+        return new ProductionRecipeContentDefinition
         {
             Key = $"recipe.{key}",
             Name = name,
             Facility = $"facility.{facility}",
             CapacityCost = 1,
-            Inputs = inputs.Select(static item => Quantity(item.Commodity, item.Quantity)).ToArray(),
+            LabourCost = inputArray.Sum(static item => item.Quantity),
+            Inputs = inputArray.Select(static item => Quantity(item.Commodity, item.Quantity)).ToArray(),
             Outputs = outputs.Select(static item => Quantity(item.Commodity, item.Quantity)).ToArray(),
         };
+    }
 
     private static CommodityQuantityContent Quantity(string commodity, long quantity) => new()
     {

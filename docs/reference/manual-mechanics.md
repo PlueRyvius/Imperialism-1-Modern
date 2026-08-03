@@ -141,8 +141,18 @@ distinguish them.
 commodity and needs no labour to create; on the turn it is generated it adds
 directly to the labour pool and is spent before any human labour.
 
-Labour is required to produce — "without some labour you cannot produce fabric" —
-but the manual never states how much a production run costs.
+Labour is required to produce — "without some labour you cannot produce fabric".
+The manual never states a general rate, but the tutorial walk-through prices one
+recipe outright: ordering a unit of clothing "you expend two units of fabric and
+use (for this turn) two units of labour". Clothing is 2 fabric → 1 clothing, so
+that sentence reads equally as two labour per cycle, one per input unit, or two
+per unit of output — and since every recipe in the game is 2:1 by units, the
+three give identical answers everywhere they can be checked. See
+`../formulas/production.md` for what that does and does not establish.
+
+The labour total is one number on the screen border, drawn down by every
+production dialog, against per-facility capacity bars that do not interact:
+labour is pooled per country, capacity is not.
 
 **Food.** Every worker eats one unit per turn, and each enjoys only one type:
 

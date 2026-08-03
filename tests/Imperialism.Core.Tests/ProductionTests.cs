@@ -96,18 +96,29 @@ public sealed class ProductionTests
             "Output",
             new ProductionFacilityId(0),
             1,
+            2,
             inputs,
             [new CommodityQuantity(new CommodityId(1), 1)]);
 
         inputs[0] = new CommodityQuantity(new CommodityId(2), 9);
 
         Assert.Equal(new CommodityId(0), recipe.Inputs[0].Commodity);
+        Assert.Equal(2, recipe.LabourCost);
         Assert.Throws<ArgumentException>(() => new ProductionRecipeDefinition(
             new ProductionRecipeId(0),
             "Bad",
             new ProductionFacilityId(0),
             1,
+            2,
             [],
+            [new CommodityQuantity(new CommodityId(1), 1)]));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ProductionRecipeDefinition(
+            new ProductionRecipeId(0),
+            "Free labour",
+            new ProductionFacilityId(0),
+            1,
+            0,
+            [new CommodityQuantity(new CommodityId(0), 2)],
             [new CommodityQuantity(new CommodityId(1), 1)]));
         Assert.Throws<ArgumentException>(() => new CountryTurnOrders(
             new CountryId(0),
@@ -120,6 +131,7 @@ public sealed class ProductionTests
             "Bad default",
             new ProductionFacilityId(0),
             1,
+            2,
             [default(CommodityQuantity)],
             [new CommodityQuantity(new CommodityId(1), 1)]));
     }
@@ -187,6 +199,7 @@ public sealed class ProductionTests
             $"Recipe {id}",
             new ProductionFacilityId(facility),
             1,
+            inputQuantity,
             [new CommodityQuantity(new CommodityId(input), inputQuantity)],
             [new CommodityQuantity(new CommodityId(output), 1)]);
 }

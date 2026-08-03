@@ -53,6 +53,7 @@ public static class TurnResolver
                         entry.Order.RequestedCycles,
                         entry.CompletedCycles,
                         entry.CapacityUsed,
+                        entry.LabourUsed,
                         entry.Consumed,
                         entry.Produced));
                 }

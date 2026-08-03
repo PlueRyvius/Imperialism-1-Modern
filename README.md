@@ -102,7 +102,8 @@ transport graph and deterministic turn skeleton.
 - [x] Deterministic quarterly turn pipeline and immutable event log
 - [x] Content-defined commodity catalog, checked inventory, and deferred-delivery intents
 - [x] Content-defined facilities/recipes, shared capacity, staged output, and legacy economy import
-- [ ] Labour, transient power, worker feeding, capacity construction, and transport allocation
+- [x] Worker feeding, and labour priced per recipe and spent by production
+- [ ] Transient power, sickness's labour penalty, capacity construction, and transport allocation
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's
