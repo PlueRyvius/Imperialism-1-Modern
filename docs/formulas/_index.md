@@ -132,6 +132,12 @@ found; `production.md` lists exactly what was searched, including why the
 obvious pattern for `untrained*1 + trained*2 + expert*4` finds nothing in this
 build. Read it before repeating that search.
 
+**Prefer the decompiler for a formula.** `tools/alf/` answers "where" and
+"who calls this"; it is poor at "what does this compute", which is the question
+every entry above actually asks. `../disasm/ghidra.md` reports what a decompiled
+function here really looks like, and how far the assert-anchored module map gets
+you into it — it names 2,807 of Ghidra's 5,699 functions by original `.cpp`.
+
 **Temper expectations.** Assert density correlates with UI code, not gameplay
 math — `UCityViews` has 73 anchors across 150 KB while `UCountryAuto` has
 **one** across 13 KB. The aggregate "55.7% attributed" figure is carried by
