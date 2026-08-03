@@ -141,7 +141,6 @@ can support larger maps, richer metadata, Unicode names, and future migrations.
 | `docs/game-systems.md` | How the original's systems work — the spec we're building to |
 | `docs/file-formats.md` | On-disk layout of `.map`, `.scn`, `.inf` |
 | `docs/scenario-semantics.md` | What the fields *mean*, verified against real data |
-| `docs/derived-bytes.md` | Which cell bytes are computed from neighbours, and how well each rule fits |
 | `docs/formats-design-rules.md` | Rules governing the formats layer |
 | `docs/modern-content-format.md` | Versioned `.iworld` content and stable-key compilation |
 | `docs/legacy-importer.md` | Conservative `.map`/`.scn`/`.inf` to `.iworld` conversion and river codes |
@@ -161,11 +160,10 @@ src/Imperialism.Content/  Versioned modern world documents and compiler
 src/Imperialism.LegacyImport/ Conservative Phase 1 legacy converter
 src/Imperialism.Presentation/ Testable projection, picking, and viewer snapshots
 src/Imperialism.Client/   Godot 4.7.1 viewer (the solution's only Godot project)
-src/imperialism_format/   Independent Python structural reference
 tests/                    xUnit and pytest round-trip/structural suites
 fixtures/local_only/      gitignored — drop real .map/.scn here for local testing
 docs/                     format notes, systems spec, architecture, research
-tools/                    C#/Python inspectors, corpus checks, disassembly indexer
+tools/                    C# inspectors and the disassembly indexer (tools/alf)
 ```
 
 ## Authoring content for the original game
@@ -176,12 +174,11 @@ It generates a complete scenario from a keyword, edits one in a localhost web
 app, and checks it against the shipped corpus before you launch it — all
 targeting the real 1997 executable rather than this engine.
 
-Forge consumes this repository's `imperialism_format` package, so the parser
-stays in one place and remains the C# port's reference oracle:
-
-```
-pip install git+https://github.com/PlueRyvius/Imperialism-1-Modern.git
-```
+Forge owns the Python parser (`imperialism_format`) as of this repository
+shedding it. It had been kept here on the grounds that it doubled as the C#
+port's reference oracle, and the price was that map-editor work landed in the
+port's repository, CI and review surface. This project reads the original
+*executable*; reading its *data files* in Python is Forge's job.
 
 ## Running tests
 
@@ -191,26 +188,10 @@ python -m pytest
 dotnet test Imperialism.sln --configuration Release
 ```
 
-Inspect source files as stable JSON:
-
-```
-python tools/inspect_assets.py Scenario/s1.map Scenario/s1.scn Scenario/s1.inf
-```
-
-Audit the relationship between extensionless editor sources and binary
-scenarios (the numbers are not reliable pairings):
-
-```
-python tools/audit_scenario_corpus.py /path/to/Scenario
-```
-
-Compare the independent C# and Python interpretations. CI uses generated
-fixtures; the local corpus gate additionally covers your original files:
-
-```
-python tools/compare_format_oracles.py --generated
-python tools/compare_format_oracles.py --corpus /path/to/Scenario
-```
+The Python suite here is `tools/alf/` only. Asset inspection, corpus audits
+and the C#-versus-Python oracle comparison moved to Forge with the parser; the
+oracle comparison did not survive the move, and byte-exact round-trip on all
+thirty originals is what holds the C# parser to account now.
 
 Convert one legacy scenario triple into viewer-ready modern content:
 
