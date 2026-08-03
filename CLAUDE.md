@@ -15,7 +15,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | What are we building? (the original's rules) | `docs/game-systems.md` |
 | How are files laid out on disk? | `docs/file-formats.md` |
 | What do the fields *mean*? | `docs/scenario-semantics.md` |
-| Which cell bytes are computed, not authored? | `docs/derived-bytes.md` |
+| Which cell bytes are computed, not authored? | Forge's `docs/derived-bytes.md` |
 | How does legacy content become `.iworld`? | `docs/legacy-importer.md` |
 | How does the Godot map viewer work? | `docs/map-viewer.md` |
 | What fills the warehouse from the map? | `docs/formulas/extraction.md` |
@@ -132,42 +132,38 @@ recoverable from the corpus at all. See `docs/formulas/_index.md`.
 
 Phases 0 and 1 are complete. `src/Imperialism.Formats/` is the production .NET 8
 formats library for `.map`, binary/plaintext scenarios, and editable `.inf`
-files. The Python library (`src/imperialism_format/`) remains an independent
-structural reference. The extensionless plaintext filenames
-do not reliably pair with same-numbered `.scn` files; use
-`tools/audit_scenario_corpus.py` rather than assuming equality. The Python and
-C# suites cover generated fixtures and optional local corpus
-gates. `tools/alf/` indexes the original binary's disassembly and resolves a
-fault address to a place in it (`python -m tools.alf.crash`).
-`tools/compare_format_oracles.py` compares per-field,
-per-record, per-section, and preserved-byte hashes across both implementations.
+files, and it is now the only parser here. The extensionless plaintext filenames
+do not reliably pair with same-numbered `.scn` files; do not assume equality.
 
-Point `IMP_SCENARIO_DIR` at a game install's `Scenario` folder to run the Python
-tests against the originals without copying game data into the tree.
+**The Python in this repository is `tools/alf/` and nothing else.** It indexes
+the original binary's disassembly and resolves a fault address to a place in it
+(`python -m tools.alf.crash`). This project reads the original *executable*;
+reading its *data files* in Python is Forge's job now.
 
-**`s0` is the working scenario; `s1` is the reference.** `s0` gets edited and
-launched in the game to see whether it still loads, so it is never ground truth
-— `tests/originals.py` excludes it, along with any scenario carrying a `.bak`.
-Read `s1` when you need to know what an original looks like. Fitting a rule
-against edited data is how three "never fires on shipped data" tests were
-silently weakened once already.
+**The map and scenario parsers moved to Forge.** `imperialism_format`, its
+tests, the corpus audit tools and `docs/derived-bytes.md` live in
+[Imperialism-1-Forge](https://github.com/PlueRyvius/Imperialism-1-Forge). It had
+been kept here on the grounds that it doubled as the C# port's reference oracle,
+and the price was that map-editor work landed in this repository. `s0`/`s1`
+conventions, `IMP_SCENARIO_DIR` and the `.bak` exclusion rule all moved with it.
+
+That cost something worth naming: `tools/compare_format_oracles.py` compared
+per-field, per-record, per-section and preserved-byte hashes across the two
+implementations, and it cannot live in either repository alone. What still holds
+the C# parser to account is byte-exact round-trip on all thirty originals.
 
 **The legacy map grid is odd-r offset and wraps east-west.** Bit 0 of every
-direction mask is NE, proceeding clockwise. This was measured, not assumed — see
-`docs/derived-bytes.md`. `src/imperialism_format/derive.py` is the one place
-that encodes it. Note this describes the 1997 files: `Imperialism.Core`'s own
-hex grid does not wrap.
+direction mask is NE, proceeding clockwise. This was measured, not assumed —
+Forge's `docs/derived-bytes.md` has the evidence and its `derive.py` is the one
+place that encodes it. Note this describes the 1997 files: `Imperialism.Core`'s
+own hex grid does not wrap.
 
-**Scenario authoring lives in a separate project.** The world generator, the web
-map editor and `preflight.py` are in
-[Imperialism-1-Forge](https://github.com/PlueRyvius/Imperialism-1-Forge), which
-consumes this repository's `imperialism_format` package. They exist to author
-content for the real 1997 executable, not for this engine, and keeping them out
-stops that goal drifting into the port's scope.
+**Scenario authoring lives in that separate project too.** The world generator,
+the web map editor and `preflight.py` exist to author content for the real 1997
+executable, not for this engine, and keeping them out stops that goal drifting
+into the port's scope.
 
-Python is a **structural reference**, not an infallible oracle. A Python/C#
-disagreement triggers byte-level and evidence-based triage; neither side wins
-by definition. Godot and the versioned modern large-map package were delivered
+Godot and the versioned modern large-map package were delivered
 in Phase 1.
 
 `src/Imperialism.Core/` is the headless modern domain. It owns typed IDs,

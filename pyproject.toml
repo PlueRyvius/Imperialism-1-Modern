@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "imperialism-format"
+name = "imperialism-disasm"
 version = "0.1.0"
-description = "Clean-room tools for Imperialism map and scenario formats"
+description = "Disassembly indexing and crash resolution for the original Imperialism binary"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
@@ -13,10 +13,14 @@ license = {file = "LICENSE"}
 [project.optional-dependencies]
 test = ["pytest>=8,<10"]
 
+# The Python here is `tools/alf/` and nothing else. The map and scenario parsers
+# moved to Imperialism-1-Forge, which is the only project that needs them at
+# runtime; this one reads the original binary, not its data files.
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
+include = ["tools*"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
-pythonpath = ["src"]
+pythonpath = ["."]
 testpaths = ["tests"]

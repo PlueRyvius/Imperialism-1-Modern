@@ -13,7 +13,7 @@ verified ourselves in `tests/`.
   dimensions at import time; `MapFile` carries those dimensions thereafter,
   so new content is not restricted to 108 x 60.
 - Each cell is a fixed 36-byte record — see `HexCell` in
-  `src/imperialism_format/map_file.py` for the full field layout
+  Forge's `src/imperialism_format/map_file.py` for the full field layout
   (terrain type, resources, province/country ownership, rail, rivers,
   border/coastline overlays, town/capital markers).
 - After the cell grid comes a **province table**: 384 records of 198 bytes
@@ -77,7 +77,7 @@ place.
 - A flat sequence of tagged variable-length records: a 4-byte ASCII tag,
   then a fixed number of big-endian 4-byte integer fields (the count
   depends on the tag — see `TAG_FIELD_COUNTS` in
-  `src/imperialism_format/scn_file.py`), then for three tags
+  Forge's `src/imperialism_format/scn_file.py`), then for three tags
   (`cnam`, `pnam`, `zone`) a trailing 64-byte null-padded name string.
 - The file ends with a bare `TERM` tag and has no length prefix or
   checksum.

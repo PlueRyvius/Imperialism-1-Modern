@@ -3,7 +3,7 @@
 What the `.map` and `.scn` *fields mean*, as distinct from how they're laid
 out on disk (that's `file-formats.md`). Everything here was established
 empirically against the ten original scenarios and is reproducible with
-`tools/inspect_assets.py`.
+Forge's `tools/inspect_assets.py`.
 
 Claims are marked **verified** (checked against real data, stated with the
 check) or **inferred** (consistent with the data but not proven).
@@ -287,7 +287,7 @@ Three consequences:
    but binary equality is not: the source/binary pairing is uncertain.
 2. It is the natural **human-editable format for our own scenario editor**;
    we should adopt it rather than invent one.
-3. Run `tools/audit_scenario_corpus.py` after parser changes to compare every
+3. Run Forge's `tools/audit_scenario_corpus.py` after parser changes to compare every
    source with every binary without committing or printing source records.
 
 ### It is a genuine arity oracle, with three gaps
