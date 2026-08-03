@@ -323,6 +323,24 @@ public sealed class LegacyWorldConverterTests
         Assert.Equal(expected, actual);
         Assert.All(result.Document.ProductionRecipes, static recipe => Assert.Equal(1, recipe.CapacityCost));
 
+        // The manual's build ladders, and one lumber plus one steel per point.
+        // Mills start at 2 and factories at 1, which is also exactly what the
+        // skirmish scenarios give every power.
+        var byKey = result.Document.ProductionFacilities.ToDictionary(
+            static facility => facility.Key, StringComparer.Ordinal);
+        Assert.Equal([2, 4, 8, 16, 24], byKey["facility.textile-mill"].CapacityLadder!.Rungs);
+        Assert.Equal(8, byKey["facility.textile-mill"].CapacityLadder!.Increment);
+        Assert.Equal([1, 2, 4, 8, 12], byKey["facility.clothing-factory"].CapacityLadder!.Rungs);
+        Assert.Equal(4, byKey["facility.clothing-factory"].CapacityLadder!.Increment);
+
+        // Food processing is uncapped, so it can never be built larger.
+        Assert.Null(byKey["facility.food-processing"].CapacityLadder);
+
+        Assert.Equal(
+            [("commodity.lumber", 1L), ("commodity.steel", 1L)],
+            result.Document.ExpansionCostPerCapacityPoint
+                .Select(static item => (item.Commodity, item.Quantity)));
+
         // The manual prices one recipe outright — a unit of clothing costs two
         // fabric and two labour — and every recipe above spends exactly two
         // input units per unit of output, so that one quote fixes them all.

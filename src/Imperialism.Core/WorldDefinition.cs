@@ -18,7 +18,8 @@ public sealed class WorldDefinition
         ExtractionSettings? extraction = null,
         IEnumerable<TechnologyDefinition>? technologies = null,
         FeedingSettings? feeding = null,
-        StartingDefaults? startingDefaults = null)
+        StartingDefaults? startingDefaults = null,
+        IEnumerable<CommodityQuantity>? expansionCostPerCapacityPoint = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
@@ -354,6 +355,7 @@ public sealed class WorldDefinition
         Extraction = extractionSettings;
         Feeding = feeding;
         StartingDefaults = startingDefaults;
+        ExpansionCostPerCapacityPoint = Array.AsReadOnly(expansionCostPerCapacityPoint?.ToArray() ?? []);
         _technologies = Array.AsReadOnly(technologyArray);
         _countries = Array.AsReadOnly(countryArray);
         _commodities = Array.AsReadOnly(commodityArray);
@@ -386,6 +388,13 @@ public sealed class WorldDefinition
     /// <see cref="ScenarioDefinition.DefaultStartCountries"/>.
     /// </summary>
     public StartingDefaults? StartingDefaults { get; }
+
+    /// <summary>
+    /// What one point of production capacity costs to build. The manual is
+    /// exact: one lumber and one steel per point, and expansion needs no
+    /// labour. Empty means facilities cannot be expanded at all.
+    /// </summary>
+    public IReadOnlyList<CommodityQuantity> ExpansionCostPerCapacityPoint { get; }
 
     /// <summary>
     /// A port stands on land. Verified against every <c>port</c> record in the

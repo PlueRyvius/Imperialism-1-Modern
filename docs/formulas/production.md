@@ -83,6 +83,34 @@ Naming a country whose world defines no `startingDefaults` is a content error
 rather than a silent zero: the scenario is asking for something the package
 cannot give it.
 
+### Building a facility larger
+
+The manual is exact and nothing here is invented:
+
+| | |
+|---|---|
+| Mills | 2 → 4 → 8 → 16 → 24, then **+8** |
+| Factories | 1 → 2 → 4 → 8 → 12, then **+4** |
+| Cost | **1 lumber + 1 steel per point of capacity** |
+| Labour | **none** — "Expansion requires no labour" |
+| Timing | ordered now, working next turn |
+
+An expansion order names only the facility. The manual gives no way to skip a
+rung or pick a target, so the next size is the smallest rung strictly above
+where the facility is now — which is also what advances the fifty-three
+off-ladder scenario values without special-casing them.
+
+**"Completes next turn" needs no pending state.** `Construction` runs after
+`Production` in the pipeline, so this turn's output was already decided against
+the old size and a facility built now first produces larger next turn. What is
+*not* modelled is the scaffolding the original draws on the dialog while the
+work is under way — presentation, with no mechanical effect.
+
+Expansion is planned against what production has already committed to spending,
+so a turn cannot pay for the same lumber twice, and the two are preflighted
+together. An expansion that cannot be afforded does nothing at all: nothing is
+part-built and nothing is spent.
+
 The original recipes represented by the legacy importer are:
 
 - 2 cotton or 2 wool → 1 fabric;

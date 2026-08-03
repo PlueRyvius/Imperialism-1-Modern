@@ -5,12 +5,51 @@ public enum TurnPhase : byte
     Diplomacy,
     Trade,
     Production,
+    Construction,
     Conflict,
     TradeCancellation,
     Extraction,
     Feeding,
     Delivery,
     Connectivity,
+}
+
+/// <summary>Records one facility built a rung larger.</summary>
+public sealed record FacilityExpandedEvent : TurnEvent
+{
+    private readonly IReadOnlyList<CommodityQuantity> _paid;
+
+    public FacilityExpandedEvent(
+        int turnNumber,
+        CountryId country,
+        ProductionFacilityId facility,
+        long fromCapacity,
+        long toCapacity,
+        IEnumerable<CommodityQuantity> paid)
+        : base(turnNumber, TurnPhase.Construction)
+    {
+        if (toCapacity <= fromCapacity)
+        {
+            throw new ArgumentOutOfRangeException(nameof(toCapacity));
+        }
+
+        Country = country;
+        Facility = facility;
+        FromCapacity = fromCapacity;
+        ToCapacity = toCapacity;
+        _paid = Array.AsReadOnly(paid.ToArray());
+    }
+
+    public CountryId Country { get; }
+
+    public ProductionFacilityId Facility { get; }
+
+    public long FromCapacity { get; }
+
+    public long ToCapacity { get; }
+
+    /// <summary>What the build cost, at one lumber and one steel per point.</summary>
+    public IReadOnlyList<CommodityQuantity> Paid => _paid;
 }
 
 /// <summary>A presentation-facing fact emitted while resolving a turn.</summary>

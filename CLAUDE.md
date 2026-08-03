@@ -190,7 +190,7 @@ see `docs/map-viewer.md`.
 
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an
-inert dense order bundle, unrestricted quarterly `TurnDate`, fixed nine-phase
+inert dense order bundle, unrestricted quarterly `TurnDate`, fixed ten-phase
 `TurnResolver`, and immutable event log. `.iworld` defines stable
 commodities, facilities, recipes, and sparse scenario capacity, with explicit
 v1→v2→v3 migration. Core stores checked dense Available inventory and
@@ -215,9 +215,15 @@ cannot tell them apart, and applying them everywhere would arm every statelet on
 the map. An explicit record still beats the default, which is what lets a
 mission and a skirmish share one mechanism.
 
-Transient power, capacity construction, research, conflict, trade markets,
-diplomacy, sea routes between ports, blockade, and the transport capacity pool
-remain explicitly pending.
+`.iworld` v11 lets industry grow: a per-facility `capacityLadder` and a
+world-level cost per point. **The ladder validates building, never storing** —
+53 shipped `capa` records sit off it and the importer must keep taking them. A
+new `Construction` phase runs after `Production`, which is the whole of how
+"completes next turn" is modelled.
+
+Transient power, research, conflict, trade markets, diplomacy, sea routes
+between ports, blockade, and the transport capacity pool remain explicitly
+pending.
 
 **Production spends labour.** Each recipe costs its total input units, from one
 pool per country shared across every facility. The manual prices exactly one

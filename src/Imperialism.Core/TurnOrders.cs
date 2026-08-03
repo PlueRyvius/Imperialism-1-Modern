@@ -7,8 +7,12 @@ namespace Imperialism.Core;
 public sealed class CountryTurnOrders
 {
     private readonly IReadOnlyList<ProductionOrder> _production;
+    private readonly IReadOnlyList<ProductionExpansionOrder> _expansions;
 
-    public CountryTurnOrders(CountryId country, IEnumerable<ProductionOrder>? production = null)
+    public CountryTurnOrders(
+        CountryId country,
+        IEnumerable<ProductionOrder>? production = null,
+        IEnumerable<ProductionExpansionOrder>? expansions = null)
     {
         var productionArray = production?.ToArray() ?? [];
         if (productionArray.Any(static item => item.RequestedCycles <= 0))
@@ -21,15 +25,32 @@ public sealed class CountryTurnOrders
             throw new ArgumentException("Production orders cannot repeat a recipe.", nameof(production));
         }
 
+        var expansionArray = expansions?.ToArray() ?? [];
+        if (expansionArray.Select(static item => item.Facility).Distinct().Count() != expansionArray.Length)
+        {
+            throw new ArgumentException(
+                "A facility cannot be expanded twice in one turn.", nameof(expansions));
+        }
+
         Country = country;
         _production = Array.AsReadOnly(productionArray);
+        _expansions = Array.AsReadOnly(expansionArray);
     }
 
     public CountryId Country { get; }
 
     /// <summary>Production requests in explicit allocation-priority order.</summary>
     public IReadOnlyList<ProductionOrder> Production => _production;
+
+    /// <summary>Facilities to build one rung larger this turn.</summary>
+    public IReadOnlyList<ProductionExpansionOrder> Expansions => _expansions;
 }
+
+/// <summary>
+/// A request to build one facility up to its next size. The manual gives no way
+/// to skip a rung or to choose a target, so the order carries only the facility.
+/// </summary>
+public readonly record struct ProductionExpansionOrder(ProductionFacilityId Facility);
 
 public readonly record struct ProductionOrder
 {

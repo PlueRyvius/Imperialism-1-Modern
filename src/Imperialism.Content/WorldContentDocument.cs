@@ -30,6 +30,12 @@ public sealed class WorldContentDocument
     /// <summary>The fair start a skirmish runs on. See <c>StartingDefaultsContent</c>.</summary>
     public StartingDefaultsContent? StartingDefaults { get; set; }
 
+    /// <summary>
+    /// What one point of production capacity costs to build — one lumber and one
+    /// steel in the original. Empty means facilities cannot be expanded.
+    /// </summary>
+    public CommodityQuantityContent[] ExpansionCostPerCapacityPoint { get; set; } = [];
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string[]? ResourceKeys { get; set; }
 
@@ -217,6 +223,23 @@ public sealed class ProductionFacilityContentDefinition
     public string Name { get; set; } = string.Empty;
 
     public ProductionCapacityMode CapacityMode { get; set; }
+
+    /// <summary>
+    /// The sizes this facility may be built to. Absent means it cannot be
+    /// expanded; an uncapped facility must not carry one.
+    /// </summary>
+    public CapacityLadderContent? CapacityLadder { get; set; }
+}
+
+/// <summary>
+/// From the manual: mills improve 2, 4, 8, 16, 24 and then by eight; factories
+/// 1, 2, 4, 8, 12 and then by four.
+/// </summary>
+public sealed class CapacityLadderContent
+{
+    public long[] Rungs { get; set; } = [];
+
+    public long Increment { get; set; }
 }
 
 public sealed class ProductionRecipeContentDefinition
