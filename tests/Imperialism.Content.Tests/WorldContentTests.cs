@@ -860,6 +860,7 @@ public sealed class WorldContentTests
         Assert.All(
             package.ScenarioKeys,
             key => Assert.Equal(1, package.GetWorld(key).Extraction.CatchmentRadius));
+        Assert.NotEmpty(document.Resources);
         Assert.All(
             document.Resources,
             static resource => Assert.NotEmpty(resource.YieldByDevelopmentLevel));

@@ -30,7 +30,14 @@ from __future__ import annotations
 import glob
 import os
 
+import pytest
+
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "..", "fixtures", "local_only")
+
+#: How many scenarios a full install yields once the exclusions are applied:
+#: ten shipped, minus `s0` and `s5`, plus `s1` from the fixture directory when
+#: it has not itself been edited.
+CORPUS_SIZE = 9
 
 
 def roots() -> list[str]:
@@ -94,3 +101,49 @@ def infs() -> list[str]:
     return sorted({p for root in roots()
                    for p in glob.glob(os.path.join(root, "*.inf"))
                    if not _edited(p)})
+
+
+def _require(found: list, what: str) -> list:
+    """The corpus, or a visible skip — never an empty list.
+
+    `for path in maps():` over an empty list passes green having checked
+    nothing, and that is the state CI actually runs in: `IMP_SCENARIO_DIR` is
+    unset there, and the one file in `fixtures/local_only` excludes itself the
+    moment a `.bak` appears beside it. Eleven tests holding rules to
+    "exact on every shipped map" were reporting success without opening a map.
+
+    A skip says so out loud. Use `require_*` for anything whose whole claim is
+    about real data; plain `maps()` is still right where an empty corpus is a
+    legitimate answer.
+    """
+    # Setting the variable is a declaration that the full corpus is there, so a
+    # short one is a broken setup rather than a reason to test less — checked
+    # before the skip, so pointing it at the wrong folder fails instead of
+    # quietly testing nothing. The fixture directory alone is not held to that:
+    # it is documented as holding `s1` and nothing else.
+    if os.environ.get("IMP_SCENARIO_DIR") and len(found) < CORPUS_SIZE:
+        raise AssertionError(
+            f"IMP_SCENARIO_DIR is set but only {len(found)} unedited {what} "
+            f"were found, expected {CORPUS_SIZE}. A .bak beside a scenario "
+            f"excludes the whole scenario. See this module's docstring."
+        )
+
+    if not found:
+        pytest.skip(
+            f"no unedited {what} available. Set IMP_SCENARIO_DIR to a game "
+            f"install's Scenario folder, or put one in fixtures/local_only"
+        )
+
+    return found
+
+
+def require_maps() -> list[str]:
+    return _require(maps(), "*.map files")
+
+
+def require_scenarios() -> list[tuple[str, str]]:
+    return _require(scenarios(), "(map, scn) pairs")
+
+
+def require_infs() -> list[str]:
+    return _require(infs(), "*.inf files")
