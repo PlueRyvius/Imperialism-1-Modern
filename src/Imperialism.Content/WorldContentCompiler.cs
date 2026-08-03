@@ -116,6 +116,7 @@ public static class WorldContentCompiler
         }).ToArray();
         var extraction = CompileExtractionSettings(document.Extraction, commodityIds);
         var feeding = CompileFeedingSettings(document.Feeding, commodityIds);
+        var startingDefaults = CompileStartingDefaults(document.StartingDefaults, facilityIds);
         var facilities = facilityContent.Select((definition, index) =>
             new ProductionFacilityDefinition(
                 new ProductionFacilityId(index),
@@ -211,7 +212,8 @@ public static class WorldContentCompiler
                     extraction,
                     technologies,
                     technologyIds,
-                    feeding));
+                    feeding,
+                    startingDefaults));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -233,7 +235,8 @@ public static class WorldContentCompiler
         ExtractionSettings extraction,
         TechnologyDefinition[] technologies,
         IReadOnlyDictionary<string, int> technologyIds,
-        FeedingSettings? feeding)
+        FeedingSettings? feeding,
+        StartingDefaults? startingDefaults)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -279,6 +282,29 @@ public static class WorldContentCompiler
             technologyIds,
             path);
 
+        var defaultStartCountries = new List<CountryId>();
+        var defaultStartSeen = new HashSet<string>(StringComparer.Ordinal);
+        var defaultStartContent = RequireArray(
+            scenarioContent.DefaultStartCountries, $"{path}.defaultStartCountries");
+        for (var index = 0; index < defaultStartContent.Length; index++) 
+        {
+            var entryPath = $"{path}.defaultStartCountries[{index}]";
+            var key = defaultStartContent[index];
+            if (!defaultStartSeen.Add(key ?? string.Empty))
+            {
+                throw Error(entryPath, "Country appears more than once.");
+            }
+
+            defaultStartCountries.Add(new CountryId(FindKey(countryIds, key, entryPath)));
+        }
+
+        if (defaultStartCountries.Count > 0 && startingDefaults is null)
+        {
+            throw Error(
+                $"{path}.defaultStartCountries",
+                "The world defines no startingDefaults for these countries to start from.");
+        }
+
         if (string.IsNullOrWhiteSpace(scenarioContent.Name))
         {
             throw Error($"{path}.name", "Value cannot be blank.");
@@ -298,7 +324,8 @@ public static class WorldContentCompiler
                 countryTechnologies,
                 ports,
                 depots,
-                workers);
+                workers,
+                defaultStartCountries);
             return new WorldDefinition(
                 map,
                 countries,
@@ -308,7 +335,8 @@ public static class WorldContentCompiler
                 recipes,
                 extraction,
                 technologies,
-                feeding);
+                feeding,
+                startingDefaults);
         }
         catch (ArgumentException exception)
         {
@@ -413,6 +441,55 @@ public static class WorldContentCompiler
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// The fair start a skirmish runs on. Absent means the world has no
+    /// defaults, which is how every package before version 10 behaves.
+    /// </summary>
+    private static StartingDefaults? CompileStartingDefaults(
+        StartingDefaultsContent? content,
+        IReadOnlyDictionary<string, int> facilityIds)
+    {
+        if (content is null)
+        {
+            return null;
+        }
+
+        var capacities = new List<FacilityCapacityDefault>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var entries = RequireArray(content.ProductionCapacities, "startingDefaults.productionCapacities");
+        for (var index = 0; index < entries.Length; index++)
+        {
+            var path = $"startingDefaults.productionCapacities[{index}]";
+            var entry = entries[index] ?? throw Error(path, "Value is required.");
+            if (!seen.Add(entry.Facility ?? string.Empty))
+            {
+                throw Error($"{path}.facility", "Facility appears more than once.");
+            }
+
+            if (entry.Quantity <= 0)
+            {
+                throw Error($"{path}.quantity", "A default production capacity must be positive.");
+            }
+
+            capacities.Add(new FacilityCapacityDefault(
+                new ProductionFacilityId(FindKey(facilityIds, entry.Facility, $"{path}.facility")),
+                entry.Quantity));
+        }
+
+        WorkforceDefault? workforce = null;
+        if (content.Workforce is { } crew)
+        {
+            if (crew.Untrained < 0 || crew.Trained < 0 || crew.Expert < 0)
+            {
+                throw Error("startingDefaults.workforce", "Worker counts cannot be negative.");
+            }
+
+            workforce = new WorkforceDefault(crew.Untrained, crew.Trained, crew.Expert);
+        }
+
+        return new StartingDefaults(capacities, workforce);
     }
 
     private static FeedingSettings? CompileFeedingSettings(

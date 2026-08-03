@@ -60,6 +60,29 @@ A fair start needs no exception: `s10`, `s11` and `s15` give every power mills a
 **2** and factories at **1**, which is precisely the ladder's first rung and
 exactly what the manual says a newly built one costs.
 
+### How a fair start is expressed
+
+`.iworld` v10 carries a world-level `startingDefaults` block — capacity per
+facility, plus a workforce — and a scenario names the countries that begin from
+it in `defaultStartCountries`. That mirrors the original, where a skirmish
+scenario carries no `capa` or `labo` records at all and every power still starts
+equipped because the engine supplies the values.
+
+Two decisions worth keeping:
+
+- **Defaults are applied to named countries, not to everyone.** The original
+  equips its seven Great Powers and leaves the minor nations with no industry
+  screen at all, and `Imperialism.Core` has no notion of which a country is.
+  Applying defaults everywhere would hand a workforce to every statelet on the
+  map, and would change what an imported mission means.
+- **An explicit record still wins.** A mission can start from the fair values
+  and differ where it means to, which is what lets both kinds of scenario share
+  one mechanism instead of needing two.
+
+Naming a country whose world defines no `startingDefaults` is a content error
+rather than a silent zero: the scenario is asking for something the package
+cannot give it.
+
 The original recipes represented by the legacy importer are:
 
 - 2 cotton or 2 wool → 1 fabric;

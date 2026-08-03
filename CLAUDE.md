@@ -208,6 +208,13 @@ worker eats one unit a turn on the grain / fruit / grain / meat cycle, canned
 food substitutes without illness, the wrong food means sick and no labour, and
 nothing at all means permanent loss. `.iworld` v9 prices each recipe's
 `labourCost`, deriving it for older packages as the recipe's input total.
+`.iworld` v10 adds the fair start: a world-level `startingDefaults` block and a
+scenario-level `defaultStartCountries` list. **Defaults apply to named countries
+only** — the original equips its Great Powers and not its minor nations, Core
+cannot tell them apart, and applying them everywhere would arm every statelet on
+the map. An explicit record still beats the default, which is what lets a
+mission and a skirmish share one mechanism.
+
 Transient power, capacity construction, research, conflict, trade markets,
 diplomacy, sea routes between ports, blockade, and the transport capacity pool
 remain explicitly pending.

@@ -51,6 +51,11 @@ internal static class WorldContentMigrator
             MigrateVersionEightToNine(document);
         }
 
+        if (document.FormatVersion == 9)
+        {
+            MigrateVersionNineToTen(document);
+        }
+
         return document;
     }
 
@@ -377,6 +382,36 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 9;
+    }
+
+    /// <summary>
+    /// Version 10 adds the fair start a skirmish runs on: what a power begins
+    /// with when the scenario says nothing. A version 9 package has no such
+    /// block and none can be invented for it — the baseline is a property of
+    /// the original's rules, not of an arbitrary world — so it migrates to a
+    /// world with no defaults and no country claiming them, which is exactly
+    /// how it behaved before.
+    /// </summary>
+    private static void MigrateVersionNineToTen(WorldContentDocument document)
+    {
+        if (document.StartingDefaults is not null)
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 9 cannot contain version 10 starting defaults.");
+        }
+
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.DefaultStartCountries is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 9 cannot contain version 10 default-start countries.");
+            }
+        }
+
+        document.FormatVersion = 10;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

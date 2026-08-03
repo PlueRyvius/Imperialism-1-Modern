@@ -27,6 +27,9 @@ public sealed class WorldContentDocument
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public FeedingContentSettings? Feeding { get; set; }
 
+    /// <summary>The fair start a skirmish runs on. See <c>StartingDefaultsContent</c>.</summary>
+    public StartingDefaultsContent? StartingDefaults { get; set; }
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string[]? ResourceKeys { get; set; }
 
@@ -86,6 +89,37 @@ public sealed class ScenarioContentDocument
     public WorkforceContent[] Workers { get; set; } = [];
 
     public CountryTechnologyContent[] CountryTechnologies { get; set; } = [];
+
+    /// <summary>
+    /// Country keys that begin from the world's <c>startingDefaults</c>. Named
+    /// rather than inferred: the original equips its Great Powers and not the
+    /// minor nations, and nothing here says which a country is.
+    /// </summary>
+    public string[] DefaultStartCountries { get; set; } = [];
+}
+
+/// <summary>What a listed power starts with when the scenario is silent.</summary>
+public sealed class StartingDefaultsContent
+{
+    public FacilityCapacityDefaultContent[] ProductionCapacities { get; set; } = [];
+
+    public WorkforceDefaultContent? Workforce { get; set; }
+}
+
+public sealed class FacilityCapacityDefaultContent
+{
+    public string Facility { get; set; } = string.Empty;
+
+    public long Quantity { get; set; }
+}
+
+public sealed class WorkforceDefaultContent
+{
+    public long Untrained { get; set; }
+
+    public long Trained { get; set; }
+
+    public long Expert { get; set; }
 }
 
 public sealed class CellDevelopmentContent
