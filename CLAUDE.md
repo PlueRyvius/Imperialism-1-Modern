@@ -161,14 +161,22 @@ and the capital fish their adjacent water; unreachable output is reported as
 stranded rather than dropped. `.iworld` v8 adds the workforce and feeding: every
 worker eats one unit a turn on the grain / fruit / grain / meat cycle, canned
 food substitutes without illness, the wrong food means sick and no labour, and
-nothing at all means permanent loss. Transient power, capacity construction,
-research, conflict, trade markets, diplomacy, sea routes between ports,
-blockade, and the transport capacity pool remain explicitly pending.
+nothing at all means permanent loss. `.iworld` v9 prices each recipe's
+`labourCost`, deriving it for older packages as the recipe's input total.
+Transient power, capacity construction, research, conflict, trade markets,
+diplomacy, sea routes between ports, blockade, and the transport capacity pool
+remain explicitly pending.
 
-**Labour is computed but nothing spends it.** The manual says production needs
-labour and never says how much per cycle, so `GetAvailableLabour` exists and
-`ProductionPlanner` ignores it rather than pricing it by guesswork. Sickness is
-therefore real state with no effect on output yet.
+**Production spends labour; sickness still costs nothing.** Each recipe costs
+its total input units in labour, from one pool per country shared across every
+facility. The manual prices exactly one recipe — a unit of clothing costs two
+fabric and two labour — and settles the rest only because every shipped recipe
+consumes two input units per unit of output, which collapses the competing
+readings of that sentence into the same number. A recipe that broke 2:1 would
+separate them; the railyard will be the first. Starvation therefore has teeth,
+because a smaller workforce supplies less labour next turn. Sickness does not,
+because feeding never learns which *grade* ate badly and deciding that would be
+an invention. Read `docs/formulas/production.md` before changing the rate.
 
 **The game manual is in `docs/reference/` and it is authoritative for numbers.**
 It carries a Resource Development Table giving every deposit's yield at each of

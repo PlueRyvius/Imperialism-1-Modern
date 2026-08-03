@@ -5,6 +5,7 @@ internal sealed record PlannedProduction(
     ProductionOrder Order,
     long CompletedCycles,
     long CapacityUsed,
+    long LabourUsed,
     IReadOnlyList<CommodityQuantity> Consumed,
     IReadOnlyList<CommodityQuantity> Produced);
 
@@ -40,6 +41,15 @@ internal static class ProductionPlanner
                     : state.GetProductionCapacity(country, facility.Id)!.Value)
                 .ToArray();
 
+            // One pool for the whole country, spent in the order the requests
+            // arrive, exactly like facility capacity but shared across every
+            // facility. A world that defines no feeding has no workforce to
+            // draw on and no way to invent one, so labour does not bind there
+            // at all — that is what it did before labour was priced.
+            var remainingLabour = definition.Feeding is null
+                ? long.MaxValue
+                : state.GetAvailableLabour(country);
+
             foreach (var order in orders[country].Production)
             {
                 if ((uint)order.Recipe.Value >= (uint)definition.ProductionRecipes.Count)
@@ -57,6 +67,8 @@ internal static class ProductionPlanner
                     completed = Math.Min(completed, remainingCapacity[recipe.Facility.Value] / recipe.CapacityCost);
                 }
 
+                completed = Math.Min(completed, remainingLabour / recipe.LabourCost);
+
                 foreach (var input in recipe.Inputs)
                 {
                     var offset = checked((countryValue * commodityCount) + input.Commodity.Value);
@@ -67,6 +79,12 @@ internal static class ProductionPlanner
                 if (facility.CapacityMode == ProductionCapacityMode.Limited)
                 {
                     remainingCapacity[recipe.Facility.Value] -= capacityUsed;
+                }
+
+                var labourUsed = checked(completed * recipe.LabourCost);
+                if (remainingLabour != long.MaxValue)
+                {
+                    remainingLabour -= labourUsed;
                 }
 
                 var consumed = Scale(recipe.Inputs, completed);
@@ -91,6 +109,7 @@ internal static class ProductionPlanner
                     order,
                     completed,
                     capacityUsed,
+                    labourUsed,
                     consumed,
                     produced));
             }

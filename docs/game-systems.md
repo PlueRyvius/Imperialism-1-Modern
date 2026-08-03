@@ -44,9 +44,9 @@ simultaneously will produce visibly different games.
 phase pipeline over dense country-id-ordered submissions and emits an immutable
 phase event log. Strategic time is an explicit year and quarter with no legacy
 date cap. Rail-connectivity materialization, evidence-backed industrial
-production, and map extraction now have system behavior; conflict, trade,
-diplomacy, and labour remain deliberately unimplemented rather than filled with
-guessed rules. Extraction and Feeding are phases of our own between step 5 and
+production, and map extraction now have system behavior; conflict, trade and
+diplomacy remain deliberately unimplemented rather than filled with guessed
+rules. Extraction and Feeding are phases of our own between step 5 and
 step 6: the original folds gathering into transport, but separating them keeps
 the harvest readable in the event log and lets it observe post-conflict
 ownership. Feeding sits between the two because workers eat food transported
@@ -73,9 +73,11 @@ and oil 0/2/4/6, gold and gems 0/1/2/3, and fish and horses have no improvement
 at all. Ports collect one fish per adjacent coast or river tile. Workers now eat: the
 grain / fruit / grain / meat cycle, canned food as the substitute, sickness for
 the wrong food and permanent loss for none at all, with the labour pool computed
-at 1/2/4 per grade. Prices, power, capacity construction, sea routes, the
-transport capacity pool, research, and **labour consumption by production**
-remain pending — see `formulas/extraction.md`, `formulas/feeding.md` and
+at 1/2/4 per grade. **Production now spends that pool**, each recipe costing its
+total input units, so a starved workforce produces less next turn. Prices,
+power, capacity construction, sea routes, the transport capacity pool, research,
+and the labour penalty for **sickness** remain pending — see
+`formulas/production.md`, `formulas/extraction.md`, `formulas/feeding.md` and
 `reference/manual-mechanics.md`.
 
 **Commodity tiers.** 13 raw resources (grain, livestock, fruit, fish, cotton,
@@ -93,6 +95,12 @@ costs 1 lumber + 1 steel. Food processing and the railyard are uncapped.
 **Labour.** Workers are untrained/trained/expert, contributing 1/2/4 labour
 per turn. Experts are consumed permanently to create civilian units;
 regiments consume workers permanently too, while ships consume none.
+
+Production draws on one pool per country, shared across every facility, in the
+order requests arrive — unlike capacity, which is per facility. The manual
+prices one recipe (a unit of clothing costs two fabric and two labour) and the
+uniform 2:1 conversion above carries that rate to the whole set; see
+`formulas/production.md`.
 
 **Food is per-worker and unforgiving.** Workers cycle through preferences in
 groups of four (grain, fruit, grain, meat-or-fish → exactly 50/25/25 demand).

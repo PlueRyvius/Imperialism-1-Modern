@@ -46,6 +46,11 @@ internal static class WorldContentMigrator
             MigrateVersionSevenToEight(document);
         }
 
+        if (document.FormatVersion == 8)
+        {
+            MigrateVersionEightToNine(document);
+        }
+
         return document;
     }
 
@@ -331,6 +336,47 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 8;
+    }
+
+    /// <summary>
+    /// Version 9 prices a recipe's labour. A version 8 package cannot state one,
+    /// so the migration derives it as the recipe's total input units — the rate
+    /// the manual gives for the one recipe it prices outright, and the same
+    /// number as "two labour per unit of output" for every recipe the original
+    /// ships. See <c>docs/formulas/production.md</c>.
+    /// </summary>
+    /// <remarks>
+    /// **This changes behaviour** for any version 8 package that also defines
+    /// feeding: its production is now capped by the workforce, where before the
+    /// labour pool was computed and never spent. A package with no feeding is
+    /// unaffected, because labour does not bind without a workforce.
+    /// </remarks>
+    private static void MigrateVersionEightToNine(WorldContentDocument document)
+    {
+        foreach (var recipe in document.ProductionRecipes ?? [])
+        {
+            if (recipe is null)
+            {
+                continue;
+            }
+
+            if (recipe.LabourCost != 0)
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 8 cannot contain a version 9 labour cost.");
+            }
+
+            var labour = 0L;
+            foreach (var input in recipe.Inputs ?? [])
+            {
+                labour = checked(labour + (input?.Quantity ?? 0));
+            }
+
+            recipe.LabourCost = labour;
+        }
+
+        document.FormatVersion = 9;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

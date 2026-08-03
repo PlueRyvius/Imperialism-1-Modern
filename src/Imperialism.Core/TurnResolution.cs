@@ -71,11 +71,13 @@ public sealed record ProductionCompletedEvent : TurnEvent
         long requestedCycles,
         long completedCycles,
         long capacityUsed,
+        long labourUsed,
         IEnumerable<CommodityQuantity> consumed,
         IEnumerable<CommodityQuantity> produced)
         : base(turnNumber, TurnPhase.Production)
     {
-        if (requestedCycles <= 0 || completedCycles < 0 || completedCycles > requestedCycles || capacityUsed < 0)
+        if (requestedCycles <= 0 || completedCycles < 0 || completedCycles > requestedCycles ||
+            capacityUsed < 0 || labourUsed < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(completedCycles));
         }
@@ -85,6 +87,7 @@ public sealed record ProductionCompletedEvent : TurnEvent
         RequestedCycles = requestedCycles;
         CompletedCycles = completedCycles;
         CapacityUsed = capacityUsed;
+        LabourUsed = labourUsed;
         _consumed = Array.AsReadOnly(consumed.ToArray());
         _produced = Array.AsReadOnly(produced.ToArray());
     }
@@ -98,6 +101,9 @@ public sealed record ProductionCompletedEvent : TurnEvent
     public long CompletedCycles { get; }
 
     public long CapacityUsed { get; }
+
+    /// <summary>Labour spent out of the country's pool for the cycles that ran.</summary>
+    public long LabourUsed { get; }
 
     public IReadOnlyList<CommodityQuantity> Consumed => _consumed;
 

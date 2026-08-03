@@ -737,6 +737,11 @@ public static class WorldContentCompiler
                 throw Error($"{path}.capacityCost", "Capacity cost must be positive.");
             }
 
+            if (content.LabourCost <= 0)
+            {
+                throw Error($"{path}.labourCost", "Labour cost must be positive.");
+            }
+
             var facility = FindKey(facilityIds, content.Facility, $"{path}.facility");
             var inputs = CompileCommodityQuantities(
                 RequireArray(content.Inputs, $"{path}.inputs"),
@@ -756,6 +761,7 @@ public static class WorldContentCompiler
                 content.Name,
                 new ProductionFacilityId(facility),
                 content.CapacityCost,
+                content.LabourCost,
                 inputs,
                 outputs);
         }

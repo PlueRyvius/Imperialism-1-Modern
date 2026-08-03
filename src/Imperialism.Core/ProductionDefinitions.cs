@@ -59,6 +59,7 @@ public sealed class ProductionRecipeDefinition
         string name,
         ProductionFacilityId facility,
         long capacityCost,
+        long labourCost,
         IEnumerable<CommodityQuantity> inputs,
         IEnumerable<CommodityQuantity> outputs)
     {
@@ -68,6 +69,11 @@ public sealed class ProductionRecipeDefinition
         if (capacityCost <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(capacityCost), "Capacity cost must be positive.");
+        }
+
+        if (labourCost <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(labourCost), "Labour cost must be positive.");
         }
 
         var inputArray = inputs.ToArray();
@@ -101,6 +107,7 @@ public sealed class ProductionRecipeDefinition
         Name = name;
         Facility = facility;
         CapacityCost = capacityCost;
+        LabourCost = labourCost;
         _inputs = Array.AsReadOnly(inputArray);
         _outputs = Array.AsReadOnly(outputArray);
     }
@@ -112,6 +119,16 @@ public sealed class ProductionRecipeDefinition
     public ProductionFacilityId Facility { get; }
 
     public long CapacityCost { get; }
+
+    /// <summary>
+    /// Labour spent per cycle, drawn from the country's single pool rather than
+    /// from the facility. The manual's tutorial prices one recipe outright —
+    /// clothing costs two fabric and two labour — and every recipe the original
+    /// ships consumes exactly two input units per unit of output, so "one labour
+    /// per input unit" and "two per output unit" are the same number everywhere
+    /// it can be checked. See <c>docs/formulas/production.md</c>.
+    /// </summary>
+    public long LabourCost { get; }
 
     public IReadOnlyList<CommodityQuantity> Inputs => _inputs;
 

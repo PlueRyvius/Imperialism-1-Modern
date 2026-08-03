@@ -195,6 +195,8 @@ public sealed class ProductionRecipeContentDefinition
 
     public long CapacityCost { get; set; }
 
+    public long LabourCost { get; set; }
+
     public CommodityQuantityContent[] Inputs { get; set; } = [];
 
     public CommodityQuantityContent[] Outputs { get; set; } = [];

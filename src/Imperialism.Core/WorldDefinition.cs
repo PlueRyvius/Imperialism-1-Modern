@@ -658,10 +658,12 @@ public sealed class WorldState
     }
 
     /// <summary>
-    /// What the workforce can do this turn. Nothing consumes it yet: the manual
-    /// says production requires labour but never how much per cycle, so the pool
-    /// is exposed and left unspent rather than priced by guesswork. See
-    /// <c>docs/formulas/feeding.md</c>.
+    /// What the workforce can do this turn: the pool <see cref="TurnPhase.Production"/>
+    /// spends against each recipe's <see cref="ProductionRecipeDefinition.LabourCost"/>.
+    /// It counts every worker, because sickness is decided in
+    /// <see cref="TurnPhase.Feeding"/> and never says which grade fell ill — see
+    /// <c>docs/formulas/feeding.md</c>. Zero when the world defines no feeding,
+    /// which is also the case where production ignores labour entirely.
     /// </summary>
     public long GetAvailableLabour(CountryId country)
     {
