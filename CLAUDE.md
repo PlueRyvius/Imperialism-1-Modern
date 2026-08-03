@@ -80,6 +80,54 @@ cross-file rules that assumed a `.scn` names everything the map references. It
 does not: name records are optional labels, not a registry. Hold every new
 validation rule to silence across all ten scenarios before believing it.
 
+**That rule is about the format, not about the game.** Read the next section
+before applying it to a gameplay decision; carrying it across the line is the
+one mistake this project keeps making.
+
+## Two domains, two authorities
+
+Confusing them is the main source of self-inflicted friction here.
+
+| | Authority | The rule |
+|---|---|---|
+| **Format / importer** | the corpus | Never fires on shipped data. Byte-exact round-trip. |
+| **Gameplay** | the manual, then the engine | Scenario data is *authoring*, not design. |
+
+**The ten scenarios are authored missions, not a picture of how the game
+plays.** Most games are skirmishes: every power starts identical, so the start
+is fair. Three of the nine untouched scenarios are shaped that way and agree
+exactly with each other:
+
+| | |
+|---|---|
+| Textile / steel / lumber mill | **2** each |
+| Clothing factory / metal works / furniture factory | **1** each |
+| Refinery | **absent** — gated behind Oil Drilling |
+| Workforce | **[4 untrained, 2 trained, 1 expert]** |
+
+`s10`, `s11` and `s15`, independently. That is exactly the manual's construction
+floor — a mill is always built at 2, a factory begins at 1 — so **the fair start
+and the bottom rung of the build ladder are the same thing.** Nothing there
+needs inventing.
+
+The other six missions author whatever they like, including 53 `capa` records
+that sit off the build ladder entirely. Both facts live together without
+contradiction once the domains are separate: **the ladder governs what a player
+may build; a scenario may author anything; the importer must accept both.**
+
+So: a mission's numbers constrain the importer and never the rules. Do not mine
+`capa`, `labo` or `tran` for gameplay constants — that is reading six authored
+special cases as if they were the design.
+
+**A symmetric default is a design decision, not an invented number**, and does
+not need apologising for in a formula document. What does need flagging is a
+number chosen with no reasoning behind it at all.
+
+**Seven values a skirmish leaves entirely to the engine.** `s10` carries none of
+`ware`, `cash`, `deve`, `tech`, `tran`, `rail` or `rela`, so a fair start runs on
+built-in defaults for all seven. They are constants in the binary and are not
+recoverable from the corpus at all. See `docs/formulas/_index.md`.
+
 ## Current state
 
 Phases 0 and 1 are complete. `src/Imperialism.Formats/` is the production .NET 8

@@ -21,7 +21,8 @@ rather than observed behaviour, and where it and the release notes disagree
 | The wrong food means sick, and no labour that turn | **manual** |
 | Nothing at all means starvation and permanent removal | **manual** |
 | Labour 1 / 2 / 4 by grade | **manual** |
-| Starting workforces | **corpus-verified** — `labo`, 7 records in all ten scenarios |
+| A fair start is 4 untrained, 2 trained, 1 expert | **corpus-verified** — `s10`, `s11` and `s15` give all seven powers exactly that |
+| Missions author whatever workforce they like | **corpus-verified** — `labo`, 7 records in all ten, wildly uneven in the six mission scenarios |
 | Grade order untrained, trained, expert | **corpus-verified** — see below |
 | Preference runs as a repeating cycle of four | `game-systems.md`, from the release notes |
 | **Which grade starves, and which falls ill** | **a choice, not a finding** — cheapest first |
@@ -39,6 +40,20 @@ author. Country 6 is `[5, 15, 40]`, the opposite profile, and country 0 is
 `[15, 15, 30]`.
 
 Every one of the ten scenarios carries all seven records.
+
+### A fair start is [4, 2, 1], and the missions are not it
+
+Those `s1` numbers are **scenario design, not a rule**. Britain opening with
+thirty experts and a backward power with none is the point of a historical
+mission; it says nothing about what a game normally starts from.
+
+The skirmish-shaped scenarios do say. `s10`, `s11` and `s15` give **all seven
+powers `[4, 2, 1]`** — four untrained, two trained, one expert — and agree with
+each other exactly. Seven labour apiece, and everyone equal.
+
+That is the number to build a new game from. The mission spreads are for the
+importer to carry faithfully, and for nothing else. See the domain split in
+`CLAUDE.md` and the evidence weighting in `_index.md`.
 
 ### The cycle
 
