@@ -94,25 +94,64 @@ will target constructor stubs.
 | …excluding thunks | **5,699** |
 | ALF attributed ranges | 3,034 |
 
-## The label import is worth building
+## The label import names half the binary — and it is the wrong half
 
-The question that decides it: how many of Ghidra's functions fall inside a range
-`tools/alf/` has already attributed to an original `.cpp`?
+**2,807 of 5,699 non-thunk functions — 49.3%** — fall inside a range
+`tools/alf/` has attributed to an original `.cpp`. That number looks good and is
+misleading, which a calibration run established the hard way.
 
-**2,807 of 5,699 — 49.3%.** By ALF's own confidence grading:
+Every filename comes from a compiled-in `assert()` string, and asserts cluster
+in view code. All 55 recovered files, by anchor count:
 
-| confidence | functions |
+| file | anchors |
 |---|---|
-| `high` (contains an assert naming the file) | 567 |
-| `medium` (between two same-file anchors) | 731 |
-| `low` (inferred from callers) | 1,509 |
+| `USmallViews.cpp` | 92 |
+| `UCityViews.cpp` | 73 |
+| `UViewMgr.cpp` | 53 |
+| `UCityDialogs.cpp` | 44 |
+| … | |
+| **`UCity.cpp`** | **3** |
+| **`UCountry.cpp`** | **1** |
+| **`UCountryAuto.cpp`** | **1** |
 
-So pushing the module map into Ghidra as namespaces would name roughly half the
-binary's functions by the source file they came from, with 567 of them resting
-on a compiled-in `assert()` string rather than inference. `UCity.cpp` becomes a
-browsable module instead of an address range.
+There is no `UIndustry.cpp`, `UProduction.cpp` or `UEconomy.cpp` in the list at
+all. The gameplay math does not assert, so it is not named. `_index.md` warned
+about exactly this and the warning deserved more weight than the headline
+percentage.
 
-That is worth doing, and it is the obvious next step here.
+So the labels are worth having for navigation, and they will not lead to a
+formula.
+
+## The calibration run
+
+The honest test of a decompiler is whether it can recover a number we already
+know. Labour costs **2** per clothing cycle — the manual says so and every
+shipped recipe agrees — so that number should be findable in the production
+accounting if anything is.
+
+It was not, and the reason is worth recording.
+
+**`UCity.cpp` is not the economy module.** All 21 of its Ghidra functions
+decompile cleanly, and what they compute is weighted averages and a weighted
+random pick over a dense fourteen-entry enumeration, reading counts from an
+array of `short` at object offset `0x5C` and attributes through typed getters
+into a static table of 36-byte records at `~0x698100`. Whatever those fourteen
+things are, the records hold costs in the hundreds to low thousands and
+percentages descending from 100 to 30 — entity statistics, not industry capacity
+and not labour.
+
+`_index.md` listed `UCity.cpp` as "economy, dig here". That pointer is wrong and
+has been corrected.
+
+**`UCityDialogs.cpp` is not it either.** It was the better bet — the manual says
+the labour total decrements as you drag a production slider, so the number is
+UI-facing, and UI is what gets labelled. Its 26 functions decompile to rectangle
+arithmetic and screen-position lookup tables. It draws the dialog; it does not
+model it.
+
+So the tool works and the map does not reach the code. That is a different
+failure from "the decompiler cannot do this", and a much cheaper one to have
+learnt on a question with a known answer.
 
 ## Verdict
 
@@ -126,8 +165,11 @@ succeed, which is not true of the assembly.
 
 ## Open
 
-- Push `module-map.md` into Ghidra as namespaces, and re-export to confirm the
-  49.3% lands where it should.
+- **Find the economy code without the module map**, since the map does not cover
+  it. Structure is the lead now, not filenames: production reads a seven-entry
+  capacity array, and the seven engine defaults are written once at new-game
+  setup. Searching decompiled output for those shapes is the next thing to try,
+  and it is untested.
 - Find where a new game is initialised. That is where the seven engine defaults
   live, and nothing in the corpus can point at it — a fair start carries no
   `ware`, `cash`, `deve`, `tech`, `tran`, `rail` or `rela` records at all.

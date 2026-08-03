@@ -119,7 +119,7 @@ hold the formulas above:
 | Module | Role | Notable span | Anchors |
 |---|---|---|---|
 | `UDefenseMinister.cpp` | tactical AI | `004EC160`–`004ED4CF` (~5 KB, high) | 7 |
-| `UCity.cpp` | economy | `004B3080`–`004B427F` (~4.6 KB, high) | 3 |
+| `UCity.cpp` | **not the economy** — see `../disasm/ghidra.md` | `004B3080`–`004B427F` | 3 |
 | `UCountry.cpp` | country state | `004DAF30`–`004DBB7F` (~3.1 KB, high) | 1 |
 | `UCountryAuto.cpp` | strategic AI | `0053C2B0`–`0053E67F` (~9 KB, low) | 1 |
 | `UAmbit.cpp` | diplomacy | `0049E6A0`–`0049E9CF`, `0049EB00`–`0049EE8F` | 3 |
@@ -132,11 +132,14 @@ found; `production.md` lists exactly what was searched, including why the
 obvious pattern for `untrained*1 + trained*2 + expert*4` finds nothing in this
 build. Read it before repeating that search.
 
-**Prefer the decompiler for a formula.** `tools/alf/` answers "where" and
-"who calls this"; it is poor at "what does this compute", which is the question
-every entry above actually asks. `../disasm/ghidra.md` reports what a decompiled
-function here really looks like, and how far the assert-anchored module map gets
-you into it — it names 2,807 of Ghidra's 5,699 functions by original `.cpp`.
+**Prefer the decompiler for a formula**, but do not expect the module map to
+lead you to one. `tools/alf/` answers "where" and "who calls this"; Ghidra
+answers "what does this compute", which is what every entry above actually asks.
+The catch is measured in `../disasm/ghidra.md`: the map names half the binary,
+and it is the **UI half**, because every filename comes from an `assert()` and
+asserts live in view code. A calibration run went looking for the labour cost —
+a number already known from the manual — in the two best-named candidates and
+found neither. `UCity.cpp` turned out not to be the economy at all.
 
 **Temper expectations.** Assert density correlates with UI code, not gameplay
 math — `UCityViews` has 73 anchors across 150 KB while `UCountryAuto` has
