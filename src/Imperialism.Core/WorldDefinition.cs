@@ -17,7 +17,8 @@ public sealed class WorldDefinition
         IEnumerable<ProductionRecipeDefinition>? productionRecipes = null,
         ExtractionSettings? extraction = null,
         IEnumerable<TechnologyDefinition>? technologies = null,
-        FeedingSettings? feeding = null)
+        FeedingSettings? feeding = null,
+        StartingDefaults? startingDefaults = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
@@ -352,6 +353,7 @@ public sealed class WorldDefinition
         Scenario = scenario;
         Extraction = extractionSettings;
         Feeding = feeding;
+        StartingDefaults = startingDefaults;
         _technologies = Array.AsReadOnly(technologyArray);
         _countries = Array.AsReadOnly(countryArray);
         _commodities = Array.AsReadOnly(commodityArray);
@@ -377,6 +379,13 @@ public sealed class WorldDefinition
 
     /// <summary>Null in a world whose workers never eat.</summary>
     public FeedingSettings? Feeding { get; }
+
+    /// <summary>
+    /// What a power begins with when the scenario is silent — the fair start a
+    /// skirmish runs on. Applied only to
+    /// <see cref="ScenarioDefinition.DefaultStartCountries"/>.
+    /// </summary>
+    public StartingDefaults? StartingDefaults { get; }
 
     /// <summary>
     /// A port stands on land. Verified against every <c>port</c> record in the
@@ -472,6 +481,21 @@ public sealed class WorldState
             _availableInventory[GetInventoryOffset(stock.Country, stock.Commodity)] = stock.Quantity;
         }
 
+        // Defaults first, so an explicit record still wins. This mirrors the
+        // original, where a scenario that says nothing about a power's industry
+        // gets the engine's fair start rather than nothing at all.
+        if (definition.StartingDefaults is { } defaults)
+        {
+            foreach (var country in definition.Scenario.DefaultStartCountries)
+            {
+                foreach (var capacity in defaults.ProductionCapacities)
+                {
+                    _productionCapacities[
+                        GetProductionCapacityOffset(country, capacity.Facility)] = capacity.Quantity;
+                }
+            }
+        }
+
         foreach (var capacity in definition.Scenario.InitialProductionCapacities)
         {
             _productionCapacities[GetProductionCapacityOffset(capacity.Country, capacity.Facility)] = capacity.Quantity;
@@ -486,6 +510,17 @@ public sealed class WorldState
         _ports = definition.Scenario.InitialPorts.ToHashSet();
         _depots = definition.Scenario.InitialDepots.ToHashSet();
         _workers = new long[checked(definition.Countries.Count * WorkerGrades.Count)];
+        if (definition.StartingDefaults?.Workforce is { } defaultWorkforce)
+        {
+            foreach (var country in definition.Scenario.DefaultStartCountries)
+            {
+                foreach (var grade in WorkerGrades.All)
+                {
+                    _workers[GetWorkerOffset(country, grade)] = defaultWorkforce[grade];
+                }
+            }
+        }
+
         foreach (var workforce in definition.Scenario.InitialWorkforce)
         {
             foreach (var grade in WorkerGrades.All)

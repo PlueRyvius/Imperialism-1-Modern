@@ -12,6 +12,7 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<CellIndex> _initialPorts;
     private readonly IReadOnlyList<CellIndex> _initialDepots;
     private readonly IReadOnlyList<InitialWorkforce> _initialWorkforce;
+    private readonly IReadOnlyList<CountryId> _defaultStartCountries;
 
     public ScenarioDefinition(
         string name,
@@ -25,7 +26,8 @@ public sealed class ScenarioDefinition
         IEnumerable<InitialCountryTechnology>? initialCountryTechnologies = null,
         IEnumerable<CellIndex>? initialPorts = null,
         IEnumerable<CellIndex>? initialDepots = null,
-        IEnumerable<InitialWorkforce>? initialWorkforce = null)
+        IEnumerable<InitialWorkforce>? initialWorkforce = null,
+        IEnumerable<CountryId>? defaultStartCountries = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
@@ -122,6 +124,16 @@ public sealed class ScenarioDefinition
         _initialPorts = Array.AsReadOnly(portArray);
         _initialDepots = Array.AsReadOnly(depotArray);
         _initialWorkforce = Array.AsReadOnly(workforceArray);
+
+        var defaultStartArray = defaultStartCountries?.ToArray() ?? [];
+        if (defaultStartArray.Distinct().Count() != defaultStartArray.Length)
+        {
+            throw new ArgumentException(
+                "Default-start countries cannot contain duplicates.",
+                nameof(defaultStartCountries));
+        }
+
+        _defaultStartCountries = Array.AsReadOnly(defaultStartArray);
     }
 
     public string Name { get; }
@@ -149,4 +161,17 @@ public sealed class ScenarioDefinition
     public IReadOnlyList<CellIndex> InitialDepots => _initialDepots;
 
     public IReadOnlyList<InitialWorkforce> InitialWorkforce => _initialWorkforce;
+
+    /// <summary>
+    /// Countries that begin from the world's <see cref="StartingDefaults"/>: a
+    /// fair start, the same for each of them.
+    /// </summary>
+    /// <remarks>
+    /// Named rather than inferred. The original equips its seven Great Powers
+    /// and leaves the minor nations without an industry screen at all, and Core
+    /// has no notion of which a country is — applying defaults to everyone would
+    /// hand a workforce to every statelet on the map. An explicit entry for a
+    /// listed country still wins over the default.
+    /// </remarks>
+    public IReadOnlyList<CountryId> DefaultStartCountries => _defaultStartCountries;
 }

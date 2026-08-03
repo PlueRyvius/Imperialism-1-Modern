@@ -270,7 +270,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(10)]
+    [InlineData(11)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -808,6 +808,68 @@ public sealed class WorldContentTests
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
 
         Assert.Equal("formatVersion", exception.Path);
+    }
+
+    [Fact]
+    public void AFairStartCompilesAndAppliesToTheCountriesItNames()
+    {
+        var document = WithSkirmishDefaults(CreateValidDocument());
+
+        var state = new WorldState(WorldContentCompiler.Compile(document).World);
+        var country = new CountryId(0);
+
+        Assert.Equal(2, state.GetProductionCapacity(country, new ProductionFacilityId(0)));
+        Assert.Equal(7, state.GetTotalWorkers(country));
+    }
+
+    [Fact]
+    public void NamingACountryWithNoDefaultsToStartFromIsRejected()
+    {
+        // Claiming a fair start from a world that defines none is a content
+        // error, not a silent zero: the scenario is asking for something the
+        // package cannot give it.
+        var document = CreateValidDocument();
+        document.Scenarios[0].DefaultStartCountries = [document.Countries[0].Key];
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCompiler.Compile(document));
+
+        Assert.Equal("scenarios[0].defaultStartCountries", exception.Path);
+    }
+
+    [Fact]
+    public void VersionNineMigrationRejectsVersionTenStartingDefaults()
+    {
+        var json = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(WithSkirmishDefaults(CreateValidDocument()))), 9);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    /// <summary>
+    /// Mills at 2 and factories at 1, four untrained, two trained, one expert:
+    /// what `s10`, `s11` and `s15` give every power, and the manual's
+    /// construction floor.
+    /// </summary>
+    private static WorldContentDocument WithSkirmishDefaults(WorldContentDocument document)
+    {
+        document.StartingDefaults = new StartingDefaultsContent
+        {
+            ProductionCapacities =
+            [
+                new FacilityCapacityDefaultContent
+                {
+                    Facility = document.ProductionFacilities[0].Key,
+                    Quantity = 2,
+                },
+            ],
+            Workforce = new WorkforceDefaultContent { Untrained = 4, Trained = 2, Expert = 1 },
+        };
+        document.Scenarios[0].DefaultStartCountries = [document.Countries[0].Key];
+        return document;
     }
 
     [Fact]
