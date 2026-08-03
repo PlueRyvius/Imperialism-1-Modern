@@ -118,10 +118,44 @@ public static class WorldContentCompiler
         var feeding = CompileFeedingSettings(document.Feeding, commodityIds);
         var startingDefaults = CompileStartingDefaults(document.StartingDefaults, facilityIds);
         var facilities = facilityContent.Select((definition, index) =>
-            new ProductionFacilityDefinition(
-                new ProductionFacilityId(index),
-                definition.Name,
-                definition.CapacityMode)).ToArray();
+        {
+            var path = $"productionFacilities[{index}]";
+            CapacityLadder? ladder = null;
+            if (definition.CapacityLadder is { } rungs)
+            {
+                if (RequireArray(rungs.Rungs, $"{path}.capacityLadder.rungs").Length == 0)
+                {
+                    throw Error($"{path}.capacityLadder.rungs", "A capacity ladder needs at least one rung.");
+                }
+
+                try
+                {
+                    ladder = new CapacityLadder(rungs.Rungs, rungs.Increment);
+                }
+                catch (ArgumentException exception)
+                {
+                    throw Error($"{path}.capacityLadder", exception.Message, exception);
+                }
+            }
+
+            try
+            {
+                return new ProductionFacilityDefinition(
+                    new ProductionFacilityId(index),
+                    definition.Name,
+                    definition.CapacityMode,
+                    ladder);
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error($"{path}.capacityLadder", exception.Message, exception);
+            }
+        }).ToArray();
+
+        var expansionCost = CompileCommodityQuantities(
+            RequireArray(document.ExpansionCostPerCapacityPoint, "expansionCostPerCapacityPoint"),
+            commodityIds,
+            "expansionCostPerCapacityPoint");
         var recipes = CompileProductionRecipes(recipeContent, facilityIds, commodityIds);
 
         MapDimensions dimensions;
@@ -213,7 +247,8 @@ public static class WorldContentCompiler
                     technologies,
                     technologyIds,
                     feeding,
-                    startingDefaults));
+                    startingDefaults,
+                    expansionCost));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -236,7 +271,8 @@ public static class WorldContentCompiler
         TechnologyDefinition[] technologies,
         IReadOnlyDictionary<string, int> technologyIds,
         FeedingSettings? feeding,
-        StartingDefaults? startingDefaults)
+        StartingDefaults? startingDefaults,
+        CommodityQuantity[] expansionCost)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -336,7 +372,8 @@ public static class WorldContentCompiler
                 extraction,
                 technologies,
                 feeding,
-                startingDefaults);
+                startingDefaults,
+                expansionCost);
         }
         catch (ArgumentException exception)
         {

@@ -8,6 +8,7 @@ public static class TurnResolver
         TurnPhase.Diplomacy,
         TurnPhase.Trade,
         TurnPhase.Production,
+        TurnPhase.Construction,
         TurnPhase.Conflict,
         TurnPhase.TradeCancellation,
         TurnPhase.Extraction,
@@ -37,7 +38,17 @@ public static class TurnResolver
         var turnNumber = checked(state.CompletedTurnCount + 1);
         var startedAt = state.CurrentDate;
         var production = ProductionPlanner.Create(state, orders);
-        state.PreflightInventoryChanges(production.InventoryDeltas);
+
+        // Expansion is planned against what production has already committed to
+        // spending, so a turn cannot pay for the same lumber twice.
+        var expansion = ExpansionPlanner.Create(state, orders, production.InventoryDeltas);
+        var combined = new long[production.InventoryDeltas.Length];
+        for (var index = 0; index < combined.Length; index++)
+        {
+            combined[index] = production.InventoryDeltas[index] + expansion.InventoryDeltas[index];
+        }
+
+        state.PreflightInventoryChanges(combined);
         var events = new List<TurnEvent>(Pipeline.Length + production.Entries.Count);
         foreach (var phase in Pipeline)
         {
@@ -56,6 +67,24 @@ public static class TurnResolver
                         entry.LabourUsed,
                         entry.Consumed,
                         entry.Produced));
+                }
+            }
+            else if (phase == TurnPhase.Construction)
+            {
+                // After Production, which is what makes "completes next turn"
+                // fall out for free: this turn's output was already decided
+                // against the old size.
+                state.CommitProduction(expansion.InventoryDeltas);
+                foreach (var entry in expansion.Entries)
+                {
+                    state.SetProductionCapacity(entry.Country, entry.Facility, entry.ToCapacity);
+                    events.Add(new FacilityExpandedEvent(
+                        turnNumber,
+                        entry.Country,
+                        entry.Facility,
+                        entry.FromCapacity,
+                        entry.ToCapacity,
+                        entry.Paid));
                 }
             }
             else if (phase == TurnPhase.Extraction)

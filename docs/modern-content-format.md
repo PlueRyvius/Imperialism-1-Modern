@@ -29,11 +29,11 @@ Every document starts with:
 ```json
 {
   "format": "imperialism-world",
-  "formatVersion": 10
+  "formatVersion": 11
 }
 ```
 
-Version 10 is the authored version. Migration is explicit and sequential:
+Version 11 is the authored version. Migration is explicit and sequential:
 version 1 resource palettes become version 2 commodities/resources, version 2
 packages gain empty version 3 production collections, version 3 packages gain a
 per-deposit `yieldPerTurn` plus a world-level `extraction` block, and version 4
@@ -62,7 +62,11 @@ Version 10 adds the fair start a skirmish runs on: a world-level
 `startingDefaults` block, and a `defaultStartCountries` list naming the powers
 that begin from it. A version 9 package gets neither, and neither can be
 invented for it — the baseline is a property of the original's rules, not of an
-arbitrary world — so it migrates unchanged. Mixed-version schemas,
+arbitrary world — so it migrates unchanged. Version 11 lets industry grow: a per-facility `capacityLadder` and a
+world-level `expansionCostPerCapacityPoint`. A version 10 package has neither,
+and supplying them would be inventing a rule rather than filling in a value, so
+it migrates to a world whose industry can never be built larger — which is how
+it behaved before. Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the
 valid `commodity/from-resource/...` form; `/` is part of the key grammar below.

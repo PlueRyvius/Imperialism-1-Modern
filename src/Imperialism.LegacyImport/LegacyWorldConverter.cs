@@ -366,6 +366,7 @@ public static class LegacyWorldConverter
             Commodities = CreateStandardCommodities(),
             ProductionFacilities = CreateStandardProductionFacilities(),
             ProductionRecipes = CreateStandardProductionRecipes(),
+            ExpansionCostPerCapacityPoint = CreateStandardExpansionCost(),
             Resources = resourceCodes.Select(code => new ResourceContentDefinition
             {
                 Key = resourceKeys[code],
@@ -1240,14 +1241,44 @@ public static class LegacyWorldConverter
 
     private static ProductionFacilityContentDefinition[] CreateStandardProductionFacilities() =>
     [
-        Facility("textile-mill", "Textile Mill", ProductionCapacityMode.Limited),
-        Facility("clothing-factory", "Clothing Factory", ProductionCapacityMode.Limited),
-        Facility("steel-mill", "Steel Mill", ProductionCapacityMode.Limited),
-        Facility("metal-works", "Metal Works", ProductionCapacityMode.Limited),
-        Facility("lumber-mill", "Lumber Mill", ProductionCapacityMode.Limited),
-        Facility("furniture-factory", "Furniture Factory", ProductionCapacityMode.Limited),
-        Facility("oil-refinery", "Oil Refinery", ProductionCapacityMode.Limited),
+        Facility("textile-mill", "Textile Mill", ProductionCapacityMode.Limited, MillLadder),
+        Facility("clothing-factory", "Clothing Factory", ProductionCapacityMode.Limited, FactoryLadder),
+        Facility("steel-mill", "Steel Mill", ProductionCapacityMode.Limited, MillLadder),
+        Facility("metal-works", "Metal Works", ProductionCapacityMode.Limited, FactoryLadder),
+        Facility("lumber-mill", "Lumber Mill", ProductionCapacityMode.Limited, MillLadder),
+        Facility("furniture-factory", "Furniture Factory", ProductionCapacityMode.Limited, FactoryLadder),
+        Facility("oil-refinery", "Oil Refinery", ProductionCapacityMode.Limited, FactoryLadder),
         Facility("food-processing", "Food Processing", ProductionCapacityMode.Unlimited),
+    ];
+
+    /// <summary>
+    /// "For mills, which start at capacity 2, the improvement levels are 4, 8,
+    /// 16, 24 and then continue to increase by eight at a time."
+    /// </summary>
+    private static CapacityLadderContent MillLadder => new()
+    {
+        Rungs = [2, 4, 8, 16, 24],
+        Increment = 8,
+    };
+
+    /// <summary>
+    /// "For factories, which start at capacity 1, the improvement levels are 2,
+    /// 4, 8, 12 and then continue to increase four at a time."
+    /// </summary>
+    private static CapacityLadderContent FactoryLadder => new()
+    {
+        Rungs = [1, 2, 4, 8, 12],
+        Increment = 4,
+    };
+
+    /// <summary>
+    /// "For each point of capacity built, you pay one lumber and one steel from
+    /// your Warehouse." Expansion requires no labour.
+    /// </summary>
+    private static CommodityQuantityContent[] CreateStandardExpansionCost() =>
+    [
+        Quantity("lumber", 1),
+        Quantity("steel", 1),
     ];
 
     private static ProductionRecipeContentDefinition[] CreateStandardProductionRecipes() =>
@@ -1269,11 +1300,13 @@ public static class LegacyWorldConverter
     private static ProductionFacilityContentDefinition Facility(
         string key,
         string name,
-        ProductionCapacityMode capacityMode) => new()
+        ProductionCapacityMode capacityMode,
+        CapacityLadderContent? capacityLadder = null) => new()
         {
             Key = $"facility.{key}",
             Name = name,
             CapacityMode = capacityMode,
+            CapacityLadder = capacityLadder,
         };
 
     /// <summary>

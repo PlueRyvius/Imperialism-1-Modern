@@ -155,8 +155,15 @@ sourcing, not snapshot-and-diff.
 TurnResolver.Resolve(WorldState state, TurnOrders orders, ulong seed)
 ```
 
-Phases run in the original's fixed order: Diplomacy → Trade → Production →
-Conflict → TradeCancellation → Delivery → Connectivity.
+Phases run in the original's fixed order, with four of our own interleaved:
+Diplomacy → Trade → Production → **Construction** → Conflict →
+TradeCancellation → **Extraction** → **Feeding** → Delivery → Connectivity.
+
+`Construction` sits immediately after `Production` on purpose. The manual says
+an expansion ordered now is working next turn, and putting it here makes that
+fall out for free: this turn's output was already decided against the old size,
+so a facility built now first produces larger next turn. No pending state
+required.
 
 `TurnOrders` stores one dense, country-id-ordered `CountryTurnOrders` object
 per country, so simultaneous submission has no dictionary iteration path.

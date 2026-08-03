@@ -11,7 +11,8 @@ public sealed record ProductionFacilityDefinition
     public ProductionFacilityDefinition(
         ProductionFacilityId id,
         string name,
-        ProductionCapacityMode capacityMode)
+        ProductionCapacityMode capacityMode,
+        CapacityLadder? capacityLadder = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (!Enum.IsDefined(capacityMode))
@@ -19,9 +20,17 @@ public sealed record ProductionFacilityDefinition
             throw new ArgumentOutOfRangeException(nameof(capacityMode));
         }
 
+        if (capacityLadder is not null && capacityMode == ProductionCapacityMode.Unlimited)
+        {
+            throw new ArgumentException(
+                "An uncapped facility cannot be expanded, so it cannot carry a capacity ladder.",
+                nameof(capacityLadder));
+        }
+
         Id = id;
         Name = name;
         CapacityMode = capacityMode;
+        CapacityLadder = capacityLadder;
     }
 
     public ProductionFacilityId Id { get; }
@@ -29,6 +38,13 @@ public sealed record ProductionFacilityDefinition
     public string Name { get; }
 
     public ProductionCapacityMode CapacityMode { get; }
+
+    /// <summary>
+    /// The sizes this facility may be built to, or null if it cannot be
+    /// expanded. Uncapped facilities — food processing, the railyard — never
+    /// have one.
+    /// </summary>
+    public CapacityLadder? CapacityLadder { get; }
 }
 
 public readonly record struct CommodityQuantity

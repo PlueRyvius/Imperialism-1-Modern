@@ -56,6 +56,11 @@ internal static class WorldContentMigrator
             MigrateVersionNineToTen(document);
         }
 
+        if (document.FormatVersion == 10)
+        {
+            MigrateVersionTenToEleven(document);
+        }
+
         return document;
     }
 
@@ -412,6 +417,35 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 10;
+    }
+
+    /// <summary>
+    /// Version 11 lets a facility be built larger: a per-facility capacity
+    /// ladder and a world-level cost per point. A version 10 package has
+    /// neither, and inventing them would be inventing a rule rather than
+    /// filling in a value, so it migrates to a world whose industry can never
+    /// grow — which is exactly how it behaved before.
+    /// </summary>
+    private static void MigrateVersionTenToEleven(WorldContentDocument document)
+    {
+        if (document.ExpansionCostPerCapacityPoint is { Length: > 0 })
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 10 cannot contain a version 11 expansion cost.");
+        }
+
+        foreach (var facility in document.ProductionFacilities ?? [])
+        {
+            if (facility?.CapacityLadder is not null)
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 10 cannot contain a version 11 capacity ladder.");
+            }
+        }
+
+        document.FormatVersion = 11;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>
