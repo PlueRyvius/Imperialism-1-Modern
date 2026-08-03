@@ -672,11 +672,16 @@ public sealed class LegacyWorldConverterTests
     public void AnImportedScenarioResolvesATurn()
     {
         var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        var mapPath = Path.Combine(directory ?? string.Empty, "s1.map");
-        if (string.IsNullOrWhiteSpace(directory) || !File.Exists(mapPath))
+        if (string.IsNullOrWhiteSpace(directory))
         {
             return;
         }
+
+        // Setting the variable is a declaration that the corpus is there, so a
+        // missing `s1` is a broken setup rather than a reason to test nothing.
+        // Returning quietly on it made this gate indistinguishable from a pass.
+        var mapPath = Path.Combine(directory, "s1.map");
+        Assert.True(File.Exists(mapPath), $"IMPERIALISM_SCENARIO_DIR is set but {mapPath} is missing.");
 
         var result = LegacyWorldConverter.Convert(
             LegacyMapCodec.Decode(File.ReadAllBytes(mapPath), MapFormatProfile.Imperialism1),

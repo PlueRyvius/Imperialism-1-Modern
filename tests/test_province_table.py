@@ -92,7 +92,7 @@ def test_the_table_survives_a_round_trip(tmp_path):
 
 def test_the_table_holds_every_provinces_town_on_real_maps():
     """The decode: slot i is province i's town cell, 65535 when unused."""
-    for path in originals.maps():
+    for path in originals.require_maps():
         m = MapFile.load(path)
         expected = {p: c for p, c in anchors.province_anchors(m).items()
                     if p < DORMANT_RECORD_COUNT}
@@ -100,7 +100,7 @@ def test_the_table_holds_every_provinces_town_on_real_maps():
 
 
 def test_unused_slots_are_the_null_sentinel():
-    for path in originals.maps():
+    for path in originals.require_maps():
         m = MapFile.load(path)
         used = set(m.province_towns())
         empty = [p for p in range(DORMANT_RECORD_COUNT) if p not in used]
@@ -111,7 +111,7 @@ def test_unused_slots_are_the_null_sentinel():
 def test_rewriting_the_towns_leaves_a_real_map_byte_identical():
     """Writing back what is already there must be a no-op, which is what lets
     a generated map inherit a table it does not fully understand."""
-    for path in originals.maps():
+    for path in originals.require_maps():
         m = MapFile.load(path)
         before = m.dormant_trailer
         for province, cell in m.province_towns().items():

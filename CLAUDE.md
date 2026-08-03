@@ -211,4 +211,11 @@ overturned; convert the whole corpus before believing a new one
 
 Python 3.12, dataclasses, type hints, `from __future__ import annotations`.
 Docstrings explain *why*, not *what*. Tests that need real game files must
-self-skip when absent (`os.path.exists` guard) so CI passes without them.
+self-skip when absent so CI passes without them — but **skip visibly, never
+iterate an empty corpus**. `for path in originals.maps():` over an empty list
+reports success having opened nothing, and that is the state CI runs in. Eleven
+tests holding rules to "exact on every shipped map" were green that way. Use
+`originals.require_maps()` / `require_scenarios()` / `require_infs()`, which
+skip out loud when there is no corpus and fail when `IMP_SCENARIO_DIR` is set
+but does not hold one. The C# gates take the same shape: return when the
+variable is unset, assert the count when it is not.

@@ -14,13 +14,14 @@ FIXTURE_DIR = originals.FIXTURE_DIR
 
 
 def real_maps():
-    """Original .map files to test against.
+    """Original .map files to test against, or a visible skip if there are none.
 
-    Set IMP_SCENARIO_DIR to a game install's Scenario folder to check all ten
+    Set IMP_SCENARIO_DIR to a game install's Scenario folder to check all nine
     without copying copyrighted data into the repo. See tests/originals.py for
-    why an edited map is replaced by its .bak.
+    why an edited map is excluded, and why an empty corpus must skip rather
+    than quietly turn every loop below into a no-op.
     """
-    return originals.maps()
+    return originals.require_maps()
 
 
 def small_map(width=5, height=5):
@@ -221,8 +222,6 @@ def measure(map_file, field):
 
 def test_derivation_reproduces_real_maps():
     paths = real_maps()
-    if not paths:
-        return
     for path in paths:
         m = MapFile.load(path)
         for field, floor in FIT_FLOORS.items():
@@ -321,8 +320,6 @@ def test_a_province_border_bit_never_faces_open_water():
     front of it — `UMapper.cpp:4751` asserts on exactly that case.
     """
     paths = real_maps()
-    if not paths:
-        return
     m = MapFile.load(paths[0])
     geom = derive.geometry_for(m)
 
@@ -387,8 +384,6 @@ def test_recomputing_keeps_the_undecoded_high_bits_of_a_border_byte():
 def test_deriving_does_not_disturb_undecoded_bytes():
     """Recomputation must leave every non-derived byte alone."""
     paths = real_maps()
-    if not paths:
-        return
     m = MapFile.load(paths[0])
     before = [c.to_bytes() for c in m.cells]
     trailer = m.dormant_trailer
