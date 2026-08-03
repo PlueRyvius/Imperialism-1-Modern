@@ -74,9 +74,9 @@ at all. Ports collect one fish per adjacent coast or river tile. Workers now eat
 grain / fruit / grain / meat cycle, canned food as the substitute, sickness for
 the wrong food and permanent loss for none at all, with the labour pool computed
 at 1/2/4 per grade. **Production now spends that pool**, each recipe costing its
-total input units, so a starved workforce produces less next turn. Prices,
-power, capacity construction, sea routes, the transport capacity pool, research,
-and the labour penalty for **sickness** remain pending — see
+total input units, and both starvation and sickness cut it — on the turn after,
+since production resolves before feeding. Prices, power, capacity construction,
+sea routes, the transport capacity pool and research remain pending — see
 `formulas/production.md`, `formulas/extraction.md`, `formulas/feeding.md` and
 `reference/manual-mechanics.md`.
 

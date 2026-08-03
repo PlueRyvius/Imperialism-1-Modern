@@ -24,7 +24,8 @@ rather than observed behaviour, and where it and the release notes disagree
 | Starting workforces | **corpus-verified** — `labo`, 7 records in all ten scenarios |
 | Grade order untrained, trained, expert | **corpus-verified** — see below |
 | Preference runs as a repeating cycle of four | `game-systems.md`, from the release notes |
-| **Which grade starves first** | **a choice, not a finding** |
+| **Which grade starves, and which falls ill** | **a choice, not a finding** — cheapest first |
+| **That both penalties land the turn after** | follows from the phase order, and from food being eaten as a turn ends |
 
 ## Evidence
 
@@ -70,17 +71,27 @@ same-resolution exceptions to everything else being deferred a turn, and it is
 why `Feeding` sits between `Extraction` and `Delivery`: the harvest is eaten off
 the back of the cart, and only the remainder reaches the warehouse.
 
-## The one invented rule
+## The invented rule, and its two applications
 
-**Which grade starves first: untrained, then trained, then expert.** The manual
-says a starving worker is permanently removed but never which one. This ordering
-mirrors the way the pool grows — new arrivals are untrained — and costs the
-player least.
+**The cheapest grades take the damage: untrained, then trained, then expert.**
+Applied to starvation first, then to illness among whoever survived, so no
+worker is counted twice.
+
+The manual says a starving worker is permanently removed and that a badly fed
+one does no labour, but never which worker either is. It cannot: the workforce
+is a headcount per grade, and the feeding cycle orders workers by *preference*,
+not by training. Something has to decide, and taking the cheapest mirrors the
+way the pool grows — new arrivals are untrained — and costs the player least.
 
 The alternatives are proportional loss, or losing whichever grade the hungry
-worker happened to be, which would need workers to be individually ordered by
-grade as well as by preference. Nothing in the corpus distinguishes them,
-because no shipped scenario starves on the turn it begins.
+worker happened to be, which would need workers individually ordered by grade as
+well as by preference. Nothing in the corpus distinguishes them, because no
+shipped scenario starves or sickens on the turn it begins.
+
+**This is the one place the model is chosen rather than found.** It is also the
+only place where getting it wrong is quietly expensive: an expert is worth four
+untrained, so an ordering that sacrificed experts first would cost four times as
+much labour for the same shortage.
 
 ## Where implemented
 
@@ -91,34 +102,33 @@ because no shipped scenario starves on the turn it begins.
   `GetAvailableLabour`, and `ConsumePending`, which lets feeding take from a
   delivery before it lands.
 - `WorkersFedEvent` reports well fed, sick, starved and what was eaten.
+- `WorldState.SetSickWorkers` / `GetSickWorkers`, which `GetAvailableLabour`
+  nets out of the pool. Illness is **runtime state, not content**: a scenario
+  cannot author it because nothing could be read from and nothing sensible
+  invented, so every world starts well.
 - `.iworld` v8 `feeding` and `scenarios[].workers`, with a v7 to v8 migration
   that adds neither.
 
-## Labour is spent, but sickness still is not
+## What eating badly costs
 
 **Production spends the pool.** Each recipe costs its total input units in
 labour, which the manual's tutorial prices outright for clothing and which every
 shipped recipe agrees with; see `production.md` for the evidence and the
 readings it leaves open. `GetAvailableLabour` is what `ProductionPlanner` draws
-against.
+against, and it excludes anyone currently ill.
 
-**Starvation therefore has teeth.** Workers who find nothing are removed, and
-the smaller workforce supplies less labour when the next turn's orders resolve.
-`Production` sits ahead of `Feeding` in the pipeline, so a workforce that
-starves still works the turn it dies — which matches the original's ordering,
-where the labour you allocate is the labour you were shown before ending the
-turn.
+**Both penalties land on the following turn**, because `Production` sits ahead
+of `Feeding` in the pipeline. A workforce that starves still works the turn it
+dies; a worker who ate the wrong thing still works the turn it was served. That
+is the faithful ordering rather than a concession to the phase list: food is
+eaten as the turn ends, and the arm icon the player allocates against has to
+know already who is unwell. The turn after is the first whose orders could have
+been given in light of it.
 
-**Sickness still does not reduce the pool**, and closing that gap needs a rule
-nobody has evidence for. Feeding walks workers by position in the preference
-cycle and counts how many ate badly; it never learns *which grade* they were.
-Docking the pool would mean deciding whether a sick worker is untrained, trained
-or expert — the same invention this document already declined for starvation,
-except that starvation at least has a cheapest-first convention to fall back on,
-and sickness would need workers ordered by grade as well as by preference.
-
-So a sick worker is reported and costs nothing. That is a known understatement
-of the penalty, recorded here rather than papered over.
+**Illness is rewritten every turn, not accumulated.** That is what makes
+recovery need no rule of its own — one good meal and the pool is whole again,
+which is the simplest reading of "no labour *that turn*". Nothing carries an
+illness forward on its own.
 
 ## Test data
 
@@ -129,19 +139,26 @@ starvation removing the untrained first, pending deliveries being eaten before
 warehouse stock, a partly eaten delivery keeping its remainder, and the labour
 sum.
 
+`tests/Imperialism.Core.Tests/LabourTests.cs` pins what illness costs: falling
+ill leaves this turn's production untouched and cuts the next turn's, the
+cheapest grade falls ill first, eating properly again restores the whole pool,
+starvation and illness together take the cheapest workers in that order without
+double-counting anyone, and a grade can never hold more sick workers than
+workers.
+
 `LegacyWorldConverterTests` converts the whole corpus and asserts all seven
 workforces per scenario and `s1`'s spread specifically. It also **resolves a real
-turn on imported `s1`**: 60 workers, 165 labour, and all 60 well fed with none
-sick and none starved. A shipped scenario feeding its workforce properly on turn
+turn on imported `s1`**: 60 workers, 165 labour, all 60 well fed with none sick
+and none starved, and so 165 labour still standing for turn two. A shipped scenario feeding its workforce properly on turn
 one is a good signal that the feeding rules, the extraction model and the
 scenario's own starting stock agree.
 
 ## Open questions
 
-- **Which grade falls sick**, which is what keeps sickness free. See above.
 - Power plants, which the manual says add directly to the labour pool and are
   spent before human labour.
 - The Trade School: how workers are promoted between grades.
 - Recruiting new workers, which the manual says costs canned food.
-- Whether a sick worker recovers automatically the next turn. Nothing here makes
-  sickness persist, which is the simplest reading of "no labour **that turn**".
+- Whether the original penalises illness on the same turn it is diagnosed rather
+  than the next. Our phase order forces the next, and the player-facing reading
+  agrees, but nothing observed confirms it.

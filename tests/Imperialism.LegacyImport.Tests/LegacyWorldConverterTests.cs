@@ -730,6 +730,15 @@ public sealed class LegacyWorldConverterTests
         Assert.Equal(0, fed.Sick);
         Assert.Equal(0, fed.Starved);
 
+        // Nobody ill means the pool is intact for turn two as well. If this
+        // goes red, a shipped scenario has started poisoning its own workforce.
+        foreach (var grade in WorkerGrades.All)
+        {
+            Assert.Equal(0, state.GetSickWorkers(britain, grade));
+        }
+
+        Assert.Equal(165, state.GetAvailableLabour(britain));
+
         // Every power has deposits and a capital, so extraction must report.
         Assert.NotEmpty(resolution.Events.OfType<ResourceExtractedEvent>());
     }

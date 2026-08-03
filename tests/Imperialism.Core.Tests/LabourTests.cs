@@ -21,7 +21,15 @@ public sealed class LabourTests
     /// that a stock assertion measures production alone — feeding runs in the
     /// same resolution and would otherwise be indistinguishable from it.
     /// </summary>
+    /// <remarks>
+    /// Two foods on a two-long cycle, so illness is reachable at all: a worker
+    /// only falls sick by eating something it did not want, which needs a
+    /// second food in the cycle to be the wrong one. Stock both and everybody
+    /// is well fed; stock only meat and every fish-eater falls ill.
+    /// </remarks>
     private const int Fish = 3;
+
+    private const int Meat = 4;
 
     [Fact]
     public void OneUnitOfClothingCostsTwoFabricAndTwoLabour()
@@ -142,7 +150,7 @@ public sealed class LabourTests
         // Feeding runs after Production, so a workforce that starves still
         // works the turn it dies and is smaller when the next turn's orders
         // resolve. Two workers, no food at all: both are gone by turn two.
-        var state = CreateState(untrained: 2, fabric: 10, fish: 0);
+        var state = CreateState(untrained: 2, fabric: 10, fish: 0, meat: 0);
 
         var first = Assert.Single(Resolve(state, Order(ClothingRecipe, 4)));
         Assert.Equal(1, first.CompletedCycles);
@@ -150,6 +158,99 @@ public sealed class LabourTests
 
         var second = Assert.Single(Resolve(state, Order(ClothingRecipe, 4)));
         Assert.Equal(0, second.CompletedCycles);
+    }
+
+    [Fact]
+    public void FallingIllCostsLabourNextTurn()
+    {
+        // Two workers on a two-long cycle with only meat in the warehouse: the
+        // fish-eater eats meat and reports sick, the meat-eater is fine.
+        // Feeding runs after Production, so turn one is worked at full strength
+        // and turn two is the one that pays.
+        var state = CreateState(untrained: 2, fabric: 20, fish: 0);
+
+        var first = Assert.Single(Resolve(state, Order(ClothingRecipe, 10)));
+        Assert.Equal(1, first.CompletedCycles);
+        Assert.Equal(2, first.LabourUsed);
+        Assert.Equal(2, state.GetTotalWorkers(Home));
+        Assert.Equal(1, state.GetSickWorkers(Home, WorkerGrade.Untrained));
+
+        // One of the two is ill, so the pool is 1 and buys no two-labour cycle.
+        Assert.Equal(1, state.GetAvailableLabour(Home));
+        var second = Assert.Single(Resolve(state, Order(ClothingRecipe, 10)));
+        Assert.Equal(0, second.CompletedCycles);
+    }
+
+    [Fact]
+    public void TheCheapestGradeFallsIllFirst()
+    {
+        // One untrained and one expert, one of them sick. Taking the untrained
+        // costs the player 1 labour of 5; taking the expert would cost 4. This
+        // is the chosen rule, mirroring starvation — see feeding.md.
+        var state = CreateState(untrained: 1, expert: 1, fabric: 20, fish: 0);
+        Assert.Equal(5, state.GetAvailableLabour(Home));
+
+        _ = Resolve(state, Order(ClothingRecipe, 10));
+
+        Assert.Equal(1, state.GetSickWorkers(Home, WorkerGrade.Untrained));
+        Assert.Equal(0, state.GetSickWorkers(Home, WorkerGrade.Expert));
+        Assert.Equal(4, state.GetAvailableLabour(Home));
+    }
+
+    [Fact]
+    public void EatingProperlyAgainPutsTheWholePoolBack()
+    {
+        // Sickness is rewritten every turn rather than accumulated, so recovery
+        // needs no separate rule: one good meal and the pool is whole.
+        var state = CreateState(untrained: 2, fabric: 20, fish: 0);
+        _ = Resolve(state, Order(ClothingRecipe, 10));
+        Assert.Equal(1, state.GetAvailableLabour(Home));
+
+        state.AddAvailableQuantity(Home, new CommodityId(Fish), 100);
+        _ = Resolve(state, Order(ClothingRecipe, 10));
+
+        Assert.Equal(0, state.GetSickWorkers(Home, WorkerGrade.Untrained));
+        Assert.Equal(2, state.GetAvailableLabour(Home));
+    }
+
+    [Fact]
+    public void StarvationTakesTheCheapestWorkersAndIllnessTakesTheNextCheapest()
+    {
+        // Four workers, one of each cheap grade doubled up, and only enough
+        // meat for some of them. Whoever starves is gone; illness is then
+        // assigned among the survivors, so nobody is counted twice.
+        var state = CreateState(untrained: 2, trained: 1, expert: 1, fabric: 20, fish: 0, meat: 1);
+
+        var fed = Assert.Single(TurnResolver
+            .Resolve(state, new TurnOrders([new CountryTurnOrders(Home, [])]), 0)
+            .Events.OfType<WorkersFedEvent>());
+
+        // Four workers want fish, meat, fish, meat. One unit of meat feeds the
+        // first fish-eater badly; everyone after it finds nothing.
+        Assert.Equal(0, fed.WellFed);
+        Assert.Equal(1, fed.Sick);
+        Assert.Equal(3, fed.Starved);
+
+        // Starvation took the two untrained and the trained, leaving the
+        // expert, who is therefore the one carrying the illness.
+        Assert.Equal(0, state.GetWorkers(Home, WorkerGrade.Untrained));
+        Assert.Equal(0, state.GetWorkers(Home, WorkerGrade.Trained));
+        Assert.Equal(1, state.GetWorkers(Home, WorkerGrade.Expert));
+        Assert.Equal(1, state.GetSickWorkers(Home, WorkerGrade.Expert));
+        Assert.Equal(0, state.GetAvailableLabour(Home));
+    }
+
+    [Fact]
+    public void AGradeCanNeverHoldMoreSickWorkersThanWorkers()
+    {
+        var state = CreateState(untrained: 2, fabric: 20, fish: 0);
+        _ = Resolve(state, Order(ClothingRecipe, 10));
+        Assert.Equal(1, state.GetSickWorkers(Home, WorkerGrade.Untrained));
+
+        state.SetWorkers(Home, WorkerGrade.Untrained, 0);
+
+        Assert.Equal(0, state.GetSickWorkers(Home, WorkerGrade.Untrained));
+        Assert.Equal(0, state.GetAvailableLabour(Home));
     }
 
     private static readonly CountryId Home = new(0);
@@ -172,6 +273,7 @@ public sealed class LabourTests
         long fabric = 0,
         long grain = 0,
         long fish = 1000,
+        long meat = 1000,
         bool withFeeding = true)
     {
         var map = new MapDefinition(
@@ -196,6 +298,11 @@ public sealed class LabourTests
         if (fish > 0)
         {
             stock.Add(new InitialCommodityStock(Home, new CommodityId(Fish), fish));
+        }
+
+        if (meat > 0)
+        {
+            stock.Add(new InitialCommodityStock(Home, new CommodityId(Meat), meat));
         }
 
         var workforce = untrained + trained + expert > 0
@@ -248,13 +355,19 @@ public sealed class LabourTests
                 new CommodityDefinition(new CommodityId(Clothing), "Clothing", CommodityCategory.Material),
                 new CommodityDefinition(new CommodityId(Grain), "Grain", CommodityCategory.Raw),
                 new CommodityDefinition(new CommodityId(Fish), "Fish", CommodityCategory.Raw),
+                new CommodityDefinition(new CommodityId(Meat), "Meat", CommodityCategory.Raw),
             ],
             facilities,
             recipes,
             null,
             null,
             withFeeding
-                ? new FeedingSettings([new FoodPreference([new CommodityId(Fish)])], [1, 2, 4])
+                ? new FeedingSettings(
+                    [
+                        new FoodPreference([new CommodityId(Fish)]),
+                        new FoodPreference([new CommodityId(Meat)]),
+                    ],
+                    [1, 2, 4])
                 : null));
     }
 }

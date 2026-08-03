@@ -167,16 +167,20 @@ Transient power, capacity construction, research, conflict, trade markets,
 diplomacy, sea routes between ports, blockade, and the transport capacity pool
 remain explicitly pending.
 
-**Production spends labour; sickness still costs nothing.** Each recipe costs
-its total input units in labour, from one pool per country shared across every
-facility. The manual prices exactly one recipe — a unit of clothing costs two
-fabric and two labour — and settles the rest only because every shipped recipe
-consumes two input units per unit of output, which collapses the competing
-readings of that sentence into the same number. A recipe that broke 2:1 would
-separate them; the railyard will be the first. Starvation therefore has teeth,
-because a smaller workforce supplies less labour next turn. Sickness does not,
-because feeding never learns which *grade* ate badly and deciding that would be
-an invention. Read `docs/formulas/production.md` before changing the rate.
+**Production spends labour.** Each recipe costs its total input units, from one
+pool per country shared across every facility. The manual prices exactly one
+recipe — a unit of clothing costs two fabric and two labour — and settles the
+rest only because every shipped recipe consumes two input units per unit of
+output, which collapses the competing readings of that sentence into the same
+number. A recipe that broke 2:1 would separate them; the railyard will be the
+first. Read `docs/formulas/production.md` before changing the rate.
+
+**Starving and sickening both cost labour on the *next* turn**, because
+`Production` runs before `Feeding`. A workforce works the turn it dies or falls
+ill; the turn after is the first whose orders could have been given knowing.
+Which grade takes the damage — cheapest first, starvation before illness — is
+**the one chosen rule in the model**, not a finding. It is in
+`docs/formulas/feeding.md` under that heading; don't cite it as evidence.
 
 **The game manual is in `docs/reference/` and it is authoritative for numbers.**
 It carries a Resource Development Table giving every deposit's yield at each of

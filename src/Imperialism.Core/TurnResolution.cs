@@ -197,7 +197,11 @@ public sealed record WorkersFedEvent : TurnEvent
     /// <summary>Workers that got their preference, or canned food instead.</summary>
     public long WellFed { get; }
 
-    /// <summary>Workers fed something they did not want; they do no labour this turn.</summary>
+    /// <summary>
+    /// Workers fed something they did not want. They supply no labour to the
+    /// next turn's production, which is the first one whose orders could have
+    /// been given knowing they were ill.
+    /// </summary>
     public long Sick { get; }
 
     /// <summary>Workers that found nothing and were permanently removed.</summary>

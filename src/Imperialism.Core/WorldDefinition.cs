@@ -447,6 +447,7 @@ public sealed class WorldState
     private readonly HashSet<CellIndex> _ports;
     private readonly HashSet<CellIndex> _depots;
     private readonly long[] _workers;
+    private readonly long[] _sickWorkers;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private long _nextDeliveryId = 1;
 
@@ -492,6 +493,11 @@ public sealed class WorldState
                 _workers[GetWorkerOffset(workforce.Country, grade)] = workforce[grade];
             }
         }
+
+        // Everybody starts well. Illness is decided by what a workforce eats,
+        // so it is runtime state a scenario cannot author: there is nothing to
+        // read it from and nothing sensible to invent.
+        _sickWorkers = new long[_workers.Length];
         _knownTechnologies = new bool[
             checked(definition.Countries.Count * definition.Technologies.Count)];
         foreach (var known in definition.Scenario.InitialCountryTechnologies)
@@ -643,7 +649,47 @@ public sealed class WorldState
     public void SetWorkers(CountryId country, WorkerGrade grade, long count)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
-        _workers[GetWorkerOffset(country, grade)] = count;
+        var offset = GetWorkerOffset(country, grade);
+        _workers[offset] = count;
+
+        // A grade can never hold more sick workers than workers. Starvation
+        // shrinks a grade through this method, so clamping here is what stops
+        // a country that lost its whole workforce still carrying invalids.
+        _sickWorkers[offset] = Math.Min(_sickWorkers[offset], count);
+    }
+
+    /// <summary>
+    /// Workers of this grade that ate the wrong thing at the last
+    /// <see cref="TurnPhase.Feeding"/> and supply no labour until the next one.
+    /// </summary>
+    public long GetSickWorkers(CountryId country, WorkerGrade grade) =>
+        _sickWorkers[GetWorkerOffset(country, grade)];
+
+    /// <summary>
+    /// Records how many of a country's workers fell ill, taking the cheapest
+    /// grades first, and clears anyone who recovered.
+    /// </summary>
+    /// <remarks>
+    /// **Which grade falls ill is a choice, not a finding**, and it mirrors the
+    /// one starvation already makes: the cheapest workers, so illness costs the
+    /// player least. Feeding walks its workforce by position in the preference
+    /// cycle and never learns a worker's grade, so somebody has to decide. See
+    /// <c>docs/formulas/feeding.md</c>.
+    ///
+    /// The count is rewritten in full rather than accumulated, which is what
+    /// makes recovery automatic: a workforce that eats properly reports none
+    /// sick and gets its whole pool back.
+    /// </remarks>
+    internal void SetSickWorkers(CountryId country, long sick)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(sick);
+        foreach (var grade in WorkerGrades.All)
+        {
+            var offset = GetWorkerOffset(country, grade);
+            var ill = Math.Min(_workers[offset], sick);
+            _sickWorkers[offset] = ill;
+            sick -= ill;
+        }
     }
 
     public long GetTotalWorkers(CountryId country)
@@ -660,11 +706,16 @@ public sealed class WorldState
     /// <summary>
     /// What the workforce can do this turn: the pool <see cref="TurnPhase.Production"/>
     /// spends against each recipe's <see cref="ProductionRecipeDefinition.LabourCost"/>.
-    /// It counts every worker, because sickness is decided in
-    /// <see cref="TurnPhase.Feeding"/> and never says which grade fell ill — see
-    /// <c>docs/formulas/feeding.md</c>. Zero when the world defines no feeding,
-    /// which is also the case where production ignores labour entirely.
+    /// Workers who fell ill at the last <see cref="TurnPhase.Feeding"/> are
+    /// excluded. Zero when the world defines no feeding, which is also the case
+    /// where production ignores labour entirely.
     /// </summary>
+    /// <remarks>
+    /// Illness is diagnosed after production has already run, so it is paid for
+    /// on the following turn. That is the faithful ordering rather than a
+    /// concession to the pipeline: food is eaten as the turn ends, and the arm
+    /// icon the player allocates against must already know who is unwell.
+    /// </remarks>
     public long GetAvailableLabour(CountryId country)
     {
         ValidateCountry(country);
@@ -676,8 +727,9 @@ public sealed class WorldState
         var labour = 0L;
         foreach (var grade in WorkerGrades.All)
         {
+            var offset = GetWorkerOffset(country, grade);
             labour = checked(labour +
-                (_workers[GetWorkerOffset(country, grade)] * feeding.GetLabour(grade)));
+                ((_workers[offset] - _sickWorkers[offset]) * feeding.GetLabour(grade)));
         }
 
         return labour;
