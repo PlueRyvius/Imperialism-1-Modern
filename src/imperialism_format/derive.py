@@ -42,6 +42,10 @@ _MOUNTAIN_TERRAIN = frozenset({9})
 
 OCEAN_TERRAIN = 0
 
+# A direction mask uses the low six bits. Bytes 7 and 8 carry undecoded flags
+# above them on real maps, so recomputing a mask must leave those alone.
+DIRECTION_BITS = 0b0011_1111
+
 
 @dataclass(frozen=True)
 class HexGeometry:
@@ -98,30 +102,77 @@ def national_border(map_file, x: int, y: int, geom: HexGeometry | None = None) -
 
     The map edge counts as a national border; ocean neighbours never do, so a
     coastline is not drawn as a frontier.  Ocean cells carry a nation byte too
-    (a sea-zone id), but their border mask is not this function's business.
+    (a sea-zone id), and byte 7 out there is a **sea-zone** boundary rather
+    than a national one — "off-map, or adjacent water in a different zone"
+    fits it to 98.4-99.5%, close enough to read the intent and too loose to
+    write into a file, so ocean cells are left as they are.
+
+    Bits 6 and 7 are not direction bits, exactly as on `province_border`: 79
+    land and 342 ocean cells in the corpus carry them, undecoded. Preserving
+    them is what makes this rule exact — every one of its 79 residual land
+    misses was this byte being truncated to six bits.
     """
     geom = geom or geometry_for(map_file)
-    if _is_ocean(map_file.get(x, y)):
-        return map_file.get(x, y).national_border
-    return _mask(
+    cell = map_file.get(x, y)
+    if _is_ocean(cell):
+        return cell.national_border
+    return (cell.national_border & ~DIRECTION_BITS) | _mask(
         geom, map_file, x, y,
         lambda c, n: n is None or (not _is_ocean(n) and n.nation_zone_a != c.nation_zone_a),
     )
 
 
 def province_border(map_file, x: int, y: int, geom: HexGeometry | None = None) -> int:
-    """Directions in which this land cell faces a different province.
+    """Byte 8: which of this cell's edges a province outline runs along.
 
-    Unlike national borders, the map edge does *not* count — provinces are
-    bounded by the land they occupy, not by the edge of the world.
+    On **land**, the directions facing a different province. Unlike national
+    borders, the map edge does *not* count — provinces are bounded by the land
+    they occupy, not by the edge of the world.
+
+    On **ocean**, the byte is not idle and it is not the land rule. It marks
+    where a province outline *reaches the coast*: bit ``d`` is set when the
+    neighbour in direction ``d`` and the next one clockwise are both land in
+    different provinces, so the outline between them terminates on this water
+    cell's edge. Exact — 35,583 of 35,583 ocean cells across all fourteen
+    shipped maps, no exceptions — and it explains why every ocean cell carrying
+    the byte touches at least two provinces (106/106, 104/104, 121/121 in `s1`,
+    `s9`, `s11`) and why its bits never point at anything but land.
+
+    Deriving the ocean case matters because the alternative is keeping whatever
+    a cell held before: repaint land to sea and the old land mask survives with
+    its bits now facing open water. The engine turns those bits into boundary
+    segments, and a segment whose far side is water resolves to province 65535
+    — the sentinel `UMapper.cpp:4751` asserts against, and the index its region
+    accessor then uses unguarded.
+
+    Bits 6 and 7 are **not** direction bits and are not decoded. They appear on
+    1,584 land cells and 9 ocean cells in the corpus, so they are preserved
+    rather than recomputed; zeroing them was quietly destroying them on every
+    cell an edit touched.
     """
     geom = geom or geometry_for(map_file)
-    if _is_ocean(map_file.get(x, y)):
-        return map_file.get(x, y).province_border
-    return _mask(
-        geom, map_file, x, y,
-        lambda c, n: n is not None and not _is_ocean(n) and n.province != c.province,
-    )
+    cell = map_file.get(x, y)
+    undecoded = cell.province_border & ~DIRECTION_BITS
+
+    if not _is_ocean(cell):
+        return undecoded | _mask(
+            geom, map_file, x, y,
+            lambda c, n: n is not None and not _is_ocean(n) and n.province != c.province,
+        )
+
+    def land_province(pos):
+        if pos is None:
+            return None
+        neighbour = map_file.get(*pos)
+        return None if _is_ocean(neighbour) else neighbour.province
+
+    around = [land_province(p) for p in geom.neighbours(x, y)]
+    value = 0
+    for direction in range(6):
+        here, clockwise = around[direction], around[(direction + 1) % 6]
+        if here is not None and clockwise is not None and here != clockwise:
+            value |= 1 << direction
+    return undecoded | value
 
 
 def land_coastline(map_file, x: int, y: int, geom: HexGeometry | None = None) -> int:

@@ -293,6 +293,97 @@ def test_national_border_is_exact_on_real_maps():
         assert measure(m, "national_border") == 1.0, os.path.basename(path)
 
 
+def test_province_border_on_ocean_is_exact_on_real_maps():
+    """Byte 8 on water marks where a province outline reaches the coast.
+
+    Held to perfection, like `national_border`, because the engine turns these
+    bits into boundary segments and resolves the province on each side of one.
+    A bit facing water has no province there to resolve.
+    """
+    for path in real_maps():
+        m = MapFile.load(path)
+        geom = derive.geometry_for(m)
+        for y in range(m.height):
+            for x in range(m.width):
+                cell = m.get(x, y)
+                if cell.terrain != 0:
+                    continue
+                assert derive.province_border(m, x, y, geom) == cell.province_border, \
+                    f"{os.path.basename(path)} at {x},{y}"
+
+
+def test_a_province_border_bit_never_faces_open_water():
+    """The invariant behind the rule, stated directly and checked after editing.
+
+    Repainting land to sea used to leave the old land mask in place, pointing
+    at water that no longer belongs to any province. The engine indexes its
+    region table with what it finds there, unguarded, and 65535 walks off the
+    front of it — `UMapper.cpp:4751` asserts on exactly that case.
+    """
+    paths = real_maps()
+    if not paths:
+        return
+    m = MapFile.load(paths[0])
+    geom = derive.geometry_for(m)
+
+    def orphaned_bits():
+        found = []
+        for y in range(m.height):
+            for x in range(m.width):
+                cell = m.get(x, y)
+                if cell.terrain != 0:
+                    continue
+                for direction, pos in enumerate(geom.neighbours(x, y)):
+                    if not (cell.province_border >> direction) & 1:
+                        continue
+                    if pos is None or m.get(*pos).terrain == 0:
+                        found.append((x, y, direction))
+        return found
+
+    assert orphaned_bits() == []
+
+    # Drown a stretch that crosses a province boundary, the way the editor's
+    # ocean brush does, and recompute exactly what it recomputes.
+    drowned = []
+    for y in range(m.height):
+        for x in range(m.width - 1):
+            here, east = m.get(x, y), m.get(x + 1, y)
+            if here.terrain and east.terrain and here.province != east.province:
+                drowned = [(x, y), (x + 1, y)]
+                break
+        if drowned:
+            break
+    assert drowned, "no province boundary to paint over"
+
+    for x, y in drowned:
+        cell = m.get(x, y)
+        cell.terrain = 0
+        cell.terrain_underlay = 5
+        cell.province = 65535
+    derive.apply_edits(m, drowned, geom=geom)
+
+    assert orphaned_bits() == []
+
+
+def test_recomputing_keeps_the_undecoded_high_bits_of_a_border_byte():
+    """Bits 6 and 7 of bytes 7 and 8 are not directions and are not decoded.
+
+    They sit on 79 land and 342 ocean cells (byte 7) and 1,584 land and 9 ocean
+    cells (byte 8) across the shipped corpus. Recomputing a six-bit mask over
+    the whole byte silently destroyed them on every cell an edit touched.
+    """
+    m = small_map()
+    m.get(2, 2).terrain = 1
+    m.get(2, 2).province = 3
+    m.get(2, 2).national_border = 0b1100_0000
+    m.get(2, 2).province_border = 0b0100_0000
+
+    derive.apply_cell(m, 2, 2)
+
+    assert m.get(2, 2).national_border & 0b1100_0000 == 0b1100_0000
+    assert m.get(2, 2).province_border & 0b1100_0000 == 0b0100_0000
+
+
 def test_deriving_does_not_disturb_undecoded_bytes():
     """Recomputation must leave every non-derived byte alone."""
     paths = real_maps()
