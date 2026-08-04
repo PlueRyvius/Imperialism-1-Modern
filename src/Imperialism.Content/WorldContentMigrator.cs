@@ -61,6 +61,11 @@ internal static class WorldContentMigrator
             MigrateVersionTenToEleven(document);
         }
 
+        if (document.FormatVersion == 11)
+        {
+            MigrateVersionElevenToTwelve(document);
+        }
+
         return document;
     }
 
@@ -446,6 +451,24 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 11;
+    }
+
+    /// <summary>
+    /// Version 12 lets a country recruit workers. A version 11 package says
+    /// nothing about the Capitol's terms, and the price of a worker is a number
+    /// nobody has measured — so it migrates to a world that cannot recruit,
+    /// which is how it behaved before.
+    /// </summary>
+    private static void MigrateVersionElevenToTwelve(WorldContentDocument document)
+    {
+        if (document.Migration is not null)
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 11 cannot contain version 12 migration settings.");
+        }
+
+        document.FormatVersion = 12;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

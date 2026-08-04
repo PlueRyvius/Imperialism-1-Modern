@@ -367,6 +367,7 @@ public static class LegacyWorldConverter
             ProductionFacilities = CreateStandardProductionFacilities(),
             ProductionRecipes = CreateStandardProductionRecipes(),
             ExpansionCostPerCapacityPoint = CreateStandardExpansionCost(),
+            Migration = CreateStandardMigration(),
             Resources = resourceCodes.Select(code => new ResourceContentDefinition
             {
                 Key = resourceKeys[code],
@@ -1269,6 +1270,28 @@ public static class LegacyWorldConverter
     {
         Rungs = [1, 2, 4, 8, 12],
         Increment = 4,
+    };
+
+    /// <summary>
+    /// The Capitol's terms: "the comforts of a developing economy: canned foods,
+    /// clothing, and furniture", and a limit of "one-fourth of the number of
+    /// provinces you own, rounded down".
+    /// </summary>
+    /// <remarks>
+    /// **One of each per worker is a guess.** The manual names the three
+    /// commodities and never says how much of any of them, so this is a real
+    /// economic constant nobody has measured. See
+    /// <c>docs/formulas/migration.md</c>; do not cite it as evidence.
+    /// </remarks>
+    private static MigrationContent CreateStandardMigration() => new()
+    {
+        CostPerWorker =
+        [
+            Quantity("canned-food", 1),
+            Quantity("clothing", 1),
+            Quantity("furniture", 1),
+        ],
+        ProvincesPerRecruit = 4,
     };
 
     /// <summary>

@@ -41,15 +41,25 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     private const int Fabric = 7;
     private const int Lumber = 8;
     private const int Steel = 9;
-    private const int CommodityCount = 10;
+
+    // The comforts a recruit costs. One uncapped workshop makes all three,
+    // which is a fixture convenience rather than the original's building list.
+    private const int CannedFood = 10;
+    private const int Clothing = 11;
+    private const int Furniture = 12;
+    private const int CommodityCount = 13;
 
     private const int TextileMill = 0;
     private const int LumberMill = 1;
     private const int SteelMill = 2;
+    private const int Workshop = 3;
 
     private const int FabricRecipe = 0;
     private const int LumberRecipe = 1;
     private const int SteelRecipe = 2;
+    private const int CannedFoodRecipe = 3;
+    private const int ClothingRecipe = 4;
+    private const int FurnitureRecipe = 5;
 
     [Fact]
     public void AHundredTurnsWithNoOrdersKeepsTheWorldIntact()
@@ -87,8 +97,58 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         Assert.True(work.Built > 0, "No facility was ever built larger.");
     }
 
+    [Fact]
+    public void AHundredTurnsOfRecruitingShowsWhatGrowthCosts()
+    {
+        // The owner's read of the standing sickness result: in a real game you
+        // grow farms and population as you go. Population is now possible;
+        // farms are not, because improving a tile needs civilian units and Core
+        // has no unit model. So this run grows demand against a fixed supply,
+        // which should make the food balance worse rather than better. That is
+        // the correct answer, and worth seeing rather than asserting away.
+        var state = CreateWorld();
+        var log = Run(state, orderPolicy: GrowthPolicy, out var work);
+
+        output.WriteLine(log);
+
+        Assert.True(work.RecruitAttempts > 0, "The Capitol was never asked for anybody.");
+        Assert.True(work.Produced > 0, "No production cycle ever completed.");
+    }
+
     /// <summary>How much the run actually did, so a silent no-op cannot pass.</summary>
-    private sealed record WorkDone(long Gathered, long Eaten, long Delivered, long Produced, long Built);
+    private sealed record WorkDone(
+        long Gathered, long Eaten, long Delivered, long Produced, long Built,
+        long Recruited, long RecruitAttempts);
+
+    /// <summary>
+    /// Makes the comforts a recruit costs and then recruits. A fixture, not an
+    /// AI and not a finding — same warning as <see cref="FoodFirstPolicy"/>.
+    /// </summary>
+    private static CountryTurnOrders GrowthPolicy(WorldState state, CountryId country)
+    {
+        long Held(int commodity) => state.GetAvailableQuantity(country, new CommodityId(commodity));
+
+        var production = new List<ProductionOrder>();
+        foreach (var (recipe, input) in new[]
+                 {
+                     (FabricRecipe, Cotton), (LumberRecipe, Timber),
+                     (CannedFoodRecipe, Grain), (ClothingRecipe, Fabric),
+                     (FurnitureRecipe, Lumber),
+                 })
+        {
+            var affordable = Held(input) / 2;
+            if (affordable > 0)
+            {
+                production.Add(new ProductionOrder(new ProductionRecipeId(recipe), affordable));
+            }
+        }
+
+        // Ask for far more than the country can possibly take, the way a player
+        // drags the slider to its stop. The planner trims to what the country's
+        // size allows and then to what it can pay, so an order that brings
+        // nobody still reports why.
+        return new CountryTurnOrders(country, production, null, recruitWorkers: 99);
+    }
 
     /// <summary>
     /// A stand-in for a player, and **not an AI and not a finding**. It exists
@@ -128,18 +188,19 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         out WorkDone work)
     {
         long gathered = 0, eaten = 0, delivered = 0, produced = 0, built = 0;
+        long recruited = 0, recruitAttempts = 0;
         var report = new StringBuilder();
         report.AppendLine($"turn  workers  fed/sick/starved  labour   stock   capacity  pending");
 
         var previousDate = state.CurrentDate;
-        var startingWorkers = Enumerable.Range(0, Powers)
-            .Select(index => state.GetTotalWorkers(new CountryId(index))).ToArray();
 
         for (var turn = 1; turn <= Turns; turn++)
         {
             var labourBefore = Enumerable.Range(0, Powers)
                 .Select(index => state.GetAvailableLabour(new CountryId(index))).ToArray();
             var capacityBefore = CapacitySnapshot(state);
+            var workersBefore = Enumerable.Range(0, Powers)
+                .Select(index => state.GetTotalWorkers(new CountryId(index))).ToArray();
 
             var orders = new TurnOrders(Enumerable.Range(0, Powers)
                 .Select(index =>
@@ -158,7 +219,7 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             Assert.Equal(previousDate.Next(), resolution.EndedAt);
             previousDate = resolution.EndedAt;
 
-            AssertIntegrity(state, resolution, turn, labourBefore, capacityBefore, startingWorkers);
+            AssertIntegrity(state, resolution, turn, labourBefore, capacityBefore, workersBefore);
 
             gathered += resolution.Events.OfType<ResourceExtractedEvent>()
                 .Sum(item => item.Collected.Sum(q => q.Quantity));
@@ -168,6 +229,8 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             produced += resolution.Events.OfType<ProductionCompletedEvent>()
                 .Sum(item => item.CompletedCycles);
             built += resolution.Events.OfType<FacilityExpandedEvent>().Count();
+            recruited += resolution.Events.OfType<WorkersRecruitedEvent>().Sum(item => item.Recruited);
+            recruitAttempts += resolution.Events.OfType<WorkersRecruitedEvent>().Count();
 
             if (turn is 1 or 2 or 5 or 10 or 25 or 50 or 75 or Turns)
             {
@@ -175,10 +238,12 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             }
         }
 
-        work = new WorkDone(gathered, eaten, delivered, produced, built);
+        work = new WorkDone(
+            gathered, eaten, delivered, produced, built, recruited, recruitAttempts);
         report.AppendLine(
             $"gathered {gathered}, eaten {eaten}, delivered {delivered}, " +
-            $"produced {produced} cycles, built {built} times");
+            $"produced {produced} cycles, built {built} times, " +
+            $"recruited {recruited} from {recruitAttempts} requests");
         return report.ToString();
     }
 
@@ -188,7 +253,7 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         int turn,
         long[] labourBefore,
         long[] capacityBefore,
-        long[] startingWorkers)
+        long[] workersBefore)
     {
         for (var index = 0; index < Powers; index++)
         {
@@ -202,10 +267,18 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
 
             var workers = state.GetTotalWorkers(country);
             Assert.True(workers >= 0, $"Turn {turn}: country {index} has {workers} workers.");
+
+            // Growth used to be forbidden outright, on the grounds that nothing
+            // recruited. Migration changed that, so the rule is now the stronger
+            // one: every worker that appears must be accounted for by a
+            // recruitment event. An unexplained worker is still a failure.
+            var recruited = resolution.Events.OfType<WorkersRecruitedEvent>()
+                .Where(item => item.Country == country)
+                .Sum(item => item.Recruited);
             Assert.True(
-                workers <= startingWorkers[index],
-                $"Turn {turn}: country {index} grew from {startingWorkers[index]} to {workers} workers, " +
-                "and nothing in the engine recruits yet.");
+                workers <= workersBefore[index] + recruited,
+                $"Turn {turn}: country {index} went from {workersBefore[index]} to {workers} " +
+                $"workers with only {recruited} recruited.");
 
             foreach (var grade in WorkerGrades.All)
             {
@@ -384,6 +457,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             new ProductionFacilityDefinition(
                 new ProductionFacilityId(SteelMill), "Steel Mill",
                 ProductionCapacityMode.Limited, new CapacityLadder([2, 4, 8, 16, 24], 8)),
+            new ProductionFacilityDefinition(
+                new ProductionFacilityId(Workshop), "Workshop",
+                ProductionCapacityMode.Unlimited),
         };
 
         var recipes = new[]
@@ -391,6 +467,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             Recipe(FabricRecipe, "Fabric", TextileMill, Cotton, Fabric),
             Recipe(LumberRecipe, "Lumber", LumberMill, Timber, Lumber),
             Recipe(SteelRecipe, "Steel", SteelMill, Coal, Steel),
+            Recipe(CannedFoodRecipe, "Canned Food", Workshop, Grain, CannedFood),
+            Recipe(ClothingRecipe, "Clothing", Workshop, Fabric, Clothing),
+            Recipe(FurnitureRecipe, "Furniture", Workshop, Lumber, Furniture),
         };
 
         return new WorldState(new WorldDefinition(
@@ -409,6 +488,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 new CommodityDefinition(new CommodityId(Fabric), "Fabric", CommodityCategory.Material),
                 new CommodityDefinition(new CommodityId(Lumber), "Lumber", CommodityCategory.Material),
                 new CommodityDefinition(new CommodityId(Steel), "Steel", CommodityCategory.Material),
+                new CommodityDefinition(new CommodityId(CannedFood), "Canned Food", CommodityCategory.Material),
+                new CommodityDefinition(new CommodityId(Clothing), "Clothing", CommodityCategory.Goods),
+                new CommodityDefinition(new CommodityId(Furniture), "Furniture", CommodityCategory.Goods),
             ],
             facilities,
             recipes,
@@ -433,7 +515,14 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             [
                 new CommodityQuantity(new CommodityId(Lumber), 1),
                 new CommodityQuantity(new CommodityId(Steel), 1),
-            ]));
+            ],
+            new MigrationSettings(
+                [
+                    new CommodityQuantity(new CommodityId(CannedFood), 1),
+                    new CommodityQuantity(new CommodityId(Clothing), 1),
+                    new CommodityQuantity(new CommodityId(Furniture), 1),
+                ],
+                provincesPerRecruit: 4)));
     }
 
     private static ProductionRecipeDefinition Recipe(
