@@ -20,6 +20,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | How does the Godot map viewer work? | `docs/map-viewer.md` |
 | What fills the warehouse from the map? | `docs/formulas/extraction.md` |
 | Who eats it, and what labour they supply | `docs/formulas/feeding.md` |
+| How a workforce grows | `docs/formulas/migration.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Does the economy hold up over 100 turns? | `docs/formulas/soak.md` |
@@ -191,7 +192,7 @@ see `docs/map-viewer.md`.
 
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an
-inert dense order bundle, unrestricted quarterly `TurnDate`, fixed ten-phase
+inert dense order bundle, unrestricted quarterly `TurnDate`, fixed eleven-phase
 `TurnResolver`, and immutable event log. `.iworld` defines stable
 commodities, facilities, recipes, and sparse scenario capacity, with explicit
 v1→v2→v3 migration. Core stores checked dense Available inventory and
@@ -221,6 +222,18 @@ world-level cost per point. **The ladder validates building, never storing** —
 53 shipped `capa` records sit off it and the importer must keep taking them. A
 new `Construction` phase runs after `Production`, which is the whole of how
 "completes next turn" is modelled.
+
+`.iworld` v12 adds the Capitol: a country recruits untrained workers at
+floor(provinces owned / 4) a turn, priced in canned food, clothing and
+furniture. **The price per worker is a guess** — the manual names the
+commodities and the cap and never the quantities. A recruit eats the turn it
+arrives and supplies labour only from the next.
+
+**Migration is inert on a food-deficit economy, by design.** The soak asks the
+Capitol for the maximum every turn for a hundred turns and gets nobody: canned
+food needs grain, hungry workers eat every grain, so the price can never be
+paid. Growing population is gated behind improving farms, which needs civilian
+units — and Core has no unit model at all. See `docs/formulas/migration.md`.
 
 Transient power, research, conflict, trade markets, diplomacy, sea routes
 between ports, blockade, and the transport capacity pool remain explicitly

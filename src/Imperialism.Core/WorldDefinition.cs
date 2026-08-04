@@ -19,7 +19,8 @@ public sealed class WorldDefinition
         IEnumerable<TechnologyDefinition>? technologies = null,
         FeedingSettings? feeding = null,
         StartingDefaults? startingDefaults = null,
-        IEnumerable<CommodityQuantity>? expansionCostPerCapacityPoint = null)
+        IEnumerable<CommodityQuantity>? expansionCostPerCapacityPoint = null,
+        MigrationSettings? migration = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
@@ -356,6 +357,7 @@ public sealed class WorldDefinition
         Feeding = feeding;
         StartingDefaults = startingDefaults;
         ExpansionCostPerCapacityPoint = Array.AsReadOnly(expansionCostPerCapacityPoint?.ToArray() ?? []);
+        Migration = migration;
         _technologies = Array.AsReadOnly(technologyArray);
         _countries = Array.AsReadOnly(countryArray);
         _commodities = Array.AsReadOnly(commodityArray);
@@ -395,6 +397,12 @@ public sealed class WorldDefinition
     /// labour. Empty means facilities cannot be expanded at all.
     /// </summary>
     public IReadOnlyList<CommodityQuantity> ExpansionCostPerCapacityPoint { get; }
+
+    /// <summary>
+    /// How a country draws new workers into industry, or null where it
+    /// cannot. See <see cref="MigrationSettings"/>.
+    /// </summary>
+    public MigrationSettings? Migration { get; }
 
     /// <summary>
     /// A port stands on land. Verified against every <c>port</c> record in the

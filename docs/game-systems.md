@@ -40,7 +40,7 @@ Two properties drive our architecture:
 Any implementation that resolves powers sequentially rather than
 simultaneously will produce visibly different games.
 
-**Current implementation boundary.** `TurnResolver` now enforces this ten-
+**Current implementation boundary.** `TurnResolver` now enforces this eleven-
 phase pipeline over dense country-id-ordered submissions and emits an immutable
 phase event log. Strategic time is an explicit year and quarter with no legacy
 date cap. Rail-connectivity materialization, evidence-backed industrial
@@ -77,8 +77,11 @@ at 1/2/4 per grade. **Production now spends that pool**, each recipe costing its
 total input units, and both starvation and sickness cut it — on the turn after,
 since production resolves before feeding. A fair start and capacity construction
 have landed: every power can begin identical, and a facility can be built one
-rung larger at one lumber and one steel per point. Prices, power, sea routes,
-the transport capacity pool and research remain pending — see
+rung larger at one lumber and one steel per point. The Capitol recruits
+untrained workers, capped at a quarter of the provinces owned and priced in
+canned food, clothing and furniture — though on a food-short economy it can
+never be paid, because canned food needs grain the workers are eating. Prices,
+power, sea routes, the transport capacity pool and research remain pending — see
 `formulas/production.md`, `formulas/extraction.md`, `formulas/feeding.md` and
 `reference/manual-mechanics.md`.
 

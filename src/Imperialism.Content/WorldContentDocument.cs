@@ -36,6 +36,9 @@ public sealed class WorldContentDocument
     /// </summary>
     public CommodityQuantityContent[] ExpansionCostPerCapacityPoint { get; set; } = [];
 
+    /// <summary>How a country draws new workers into industry. Absent means it cannot.</summary>
+    public MigrationContent? Migration { get; set; }
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string[]? ResourceKeys { get; set; }
 
@@ -102,6 +105,18 @@ public sealed class ScenarioContentDocument
     /// minor nations, and nothing here says which a country is.
     /// </summary>
     public string[] DefaultStartCountries { get; set; } = [];
+}
+
+/// <summary>
+/// The Capitol's terms. The manual names the commodities and the size limit and
+/// never says how much of each per worker — see <c>docs/formulas/migration.md</c>.
+/// </summary>
+public sealed class MigrationContent
+{
+    public CommodityQuantityContent[] CostPerWorker { get; set; } = [];
+
+    /// <summary>Owned provinces per recruit per turn. Four in the original.</summary>
+    public int ProvincesPerRecruit { get; set; }
 }
 
 /// <summary>What a listed power starts with when the scenario is silent.</summary>

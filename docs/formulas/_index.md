@@ -79,6 +79,7 @@ bottom of this file.
 | Resource extraction and catchment | `inferred` | [extraction](extraction.md) | Core, Content, LegacyImport | generated + local corpus |
 | Worker feeding and labour supply | `inferred` | [feeding](feeding.md) | Core, Content, LegacyImport | generated + local corpus |
 | Which grade starves or falls ill | `guess` | [feeding](feeding.md) | Core | generated |
+| Migration cap and price | `inferred`, on one `guess` | [migration](migration.md) | Core, Content, LegacyImport | generated |
 | Whether the whole economy holds up over time | — | [soak](soak.md) | — | 100-turn soak, 7 powers |
 | Trade clearing price | `guess` | _trade-pricing_ | — | — |
 | Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |

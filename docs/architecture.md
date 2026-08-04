@@ -156,7 +156,7 @@ TurnResolver.Resolve(WorldState state, TurnOrders orders, ulong seed)
 ```
 
 Phases run in the original's fixed order, with four of our own interleaved:
-Diplomacy → Trade → Production → **Construction** → Conflict →
+Diplomacy → Trade → Production → **Construction** → **Migration** → Conflict →
 TradeCancellation → **Extraction** → **Feeding** → Delivery → Connectivity.
 
 `Construction` sits immediately after `Production` on purpose. The manual says

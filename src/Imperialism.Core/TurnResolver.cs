@@ -9,6 +9,7 @@ public static class TurnResolver
         TurnPhase.Trade,
         TurnPhase.Production,
         TurnPhase.Construction,
+        TurnPhase.Migration,
         TurnPhase.Conflict,
         TurnPhase.TradeCancellation,
         TurnPhase.Extraction,
@@ -42,10 +43,19 @@ public static class TurnResolver
         // Expansion is planned against what production has already committed to
         // spending, so a turn cannot pay for the same lumber twice.
         var expansion = ExpansionPlanner.Create(state, orders, production.InventoryDeltas);
-        var combined = new long[production.InventoryDeltas.Length];
+        var spentSoFar = new long[production.InventoryDeltas.Length];
+        for (var index = 0; index < spentSoFar.Length; index++)
+        {
+            spentSoFar[index] = production.InventoryDeltas[index] + expansion.InventoryDeltas[index];
+        }
+
+        // Migration is priced last, against what production and building have
+        // already committed, so one turn cannot spend the same clothing twice.
+        var migration = MigrationPlanner.Create(state, orders, spentSoFar);
+        var combined = new long[spentSoFar.Length];
         for (var index = 0; index < combined.Length; index++)
         {
-            combined[index] = production.InventoryDeltas[index] + expansion.InventoryDeltas[index];
+            combined[index] = spentSoFar[index] + migration.InventoryDeltas[index];
         }
 
         state.PreflightInventoryChanges(combined);
@@ -84,6 +94,33 @@ public static class TurnResolver
                         entry.Facility,
                         entry.FromCapacity,
                         entry.ToCapacity,
+                        entry.Paid));
+                }
+            }
+            else if (phase == TurnPhase.Migration)
+            {
+                // Before Feeding, so a recruit eats on the turn it arrives —
+                // which is what gives the manual's warning about growing too
+                // fast any teeth. After Production, so it supplies no labour
+                // until the following turn.
+                state.CommitProduction(migration.InventoryDeltas);
+                foreach (var entry in migration.Entries)
+                {
+                    if (entry.Recruited > 0)
+                    {
+                        state.SetWorkers(
+                            entry.Country,
+                            WorkerGrade.Untrained,
+                            checked(state.GetWorkers(entry.Country, WorkerGrade.Untrained) +
+                                entry.Recruited));
+                    }
+
+                    events.Add(new WorkersRecruitedEvent(
+                        turnNumber,
+                        entry.Country,
+                        entry.Requested,
+                        entry.Recruited,
+                        entry.SizeLimit,
                         entry.Paid));
                 }
             }

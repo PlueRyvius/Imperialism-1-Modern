@@ -270,7 +270,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(12)]
+    [InlineData(13)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {

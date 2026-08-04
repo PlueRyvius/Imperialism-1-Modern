@@ -29,11 +29,11 @@ Every document starts with:
 ```json
 {
   "format": "imperialism-world",
-  "formatVersion": 11
+  "formatVersion": 12
 }
 ```
 
-Version 11 is the authored version. Migration is explicit and sequential:
+Version 12 is the authored version. Migration is explicit and sequential:
 version 1 resource palettes become version 2 commodities/resources, version 2
 packages gain empty version 3 production collections, version 3 packages gain a
 per-deposit `yieldPerTurn` plus a world-level `extraction` block, and version 4
@@ -66,7 +66,10 @@ arbitrary world — so it migrates unchanged. Version 11 lets industry grow: a p
 world-level `expansionCostPerCapacityPoint`. A version 10 package has neither,
 and supplying them would be inventing a rule rather than filling in a value, so
 it migrates to a world whose industry can never be built larger — which is how
-it behaved before. Mixed-version schemas,
+it behaved before. Version 12 adds the Capitol's terms — what a recruit costs and how many
+provinces buy one. A version 11 package has none, and the price of a worker is a
+number nobody has measured, so it migrates to a world that cannot recruit.
+Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the
 valid `commodity/from-resource/...` form; `/` is part of the key grammar below.

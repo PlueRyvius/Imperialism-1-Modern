@@ -156,6 +156,7 @@ public static class WorldContentCompiler
             RequireArray(document.ExpansionCostPerCapacityPoint, "expansionCostPerCapacityPoint"),
             commodityIds,
             "expansionCostPerCapacityPoint");
+        var migration = CompileMigration(document.Migration, commodityIds);
         var recipes = CompileProductionRecipes(recipeContent, facilityIds, commodityIds);
 
         MapDimensions dimensions;
@@ -248,7 +249,8 @@ public static class WorldContentCompiler
                     technologyIds,
                     feeding,
                     startingDefaults,
-                    expansionCost));
+                    expansionCost,
+                    migration));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -272,7 +274,8 @@ public static class WorldContentCompiler
         IReadOnlyDictionary<string, int> technologyIds,
         FeedingSettings? feeding,
         StartingDefaults? startingDefaults,
-        CommodityQuantity[] expansionCost)
+        CommodityQuantity[] expansionCost,
+        MigrationSettings? migration)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -373,7 +376,8 @@ public static class WorldContentCompiler
                 technologies,
                 feeding,
                 startingDefaults,
-                expansionCost);
+                expansionCost,
+                migration);
         }
         catch (ArgumentException exception)
         {
@@ -527,6 +531,30 @@ public static class WorldContentCompiler
         }
 
         return new StartingDefaults(capacities, workforce);
+    }
+
+    private static MigrationSettings? CompileMigration(
+        MigrationContent? content,
+        IReadOnlyDictionary<string, int> commodityIds)
+    {
+        if (content is null)
+        {
+            return null;
+        }
+
+        var cost = CompileCommodityQuantities(
+            RequireArray(content.CostPerWorker, "migration.costPerWorker"),
+            commodityIds,
+            "migration.costPerWorker");
+
+        try
+        {
+            return new MigrationSettings(cost, content.ProvincesPerRecruit);
+        }
+        catch (ArgumentException exception)
+        {
+            throw Error("migration", exception.Message, exception);
+        }
     }
 
     private static FeedingSettings? CompileFeedingSettings(

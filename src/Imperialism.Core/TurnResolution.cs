@@ -6,12 +6,59 @@ public enum TurnPhase : byte
     Trade,
     Production,
     Construction,
+    Migration,
     Conflict,
     TradeCancellation,
     Extraction,
     Feeding,
     Delivery,
     Connectivity,
+}
+
+/// <summary>Records one country's turn at the Capitol.</summary>
+/// <remarks>
+/// Reported even when nobody came, because "you asked for four and your country
+/// is too small for any" is a fact a player needs, and a silence would leave
+/// them dragging a slider that does nothing.
+/// </remarks>
+public sealed record WorkersRecruitedEvent : TurnEvent
+{
+    private readonly IReadOnlyList<CommodityQuantity> _paid;
+
+    public WorkersRecruitedEvent(
+        int turnNumber,
+        CountryId country,
+        long requested,
+        long recruited,
+        long sizeLimit,
+        IEnumerable<CommodityQuantity> paid)
+        : base(turnNumber, TurnPhase.Migration)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(recruited);
+        ArgumentOutOfRangeException.ThrowIfNegative(sizeLimit);
+        if (recruited > requested)
+        {
+            throw new ArgumentOutOfRangeException(nameof(recruited));
+        }
+
+        Country = country;
+        Requested = requested;
+        Recruited = recruited;
+        SizeLimit = sizeLimit;
+        _paid = Array.AsReadOnly(paid.ToArray());
+    }
+
+    public CountryId Country { get; }
+
+    public long Requested { get; }
+
+    /// <summary>Untrained workers who actually arrived.</summary>
+    public long Recruited { get; }
+
+    /// <summary>What the country's size allowed this turn, before cost.</summary>
+    public long SizeLimit { get; }
+
+    public IReadOnlyList<CommodityQuantity> Paid => _paid;
 }
 
 /// <summary>Records one facility built a rung larger.</summary>

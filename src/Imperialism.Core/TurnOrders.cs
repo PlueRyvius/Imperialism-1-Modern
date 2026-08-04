@@ -12,8 +12,10 @@ public sealed class CountryTurnOrders
     public CountryTurnOrders(
         CountryId country,
         IEnumerable<ProductionOrder>? production = null,
-        IEnumerable<ProductionExpansionOrder>? expansions = null)
+        IEnumerable<ProductionExpansionOrder>? expansions = null,
+        long recruitWorkers = 0)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(recruitWorkers);
         var productionArray = production?.ToArray() ?? [];
         if (productionArray.Any(static item => item.RequestedCycles <= 0))
         {
@@ -33,6 +35,7 @@ public sealed class CountryTurnOrders
         }
 
         Country = country;
+        RecruitWorkers = recruitWorkers;
         _production = Array.AsReadOnly(productionArray);
         _expansions = Array.AsReadOnly(expansionArray);
     }
@@ -44,6 +47,13 @@ public sealed class CountryTurnOrders
 
     /// <summary>Facilities to build one rung larger this turn.</summary>
     public IReadOnlyList<ProductionExpansionOrder> Expansions => _expansions;
+
+    /// <summary>
+    /// Untrained workers to draw into industry through the Capitol. Capped by
+    /// the country's size and by what it can pay; see
+    /// <see cref="MigrationSettings"/>.
+    /// </summary>
+    public long RecruitWorkers { get; }
 }
 
 /// <summary>
