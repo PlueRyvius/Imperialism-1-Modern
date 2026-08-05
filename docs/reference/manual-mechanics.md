@@ -49,9 +49,15 @@ Three terrain types yield but can never be improved: **dry plains** (grain),
 **horse ranch** (horses) and **scrub forest** (timber).
 
 This matters because grain and timber *are* improvable elsewhere — on farms and
-in hardwood forest. So the development curve cannot be selected by resource
-alone. Our model currently keys the curve off the resource, which will need
-revisiting when workers arrive.
+in hardwood forest. So improvability cannot be selected by resource alone.
+`TerrainDefinition.IsImprovable` now carries it, and the *curve* stays keyed off
+the resource, which is correct: the two tables answer two different questions.
+
+**The corpus corroborates this without exception.** 481 `deve` records across
+five scenarios, and not one on any of the three. Four dry-plains cells carry
+fruit and are the only cells in the corpus where a terrain-keyed and a
+resource-keyed rule would disagree; no `deve` record touches them. See
+`../formulas/development.md`.
 
 ## Technology gates improvement levels
 
@@ -128,6 +134,13 @@ drive fishing at all, so what it means is unknown.
 
 Farms and orchards adjacent to the capital begin at Level I automatically,
 before any Farmer exists.
+
+**The shipped scenarios do not author this**, which is evidence for it being an
+engine rule rather than against the rule itself: of 350 capital-adjacent farm
+and orchard tiles across the ten scenarios only 27 carry a `deve` record, and
+`s3` ships 59 records with none of them there. It joins the seven engine
+defaults in `../formulas/_index.md`, and it is **not implemented** — see
+`../formulas/development.md`.
 
 ## Gold and gems bypass the warehouse
 

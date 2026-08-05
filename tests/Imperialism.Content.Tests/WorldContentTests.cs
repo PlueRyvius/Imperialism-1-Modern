@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using Imperialism.Content;
 using Imperialism.Core;
 using Xunit;
@@ -168,7 +169,7 @@ public sealed class WorldContentTests
         const int height = 71;
         var document = new WorldContentDocument
         {
-            TerrainKeys = ["terrain.plains"],
+            Terrains = [Terrain("terrain.plains", "Plains")],
             Extraction = new ExtractionContentSettings { CatchmentRadius = 1 },
             Map = new MapContentDocument
             {
@@ -205,7 +206,7 @@ public sealed class WorldContentTests
         const int countryCount = 30;
         var document = new WorldContentDocument
         {
-            TerrainKeys = ["terrain.plains"],
+            Terrains = [Terrain("terrain.plains", "Plains")],
             Extraction = new ExtractionContentSettings { CatchmentRadius = 1 },
             Map = new MapContentDocument
             {
@@ -270,7 +271,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(13)]
+    [InlineData(14)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -486,7 +487,7 @@ public sealed class WorldContentTests
     public void StableKeysUsePortableCanonicalSyntax(string key)
     {
         var document = CreateValidDocument();
-        document.TerrainKeys[0] = key;
+        document.Terrains[0].Key = key;
 
         Assert.Throws<ContentValidationException>(() => WorldContentCompiler.Compile(document));
     }
@@ -603,16 +604,15 @@ public sealed class WorldContentTests
     [Fact]
     public void DecoderRejectsNullRequiredCollections()
     {
-        var json = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()))
-            .Replace(
-                "\"terrainKeys\": [\n    \"terrain.plains\",\n    \"terrain.ocean\"\n  ]",
-                "\"terrainKeys\": null",
-                StringComparison.Ordinal);
+        var encoded = Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument()));
+        var terrains = Regex.Match(encoded, "\"terrains\": \\[.*?\\n  \\],\\n", RegexOptions.Singleline);
+        Assert.True(terrains.Success, "The encoder no longer writes a terrains block.");
+        var json = encoded.Replace(terrains.Value, "\"terrains\": null,\n", StringComparison.Ordinal);
 
         var exception = Assert.Throws<ContentValidationException>(() =>
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
 
-        Assert.Equal("terrainKeys", exception.Path);
+        Assert.Equal("terrains", exception.Path);
     }
 
     [Fact]
@@ -822,6 +822,107 @@ public sealed class WorldContentTests
         Assert.Equal(7, state.GetTotalWorkers(country));
     }
 
+    /// <summary>
+    /// Version 13 renames <c>terrainKeys</c> to <c>terrains</c> and gives each
+    /// entry attributes. A version 12 world had no way to improve anything, so
+    /// every migrated terrain arrives unimprovable — a faithful reproduction of
+    /// its old behaviour rather than a guess standing in for a missing value.
+    /// </summary>
+    [Fact]
+    public void VersionTwelveMigratesToNamedUnimprovableTerrainAndNoCivilians()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 12);
+        Assert.Contains("terrainKeys", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"terrains\"", json, StringComparison.Ordinal);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.Null(migrated.TerrainKeys);
+        Assert.Equal(
+            ["terrain.plains", "terrain.ocean"],
+            migrated.Terrains.Select(static item => item.Key));
+        Assert.All(migrated.Terrains, static item => Assert.False(item.IsImprovable));
+        Assert.All(migrated.Terrains, static item => Assert.False(string.IsNullOrWhiteSpace(item.Name)));
+        Assert.Empty(migrated.CivilianTypes);
+        Assert.All(migrated.Resources, static item => Assert.Null(item.ImprovedBy));
+        Assert.All(migrated.Scenarios, static item => Assert.Empty(item.Civilians));
+    }
+
+    [Fact]
+    public void VersionTwelveMigrationRejectsVersionThirteenTerrainAndCivilians()
+    {
+        var withTerrains = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 12);
+
+        // Relabel writes version 12's terrainKeys; putting the definitions back
+        // makes a document that claims to be older than the field it carries.
+        var contradictory = withTerrains.Replace(
+            "\"terrainKeys\": [\n    \"terrain.plains\",\n    \"terrain.ocean\"\n  ],\n",
+            "\"terrains\": [\n    {\n      \"key\": \"terrain.plains\",\n" +
+            "      \"name\": \"Plains\",\n      \"isImprovable\": false\n    }\n  ],\n",
+            StringComparison.Ordinal);
+        Assert.Contains("\"terrains\"", contradictory, StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(contradictory)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    /// <summary>
+    /// A world can declare terrain a civilian may improve, the civilians that
+    /// improve it, and which deposit each of them works.
+    /// </summary>
+    [Fact]
+    public void CivilianTypesAndImprovableTerrainSurviveARoundTrip()
+    {
+        var document = CreateValidDocument();
+        document.Terrains[0].IsImprovable = true;
+        document.CivilianTypes =
+        [
+            new CivilianTypeContentDefinition
+            {
+                Key = "civilian.farmer",
+                Name = "Farmer",
+                WorkTurns = 1,
+            },
+        ];
+        document.Resources[0].ImprovedBy = "civilian.farmer";
+        document.Scenarios[0].Civilians =
+        [
+            new CivilianContent
+            {
+                Country = document.Countries[0].Key,
+                Type = "civilian.farmer",
+                Cell = 0,
+            },
+        ];
+
+        var first = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(first);
+        Assert.Equal(first, WorldContentCodec.Encode(decoded));
+
+        var compiled = WorldContentCompiler.Compile(decoded);
+        var type = Assert.Single(compiled.World.CivilianTypes);
+        Assert.Equal(1, type.WorkTurns);
+        Assert.True(compiled.World.Map.GetTerrain(new TerrainId(0))!.IsImprovable);
+        Assert.Equal(type.Id, compiled.World.Map.Resources[0].ImprovedBy);
+
+        var civilian = Assert.Single(new WorldState(compiled.World).GetCivilians());
+        Assert.Equal(type.Id, civilian.Type);
+        Assert.Equal(new CellIndex(0), civilian.Cell);
+    }
+
+    [Fact]
+    public void ADepositCannotNameACivilianTypeTheWorldDoesNotDeclare()
+    {
+        var document = CreateValidDocument();
+        document.Resources[0].ImprovedBy = "civilian.missing";
+
+        AssertPath("resources[0].improvedBy", document);
+    }
+
     [Fact]
     public void NamingACountryWithNoDefaultsToStartFromIsRejected()
     {
@@ -963,15 +1064,44 @@ public sealed class WorldContentTests
     private static string Relabel(string json, int version)
     {
         Assert.Contains(CurrentVersionLabel, json, StringComparison.Ordinal);
-        return json.Replace(
+        var relabelled = json.Replace(
             CurrentVersionLabel,
             $"\"formatVersion\": {version}",
             StringComparison.Ordinal);
+        return version >= 13 ? relabelled : WithTerrainKeysInsteadOfDefinitions(relabelled);
     }
+
+    /// <summary>
+    /// Turns the version 13 <c>terrains</c> block back into version 12's bare
+    /// <c>terrainKeys</c> list.
+    /// </summary>
+    /// <remarks>
+    /// Relabelling alone stopped being enough at version 13, which is the first
+    /// bump to rename a field rather than add one. Without this every migration
+    /// test below would trip the version 13 guard instead of reaching the rule
+    /// it is aiming at — passing, but for the wrong reason.
+    /// </remarks>
+    private static string WithTerrainKeysInsteadOfDefinitions(string json)
+    {
+        var terrains = Regex.Match(json, "\"terrains\": \\[.*?\\n  \\],\\n", RegexOptions.Singleline);
+        Assert.True(terrains.Success, "The encoder no longer writes a terrains block.");
+        var keys = Regex.Matches(terrains.Value, "\"key\": \"(?<key>[^\"]+)\"")
+            .Select(static match => $"\n    \"{match.Groups["key"].Value}\"");
+        return json.Replace(
+            terrains.Value,
+            $"\"terrainKeys\": [{string.Join(",", keys)}\n  ],\n",
+            StringComparison.Ordinal);
+    }
+
+    private static TerrainContentDefinition Terrain(
+        string key,
+        string name,
+        bool isImprovable = false) =>
+        new() { Key = key, Name = name, IsImprovable = isImprovable };
 
     private static WorldContentDocument CreateValidDocument() => new()
     {
-        TerrainKeys = ["terrain.plains", "terrain.ocean"],
+        Terrains = [Terrain("terrain.plains", "Plains"), Terrain("terrain.ocean", "Ocean")],
         Commodities =
         [
             new CommodityContentDefinition

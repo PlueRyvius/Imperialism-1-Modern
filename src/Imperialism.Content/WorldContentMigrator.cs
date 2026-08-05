@@ -66,6 +66,11 @@ internal static class WorldContentMigrator
             MigrateVersionElevenToTwelve(document);
         }
 
+        if (document.FormatVersion == 12)
+        {
+            MigrateVersionTwelveToThirteen(document);
+        }
+
         return document;
     }
 
@@ -469,6 +474,70 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 12;
+    }
+
+    /// <summary>
+    /// Version 13 gives terrain attributes and the world civilian units, which
+    /// together are the first thing in this engine able to raise a cell's
+    /// development level.
+    /// </summary>
+    /// <remarks>
+    /// A version 12 terrain was a bare key with nothing to ask about it, so
+    /// every migrated terrain becomes unimprovable and the world gets no
+    /// civilians. That is not a guess standing in for a missing value: a
+    /// version 12 world had no way to improve anything, and this reproduces it
+    /// exactly. A package that wants improvement declares it.
+    /// </remarks>
+    private static void MigrateVersionTwelveToThirteen(WorldContentDocument document)
+    {
+        if (document.Terrains is { Length: > 0 })
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 12 cannot contain version 13 terrain definitions.");
+        }
+
+        if (document.CivilianTypes is { Length: > 0 })
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 12 cannot contain version 13 civilian types.");
+        }
+
+        foreach (var resource in document.Resources ?? [])
+        {
+            if (resource?.ImprovedBy is not null)
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 12 cannot say which civilian improves a deposit.");
+            }
+        }
+
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.Civilians is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 12 cannot contain version 13 civilians.");
+            }
+        }
+
+        if (document.TerrainKeys is not { } keys)
+        {
+            throw new ContentValidationException("terrainKeys", "Version 12 requires an array.");
+        }
+
+        document.Terrains = keys.Select((key, index) => new TerrainContentDefinition
+        {
+            Key = key ?? throw new ContentValidationException(
+                $"terrainKeys[{index}]", "Value cannot be null."),
+            Name = CreateDisplayName(key),
+            IsImprovable = false,
+        }).ToArray();
+        document.TerrainKeys = null;
+        document.FormatVersion = 13;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

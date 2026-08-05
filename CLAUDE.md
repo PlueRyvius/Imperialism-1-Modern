@@ -21,6 +21,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | What fills the warehouse from the map? | `docs/formulas/extraction.md` |
 | Who eats it, and what labour they supply | `docs/formulas/feeding.md` |
 | How a workforce grows | `docs/formulas/migration.md` |
+| How civilians improve land | `docs/formulas/development.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Does the economy hold up over 100 turns? | `docs/formulas/soak.md` |
@@ -229,11 +230,31 @@ furniture. **The price per worker is a guess** — the manual names the
 commodities and the cap and never the quantities. A recruit eats the turn it
 arrives and supplies labour only from the next.
 
-**Migration is inert on a food-deficit economy, by design.** The soak asks the
-Capitol for the maximum every turn for a hundred turns and gets nobody: canned
-food needs grain, hungry workers eat every grain, so the price can never be
-paid. Growing population is gated behind improving farms, which needs civilian
-units — and Core has no unit model at all. See `docs/formulas/migration.md`.
+`.iworld` v13 puts civilians on the map. Terrain gains attributes — a display
+name and `isImprovable` — replacing the bare `terrainKeys` palette, and this is
+the first version bump to rename a field rather than add one. A world declares
+`civilianTypes`, each deposit names the civilian that `improvedBy` raises it,
+and a scenario lists its `civilians`. A new `Development` phase sits beside
+`Construction` and is the only thing in the engine that creates development.
+
+**Improvement needs terrain and deposit to agree, and they come from two
+different tables.** The Terrain Tiles Table says which ground admits a worker;
+the Resource Development Table says which worker raises which deposit. Neither
+subsumes the other — grain names a Farmer wherever it sits, and dry plains admit
+no civilian however good the grain. The corpus corroborates: 481 `deve` records
+and not one on dry plains, horse ranch or scrub forest.
+
+**Migration was inert on a food-deficit economy, and civilian units unblocked
+it.** The soak's Farmers close the grain deficit by turn 2 and the Capitol
+recruits for the first time on turn 4 — then the population outgrows the
+improved farms and a fresh deficit opens on turn 14. That rebound is the
+manual's own warning about growing too fast, arrived at rather than written in,
+and it is reported rather than tuned away. See `docs/formulas/development.md`
+and `docs/formulas/migration.md`.
+
+**The one guess in that phase is how long a civilian's work takes.** One turn,
+in content as a per-type `workTurns` so changing it is an edit. Nothing in the
+manual, the corpus or the binary says.
 
 Transient power, research, conflict, trade markets, diplomacy, sea routes
 between ports, blockade, and the transport capacity pool remain explicitly
@@ -264,6 +285,10 @@ to double and is in fact linear with a slope that differs per deposit. Read
 **`deve` records can repeat a cell.** `s1` does it three times. The importer
 keeps the highest level and warns. Erroring on it was the first implementation
 and the corpus rejected it on the first run.
+
+**`civi` records name no owner.** The record is `[type, cell]`; the owner is the
+owner of the province the cell sits in. Verified across the whole corpus — all
+210 stand on owned land and every owner holds a capital.
 
 **`rail` scenario records are depots, not track.** The map's rail byte carries
 the lines; the records name the depots built on them. They are a strict subset

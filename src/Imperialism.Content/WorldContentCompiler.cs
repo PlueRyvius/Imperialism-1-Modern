@@ -39,7 +39,8 @@ public static class WorldContentCompiler
         ArgumentNullException.ThrowIfNull(document);
         ValidateEnvelope(document);
 
-        var terrainKeys = RequireArray(document.TerrainKeys, "terrainKeys");
+        var terrainContent = RequireArray(document.Terrains, "terrains");
+        var civilianTypeContent = RequireArray(document.CivilianTypes, "civilianTypes");
         var commodityContent = RequireArray(document.Commodities, "commodities");
         var resourceContent = RequireArray(document.Resources, "resources");
         var facilityContent = RequireArray(document.ProductionFacilities, "productionFacilities");
@@ -47,6 +48,11 @@ public static class WorldContentCompiler
         if (document.ResourceKeys is not null)
         {
             throw Error("resourceKeys", "This version uses resource definitions instead of resourceKeys.");
+        }
+
+        if (document.TerrainKeys is not null)
+        {
+            throw Error("terrainKeys", "This version uses terrain definitions instead of terrainKeys.");
         }
 
         var mapContent = document.Map ?? throw Error("map", "Value is required.");
@@ -64,7 +70,23 @@ public static class WorldContentCompiler
             throw Error("scenarios", "At least one scenario is required.");
         }
 
-        var terrainIds = BuildKeyMap(terrainKeys, "terrainKeys", requireAtLeastOne: true);
+        var terrainIds = BuildTerrainKeyMap(terrainContent);
+        var civilianTypeIds = BuildCivilianTypeKeyMap(civilianTypeContent);
+        var terrains = terrainContent.Select((definition, index) =>
+            new TerrainDefinition(
+                new TerrainId(index), definition!.Name, definition.IsImprovable)).ToArray();
+        var civilianTypes = civilianTypeContent.Select((definition, index) =>
+        {
+            try
+            {
+                return new CivilianTypeDefinition(
+                    new CivilianTypeId(index), definition!.Name, definition.WorkTurns);
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error($"civilianTypes[{index}].workTurns", exception.Message, exception);
+            }
+        }).ToArray();
         var commodityIds = BuildCommodityKeyMap(commodityContent);
         var resourceIds = BuildResourceKeyMap(resourceContent);
         var facilityIds = BuildProductionFacilityKeyMap(facilityContent);
@@ -102,9 +124,16 @@ public static class WorldContentCompiler
                     technologyIds,
                     definition.RequiredTechnology,
                     $"resources[{index}].requiredTechnology"));
+            CivilianTypeId? improvedBy = definition.ImprovedBy is null
+                ? null
+                : new CivilianTypeId(FindKey(
+                    civilianTypeIds,
+                    definition.ImprovedBy,
+                    $"resources[{index}].improvedBy"));
             try
             {
-                return new ResourceDefinition(new ResourceId(index), commodity, curve, required);
+                return new ResourceDefinition(
+                    new ResourceId(index), commodity, curve, required, improvedBy);
             }
             catch (ArgumentException exception)
             {
@@ -198,7 +227,7 @@ public static class WorldContentCompiler
         MapDefinition map;
         try
         {
-            map = new MapDefinition(dimensions, cells, provinces, seaZones, resources);
+            map = new MapDefinition(dimensions, cells, provinces, seaZones, resources, terrains);
         }
         catch (ArgumentException exception)
         {
@@ -208,7 +237,7 @@ public static class WorldContentCompiler
         var countries = countriesContent.Select((definition, index) =>
             new CountryDefinition(new CountryId(index), definition.Name)).ToArray();
         var catalog = new WorldContentCatalog(
-            terrainKeys,
+            terrainContent.Select(static item => item!.Key),
             resourceContent.Select(static item => item.Key),
             commodityContent.Select(static item => item.Key),
             provinceContent.Select(static item => item.Key),
@@ -250,7 +279,9 @@ public static class WorldContentCompiler
                     feeding,
                     startingDefaults,
                     expansionCost,
-                    migration));
+                    migration,
+                    civilianTypes,
+                    civilianTypeIds));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -275,7 +306,9 @@ public static class WorldContentCompiler
         FeedingSettings? feeding,
         StartingDefaults? startingDefaults,
         CommodityQuantity[] expansionCost,
-        MigrationSettings? migration)
+        MigrationSettings? migration,
+        CivilianTypeDefinition[] civilianTypes,
+        IReadOnlyDictionary<string, int> civilianTypeIds)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -319,6 +352,11 @@ public static class WorldContentCompiler
             RequireArray(scenarioContent.CountryTechnologies, $"{path}.countryTechnologies"),
             countryIds,
             technologyIds,
+            path);
+        var civilians = CompileCivilians(
+            RequireArray(scenarioContent.Civilians, $"{path}.civilians"),
+            countryIds,
+            civilianTypeIds,
             path);
 
         var defaultStartCountries = new List<CountryId>();
@@ -364,7 +402,8 @@ public static class WorldContentCompiler
                 ports,
                 depots,
                 workers,
-                defaultStartCountries);
+                defaultStartCountries,
+                civilians);
             return new WorldDefinition(
                 map,
                 countries,
@@ -377,12 +416,38 @@ public static class WorldContentCompiler
                 feeding,
                 startingDefaults,
                 expansionCost,
-                migration);
+                migration,
+                civilianTypes);
         }
         catch (ArgumentException exception)
         {
             throw Error(path, exception.Message, exception);
         }
+    }
+
+    private static InitialCivilian[] CompileCivilians(
+        CivilianContent?[] content,
+        IReadOnlyDictionary<string, int> countryIds,
+        IReadOnlyDictionary<string, int> civilianTypeIds,
+        string path)
+    {
+        var result = new InitialCivilian[content.Length];
+        for (var index = 0; index < content.Length; index++)
+        {
+            var entryPath = $"{path}.civilians[{index}]";
+            var entry = content[index] ?? throw Error(entryPath, "Value is required.");
+            if (entry.Cell < 0)
+            {
+                throw Error($"{entryPath}.cell", "Value cannot be negative.");
+            }
+
+            result[index] = new InitialCivilian(
+                new CountryId(FindKey(countryIds, entry.Country, $"{entryPath}.country")),
+                new CivilianTypeId(FindKey(civilianTypeIds, entry.Type, $"{entryPath}.type")),
+                new CellIndex(entry.Cell));
+        }
+
+        return result;
     }
 
     private static InitialCellDevelopment[] CompileCellDevelopment(
@@ -1032,6 +1097,44 @@ public static class WorldContentCompiler
         for (var index = 0; index < definitions.Length; index++)
         {
             var definition = definitions[index] ?? throw Error($"{path}[{index}]", "Value is required.");
+            keys[index] = definition.Key;
+        }
+
+        return BuildKeyMap(keys, path);
+    }
+
+    private static Dictionary<string, int> BuildTerrainKeyMap(
+        TerrainContentDefinition?[] definitions)
+    {
+        const string path = "terrains";
+        var keys = new string?[definitions.Length];
+        for (var index = 0; index < definitions.Length; index++)
+        {
+            var definition = definitions[index] ?? throw Error($"{path}[{index}]", "Value is required.");
+            if (string.IsNullOrWhiteSpace(definition.Name))
+            {
+                throw Error($"{path}[{index}].name", "Value cannot be blank.");
+            }
+
+            keys[index] = definition.Key;
+        }
+
+        return BuildKeyMap(keys, path, requireAtLeastOne: true);
+    }
+
+    private static Dictionary<string, int> BuildCivilianTypeKeyMap(
+        CivilianTypeContentDefinition?[] definitions)
+    {
+        const string path = "civilianTypes";
+        var keys = new string?[definitions.Length];
+        for (var index = 0; index < definitions.Length; index++)
+        {
+            var definition = definitions[index] ?? throw Error($"{path}[{index}]", "Value is required.");
+            if (string.IsNullOrWhiteSpace(definition.Name))
+            {
+                throw Error($"{path}[{index}].name", "Value cannot be blank.");
+            }
+
             keys[index] = definition.Key;
         }
 

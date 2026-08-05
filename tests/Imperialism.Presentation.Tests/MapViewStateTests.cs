@@ -81,7 +81,11 @@ public sealed class MapViewStateTests
 
     private static WorldContentDocument CreateDocument() => new()
     {
-        TerrainKeys = ["terrain.plains", "terrain.ocean"],
+        Terrains =
+        [
+            new TerrainContentDefinition { Key = "terrain.plains", Name = "Plains" },
+            new TerrainContentDefinition { Key = "terrain.ocean", Name = "Ocean" },
+        ],
         Commodities =
         [
             new CommodityContentDefinition

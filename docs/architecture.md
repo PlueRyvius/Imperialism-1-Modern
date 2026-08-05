@@ -155,15 +155,24 @@ sourcing, not snapshot-and-diff.
 TurnResolver.Resolve(WorldState state, TurnOrders orders, ulong seed)
 ```
 
-Phases run in the original's fixed order, with four of our own interleaved:
-Diplomacy → Trade → Production → **Construction** → **Migration** → Conflict →
-TradeCancellation → **Extraction** → **Feeding** → Delivery → Connectivity.
+Phases run in the original's fixed order, with five of our own interleaved:
+Diplomacy → Trade → Production → **Construction** → **Development** →
+**Migration** → Conflict → TradeCancellation → **Extraction** → **Feeding** →
+Delivery → Connectivity.
 
 `Construction` sits immediately after `Production` on purpose. The manual says
 an expansion ordered now is working next turn, and putting it here makes that
 fall out for free: this turn's output was already decided against the old size,
 so a facility built now first produces larger next turn. No pending state
 required.
+
+`Development` sits beside it, and is the only thing in the engine that raises a
+cell's development level. It runs **before** `Extraction`, so a tile a civilian
+finished this turn is gathered at its new rate this turn — and reaches the
+warehouse through `Delivery` for next turn's production, like every other
+harvest. Unlike `Construction` it does carry pending state, because a civilian's
+work spans turns: `CivilianTypeDefinition.WorkTurns` says how many, and that
+number is a guess. See `formulas/development.md`.
 
 `TurnOrders` stores one dense, country-id-ordered `CountryTurnOrders` object
 per country, so simultaneous submission has no dictionary iteration path.
@@ -198,6 +207,15 @@ made eligible as same-turn inputs. Production deltas and existing pending
 deliveries are jointly preflighted before any inventory mutation, preserving
 full-turn atomicity for the currently implemented economy phases. Power,
 capacity construction, and transport allocation remain later rule layers.
+
+**Civilians on the map.** `CivilianUnit` is the first thing here that is neither
+a definition nor a per-country total: it has an identity, a position and a job.
+Its id is issued once and never reused, unlike every other id in Core, because
+civilians are created and destroyed during play. `TerrainDefinition` gives
+terrain the attributes improvability depends on, and `ResourceDefinition`
+gained the civilian type that works it — both must agree, and they come from
+two different tables in the manual. Prospecting, construction and buying land
+are each their own slice; only improvement is modelled.
 
 **The central trick.** The original's step 5 retroactively cancels trades that
 step 4's blockades invalidated. That's only a hard rollback if trade committed

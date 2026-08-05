@@ -6,6 +6,7 @@ public enum TurnPhase : byte
     Trade,
     Production,
     Construction,
+    Development,
     Migration,
     Conflict,
     TradeCancellation,
@@ -97,6 +98,177 @@ public sealed record FacilityExpandedEvent : TurnEvent
 
     /// <summary>What the build cost, at one lumber and one steel per point.</summary>
     public IReadOnlyList<CommodityQuantity> Paid => _paid;
+}
+
+/// <summary>Why a civilian could not be given the order it was given.</summary>
+/// <remarks>
+/// Refusals are reported rather than thrown. A civilian can die between the
+/// orders being written and the turn resolving, and a tile can change hands, so
+/// an impossible order is an ordinary outcome of simultaneous turns rather than
+/// a malformed submission.
+/// </remarks>
+public enum CivilianOrderRefusal : byte
+{
+    /// <summary>No civilian carries that id — most likely it has died.</summary>
+    NoSuchCivilian,
+
+    /// <summary>The civilian belongs to another country.</summary>
+    NotYours,
+
+    /// <summary>The civilian is part way through a job and cannot be redirected.</summary>
+    AlreadyWorking,
+
+    TargetOffMap,
+
+    TargetNotLand,
+
+    /// <summary>
+    /// The tile belongs to somebody else. The manual bars civilians from
+    /// another Great Power's land outright, and from a Minor Nation's without an
+    /// embassy; with no diplomacy modelled, only a country's own land is
+    /// allowed.
+    /// </summary>
+    TargetNotYourTerritory,
+
+    /// <summary>Dry plains, horse ranch, scrub forest, water, or a settlement.</summary>
+    TerrainCannotBeImproved,
+
+    /// <summary>Nothing on the tile is improved by this kind of civilian.</summary>
+    NoDepositThisCivilianWorks,
+
+    /// <summary>The tile is already at the top of its deposit's yield curve.</summary>
+    AlreadyFullyDeveloped,
+}
+
+/// <summary>Records one civilian moving without being set to work.</summary>
+public sealed record CivilianDeployedEvent : TurnEvent
+{
+    public CivilianDeployedEvent(
+        int turnNumber,
+        CountryId country,
+        CivilianUnitId unit,
+        CellIndex from,
+        CellIndex to)
+        : base(turnNumber, TurnPhase.Development)
+    {
+        Country = country;
+        Unit = unit;
+        From = from;
+        To = to;
+    }
+
+    public CountryId Country { get; }
+
+    public CivilianUnitId Unit { get; }
+
+    public CellIndex From { get; }
+
+    public CellIndex To { get; }
+}
+
+/// <summary>Records one civilian starting work on a tile.</summary>
+public sealed record CivilianWorkBegunEvent : TurnEvent
+{
+    public CivilianWorkBegunEvent(
+        int turnNumber,
+        CountryId country,
+        CivilianUnitId unit,
+        CellIndex cell,
+        int turnsRequired)
+        : base(turnNumber, TurnPhase.Development)
+    {
+        if (turnsRequired <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(turnsRequired));
+        }
+
+        Country = country;
+        Unit = unit;
+        Cell = cell;
+        TurnsRequired = turnsRequired;
+    }
+
+    public CountryId Country { get; }
+
+    public CivilianUnitId Unit { get; }
+
+    public CellIndex Cell { get; }
+
+    /// <summary>How many turns this civilian's type takes. The one guess here.</summary>
+    public int TurnsRequired { get; }
+}
+
+/// <summary>
+/// Records one tile finishing a level of improvement. Emitted in the same
+/// Development phase that raises the level, which the turn's later Extraction
+/// then gathers at the new rate.
+/// </summary>
+public sealed record CellDevelopedEvent : TurnEvent
+{
+    public CellDevelopedEvent(
+        int turnNumber,
+        CountryId country,
+        CivilianUnitId unit,
+        CellIndex cell,
+        int fromLevel,
+        int toLevel)
+        : base(turnNumber, TurnPhase.Development)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(fromLevel);
+        if (toLevel <= fromLevel)
+        {
+            throw new ArgumentOutOfRangeException(nameof(toLevel));
+        }
+
+        Country = country;
+        Unit = unit;
+        Cell = cell;
+        FromLevel = fromLevel;
+        ToLevel = toLevel;
+    }
+
+    public CountryId Country { get; }
+
+    /// <summary>The civilian whose work finished. It is idle again from now.</summary>
+    public CivilianUnitId Unit { get; }
+
+    public CellIndex Cell { get; }
+
+    public int FromLevel { get; }
+
+    public int ToLevel { get; }
+}
+
+/// <summary>Records an order a civilian could not carry out, and why.</summary>
+public sealed record CivilianOrderRefusedEvent : TurnEvent
+{
+    public CivilianOrderRefusedEvent(
+        int turnNumber,
+        CountryId country,
+        CivilianUnitId unit,
+        CellIndex cell,
+        CivilianOrderRefusal reason)
+        : base(turnNumber, TurnPhase.Development)
+    {
+        if (!Enum.IsDefined(reason))
+        {
+            throw new ArgumentOutOfRangeException(nameof(reason));
+        }
+
+        Country = country;
+        Unit = unit;
+        Cell = cell;
+        Reason = reason;
+    }
+
+    /// <summary>The country that gave the order, not necessarily the owner.</summary>
+    public CountryId Country { get; }
+
+    public CivilianUnitId Unit { get; }
+
+    public CellIndex Cell { get; }
+
+    public CivilianOrderRefusal Reason { get; }
 }
 
 /// <summary>A presentation-facing fact emitted while resolving a turn.</summary>

@@ -7,6 +7,7 @@ public sealed class WorldDefinition
     private readonly IReadOnlyList<ProductionFacilityDefinition> _productionFacilities;
     private readonly IReadOnlyList<ProductionRecipeDefinition> _productionRecipes;
     private readonly IReadOnlyList<TechnologyDefinition> _technologies;
+    private readonly IReadOnlyList<CivilianTypeDefinition> _civilianTypes;
 
     public WorldDefinition(
         MapDefinition map,
@@ -20,11 +21,29 @@ public sealed class WorldDefinition
         FeedingSettings? feeding = null,
         StartingDefaults? startingDefaults = null,
         IEnumerable<CommodityQuantity>? expansionCostPerCapacityPoint = null,
-        MigrationSettings? migration = null)
+        MigrationSettings? migration = null,
+        IEnumerable<CivilianTypeDefinition>? civilianTypes = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
         ArgumentNullException.ThrowIfNull(scenario);
+        var civilianTypeArray = civilianTypes?.ToArray() ?? [];
+        if (civilianTypeArray.Any(static type => type is null))
+        {
+            throw new ArgumentException("Civilian types cannot contain null entries.", nameof(civilianTypes));
+        }
+
+        for (var index = 0; index < civilianTypeArray.Length; index++)
+        {
+            if (civilianTypeArray[index].Id.Value != index)
+            {
+                throw new ArgumentException(
+                    $"Modern civilian type IDs must be dense and ordered; expected {index}, " +
+                    $"got {civilianTypeArray[index].Id.Value}.",
+                    nameof(civilianTypes));
+            }
+        }
+
         var technologyArray = technologies?.ToArray() ?? [];
         if (technologyArray.Any(static technology => technology is null))
         {
@@ -141,6 +160,14 @@ public sealed class WorldDefinition
             {
                 throw new ArgumentException(
                     $"Resource {resource.Id.Value} requires missing technology {required.Value}.",
+                    nameof(map));
+            }
+
+            if (resource.ImprovedBy is { } improver &&
+                (uint)improver.Value >= (uint)civilianTypeArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Resource {resource.Id.Value} is improved by missing civilian type {improver.Value}.",
                     nameof(map));
             }
         }
@@ -351,6 +378,25 @@ public sealed class WorldDefinition
             }
         }
 
+        foreach (var civilian in scenario.InitialCivilians)
+        {
+            if ((uint)civilian.Country.Value >= (uint)countryArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Initial civilian refers to missing country {civilian.Country.Value}.",
+                    nameof(scenario));
+            }
+
+            if ((uint)civilian.Type.Value >= (uint)civilianTypeArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Initial civilian refers to missing civilian type {civilian.Type.Value}.",
+                    nameof(scenario));
+            }
+
+            ValidateCivilianSite(map, civilian.Cell, nameof(scenario));
+        }
+
         Map = map;
         Scenario = scenario;
         Extraction = extractionSettings;
@@ -359,6 +405,7 @@ public sealed class WorldDefinition
         ExpansionCostPerCapacityPoint = Array.AsReadOnly(expansionCostPerCapacityPoint?.ToArray() ?? []);
         Migration = migration;
         _technologies = Array.AsReadOnly(technologyArray);
+        _civilianTypes = Array.AsReadOnly(civilianTypeArray);
         _countries = Array.AsReadOnly(countryArray);
         _commodities = Array.AsReadOnly(commodityArray);
         _productionFacilities = Array.AsReadOnly(facilityArray);
@@ -380,6 +427,12 @@ public sealed class WorldDefinition
     public ExtractionSettings Extraction { get; }
 
     public IReadOnlyList<TechnologyDefinition> Technologies => _technologies;
+
+    /// <summary>
+    /// The kinds of civilian this world has. Empty means it has none, and
+    /// nothing can be improved.
+    /// </summary>
+    public IReadOnlyList<CivilianTypeDefinition> CivilianTypes => _civilianTypes;
 
     /// <summary>Null in a world whose workers never eat.</summary>
     public FeedingSettings? Feeding { get; }
@@ -429,6 +482,14 @@ public sealed class WorldDefinition
     internal static void ValidateDepotSite(MapDefinition map, CellIndex cell, string parameterName) =>
         ValidateStructureSite(map, cell, "Depot", parameterName);
 
+    /// <summary>
+    /// A civilian stands on land. Whose land is a question for the rules that
+    /// move it, not for the shape of the world: ownership changes with every
+    /// war, and a legal world must not become illegal when a province falls.
+    /// </summary>
+    internal static void ValidateCivilianSite(MapDefinition map, CellIndex cell, string parameterName) =>
+        ValidateStructureSite(map, cell, "Civilian", parameterName);
+
     private static void ValidateStructureSite(
         MapDefinition map,
         CellIndex cell,
@@ -475,7 +536,9 @@ public sealed class WorldState
     private readonly long[] _workers;
     private readonly long[] _sickWorkers;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
+    private readonly Dictionary<CivilianUnitId, CivilianUnit> _civilians = [];
     private long _nextDeliveryId = 1;
+    private long _nextCivilianId = 1;
 
     public WorldState(WorldDefinition definition)
     {
@@ -555,6 +618,11 @@ public sealed class WorldState
         foreach (var known in definition.Scenario.InitialCountryTechnologies)
         {
             _knownTechnologies[GetTechnologyOffset(known.Country, known.Technology)] = true;
+        }
+
+        foreach (var civilian in definition.Scenario.InitialCivilians)
+        {
+            _ = CreateCivilian(civilian.Country, civilian.Type, civilian.Cell);
         }
     }
 
@@ -811,6 +879,82 @@ public sealed class WorldState
     }
 
     public bool RemoveDepot(CellIndex cell) => _depots.Remove(cell);
+
+    /// <summary>
+    /// Puts a new civilian on the map and issues it an id. Ids are never
+    /// reused, so an event naming a civilian that has since died still names
+    /// only that one.
+    /// </summary>
+    public CivilianUnitId CreateCivilian(CountryId country, CivilianTypeId type, CellIndex cell)
+    {
+        ValidateCountry(country);
+        ValidateCivilianType(type);
+        WorldDefinition.ValidateCivilianSite(Definition.Map, cell, nameof(cell));
+        var id = new CivilianUnitId(_nextCivilianId);
+        _nextCivilianId = checked(_nextCivilianId + 1);
+        _civilians[id] = new CivilianUnit(id, country, type, cell);
+        return id;
+    }
+
+    public CivilianUnit? GetCivilian(CivilianUnitId unit) =>
+        _civilians.TryGetValue(unit, out var civilian) ? civilian : null;
+
+    /// <summary>Every civilian on the map, oldest first.</summary>
+    public IReadOnlyList<CivilianUnit> GetCivilians() => Array.AsReadOnly(_civilians.Values
+        .OrderBy(static civilian => civilian.Id.Value)
+        .ToArray());
+
+    public IReadOnlyList<CivilianUnit> GetCivilians(CountryId country)
+    {
+        ValidateCountry(country);
+        return Array.AsReadOnly(_civilians.Values
+            .Where(civilian => civilian.Country == country)
+            .OrderBy(static civilian => civilian.Id.Value)
+            .ToArray());
+    }
+
+    /// <summary>
+    /// Removes a civilian. The manual's rule is that losing a province kills the
+    /// civilians in it; Conflict is not modelled, so nothing calls this yet.
+    /// </summary>
+    public bool RemoveCivilian(CivilianUnitId unit) => _civilians.Remove(unit);
+
+    /// <summary>
+    /// Moves a civilian, cancelling any work it had begun. Legality — whose
+    /// land, and how far — belongs to the phase that issues the order, not
+    /// here; this is the primitive it commits through.
+    /// </summary>
+    public void MoveCivilian(CivilianUnitId unit, CellIndex cell)
+    {
+        var civilian = RequireCivilian(unit);
+        WorldDefinition.ValidateCivilianSite(Definition.Map, cell, nameof(cell));
+        _civilians[unit] = new CivilianUnit(unit, civilian.Country, civilian.Type, cell);
+    }
+
+    /// <summary>Sets a civilian to work where it stands, or clears its job with null.</summary>
+    internal void SetCivilianWork(CivilianUnitId unit, CivilianWorkInProgress? work)
+    {
+        var civilian = RequireCivilian(unit);
+        if (work is { } job && job.Cell != civilian.Cell)
+        {
+            throw new ArgumentException("A civilian works the tile it stands on.", nameof(work));
+        }
+
+        _civilians[unit] = new CivilianUnit(unit, civilian.Country, civilian.Type, civilian.Cell, work);
+    }
+
+    private CivilianUnit RequireCivilian(CivilianUnitId unit) =>
+        _civilians.TryGetValue(unit, out var civilian)
+            ? civilian
+            : throw new ArgumentOutOfRangeException(nameof(unit), $"No civilian {unit} exists.");
+
+    private void ValidateCivilianType(CivilianTypeId type)
+    {
+        if ((uint)type.Value >= (uint)Definition.CivilianTypes.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(type));
+        }
+    }
 
     public bool HasTechnology(CountryId country, TechnologyId technology) =>
         _knownTechnologies[GetTechnologyOffset(country, technology)];
