@@ -39,6 +39,18 @@ is known about the ground, so letting a worker onto it would invent a rule about
 a tile we cannot name. Each deposit also names the civilian that raises it, from
 the Resource Development Table; fish and horses name none.
 
+**Terrain also carries whether a Prospector may search it.** Barren hills and
+mountains are open from the start; swamp, desert and tundra are gated on Oil
+Drilling; the other twelve codes and every unknown one hide nothing. Coal, iron,
+oil, gems and gold are marked as requiring discovery, and `civilian.prospector`
+is the one type whose work is to search rather than to improve.
+
+That makes Oil Drilling **the only technology imported content declares**, and no
+country starts knowing it: `tech` records are not converted and there is no
+research system. So imported oil is unreachable. This is the manual's own rule
+rather than a gap — see `formulas/prospecting.md`, which also records the
+searchable-tile counts the corpus test now pins.
+
 `civi` records are converted rather than deferred. The record is `[type, cell]`
 and names **no owner** — the original reads it off the province the cell sits
 in, and the corpus supports that without exception: all 210 records across the

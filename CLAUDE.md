@@ -22,6 +22,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | Who eats it, and what labour they supply | `docs/formulas/feeding.md` |
 | How a workforce grows | `docs/formulas/migration.md` |
 | How civilians improve land | `docs/formulas/development.md` |
+| What a Prospector finds, and what stays hidden | `docs/formulas/prospecting.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Does the economy hold up over 100 turns? | `docs/formulas/soak.md` |
@@ -255,6 +256,38 @@ and `docs/formulas/migration.md`.
 **The one guess in that phase is how long a civilian's work takes.** One turn,
 in content as a per-type `workTurns` so changing it is an edit. Nothing in the
 manual, the corpus or the binary says.
+
+`.iworld` v14 hides five deposits. Coal, iron, gold, gems and oil are on the map
+and invisible until a Prospector of that Great Power has searched the tile —
+knowledge stored as one bit per (country, cell) — and a Miner or Driller sent to
+unsearched ground is refused. Terrain declares whether it may be searched and at
+what price in knowledge; the deposit declares whether it hides. What a civilian's
+work does is a property of its **type**, not of the order.
+
+**Discovery gates the work order and never `Extraction`.** The manual's yield
+curve already gives all five nothing at level 0 — "until a mine is built the tile
+does not produce minerals" — so an undiscovered deposit pays nothing whether or
+not anything checks. One gate, one place.
+
+**Most searches find nothing, and that is the mechanic.** 449 of 2,860 barren
+hills and 346 of 1,589 mountains carry a marker, so a fruitless search is a
+first-class outcome that still marks the tile. Counting the corpus's searchable
+ground gives 4,449 tiles — the same number `development.md` reached counting
+hills and mountains for something else entirely.
+
+**Oil is unreachable in imported content, on purpose.** The importer emits one
+technology, `technology.oil-drilling`, and gives it to nobody: `tech` records are
+not converted and there is no research. So no imported world may prospect swamp,
+desert or tundra. That is the manual's rule applied honestly rather than a gap —
+the fair start has no refinery for the same reason — and leaving the ground open
+because our research is missing would invent permission the original never gave.
+Re-read `docs/formulas/prospecting.md` when research lands; the gate is in
+content and should need no code change.
+
+**A conquered mine must be surveyed again, and that is a guess.** The seeding
+rule marks a cell searched by its owner when a scenario authored development on
+it, which runs once at world creation. Nothing in the manual says what capture
+does to a survey. The narrower reading is shipped and labelled.
 
 Transient power, research, conflict, trade markets, diplomacy, sea routes
 between ports, blockade, and the transport capacity pool remain explicitly

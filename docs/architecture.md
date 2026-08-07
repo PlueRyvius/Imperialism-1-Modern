@@ -214,8 +214,17 @@ Its id is issued once and never reused, unlike every other id in Core, because
 civilians are created and destroyed during play. `TerrainDefinition` gives
 terrain the attributes improvability depends on, and `ResourceDefinition`
 gained the civilian type that works it — both must agree, and they come from
-two different tables in the manual. Prospecting, construction and buying land
-are each their own slice; only improvement is modelled.
+two different tables in the manual. Construction and buying land are each their
+own slice.
+
+**Knowledge of the map is per country.** Coal, iron, gold, gems and oil are on
+the map and invisible until a Prospector of that Great Power has searched the
+tile, which `WorldState` records as one bit per (country, cell) in a packed
+`ulong[]`. What a civilian's work *does* — improve or search — is a property of
+its type rather than of the order, matching the original, where the cursor
+follows the selected unit. Discovery gates the work order and never `Extraction`:
+the manual's yield curve already gives all five nothing at level 0, so one gate
+in one place is enough. See `formulas/prospecting.md`.
 
 **The central trick.** The original's step 5 retroactively cancels trades that
 step 4's blockades invalidated. That's only a hard rollback if trade committed

@@ -279,10 +279,11 @@ its control.
 - **Building civilians in the University.** Costs an expert worker, paper *and
   cash*, and Core has no money model at all. Blocked on a separate system, which
   is why every civilian in play comes from a scenario.
-- **Prospector discovery.** Coal, iron, gold, gems and oil must be found before
-  a Miner can work them. The corpus ships 62 Prospectors and 30 Miners, so this
-  is the obvious next slice — and the map bears it out: only 449 of 2,860 barren
-  hills and 346 of 1,589 mountains carry a deposit marker at all.
+- ~~**Prospector discovery.**~~ Built. Coal, iron, gold, gems and oil are hidden
+  until a Prospector of that Great Power searches the tile, and a Miner sent to
+  unsearched ground is refused. The 449 of 2,860 barren hills and 346 of 1,589
+  mountains that carry a marker are now the odds a search faces rather than a
+  curiosity. See [prospecting.md](prospecting.md).
 - **Engineer construction** — rail, ports, depots, forts. Its own slice.
 - **Developer and buying land** — needs money and diplomacy.
 - **Technology gates on levels II and III.** Square Set Timbering, Dynamite,

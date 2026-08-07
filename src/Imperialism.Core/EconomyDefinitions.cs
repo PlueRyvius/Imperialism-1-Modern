@@ -62,7 +62,8 @@ public sealed record ResourceDefinition
         CommodityId commodity,
         IEnumerable<long> yieldByDevelopmentLevel,
         TechnologyId? requiredTechnology = null,
-        CivilianTypeId? improvedBy = null)
+        CivilianTypeId? improvedBy = null,
+        bool requiresDiscovery = false)
     {
         ArgumentNullException.ThrowIfNull(yieldByDevelopmentLevel);
         var yields = yieldByDevelopmentLevel.ToArray();
@@ -91,6 +92,7 @@ public sealed record ResourceDefinition
         Commodity = commodity;
         RequiredTechnology = requiredTechnology;
         ImprovedBy = improvedBy;
+        RequiresDiscovery = requiresDiscovery;
         _yieldByDevelopmentLevel = Array.AsReadOnly(yields);
     }
 
@@ -133,6 +135,28 @@ public sealed record ResourceDefinition
     /// however good the grain.
     /// </remarks>
     public CivilianTypeId? ImprovedBy { get; }
+
+    /// <summary>
+    /// Whether a Prospector must find this deposit before anyone may work it.
+    /// True for coal, iron, gold, gems and oil; false for everything the terrain
+    /// announces by itself — "you know that cotton is present at every cotton
+    /// plantation terrain tile".
+    /// </summary>
+    /// <remarks>
+    /// <b>This gates improvement only, and deliberately not extraction.</b> The
+    /// manual's Resource Development Table already gives all five a yield of
+    /// <em>zero</em> at level 0 — "until a mine is built the tile does not
+    /// produce minerals" — so an undiscovered deposit pays nothing whether or
+    /// not anything checks. Extraction is left alone rather than gated twice.
+    /// <para>
+    /// The catch worth naming: a content package that gave one of these a
+    /// non-zero level-0 yield would collect it without any search, because the
+    /// only gate is on the work order. Nothing shipped does, and the alternative
+    /// — teaching <see cref="ExtractionPlanner"/> about discovery too — buys
+    /// nothing for the content that exists.
+    /// </para>
+    /// </remarks>
+    public bool RequiresDiscovery { get; }
 
     /// <summary>
     /// Yield at <paramref name="developmentLevel"/>, holding at the top of the

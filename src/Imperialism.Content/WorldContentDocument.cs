@@ -186,6 +186,29 @@ public sealed class TerrainContentDefinition
     public string Name { get; set; } = string.Empty;
 
     public bool IsImprovable { get; set; }
+
+    /// <summary>
+    /// On what terms a Prospector may search this ground. Absent means it can
+    /// never be searched, which is every terrain but barren hills, mountains,
+    /// swamp, desert and tundra.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProspectingContent? Prospecting { get; set; }
+}
+
+/// <summary>
+/// Terms on which a terrain can be searched. Present-but-empty is meaningful and
+/// is how barren hills and mountains are written: searchable, requiring nothing.
+/// </summary>
+public sealed class ProspectingContent
+{
+    /// <summary>
+    /// Technology key a country needs before it may search this ground, or null
+    /// for none. The manual's one instance is Oil Drilling, over swamp, desert
+    /// and tundra.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequiredTechnology { get; set; }
 }
 
 /// <summary>
@@ -199,6 +222,14 @@ public sealed class CivilianTypeContentDefinition
     public string Name { get; set; } = string.Empty;
 
     public int WorkTurns { get; set; }
+
+    /// <summary>
+    /// What setting this civilian to work does: <c>improve</c> or
+    /// <c>prospect</c>. Absent means improve, which is what every civilian did
+    /// before version 14 and what an older package still means.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public Imperialism.Core.CivilianWorkKind Work { get; set; }
 }
 
 /// <summary>One civilian a scenario starts with.</summary>
@@ -248,6 +279,14 @@ public sealed class ResourceContentDefinition
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ImprovedBy { get; set; }
+
+    /// <summary>
+    /// Whether a Prospector must find this deposit before anyone may work it.
+    /// True for coal, iron, gold, gems and oil; false for everything a terrain
+    /// announces by itself.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool RequiresDiscovery { get; set; }
 }
 
 public sealed class ExtractionContentSettings

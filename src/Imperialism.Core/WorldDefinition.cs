@@ -530,6 +530,11 @@ public sealed class WorldState
     private readonly long[] _availableInventory;
     private readonly long[] _productionCapacities;
     private readonly int[] _cellDevelopment;
+
+    // One bit per (country, cell): has a Prospector of this Great Power searched
+    // this tile? Packed because the scale regression is 64,800 cells, where a
+    // bool[] across 23 countries is 1.5 MB against 187 KB here.
+    private readonly ulong[] _prospected;
     private readonly bool[] _knownTechnologies;
     private readonly HashSet<CellIndex> _ports;
     private readonly HashSet<CellIndex> _depots;
@@ -582,9 +587,24 @@ public sealed class WorldState
         }
 
         _cellDevelopment = new int[definition.Map.Dimensions.CellCount];
+        _prospected = new ulong[
+            checked((((long)definition.Countries.Count * definition.Map.Dimensions.CellCount) + 63) / 64)];
         foreach (var development in definition.Scenario.InitialCellDevelopment)
         {
             _cellDevelopment[development.Cell.Value] = development.Level;
+
+            // An authored mine is by definition an already-found one. No 1997
+            // record says which tiles a power has searched, so this is derived
+            // rather than authored: a cell somebody has already improved cannot
+            // coherently still be hiding what they improved. It covers s1's 52
+            // barren-hill and 6 mountain deve records, which would otherwise
+            // load as mines their owner is not allowed to deepen.
+            var region = definition.Map[development.Cell].Region;
+            if (region.Kind == CellRegionKind.Province &&
+                _provinceOwners[region.Province.Value] is { } owner)
+            {
+                SetProspectedBit(owner, development.Cell);
+            }
         }
 
         _ports = definition.Scenario.InitialPorts.ToHashSet();
@@ -747,6 +767,45 @@ public sealed class WorldState
         }
 
         _cellDevelopment[cell.Value] = level;
+    }
+
+    /// <summary>
+    /// Whether a Prospector of this country has searched this tile. Knowledge is
+    /// per Great Power and permanent — "if a Prospector of your Great Power has
+    /// already searched a tile, you see a small pickaxe and a red X" — so losing
+    /// the province does not unlearn what is buried there, and gaining one does
+    /// not inherit the last owner's survey.
+    /// </summary>
+    public bool HasProspected(CountryId country, CellIndex cell)
+    {
+        var bit = GetProspectedBit(country, cell);
+        return (_prospected[bit >> 6] & (1UL << (int)(bit & 63))) != 0;
+    }
+
+    /// <summary>
+    /// Records that this country has searched this tile, whether or not the
+    /// search found anything. A fruitless search still counts: the original's
+    /// toolbar counts down the tiles left to search, so a tile examined and
+    /// found empty is no longer worth a second visit.
+    /// </summary>
+    public void SetProspected(CountryId country, CellIndex cell)
+    {
+        ValidateCountry(country);
+        ValidateCell(cell);
+        SetProspectedBit(country, cell);
+    }
+
+    private void SetProspectedBit(CountryId country, CellIndex cell)
+    {
+        var bit = ((long)country.Value * Definition.Map.Dimensions.CellCount) + cell.Value;
+        _prospected[bit >> 6] |= 1UL << (int)(bit & 63);
+    }
+
+    private long GetProspectedBit(CountryId country, CellIndex cell)
+    {
+        ValidateCountry(country);
+        ValidateCell(cell);
+        return ((long)country.Value * Definition.Map.Dimensions.CellCount) + cell.Value;
     }
 
     public bool HasPort(CellIndex cell) => _ports.Contains(cell);

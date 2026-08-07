@@ -91,6 +91,9 @@ bottom of this file.
 | Which terrain a civilian may improve | `inferred` | [development](development.md) | Core, Content, LegacyImport | generated + local corpus |
 | Which civilian improves which deposit | `inferred` | [development](development.md) | Core, Content, LegacyImport | generated + local corpus |
 | How many turns a civilian's work takes | `guess` | [development](development.md) | Content | generated |
+| Which deposits must be found before use | `inferred` | [prospecting](prospecting.md) | Core, Content, LegacyImport | generated + local corpus |
+| Which ground a Prospector may search | `inferred` | [prospecting](prospecting.md) | Core, Content, LegacyImport | generated + local corpus |
+| What a captured mine's new owner knows | `guess` | [prospecting](prospecting.md) | Core | generated |
 | Whether the whole economy holds up over time | — | [soak](soak.md) | — | 100-turn soak, 7 powers |
 | Trade clearing price | `guess` | _trade-pricing_ | — | — |
 | Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |
@@ -114,6 +117,17 @@ of that sentence numerically identical. A recipe that broke 2:1 would separate
 them, and none exists yet — the railyard, when it lands, is the first candidate.
 `production.md` records the disassembly search that failed to find the rate, so
 the next attempt does not repeat it.
+
+Prospecting is the closest this table comes to a mechanic recovered without any
+invention. The manual states the hidden five, the searchable terrain, the one
+technology gate, and that knowledge is per Great Power and permanent; the corpus
+then agrees with the terrain rule from the other direction, counting **4,449**
+searchable tiles across the ten scenarios, which is the same number
+`development.md` reached by counting barren hills and mountains for a different
+purpose. It carries **no new guess** — a search reuses the work duration already
+flagged there. What it does carry is a live consequence: **oil is unreachable in
+imported content** until research exists, because the gate is real and nothing
+can pass it. See [prospecting.md](prospecting.md).
 
 Extraction carries its evidence at three different strengths at once, and its
 document tabulates them rather than averaging them: the development levels are

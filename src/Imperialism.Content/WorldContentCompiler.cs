@@ -72,15 +72,17 @@ public static class WorldContentCompiler
 
         var terrainIds = BuildTerrainKeyMap(terrainContent);
         var civilianTypeIds = BuildCivilianTypeKeyMap(civilianTypeContent);
-        var terrains = terrainContent.Select((definition, index) =>
-            new TerrainDefinition(
-                new TerrainId(index), definition!.Name, definition.IsImprovable)).ToArray();
         var civilianTypes = civilianTypeContent.Select((definition, index) =>
         {
+            if (!Enum.IsDefined(definition!.Work))
+            {
+                throw Error($"civilianTypes[{index}].work", "Unknown work kind.");
+            }
+
             try
             {
                 return new CivilianTypeDefinition(
-                    new CivilianTypeId(index), definition!.Name, definition.WorkTurns);
+                    new CivilianTypeId(index), definition.Name, definition.WorkTurns, definition.Work);
             }
             catch (ArgumentException exception)
             {
@@ -102,6 +104,23 @@ public static class WorldContentCompiler
         var technologyIds = BuildNamedKeyMap(technologyContent, "technologies");
         var technologies = technologyContent.Select((definition, index) =>
             new TechnologyDefinition(new TechnologyId(index), definition.Name)).ToArray();
+
+        // After the technology map, because prospectable ground may name the
+        // knowledge it takes to search: swamp, desert and tundra are open only
+        // once a country has invested in Oil Drilling.
+        var terrains = terrainContent.Select((definition, index) =>
+        {
+            ProspectingRule? prospecting = definition!.Prospecting is not { } rule
+                ? null
+                : new ProspectingRule(rule.RequiredTechnology is null
+                    ? null
+                    : new TechnologyId(FindKey(
+                        technologyIds,
+                        rule.RequiredTechnology,
+                        $"terrains[{index}].prospecting.requiredTechnology")));
+            return new TerrainDefinition(
+                new TerrainId(index), definition.Name, definition.IsImprovable, prospecting);
+        }).ToArray();
         var resources = resourceContent.Select((definition, index) =>
         {
             var commodity = new CommodityId(FindKey(
@@ -133,7 +152,12 @@ public static class WorldContentCompiler
             try
             {
                 return new ResourceDefinition(
-                    new ResourceId(index), commodity, curve, required, improvedBy);
+                    new ResourceId(index),
+                    commodity,
+                    curve,
+                    required,
+                    improvedBy,
+                    definition.RequiresDiscovery);
             }
             catch (ArgumentException exception)
             {
