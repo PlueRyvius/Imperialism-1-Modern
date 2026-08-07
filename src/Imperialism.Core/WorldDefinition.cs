@@ -23,7 +23,8 @@ public sealed class WorldDefinition
         IEnumerable<CommodityQuantity>? expansionCostPerCapacityPoint = null,
         MigrationSettings? migration = null,
         IEnumerable<CivilianTypeDefinition>? civilianTypes = null,
-        TransportSettings? transport = null)
+        TransportSettings? transport = null,
+        ConstructionSettings? construction = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
@@ -416,6 +417,7 @@ public sealed class WorldDefinition
         ExpansionCostPerCapacityPoint = Array.AsReadOnly(expansionCostPerCapacityPoint?.ToArray() ?? []);
         Migration = migration;
         Transport = transport;
+        Construction = construction;
         _technologies = Array.AsReadOnly(technologyArray);
         _civilianTypes = Array.AsReadOnly(civilianTypeArray);
         _countries = Array.AsReadOnly(countryArray);
@@ -475,6 +477,13 @@ public sealed class WorldDefinition
     /// capacity existed.
     /// </summary>
     public TransportSettings? Transport { get; }
+
+    /// <summary>
+    /// What an Engineer's constructions cost, or null where the world has no
+    /// construction at all — which is how every world behaved before Engineers
+    /// could build.
+    /// </summary>
+    public ConstructionSettings? Construction { get; }
 
     /// <summary>
     /// A port stands on land. Verified against every <c>port</c> record in the

@@ -25,6 +25,8 @@ documentation and tests are authoritative when a summary here becomes stale.
 | What a Prospector finds, and what stays hidden | `docs/formulas/prospecting.md` |
 | Which technology opens which improvement level | `docs/formulas/technology.md` |
 | How much the network can carry, and what that costs | `docs/formulas/transport.md` |
+| Where a country's money comes from and goes | `docs/formulas/money.md` |
+| How a player changes what the network reaches | `docs/formulas/engineer.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Does the economy hold up over 100 turns? | `docs/formulas/soak.md` |
@@ -374,9 +376,58 @@ coal one turn and on iron the next, or split it evenly. The soak's policies hold
 one fixed ordering for a century, which is a fixture simplification and not a
 property of the model.
 
+`.iworld` v17 gives a country **money**, and an **Engineer** to spend it. A
+per-country treasury sits beside the transport pool; the one income modelled is
+the one the manual pairs with it, because gold and gems "never reach the industry
+warehouse" and all of both "transported convert immediately into cash". **The
+manual prices both outright — $200 a unit of gold, $500 of gems** — which makes
+them the strongest gameplay numbers recovered since the Resource Development
+Table. Conversion happens where the goods are *carried*, so it lives in
+`TransportPlanner`; they still cost capacity, which is what keeps carrying gold a
+choice against carrying grain. See `docs/formulas/money.md`.
+
+**The Engineer breaks the rule that a civilian's type decides its work**, and the
+manual says it should: it is "the only civilian with multiple functions". A
+`CivilianWorkKind.Construct` civilian takes `EngineerOrder` instead of
+`CivilianWorkOrder`, and **which tile the order names decides the verb** — an
+adjacent tile lays rail, its own tile builds a depot or a port, exactly as the
+original's two cursors do. The type still decides which *family* of work is
+possible; only inside construction does the order have anything left to say.
+Unlike every other work order it does **not** move the civilian, because rail is
+built from where the Engineer stands.
+
+**The rail terrain gates are the best-corroborated reading in this project.**
+The Benefits of Technology Table gives four — High Pressure Steam Engine for
+farms, plains, deserts, forests and tundra; Iron Railroad Bridge for swamp;
+Compound Steam Engine for hills; Dynamite for mountains — and reading them
+against the corpus gives **1,140 rail ends permitted and none not**. It is not a
+vacuous check: `s9` and `s12`, whose powers lack Compound Steam Engine, author
+137 rail links with not one hill among them while `s1`, whose powers hold it,
+rails forty-two. And **no shipped power holds Dynamite while no shipped scenario
+rails a single mountain.** As always, the gate governs building and never
+authoring. Depots reuse the rail gate on the manual's own pairing, which is an
+inference and flagged as one, as are fertile hills taking the hills gate and
+towns taking the plains one.
+
+**Everything an Engineer builds costs cash, and those three prices are the
+weakest numbers here** — a depot and a port are the owner's recollection from
+play, and rail's is invention. The manual prices none of them and says only that
+a port costs more than a depot.
+
+**The Engineer was predicted to oppose the railyard and it does not.** The
+expectation from the transport slice was that extending reach without extending
+capacity would push the waste figure up; the soak gathers half again as much and
+wastes exactly the same 35. The railyard is *unopposed* — nothing yet competes
+for lumber and steel — so it outruns anything an Engineer can reach. Retracted in
+`docs/formulas/engineer.md` rather than softened, and worth re-reading once ships
+or trade land.
+
 Buying technology, prerequisites, arrival dates, transient power, research,
 conflict, trade markets, diplomacy, sea routes between ports, blockade, moving
-regiments by rail, and merchant marine capacity remain explicitly pending.
+regiments by rail, merchant marine capacity, and fortifications remain explicitly
+pending. So does **whether a civilian's work costs cash generally** — the manual
+implies it does, and `docs/formulas/money.md` records the finding without acting
+on it, because pricing every civilian's work would move every number in the soak.
 
 **Production spends labour.** Each recipe costs its total input units, from one
 pool per country shared across every facility. The manual prices exactly one

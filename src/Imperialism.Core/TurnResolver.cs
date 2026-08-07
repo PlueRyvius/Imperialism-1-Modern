@@ -156,6 +156,22 @@ public static class TurnResolver
                             turnNumber, entry.Country, entry.Unit, entry.Cell, entry.Revealed),
                         PlannedCivilianWorkStart entry => new CivilianWorkBegunEvent(
                             turnNumber, entry.Country, entry.Unit, entry.Cell, entry.TurnsRequired),
+                        PlannedConstructionStart entry => new ConstructionBegunEvent(
+                            turnNumber,
+                            entry.Country,
+                            entry.Unit,
+                            entry.Cell,
+                            entry.Structure,
+                            entry.Target,
+                            entry.TurnsRequired,
+                            entry.Paid),
+                        PlannedConstruction entry => new ConstructionCompletedEvent(
+                            turnNumber,
+                            entry.Country,
+                            entry.Unit,
+                            entry.Cell,
+                            entry.Structure,
+                            entry.Target),
                         PlannedCivilianDeployment entry => new CivilianDeployedEvent(
                             turnNumber, entry.Country, entry.Unit, entry.From, entry.To),
                         PlannedCivilianRefusal entry => new CivilianOrderRefusedEvent(

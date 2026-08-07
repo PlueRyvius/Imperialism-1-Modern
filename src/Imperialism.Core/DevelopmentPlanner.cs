@@ -15,6 +15,15 @@ internal sealed record PlannedCivilianWorkStart(
     CellIndex Cell,
     int TurnsRequired) : PlannedCivilianOutcome(Country, Unit);
 
+internal sealed record PlannedConstructionStart(
+    CountryId Country,
+    CivilianUnitId Unit,
+    CellIndex Cell,
+    EngineerConstruction Structure,
+    CellIndex Target,
+    int TurnsRequired,
+    long Paid) : PlannedCivilianOutcome(Country, Unit);
+
 internal sealed record PlannedCellDevelopment(
     CountryId Country,
     CivilianUnitId Unit,
@@ -105,9 +114,68 @@ internal static class DevelopmentPlanner
                 state.SetCivilianWork(order.Unit, new CivilianWorkInProgress(order.Cell, turns));
                 outcomes.Add(new PlannedCivilianWorkStart(country, order.Unit, order.Cell, turns));
             }
+
+            foreach (var order in countryOrders.EngineerWork)
+            {
+                if (RefuseConstruction(state, country, order, busyAtStart, out var cost) is { } refusal)
+                {
+                    outcomes.Add(new PlannedCivilianRefusal(country, order.Unit, order.Cell, refusal));
+                    continue;
+                }
+
+                var engineer = state.GetCivilian(order.Unit)!;
+                var turns = state.Definition.CivilianTypes[engineer.Type.Value].WorkTurns;
+                if (cost > 0 && !state.TrySpendCash(country, cost))
+                {
+                    // Unreachable while Legality has already checked the
+                    // treasury, and kept because the check and the spend are two
+                    // statements and a half-built structure is not a structure.
+                    outcomes.Add(new PlannedCivilianRefusal(
+                        country, order.Unit, order.Cell, CivilianOrderRefusal.NotEnoughCash));
+                    continue;
+                }
+
+                // No move: the original builds rail *from* where the Engineer
+                // stands, so moving it first would silently change which tile
+                // the line starts at.
+                state.SetCivilianWork(
+                    order.Unit,
+                    new CivilianWorkInProgress(
+                        engineer.Cell,
+                        turns,
+                        new EngineerJob(order.Structure, order.Cell)));
+                outcomes.Add(new PlannedConstructionStart(
+                    country, order.Unit, engineer.Cell, order.Structure, order.Cell, turns, cost));
+            }
         }
 
         return outcomes;
+    }
+
+    private static CivilianOrderRefusal? RefuseConstruction(
+        WorldState state,
+        CountryId country,
+        EngineerOrder order,
+        HashSet<CivilianUnitId> busyAtStart,
+        out long cost)
+    {
+        cost = 0;
+        if (state.GetCivilian(order.Unit) is not { } engineer)
+        {
+            return CivilianOrderRefusal.NoSuchCivilian;
+        }
+
+        if (engineer.Country != country)
+        {
+            return CivilianOrderRefusal.NotYours;
+        }
+
+        if (busyAtStart.Contains(order.Unit))
+        {
+            return CivilianOrderRefusal.AlreadyWorking;
+        }
+
+        return EngineerPlanner.Legality(state, country, engineer, order, out cost);
     }
 
     private static void AdvanceWorkInProgress(WorldState state, List<PlannedCivilianOutcome> outcomes)
@@ -123,11 +191,35 @@ internal static class DevelopmentPlanner
             {
                 state.SetCivilianWork(
                     civilian.Id,
-                    new CivilianWorkInProgress(job.Cell, job.TurnsRemaining - 1));
+                    new CivilianWorkInProgress(job.Cell, job.TurnsRemaining - 1, job.Construction));
                 continue;
             }
 
             state.SetCivilianWork(civilian.Id, null);
+
+            if (job.Construction is { } construction)
+            {
+                // Either end of a line, or the structure's own tile, may have
+                // changed hands while the Engineer worked. The cash was spent
+                // when the order was given and is not refunded, which is the
+                // same bargain a civilian's time already makes.
+                if (EngineerPlanner.LegalityOfFinishing(
+                        state, civilian.Country, job.Cell, construction) is { } blocked)
+                {
+                    outcomes.Add(new PlannedCivilianRefusal(
+                        civilian.Country, civilian.Id, construction.Target, blocked));
+                    continue;
+                }
+
+                EngineerPlanner.Complete(state, job.Cell, construction);
+                outcomes.Add(new PlannedConstruction(
+                    civilian.Country,
+                    civilian.Id,
+                    job.Cell,
+                    construction.Kind,
+                    construction.Target));
+                continue;
+            }
 
             // The tile may have changed hands, or been improved by somebody
             // else, since the work began. Finishing a job that is no longer
@@ -250,9 +342,16 @@ internal static class DevelopmentPlanner
             return entry;
         }
 
-        return WorkOf(state, type) == CivilianWorkKind.Prospect
-            ? LegalityOfProspecting(state, country, cell)
-            : LegalityOfImprovement(state, country, type, cell);
+        return WorkOf(state, type) switch
+        {
+            // An Engineer builds and never improves, so a plain work order to
+            // one is the wrong cursor rather than the wrong tile. Reported as
+            // such, because "send an EngineerOrder instead" is the fix and
+            // "nothing here is your work" would not say so.
+            CivilianWorkKind.Construct => CivilianOrderRefusal.NotAnEngineer,
+            CivilianWorkKind.Prospect => LegalityOfProspecting(state, country, cell),
+            _ => LegalityOfImprovement(state, country, type, cell),
+        };
     }
 
     /// <summary>

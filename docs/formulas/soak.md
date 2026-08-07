@@ -227,6 +227,32 @@ its workforce eats costs that workforce on the **first** turn whatever is in the
 warehouse, because capacity bought on turn one does not carry until turn two. See
 [transport.md](transport.md).
 
+### The Engineer reaches, and nothing pushes back
+
+Two runs of the same world, the last six columns of each row being grain on
+railed ground with no depot near it — stranded until an Engineer builds one. The
+only difference is whether the Engineer is given orders; each treasury covers
+exactly two depots.
+
+```
+                     gathered  carried  wasted  grain/turn at 100  structures  treasuries
+Engineer idle          15,841   15,806      35                 42           0      42,000
+Engineer building      23,814   23,779      35                126          14      21,000
+```
+
+**The reach is large** — half again as much harvest over the century, and grain a
+turn triples. Nothing else in the engine can do that; every other civilian raises
+what a tile yields, and this raises how much of the map is a tile.
+
+**And the waste figure does not move.** This run was written to confirm the
+opposite: that gathering more without carrying more would push waste up until a
+railyard caught up. It is 35 either way. The reason is the runaway already
+reported above — **the railyard is unopposed**, so capacity outruns anything an
+Engineer can reach. That expectation is retracted in
+[engineer.md](engineer.md) and in [transport.md](transport.md) rather than
+softened, and this table is the one to re-read once anything else competes for
+lumber and steel.
+
 ## Open
 
 - Soak an imported `s1` rather than a synthetic fixture. That needs a headless

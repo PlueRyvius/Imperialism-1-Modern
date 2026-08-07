@@ -82,6 +82,20 @@ Gold and gems are the only two commodities the importer prices in cash — $200
 and $500 a unit, both **stated outright in the manual** — because they are the
 only two that never reach the warehouse. See `formulas/money.md`.
 
+Each terrain carries the **rail gate** the Benefits of Technology Table gives it:
+High Pressure Steam Engine for farms, plains, deserts, forests and tundra, Iron
+Railroad Bridge for swamp, Compound Steam Engine for hills, Dynamite for
+mountains, and nothing at all for ocean or an unknown code. That reading is
+checked against the whole corpus —
+`EveryRailedCellInTheCorpusIsOneItsOwnerCouldHaveBuilt` finds **1,140 authored
+rail ends permitted and none not**, with the gated ground genuinely exercised.
+As with every other gate, **nothing validates against it**: a scenario may lay
+track wherever it likes and the importer must take it. Fertile hills taking the
+hills gate, and towns and capitals taking the plains one, are inferences the
+corpus cannot separate from their alternatives; both are flagged in
+`formulas/engineer.md`. The Engineer's three construction prices are emitted too,
+and they are the weakest numbers this importer carries.
+
 Oil remains unreachable in imported content: no scenario grants Oil Drilling and
 there is no research system, so swamp, desert and tundra can never be prospected.
 That is the manual's own rule rather than a gap. See `formulas/technology.md` and

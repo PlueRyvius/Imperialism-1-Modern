@@ -199,6 +199,25 @@ and distinct from output no route reached at all. Capacity is raised at the
 railyard, which is an order rather than a facility because the pool is
 per-country and the manual gives it no ceiling. See `formulas/transport.md`.
 
+**A country has a treasury, and the Engineer is what spends it.** `WorldState`
+carries a per-country `long` beside its transport capacity, filled by the one
+income the manual pairs with it: `CommodityDefinition.CashPerUnit` marks the two
+commodities that "never reach the industry warehouse", and `TransportPlanner`
+credits cash instead of queueing a delivery as it carries them — at the manual's
+own $200 for gold and $500 for gems. They still cost capacity, so carrying gold
+is carrying less food. See `formulas/money.md`.
+
+**The Engineer works in the existing `Development` phase**, because it is a
+civilian taking a turn to do a job, which is what that phase is. It is also the
+one place where an order rather than a civilian's *type* decides what the work
+is: `CivilianWorkKind.Construct` selects a civilian that takes `EngineerOrder`,
+and which tile that order names decides the verb — an adjacent tile lays rail,
+its own tile builds a depot or a port. `TerrainDefinition.RailRule` gates the
+ground per technology, on the manual's table and corroborated against 1,140 rail
+ends in the corpus. Nothing in `ExtractionPlanner` changed: a new depot on a
+connected line lights up its catchment because rail mutation already invalidates
+the connectivity index. See `formulas/engineer.md`.
+
 **Economy storage foundation.** `CommodityId` is separate from `ResourceId`:
 a map deposit points through `ResourceDefinition` to the commodity it yields,
 while materials and goods need no deposit. Commodity catalogs are content-

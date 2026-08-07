@@ -30,7 +30,8 @@ internal readonly record struct LegacyTerrain(
     string Name,
     string DisplayName,
     bool IsImprovable,
-    LegacyProspecting Prospecting = LegacyProspecting.No);
+    LegacyProspecting Prospecting = LegacyProspecting.No,
+    int Rail = 0);
 
 internal enum LegacyProspecting : byte
 {
@@ -71,23 +72,47 @@ public static class LegacyWorldConverter
         new Dictionary<byte, LegacyTerrain>
         {
             [0] = new("ocean", "Ocean", false),
-            [1] = new("clear", "Dry Plains", false),
-            [2] = new("cotton", "Plantation", true),
-            [3] = new("cattle-ranch", "Open Range", true),
-            [4] = new("horse-ranch", "Horse Ranch", false),
-            [5] = new("grain-farm", "Farm", true),
-            [6] = new("orchard", "Orchard", true),
-            [7] = new("wool-hill", "Fertile Hills", true),
-            [8] = new("hill", "Barren Hills", true, LegacyProspecting.Open),
-            [9] = new("mountain", "Mountains", true, LegacyProspecting.Open),
-            [10] = new("swamp", "Swamp", true, LegacyProspecting.NeedsOilDrilling),
-            [11] = new("desert", "Desert", true, LegacyProspecting.NeedsOilDrilling),
-            [12] = new("tundra", "Tundra", true, LegacyProspecting.NeedsOilDrilling),
-            [13] = new("forest", "Hardwood Forest", true),
-            [14] = new("town", "Town", false),
-            [15] = new("scrub-forest", "Scrub Forest", false),
-            [16] = new("capital", "Capital", false),
+            [1] = new("clear", "Dry Plains", false, Rail: SteamEnginePosition),
+            [2] = new("cotton", "Plantation", true, Rail: SteamEnginePosition),
+            [3] = new("cattle-ranch", "Open Range", true, Rail: SteamEnginePosition),
+            [4] = new("horse-ranch", "Horse Ranch", false, Rail: SteamEnginePosition),
+            [5] = new("grain-farm", "Farm", true, Rail: SteamEnginePosition),
+            [6] = new("orchard", "Orchard", true, Rail: SteamEnginePosition),
+            [7] = new("wool-hill", "Fertile Hills", true, Rail: CompoundSteamEnginePosition),
+            [8] = new("hill", "Barren Hills", true, LegacyProspecting.Open, CompoundSteamEnginePosition),
+            [9] = new("mountain", "Mountains", true, LegacyProspecting.Open, DynamitePosition),
+            [10] = new("swamp", "Swamp", true, LegacyProspecting.NeedsOilDrilling, IronRailroadBridgePosition),
+            [11] = new("desert", "Desert", true, LegacyProspecting.NeedsOilDrilling, SteamEnginePosition),
+            [12] = new("tundra", "Tundra", true, LegacyProspecting.NeedsOilDrilling, SteamEnginePosition),
+            [13] = new("forest", "Hardwood Forest", true, Rail: SteamEnginePosition),
+            [14] = new("town", "Town", false, Rail: SteamEnginePosition),
+            [15] = new("scrub-forest", "Scrub Forest", false, Rail: SteamEnginePosition),
+            [16] = new("capital", "Capital", false, Rail: SteamEnginePosition),
         };
+
+    /// <summary>
+    /// The four technologies the Benefits of Technology Table names for rail,
+    /// held as table positions so the key and the gate cannot drift apart.
+    /// </summary>
+    /// <remarks>
+    /// "Allows Engineers to build railroads through farms, plains, deserts,
+    /// forests, and tundra" (High Pressure Steam Engine); "through swamps" (Iron
+    /// Railroad Bridge); "through hills" (Compound Steam Engine); "through
+    /// mountains" (Dynamite). Every power starts with the first, so an 1815 start
+    /// can already build across most of its land.
+    /// <para>
+    /// <b>Two readings here are inferences and are flagged in
+    /// <c>docs/formulas/engineer.md</c>.</b> Fertile Hills takes the hills gate,
+    /// because the manual says "hills" without qualification and this project
+    /// does not invent permission. Towns and capitals take the plains gate,
+    /// because a capital must be railable or it could not be the hub every depot
+    /// connects to; the manual lists neither.
+    /// </para>
+    /// </remarks>
+    private const int SteamEnginePosition = 1;
+    private const int IronRailroadBridgePosition = 6;
+    private const int CompoundSteamEnginePosition = 12;
+    private const int DynamitePosition = 23;
 
     /// <summary>
     /// The manual's Benefits of Technology Table, in printed order. **The order
@@ -233,7 +258,7 @@ public static class LegacyWorldConverter
         ("prospector", "Prospector", CivilianWorkKind.Prospect),
         ("farmer", "Farmer", CivilianWorkKind.Improve),
         ("forester", "Forester", CivilianWorkKind.Improve),
-        ("engineer", "Engineer", CivilianWorkKind.Improve),
+        ("engineer", "Engineer", CivilianWorkKind.Construct),
         ("rancher", "Rancher", CivilianWorkKind.Improve),
         ("driller", "Oil Driller", CivilianWorkKind.Improve),
     ];
@@ -665,6 +690,7 @@ public static class LegacyWorldConverter
                 Cash = DefaultStartingCash,
             },
             Transport = CreateStandardTransport(),
+            Construction = CreateStandardConstruction(),
             Extraction = new ExtractionContentSettings
             {
                 CatchmentRadius = WorldContentCodec.DefaultCatchmentRadius,
@@ -1828,6 +1854,16 @@ public static class LegacyWorldConverter
                     },
                     _ => null,
                 },
+
+                // Zero is "rail may never be laid here", which is ocean's answer
+                // and an unknown terrain's. Everything else names the technology
+                // the Benefits of Technology Table gives it.
+                Rail = terrain.Rail == 0
+                    ? null
+                    : new RailContent
+                    {
+                        RequiredTechnology = TechnologyKey(terrain.Rail),
+                    },
             }
             : new TerrainContentDefinition
             {
@@ -1954,6 +1990,33 @@ public static class LegacyWorldConverter
     /// the rate is the same total-input-units rule every recipe's labour cost
     /// follows — two inputs, two labour. See <c>docs/formulas/transport.md</c>.
     /// </remarks>
+    /// <summary>
+    /// What an Engineer's constructions cost.
+    /// </summary>
+    /// <remarks>
+    /// <b>The three weakest numbers in this importer, and they are weak in two
+    /// different ways.</b>
+    /// <para>
+    /// The depot and the port come from <b>the owner's recollection of playing
+    /// the original</b> — around 1,500 and around 2,000 — which the scoreboard
+    /// rates "good for shape, poor for exact numbers". The manual prices neither
+    /// and states only the ordering: ports "cost more than depots". These two
+    /// satisfy it.
+    /// </para>
+    /// <para>
+    /// <b>Rail's price is not attested at all</b>, by the manual or by anyone's
+    /// memory. It is a placeholder, set below the depot's because a single tile
+    /// of track plainly buys less than the structure that gathers a whole
+    /// catchment. Do not cite it. See <c>docs/formulas/engineer.md</c>.
+    /// </para>
+    /// </remarks>
+    private static ConstructionContentSettings CreateStandardConstruction() => new()
+    {
+        RailCashCost = 500,
+        DepotCashCost = 1500,
+        PortCashCost = 2000,
+    };
+
     private static TransportContentSettings CreateStandardTransport() => new()
     {
         CostPerCapacityPoint =

@@ -10,6 +10,7 @@ public sealed class CountryTurnOrders
     private readonly IReadOnlyList<ProductionExpansionOrder> _expansions;
     private readonly IReadOnlyList<CivilianDeployOrder> _deployments;
     private readonly IReadOnlyList<CivilianWorkOrder> _civilianWork;
+    private readonly IReadOnlyList<EngineerOrder> _engineerWork;
     private readonly IReadOnlyList<TransportAllocationOrder> _transport;
 
     public CountryTurnOrders(
@@ -20,7 +21,8 @@ public sealed class CountryTurnOrders
         IEnumerable<CivilianDeployOrder>? deployments = null,
         IEnumerable<CivilianWorkOrder>? civilianWork = null,
         IEnumerable<TransportAllocationOrder>? transport = null,
-        long buildTransportCapacity = 0)
+        long buildTransportCapacity = 0,
+        IEnumerable<EngineerOrder>? engineerWork = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(recruitWorkers);
         ArgumentOutOfRangeException.ThrowIfNegative(buildTransportCapacity);
@@ -44,12 +46,19 @@ public sealed class CountryTurnOrders
 
         var deployArray = deployments?.ToArray() ?? [];
         var workArray = civilianWork?.ToArray() ?? [];
+        var engineerArray = engineerWork?.ToArray() ?? [];
+        if (engineerArray.Any(static item => !Enum.IsDefined(item.Structure)))
+        {
+            throw new ArgumentOutOfRangeException(nameof(engineerWork));
+        }
 
         // One order per civilian per turn. The manual's cursor table gives
         // "deploy to this tile, no work this turn" its own cursor, so moving and
-        // working are alternatives rather than a sequence.
+        // working are alternatives rather than a sequence — and the Engineer's
+        // two cursors are alternatives to each other for the same reason.
         var ordered = deployArray.Select(static item => item.Unit)
             .Concat(workArray.Select(static item => item.Unit))
+            .Concat(engineerArray.Select(static item => item.Unit))
             .ToArray();
         if (ordered.Distinct().Count() != ordered.Length)
         {
@@ -80,6 +89,7 @@ public sealed class CountryTurnOrders
         _expansions = Array.AsReadOnly(expansionArray);
         _deployments = Array.AsReadOnly(deployArray);
         _civilianWork = Array.AsReadOnly(workArray);
+        _engineerWork = Array.AsReadOnly(engineerArray);
         _transport = Array.AsReadOnly(transportArray);
     }
 
@@ -103,6 +113,9 @@ public sealed class CountryTurnOrders
 
     /// <summary>Civilians to set to work improving a tile this turn.</summary>
     public IReadOnlyList<CivilianWorkOrder> CivilianWork => _civilianWork;
+
+    /// <summary>Engineers to set to work building the transport network this turn.</summary>
+    public IReadOnlyList<EngineerOrder> EngineerWork => _engineerWork;
 
     /// <summary>
     /// The Transport screen's sliders, in explicit allocation-priority order. A
@@ -156,6 +169,35 @@ public readonly record struct CivilianDeployOrder(CivilianUnitId Unit, CellIndex
 /// same order — the original's hammer cursor does both in one click.
 /// </summary>
 public readonly record struct CivilianWorkOrder(CivilianUnitId Unit, CellIndex Cell);
+
+/// <summary>
+/// Set an Engineer to work building the transport network, at a named tile.
+/// </summary>
+/// <remarks>
+/// <b>This is the one order whose meaning the civilian's type does not settle.</b>
+/// Everywhere else in this engine what a civilian does follows from what it is;
+/// the manual calls the Engineer "the only civilian with multiple functions" and
+/// gives it two working cursors, so the choice has to live somewhere and this is
+/// where it lives.
+/// <para>
+/// <see cref="Cell"/> is the tile the player clicked, and it is what selects
+/// between them: an <em>adjacent</em> tile lays rail towards it, and the
+/// Engineer's <em>own</em> tile opens the construction dialog.
+/// <see cref="Structure"/> must agree — <see cref="EngineerConstruction.Rail"/>
+/// for an adjacent tile and a structure for its own — and the planner refuses
+/// the order rather than guessing when they disagree.
+/// </para>
+/// <para>
+/// Unlike <see cref="CivilianWorkOrder"/> this does <b>not</b> move the
+/// Engineer. The original's track cursor builds <em>from</em> where it stands,
+/// so moving first would silently change which tile the line starts at. Deploy
+/// it, then order the work.
+/// </para>
+/// </remarks>
+public readonly record struct EngineerOrder(
+    CivilianUnitId Unit,
+    CellIndex Cell,
+    EngineerConstruction Structure);
 
 public readonly record struct ProductionOrder
 {

@@ -1211,6 +1211,61 @@ public sealed class WorldContentTests
         Assert.Equal(1500, new WorldState(compiled.World).GetCash(new CountryId(0)));
     }
 
+    [Fact]
+    public void VersionSixteenMigrationRejectsVersionSeventeenConstruction()
+    {
+        var document = CreateValidDocument();
+        document.Terrains[0].Rail = new RailContent();
+        var contradictory = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 16);
+        Assert.Contains("\"rail\"", contradictory, StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(contradictory)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    /// <summary>
+    /// A terrain with no <c>rail</c> block can never carry a line, which is
+    /// ocean's answer and every terrain's answer in a world with no
+    /// construction. Present-but-empty means anyone may build on it.
+    /// </summary>
+    [Fact]
+    public void ConstructionAndTheRailGateSurviveARoundTrip()
+    {
+        var document = CreateValidDocument();
+        document.Construction = new ConstructionContentSettings
+        {
+            RailCashCost = 500,
+            DepotCashCost = 1500,
+            PortCashCost = 2000,
+        };
+        document.Terrains[0].Rail = new RailContent
+        {
+            RequiredTechnology = document.Technologies[0].Key,
+        };
+
+        var first = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(first);
+        Assert.Equal(first, WorldContentCodec.Encode(decoded));
+
+        var world = WorldContentCompiler.Compile(decoded).World;
+        Assert.Equal(1500, world.Construction!.GetCashCost(EngineerConstruction.Depot));
+        Assert.Equal(
+            new TechnologyId(0),
+            world.Map.GetTerrain(new TerrainId(0))!.Rail!.RequiredTechnology);
+    }
+
+    [Fact]
+    public void ARailGateCannotNameATechnologyTheWorldDoesNotDeclare()
+    {
+        var document = CreateValidDocument();
+        document.Terrains[0].Rail = new RailContent { RequiredTechnology = "technology.missing" };
+
+        AssertPath("terrains[0].rail.requiredTechnology", document);
+    }
+
     /// <summary>
     /// A commodity worth nothing is one that reaches the warehouse, so it is
     /// spelled by leaving the price off rather than by writing a zero.

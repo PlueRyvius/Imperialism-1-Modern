@@ -8,6 +8,14 @@ namespace Imperialism.Core;
 /// civilian ever searches. <see cref="CivilianWorkOrder"/> therefore stays a
 /// bare (unit, cell) pair and what it means follows from who was ordered.
 /// <para>
+/// <b>The Engineer is the exception the manual names outright</b> — "the only
+/// civilian with multiple functions" — so <see cref="Construct"/> selects a
+/// civilian that takes <see cref="EngineerOrder"/> instead, and the order
+/// carries which of the two cursors was used. The type still decides which
+/// <em>family</em> of work is possible; only inside construction does the order
+/// have anything left to say.
+/// </para>
+/// <para>
 /// Keeping the choice in content is also what keeps the word "Prospector" out
 /// of Core, in the same way <see cref="PortFishing"/> keeps "fish" out.
 /// </para>
@@ -23,6 +31,36 @@ public enum CivilianWorkKind : byte
     /// 2,860 barren hills and 346 of its 1,589 mountains carry a marker at all.
     /// </summary>
     Prospect,
+
+    /// <summary>
+    /// Build the transport network: rail into an adjacent tile, or a depot or
+    /// port on this one. The Engineer's, and nobody else's.
+    /// </summary>
+    Construct,
+}
+
+/// <summary>What an Engineer is building.</summary>
+/// <remarks>
+/// The original selects between them by where the cursor is: over an adjacent
+/// tile it shows a piece of track, over the Engineer's own tile a hammer and a
+/// dialog. So <see cref="Rail"/> is the one that names a tile the Engineer does
+/// not stand on, and the other two are choices from that dialog.
+/// <para>
+/// Fortifications are the dialog's third choice and are out of scope: they are
+/// military, and the manual builds them "throughout the province, not just the
+/// current tile", which is a different shape entirely.
+/// </para>
+/// </remarks>
+public enum EngineerConstruction : byte
+{
+    /// <summary>A railroad line between the Engineer's tile and an adjacent one.</summary>
+    Rail,
+
+    /// <summary>A rail depot on the Engineer's own tile.</summary>
+    Depot,
+
+    /// <summary>A port on the Engineer's own tile. Needs water, and costs more than a depot.</summary>
+    Port,
 }
 
 /// <summary>
@@ -91,7 +129,10 @@ public sealed record CivilianTypeDefinition
 /// <summary>Work a civilian has begun and not yet finished.</summary>
 public readonly record struct CivilianWorkInProgress
 {
-    public CivilianWorkInProgress(CellIndex cell, int turnsRemaining)
+    public CivilianWorkInProgress(
+        CellIndex cell,
+        int turnsRemaining,
+        EngineerJob? construction = null)
     {
         if (turnsRemaining <= 0)
         {
@@ -100,8 +141,24 @@ public readonly record struct CivilianWorkInProgress
                 "Finished work is the absence of a job, not a job with nothing left.");
         }
 
+        if (construction is { } job)
+        {
+            if (!Enum.IsDefined(job.Kind))
+            {
+                throw new ArgumentOutOfRangeException(nameof(construction));
+            }
+
+            if (job.Kind == EngineerConstruction.Rail == (job.Target == cell))
+            {
+                throw new ArgumentException(
+                    "Rail joins the Engineer's tile to another; a depot or port stands on its own.",
+                    nameof(construction));
+            }
+        }
+
         Cell = cell;
         TurnsRemaining = turnsRemaining;
+        Construction = construction;
     }
 
     /// <summary>
@@ -111,7 +168,23 @@ public readonly record struct CivilianWorkInProgress
     public CellIndex Cell { get; }
 
     public int TurnsRemaining { get; }
+
+    /// <summary>
+    /// What an Engineer is building here, or null for the ordinary work of
+    /// improving or searching the tile it stands on.
+    /// </summary>
+    public EngineerJob? Construction { get; }
 }
+
+/// <summary>
+/// One piece of transport network an Engineer is building, and where.
+/// </summary>
+/// <remarks>
+/// <see cref="Target"/> is the tile the player clicked, which is the whole of
+/// how the original distinguishes the two cursors: an adjacent tile lays rail
+/// towards it, the Engineer's own tile opens the construction dialog.
+/// </remarks>
+public readonly record struct EngineerJob(EngineerConstruction Kind, CellIndex Target);
 
 /// <summary>One civilian on the map: what it is, whose it is, and where.</summary>
 /// <remarks>

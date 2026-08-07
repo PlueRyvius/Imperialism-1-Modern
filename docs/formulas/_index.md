@@ -135,6 +135,10 @@ bottom of this file.
 | What gold and gems are worth in cash | `inferred` — **both rates stated outright** | [money](money.md) | Core, Content, LegacyImport | generated + local corpus |
 | Whether carrying them costs capacity | `inferred` | [money](money.md) | Core | generated |
 | What a treasury starts with | `inferred` existence, `guess` quantity | [money](money.md) | Core, Content, LegacyImport | generated + local corpus |
+| Which terrain admits rail, and which depots | `inferred` | [engineer](engineer.md) | Core, Content, LegacyImport | generated + local corpus |
+| Where an Engineer may build each structure | `inferred` | [engineer](engineer.md) | Core, Content, LegacyImport | generated |
+| What a depot and a port cost | `inferred`, from observed play | [engineer](engineer.md) | Content, LegacyImport | generated |
+| What rail costs | `guess` | [engineer](engineer.md) | Content, LegacyImport | generated |
 | Whether the whole economy holds up over time | — | [soak](soak.md) | — | 100-turn soak, 7 powers |
 | Trade clearing price | `guess` | _trade-pricing_ | — | — |
 | Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |
@@ -178,6 +182,19 @@ purpose. It carries **no new guess** — a search reuses the work duration alrea
 flagged there. What it does carry is a live consequence: **oil is unreachable in
 imported content** until research exists, because the gate is real and nothing
 can pass it. See [prospecting.md](prospecting.md).
+
+The Engineer's terrain gates are the **best-corroborated reading in the project**
+and it is worth saying why, because the technology ladder set the pattern and
+this beats it. Reading the Benefits of Technology Table's rail column against the
+corpus gives **1,140 rail ends permitted and none not**, and the check is not
+vacuous: `s9` and `s12`, whose powers lack Compound Steam Engine, author 137 rail
+links with not one hill among them, while `s1`, whose powers hold it, rails
+forty-two. And no shipped power holds Dynamite while no shipped scenario rails a
+single mountain. See [engineer](engineer.md).
+
+Against that, **the three construction prices are the weakest numbers here**: two
+are the owner's recollection from play and one is invention. The manual prices
+none of them and states only that a port costs more than a depot.
 
 Extraction carries its evidence at three different strengths at once, and its
 document tabulates them rather than averaging them: the development levels are

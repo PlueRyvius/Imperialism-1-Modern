@@ -730,6 +730,33 @@ internal static class WorldContentMigrator
             }
         }
 
+        if (document.Construction is not null)
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 16 cannot price construction.");
+        }
+
+        foreach (var terrain in document.Terrains ?? [])
+        {
+            if (terrain?.Rail is not null)
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 16 cannot say which terrain carries rail.");
+            }
+        }
+
+        foreach (var civilian in document.CivilianTypes ?? [])
+        {
+            if (civilian?.Work == Imperialism.Core.CivilianWorkKind.Construct)
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 16 has no constructing civilian.");
+            }
+        }
+
         document.FormatVersion = 17;
     }
 
