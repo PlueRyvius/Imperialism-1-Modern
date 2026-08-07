@@ -86,6 +86,11 @@ internal static class WorldContentMigrator
             MigrateVersionFifteenToSixteen(document);
         }
 
+        if (document.FormatVersion == 16)
+        {
+            MigrateVersionSixteenToSeventeen(document);
+        }
+
         return document;
     }
 
@@ -682,6 +687,50 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 16;
+    }
+
+    /// <summary>
+    /// Version 17 gives a country a treasury, lets gold and gems fill it, and
+    /// lets an Engineer spend it.
+    /// </summary>
+    /// <remarks>
+    /// A version 16 package has no money at all, so it migrates to a world where
+    /// nobody holds any, nothing converts, and no Engineer can build — which is
+    /// exactly how it behaved. None of it can be invented: what a commodity is
+    /// worth in cash is a fact about the 1997 economy rather than about worlds in
+    /// general, and a starting treasury with nothing to spend it on would be
+    /// noise.
+    /// </remarks>
+    private static void MigrateVersionSixteenToSeventeen(WorldContentDocument document)
+    {
+        foreach (var commodity in document.Commodities ?? [])
+        {
+            if (commodity?.CashPerUnit is not null)
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 16 cannot price a commodity in cash.");
+            }
+        }
+
+        if (document.StartingDefaults?.Cash is not null)
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 16 cannot contain a version 17 starting treasury.");
+        }
+
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.Cash is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 16 cannot contain version 17 country cash.");
+            }
+        }
+
+        document.FormatVersion = 17;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

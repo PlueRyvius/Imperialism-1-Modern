@@ -99,7 +99,17 @@ public static class WorldContentCompiler
         var seaZoneIds = BuildNamedKeyMap(seaZoneContent, "map.seaZones");
         var countryIds = BuildNamedKeyMap(countriesContent, "countries");
         var commodities = commodityContent.Select((definition, index) =>
-            new CommodityDefinition(new CommodityId(index), definition.Name, definition.Category)).ToArray();
+        {
+            if (definition.CashPerUnit <= 0)
+            {
+                throw Error(
+                    $"commodities[{index}].cashPerUnit",
+                    "A commodity worth nothing in cash is one that reaches the warehouse instead.");
+            }
+
+            return new CommodityDefinition(
+                new CommodityId(index), definition.Name, definition.Category, definition.CashPerUnit);
+        }).ToArray();
         var technologyContent = RequireArray(document.Technologies, "technologies");
         var technologyIds = BuildNamedKeyMap(technologyContent, "technologies");
         var technologies = technologyContent.Select((definition, index) =>
@@ -447,6 +457,22 @@ public static class WorldContentCompiler
                 entry.Capacity));
         }
 
+        var cash = new List<InitialCash>();
+        var cashEntries = RequireArray(scenarioContent.Cash, $"{path}.cash");
+        for (var index = 0; index < cashEntries.Length; index++)
+        {
+            var entryPath = $"{path}.cash[{index}]";
+            var entry = cashEntries[index] ?? throw Error(entryPath, "Value is required.");
+            if (entry.Amount < 0)
+            {
+                throw Error($"{entryPath}.amount", "A treasury cannot be negative.");
+            }
+
+            cash.Add(new InitialCash(
+                new CountryId(FindKey(countryIds, entry.Country, $"{entryPath}.country")),
+                entry.Amount));
+        }
+
         var defaultStartCountries = new List<CountryId>();
         var defaultStartSeen = new HashSet<string>(StringComparer.Ordinal);
         var defaultStartContent = RequireArray(
@@ -492,7 +518,8 @@ public static class WorldContentCompiler
                 workers,
                 defaultStartCountries,
                 civilians,
-                transportCapacity);
+                transportCapacity,
+                cash);
             return new WorldDefinition(
                 map,
                 countries,
@@ -707,6 +734,11 @@ public static class WorldContentCompiler
             throw Error("startingDefaults.transportCapacity", "Capacity cannot be negative.");
         }
 
+        if (content.Cash < 0)
+        {
+            throw Error("startingDefaults.cash", "A treasury cannot be negative.");
+        }
+
         var inventory = CompileCommodityQuantities(
             RequireArray(content.Inventory, "startingDefaults.inventory"),
             commodityIds,
@@ -715,7 +747,7 @@ public static class WorldContentCompiler
         try
         {
             return new StartingDefaults(
-                capacities, workforce, technologies, content.TransportCapacity, inventory);
+                capacities, workforce, technologies, content.TransportCapacity, inventory, content.Cash);
         }
         catch (ArgumentException exception)
         {

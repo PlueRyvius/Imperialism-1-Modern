@@ -38,11 +38,17 @@ public sealed class StartingDefaults
         WorkforceDefault? workforce = null,
         IEnumerable<TechnologyId>? technologies = null,
         long? transportCapacity = null,
-        IEnumerable<CommodityQuantity>? inventory = null)
+        IEnumerable<CommodityQuantity>? inventory = null,
+        long? cash = null)
     {
         if (transportCapacity < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(transportCapacity));
+        }
+
+        if (cash < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(cash));
         }
 
         ArgumentNullException.ThrowIfNull(productionCapacities);
@@ -82,6 +88,7 @@ public sealed class StartingDefaults
         _inventory = Array.AsReadOnly(stock);
         Workforce = workforce;
         TransportCapacity = transportCapacity;
+        Cash = cash;
     }
 
     /// <summary>
@@ -154,6 +161,25 @@ public sealed class StartingDefaults
     /// </para>
     /// </remarks>
     public IReadOnlyList<CommodityQuantity> Inventory => _inventory;
+
+    /// <summary>
+    /// What a listed country's treasury holds on turn one — the <c>cash</c>
+    /// record a skirmish never carries.
+    /// </summary>
+    /// <remarks>
+    /// <b>That there is a treasury at all is the manual's</b>: "each Great Power
+    /// begins the game with a limited amount of cash which is totally inadequate
+    /// to meet its needs." <b>How much is a guess</b>, and it lives in content so
+    /// changing it is an edit.
+    /// <para>
+    /// The corpus cannot settle it. Five of the ten scenarios carry no <c>cash</c>
+    /// record at all, and the five that do are authored situations: <c>s3</c>
+    /// gives its powers 1,500 to 15,000 apiece. Reading a constant out of that is
+    /// the mistake this project has a standing rule against. See
+    /// <c>docs/formulas/money.md</c>.
+    /// </para>
+    /// </remarks>
+    public long? Cash { get; }
 }
 
 public readonly record struct FacilityCapacityDefault

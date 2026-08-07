@@ -369,7 +369,7 @@ public static class LegacyWorldConverter
         new(
             [
                 "cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port", "rail", "labo",
-                "civi", "tech", "tran",
+                "civi", "tech", "tran", "cash",
             ],
             StringComparer.Ordinal);
 
@@ -590,6 +590,7 @@ public static class LegacyWorldConverter
         var workers = ReadWorkforce(scenario, countryKeys, report);
         var countryTechnologies = ReadCountryTechnologies(scenario, countryKeys, report);
         var transportCapacity = ReadTransportCapacity(scenario, countryKeys, report);
+        var countryCash = ReadCountryCash(scenario, countryKeys, report);
         var civilians = ReadCivilians(scenario, map, countryKeys, report);
         var title = string.IsNullOrWhiteSpace(info?.Title)
             ? $"Legacy {options.PackageKey}"
@@ -661,6 +662,7 @@ public static class LegacyWorldConverter
                 Technologies = [.. StartingTechnologyPositions.Select(TechnologyKey)],
                 TransportCapacity = DefaultTransportCapacity,
                 Inventory = CreateStandardStartingStock(),
+                Cash = DefaultStartingCash,
             },
             Transport = CreateStandardTransport(),
             Extraction = new ExtractionContentSettings
@@ -706,6 +708,7 @@ public static class LegacyWorldConverter
                     Civilians = civilians,
                     CountryTechnologies = countryTechnologies,
                     TransportCapacity = transportCapacity,
+                    Cash = countryCash,
 
                     // Every power the scenario gives a workforce to. `labo` is
                     // the one record that names the Great Powers and only them
@@ -966,6 +969,73 @@ public static class LegacyWorldConverter
             {
                 Country = countryKey,
                 Capacity = record.Fields[1],
+            });
+        }
+
+        return result.ToArray();
+    }
+
+    /// <summary>
+    /// Converts <c>cash</c> records into starting treasuries. The record is
+    /// <c>[country, amount]</c> — the same two-field shape as <c>tran</c>.
+    /// </summary>
+    /// <remarks>
+    /// A scenario that carries none leaves every power on the engine's default,
+    /// which is a guess; see <see cref="DefaultStartingCash"/>. What a mission
+    /// authors is authored design and must not be read as a gameplay constant:
+    /// <c>s1</c>, <c>s13</c> and <c>s14</c> give their seven powers 1,500 to
+    /// 10,000 apiece and <c>s3</c> spans 1,500 to 15,000.
+    /// </remarks>
+    private static CountryCashContent[] ReadCountryCash(
+        ScenarioDocument scenario,
+        IReadOnlyDictionary<uint, string> countryKeys,
+        LegacyImportReport report)
+    {
+        var result = new List<CountryCashContent>();
+        var seen = new HashSet<uint>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "cash")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 2)
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-cash",
+                    path,
+                    "A cash record must contain a country and an amount.");
+                continue;
+            }
+
+            var country = record.Fields[0];
+            if (!countryKeys.TryGetValue(country, out var countryKey))
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-cash-country",
+                    path,
+                    $"Cash refers to unknown country {country}.");
+                continue;
+            }
+
+            if (!seen.Add(country))
+            {
+                report.Add(
+                    LegacyImportSeverity.Warning,
+                    "scenario.repeated-cash",
+                    path,
+                    $"Country {country} has more than one cash record.");
+                continue;
+            }
+
+            result.Add(new CountryCashContent
+            {
+                Country = countryKey,
+                Amount = record.Fields[1],
             });
         }
 
@@ -1803,6 +1873,10 @@ public static class LegacyWorldConverter
             Key = $"commodity.{key}",
             Name = name,
             Category = category,
+
+            // Gold and gems are the manual's only two, and it prices both.
+            // Everything else reaches the warehouse.
+            CashPerUnit = CashPerUnit.TryGetValue(key, out var rate) ? rate : null,
         };
 
     private static ProductionFacilityContentDefinition[] CreateStandardProductionFacilities() =>
@@ -1902,6 +1976,42 @@ public static class LegacyWorldConverter
     /// anything off its own land. Do not cite this number as evidence.
     /// </remarks>
     private const int DefaultTransportCapacity = 20;
+
+    /// <summary>
+    /// What a power's treasury holds on turn one.
+    /// </summary>
+    /// <remarks>
+    /// <b>That there is a treasury at all is the manual's</b>: "each Great Power
+    /// begins the game with a limited amount of cash which is totally inadequate
+    /// to meet its needs." <b>The amount is a guess.</b>
+    /// <para>
+    /// Five of the ten shipped scenarios carry no <c>cash</c> record and five
+    /// author 1,500 to 15,000 apiece — <c>s3</c> alone spans that whole range
+    /// across its seven powers — so there is no constant in the corpus to find,
+    /// and this project has a standing rule against mining authored missions for
+    /// one. The number below is invented to sit in that spread rather than
+    /// derived from it: enough to build a couple of structures and not a network.
+    /// Do not cite it as evidence. See <c>docs/formulas/money.md</c>.
+    /// </para>
+    /// </remarks>
+    private const int DefaultStartingCash = 5000;
+
+    /// <summary>
+    /// What a unit of gold and a unit of gems are worth when the network carries
+    /// them. <b>The manual prices both outright</b>: "each unit of gold
+    /// transported increases your cash by $200"; "transported gems convert to
+    /// cash at $500 per unit."
+    /// </summary>
+    /// <remarks>
+    /// Keyed by commodity name rather than by deposit code because the manual
+    /// attaches the conversion to the transporting rather than to the mining.
+    /// </remarks>
+    private static readonly IReadOnlyDictionary<string, long> CashPerUnit =
+        new Dictionary<string, long>(StringComparer.Ordinal)
+        {
+            ["gold"] = 200,
+            ["gems"] = 500,
+        };
 
     /// <summary>
     /// What a power finds in its warehouse on turn one.

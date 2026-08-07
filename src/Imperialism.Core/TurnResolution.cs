@@ -528,6 +528,7 @@ public sealed record ResourceExtractedEvent : TurnEvent
 public sealed record CommoditiesTransportedEvent : TurnEvent
 {
     private readonly IReadOnlyList<CommodityQuantity> _moved;
+    private readonly IReadOnlyList<CommodityQuantity> _converted;
     private readonly IReadOnlyList<CommodityQuantity> _wasted;
 
     public CommoditiesTransportedEvent(
@@ -536,11 +537,14 @@ public sealed record CommoditiesTransportedEvent : TurnEvent
         long capacityUsed,
         long capacityAvailable,
         IEnumerable<CommodityQuantity> moved,
-        IEnumerable<CommodityQuantity> wasted)
+        IEnumerable<CommodityQuantity> wasted,
+        IEnumerable<CommodityQuantity>? converted = null,
+        long cashEarned = 0)
         : base(turnNumber, TurnPhase.Transport)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(capacityUsed);
         ArgumentOutOfRangeException.ThrowIfNegative(capacityAvailable);
+        ArgumentOutOfRangeException.ThrowIfNegative(cashEarned);
         if (capacityUsed > capacityAvailable)
         {
             throw new ArgumentOutOfRangeException(nameof(capacityUsed));
@@ -549,7 +553,9 @@ public sealed record CommoditiesTransportedEvent : TurnEvent
         Country = country;
         CapacityUsed = capacityUsed;
         CapacityAvailable = capacityAvailable;
+        CashEarned = cashEarned;
         _moved = Array.AsReadOnly(moved.ToArray());
+        _converted = Array.AsReadOnly(converted?.ToArray() ?? []);
         _wasted = Array.AsReadOnly(wasted.ToArray());
     }
 
@@ -562,6 +568,17 @@ public sealed record CommoditiesTransportedEvent : TurnEvent
 
     /// <summary>What reached the network, and so the warehouse next turn.</summary>
     public IReadOnlyList<CommodityQuantity> Moved => _moved;
+
+    /// <summary>
+    /// What the network carried that turned into money instead of stock — gold
+    /// and gems, which the manual says never reach the warehouse at all. Counted
+    /// against <see cref="CapacityUsed"/> alongside <see cref="Moved"/> and
+    /// disjoint from it.
+    /// </summary>
+    public IReadOnlyList<CommodityQuantity> Converted => _converted;
+
+    /// <summary>What <see cref="Converted"/> was worth: $200 a unit of gold, $500 of gems.</summary>
+    public long CashEarned { get; }
 
     /// <summary>Gathered, reachable, and left behind. It does not keep.</summary>
     public IReadOnlyList<CommodityQuantity> Wasted => _wasted;

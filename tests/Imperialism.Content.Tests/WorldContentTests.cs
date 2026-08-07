@@ -271,7 +271,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(17)]
+    [InlineData(18)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1147,6 +1147,81 @@ public sealed class WorldContentTests
         // capacity already work.
         var state = new WorldState(compiled.World);
         Assert.Equal(30, state.GetTransportCapacity(new CountryId(0)));
+    }
+
+    /// <summary>
+    /// Version 17 gives a country a treasury. A version 16 package has no money
+    /// at all and none can be invented — what a commodity is worth in cash is a
+    /// fact about the 1997 economy rather than about worlds in general — so it
+    /// migrates to a world where nobody holds any and nothing converts.
+    /// </summary>
+    [Fact]
+    public void VersionSixteenMigratesToAWorldWithNoMoney()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 16);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.Null(migrated.StartingDefaults?.Cash);
+        Assert.All(migrated.Commodities, static item => Assert.Null(item.CashPerUnit));
+        Assert.All(migrated.Scenarios, static item => Assert.Empty(item.Cash));
+        Assert.Equal(0, new WorldState(WorldContentCompiler.Compile(migrated).World)
+            .GetCash(new CountryId(0)));
+    }
+
+    [Fact]
+    public void VersionSixteenMigrationRejectsVersionSeventeenCash()
+    {
+        var document = CreateValidDocument();
+        document.Commodities[0].CashPerUnit = 200;
+        var contradictory = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 16);
+        Assert.Contains("\"cashPerUnit\"", contradictory, StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(contradictory)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    /// <summary>
+    /// The treasury follows the same rule every other starting value does: the
+    /// default reaches the countries a scenario names, and an explicit record
+    /// still wins.
+    /// </summary>
+    [Fact]
+    public void CashAndItsConversionRateSurviveARoundTrip()
+    {
+        var document = CreateValidDocument();
+        document.Commodities[0].CashPerUnit = 200;
+        document.StartingDefaults = new StartingDefaultsContent { Cash = 5000 };
+        document.Scenarios[0].DefaultStartCountries = [document.Countries[0].Key];
+        document.Scenarios[0].Cash =
+        [
+            new CountryCashContent { Country = document.Countries[0].Key, Amount = 1500 },
+        ];
+
+        var first = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(first);
+        Assert.Equal(first, WorldContentCodec.Encode(decoded));
+
+        var compiled = WorldContentCompiler.Compile(decoded);
+        Assert.Equal(200, compiled.World.Commodities[0].CashPerUnit);
+        Assert.Equal(1500, new WorldState(compiled.World).GetCash(new CountryId(0)));
+    }
+
+    /// <summary>
+    /// A commodity worth nothing is one that reaches the warehouse, so it is
+    /// spelled by leaving the price off rather than by writing a zero.
+    /// </summary>
+    [Fact]
+    public void ACommodityPricedAtNothingIsRejected()
+    {
+        var document = CreateValidDocument();
+        document.Commodities[0].CashPerUnit = 0;
+
+        AssertPath("commodities[0].cashPerUnit", document);
     }
 
     [Fact]

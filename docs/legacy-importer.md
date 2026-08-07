@@ -72,6 +72,16 @@ power on the engine's default, which is **a guess** — see
 `formulas/transport.md`, and note that it decides whether an imported skirmish is
 playable at all rather than merely how comfortable it is.
 
+`cash` records become each power's starting treasury, `[country, amount]` — the
+same two-field shape as `tran`. Five scenarios carry seven apiece and five carry
+none; `s3` gives its own seven powers 1,500 to 15,000, which is as clear a
+demonstration as the corpus offers that these are authored situations. A scenario
+carrying none leaves every power on the engine's default, which is **a guess**.
+
+Gold and gems are the only two commodities the importer prices in cash — $200
+and $500 a unit, both **stated outright in the manual** — because they are the
+only two that never reach the warehouse. See `formulas/money.md`.
+
 Oil remains unreachable in imported content: no scenario grants Oil Drilling and
 there is no research system, so swamp, desert and tundra can never be prospected.
 That is the manual's own rule rather than a gap. See `formulas/technology.md` and

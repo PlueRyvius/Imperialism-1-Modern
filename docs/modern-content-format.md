@@ -100,6 +100,12 @@ everything it gathers — which is what it did. It also adds
 `startingDefaults.inventory`, the opening warehouse a skirmish's `ware` record
 never supplies; the manual attests that one exists and names lumber and steel,
 and only the quantity is invented.
+Version 17 gives a country money: `commodities[].cashPerUnit` for the two the
+manual says never reach the warehouse, `startingDefaults.cash`, and
+`scenarios[].cash` for the 1997 `cash` record. A version 16 package has no money
+at all — nobody holds any and nothing converts — and migrates to exactly that,
+because what a commodity is worth in cash is a fact about the 1997 economy rather
+than a sensible default for any world.
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the

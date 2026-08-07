@@ -121,6 +121,9 @@ public sealed class ScenarioContentDocument
     /// <summary>What each country's network can carry at the start: the 1997 `tran` record.</summary>
     public TransportCapacityContent[] TransportCapacity { get; set; } = [];
 
+    /// <summary>What each country's treasury holds at the start: the 1997 `cash` record.</summary>
+    public CountryCashContent[] Cash { get; set; } = [];
+
     /// <summary>Civilians on the map at the start, in the order they take ids.</summary>
     public CivilianContent[] Civilians { get; set; } = [];
 
@@ -173,6 +176,14 @@ public sealed class StartingDefaultsContent
     /// a power starts with stockpiles of lumber and steel; how much is a guess.
     /// </summary>
     public CommodityQuantityContent[] Inventory { get; set; } = [];
+
+    /// <summary>
+    /// What a listed country's treasury holds on turn one. **A guess** — the
+    /// manual attests the treasury and never its size, and the five scenarios
+    /// carrying a <c>cash</c> record author 1,500 to 15,000 apiece.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Cash { get; set; }
 }
 
 public sealed class FacilityCapacityDefaultContent
@@ -226,6 +237,13 @@ public sealed class TransportCapacityContent
     public string Country { get; set; } = string.Empty;
 
     public long Capacity { get; set; }
+}
+
+public sealed class CountryCashContent
+{
+    public string Country { get; set; } = string.Empty;
+
+    public long Amount { get; set; }
 }
 
 /// <summary>
@@ -308,6 +326,14 @@ public sealed class CommodityContentDefinition
     public string Name { get; set; } = string.Empty;
 
     public CommodityCategory Category { get; set; }
+
+    /// <summary>
+    /// What a unit is worth in cash when the network carries it, instead of
+    /// reaching the warehouse. Absent for everything but gold and gems, which
+    /// the manual prices at $200 and $500 a unit.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? CashPerUnit { get; set; }
 }
 
 public sealed class ResourceContentDefinition

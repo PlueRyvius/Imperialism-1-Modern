@@ -749,6 +749,81 @@ public sealed class LegacyWorldConverterTests
     }
 
     /// <summary>
+    /// <c>cash</c> is <c>[country, amount]</c> — the same two-field shape as
+    /// <c>tran</c>, measured across the corpus before this was built.
+    /// </summary>
+    [Fact]
+    public void CashRecordsBecomeStartingTreasuries()
+    {
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+            Record("cash", 0, 2500),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()), scenario, null, "cash-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var treasury = Assert.Single(result.Document!.Scenarios[0].Cash);
+        Assert.Equal(2500, treasury.Amount);
+        Assert.DoesNotContain("scenario.tag.cash", result.Report.DeferredCounts.Keys);
+    }
+
+    /// <summary>
+    /// A scenario carrying no <c>cash</c> leaves its powers on the engine's
+    /// default, which is a guess — see <c>docs/formulas/money.md</c>. Pinned so
+    /// that changing it is a deliberate act.
+    /// </summary>
+    [Fact]
+    public void AScenarioWithNoCashLeavesEveryPowerOnTheDefault()
+    {
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+            Record("labo", 0, 4, 2, 1),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()), scenario, null, "no-cash-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Empty(result.Document!.Scenarios[0].Cash);
+        Assert.Equal(5000, result.Document.StartingDefaults!.Cash);
+    }
+
+    /// <summary>
+    /// **The manual prices both outright** — gold at $200 a unit and gems at
+    /// $500 — and prices nothing else, because nothing else bypasses the
+    /// warehouse.
+    /// </summary>
+    [Fact]
+    public void OnlyGoldAndGemsArePricedInCash()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 1815),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "cash-value-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Equal(
+            [("commodity.gold", 200L), ("commodity.gems", 500L)],
+            result.Document!.Commodities
+                .Where(static item => item.CashPerUnit is not null)
+                .Select(static item => (item.Key, item.CashPerUnit!.Value)));
+    }
+
+    /// <summary>
     /// A power's own <c>ware</c> records beat the default stockpile, the same way
     /// <c>labo</c> beats the default workforce.
     /// </summary>
@@ -927,6 +1002,23 @@ public sealed class LegacyWorldConverterTests
             ["s11"] = 0,
             ["s15"] = 0,
         };
+        // cash records per scenario, measured before anything was built on them.
+        // Five carry none at all; the five that do are authored situations, and
+        // s3 makes the point on its own by giving its seven powers 1,500 to
+        // 15,000 apiece. There is no constant in there to mine.
+        var expectedCash = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["s1"] = 7,
+            ["s3"] = 7,
+            ["s5"] = 7,
+            ["s13"] = 7,
+            ["s14"] = 7,
+            ["s9"] = 0,
+            ["s10"] = 0,
+            ["s11"] = 0,
+            ["s12"] = 0,
+            ["s15"] = 0,
+        };
         var converted = 0;
         var totalCivilians = 0;
         var totalOpenProspectable = 0;
@@ -1033,6 +1125,17 @@ public sealed class LegacyWorldConverterTests
             if (expectedTransport.TryGetValue(key, out var networks))
             {
                 Assert.Equal(networks, result.Document.Scenarios[0].TransportCapacity.Length);
+            }
+
+            // cash is converted now too, and no longer deferred.
+            Assert.DoesNotContain("scenario.tag.cash", result.Report.DeferredCounts.Keys);
+            Assert.DoesNotContain(
+                result.Report.Diagnostics,
+                item => item.Code.StartsWith("scenario.invalid-cash", StringComparison.Ordinal) ||
+                    item.Code == "scenario.repeated-cash");
+            if (expectedCash.TryGetValue(key, out var treasuries))
+            {
+                Assert.Equal(treasuries, result.Document.Scenarios[0].Cash.Length);
             }
 
             totalOpenProspectable += openCells;
