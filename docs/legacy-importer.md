@@ -45,11 +45,23 @@ Drilling; the other twelve codes and every unknown one hide nothing. Coal, iron,
 oil, gems and gold are marked as requiring discovery, and `civilian.prospector`
 is the one type whose work is to search rather than to improve.
 
-That makes Oil Drilling **the only technology imported content declares**, and no
-country starts knowing it: `tech` records are not converted and there is no
-research system. So imported oil is unreachable. This is the manual's own rule
-rather than a gap — see `formulas/prospecting.md`, which also records the
-searchable-tile counts the corpus test now pins.
+**The importer declares the manual's whole technology table**, twenty-eight
+entries in printed order, because a `tech` record is `[country, id]` with a bare
+1-based index into it and nothing naming it. That reading was falsified against
+the corpus before being built on: 380 authored levels are permitted by their
+owner's technologies and 4 are not, with `s3` — whose powers hold *unequal* sets
+— producing no contradiction at all. `s3` also repeats six of its own grants,
+which are warned about and dropped exactly as a repeated `deve` cell is.
+
+Each deposit carries the ladder that table implies, and every power gets High
+Pressure Steam Engine and Seed Drill through `startingDefaults`. The Great
+Powers are identified by their `labo` records — the one record that names them
+and only them, seven in every shipped scenario — rather than guessed at.
+
+Oil remains unreachable in imported content: no scenario grants Oil Drilling and
+there is no research system, so swamp, desert and tundra can never be prospected.
+That is the manual's own rule rather than a gap. See `formulas/technology.md` and
+`formulas/prospecting.md`, which record the corpus counts the tests now pin.
 
 `civi` records are converted rather than deferred. The record is `[type, cell]`
 and names **no owner** — the original reads it off the province the cell sits

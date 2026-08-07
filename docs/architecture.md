@@ -224,7 +224,20 @@ tile, which `WorldState` records as one bit per (country, cell) in a packed
 its type rather than of the order, matching the original, where the cursor
 follows the selected unit. Discovery gates the work order and never `Extraction`:
 the manual's yield curve already gives all five nothing at level 0, so one gate
-in one place is enough. See `formulas/prospecting.md`.
+in one place is enough. A tile that has been developed is visible without a
+survey, because a mine is a structure; that one clause is also what makes
+conquest behave without a rule of its own. See `formulas/prospecting.md`.
+
+**Improvement is gated by technology, level by level.**
+`ResourceDefinition.TechnologyByDevelopmentLevel` runs parallel to the yield
+curve, so the two answers the manual gives about a rung — what it pays and what
+it costs to reach — have the same shape. The gate governs a *civilian raising* a
+level and never a *scenario authoring* one, exactly as the capacity ladder
+governs building and not storing; imported content authors past it and must be
+taken as it is. Knowledge itself is a per-country bool array with no research
+system behind it: it arrives from a scenario's records or from
+`StartingDefaults.Technologies`, which carries the two every power begins with.
+See `formulas/technology.md`.
 
 **The central trick.** The original's step 5 retroactively cancels trades that
 step 4's blockades invalidated. That's only a hard rollback if trade committed

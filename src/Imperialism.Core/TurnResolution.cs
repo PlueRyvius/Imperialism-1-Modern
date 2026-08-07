@@ -164,6 +164,16 @@ public enum CivilianOrderRefusal : byte
     /// deposit is on the map and the country cannot see it.
     /// </summary>
     DepositNotYetDiscovered,
+
+    /// <summary>
+    /// The tile has a rung left and the country does not know how to climb it.
+    /// The manual's Benefits of Technology Table gates nearly every level —
+    /// Steel and Iron Plows for grain to Level II, Dynamite for a Level III
+    /// mine, and so on. Distinct from <see cref="AlreadyFullyDeveloped"/>
+    /// because this one is a matter of investing rather than of the tile being
+    /// finished.
+    /// </summary>
+    ImprovementTechnologyNotKnown,
 }
 
 /// <summary>Records one civilian moving without being set to work.</summary>

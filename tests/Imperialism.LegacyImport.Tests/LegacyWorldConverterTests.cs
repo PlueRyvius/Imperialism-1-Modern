@@ -206,7 +206,14 @@ public sealed class LegacyWorldConverterTests
         // it is still read into Rails above.
         Assert.DoesNotContain("scenario.tag.rail", result.Report.DeferredCounts.Keys);
         Assert.Equal([0], document.Scenarios[0].Depots);
-        Assert.Equal(1, result.Report.DeferredCounts["scenario.tag.tech"]);
+
+        // tech is converted now too. Id 1 is the first row of the manual's
+        // table, which every power holds anyway; granting it again is harmless
+        // and is what the record says.
+        Assert.DoesNotContain("scenario.tag.tech", result.Report.DeferredCounts.Keys);
+        Assert.Equal(
+            "technology.high-pressure-steam-engine",
+            Assert.Single(document.Scenarios[0].CountryTechnologies).Technology);
         Assert.Equal(2, result.Report.DeferredCounts["map.trailer-records"]);
         Assert.Equal(7, result.Report.DeferredCounts["inf.country-briefings"]);
         Assert.Equal(8, result.Report.DeferredCounts["inf.metadata-values"]);
@@ -569,14 +576,148 @@ public sealed class LegacyWorldConverterTests
         Assert.Equal([0, 1, 2, 3], byKey["resource.gold"]);
         Assert.Equal([1], byKey["resource.horses"]);
 
-        // Which technology gates which deposit is unmeasured, so the importer
-        // declares none rather than inventing the mapping. Oil Drilling is the
-        // one technology it does emit, and it gates the *discovery* of oil
-        // rather than the extraction of anything — a terrain rule, not a
-        // deposit one, which is why every deposit still requires nothing.
+        // RequiredTechnology gates *extraction* from an open deposit, which the
+        // manual never does. Technology gates the improvement level instead —
+        // a different hook, checked separately below.
         Assert.All(result.Document.Resources, static item => Assert.Null(item.RequiredTechnology));
-        var technology = Assert.Single(result.Document.Technologies);
-        Assert.Equal("technology.oil-drilling", technology.Key);
+
+        // The manual's whole table, in printed order, because a tech record is a
+        // bare 1-based index into it.
+        Assert.Equal(28, result.Document.Technologies.Length);
+        Assert.Equal("technology.high-pressure-steam-engine", result.Document.Technologies[0].Key);
+        Assert.Equal("technology.seed-drill", result.Document.Technologies[1].Key);
+        Assert.Equal("technology.oil-drilling", result.Document.Technologies[18].Key);
+        Assert.Equal("technology.internal-combustion", result.Document.Technologies[27].Key);
+    }
+
+    /// <summary>
+    /// The Benefits of Technology Table read as a ladder. Index 0 is the level a
+    /// tile starts at and is always ungated; a mine opening at Level I is the
+    /// manual's one other ungated rung.
+    /// </summary>
+    [Fact]
+    public void EachDepositNamesTheTechnologyEachRungCosts()
+    {
+        var expected = new (byte Code, string Resource, string?[] Ladder)[]
+        {
+            (17, "resource.grain",
+                [null, "technology.seed-drill", "technology.steel-and-iron-plows",
+                    "technology.mechanical-reaper"]),
+            (0, "resource.cotton",
+                [null, "technology.cotton-gin", "technology.spinning-jenny",
+                    "technology.power-loom"]),
+            (2, "resource.forest",
+                [null, "technology.iron-railroad-bridge", "technology.compound-steam-engine",
+                    "technology.dynamite"]),
+            (3, "resource.coal",
+                [null, null, "technology.square-set-timbering", "technology.dynamite"]),
+            (6, "resource.oil",
+                [null, "technology.oil-drilling", "technology.chemistry",
+                    "technology.internal-combustion"]),
+
+            // No civilian improves either, so neither has a ladder at all.
+            (5, "resource.horses", null!),
+            (19, "resource.fish", null!),
+        };
+        var cells = expected.Select(item => new HexCell
+        {
+            Terrain = 1,
+            Province = 0,
+            NationZoneA = 0,
+            NationZoneB = 0,
+            ResourceA = item.Code,
+        }).ToArray();
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(cells.Length, 1, cells), scenario, null, "ladder-map");
+
+        Assert.True(result.Success);
+        var byKey = result.Document!.Resources.ToDictionary(
+            static item => item.Key,
+            static item => item.TechnologyByDevelopmentLevel);
+        foreach (var item in expected)
+        {
+            Assert.Equal(item.Ladder, byKey[item.Resource]);
+        }
+
+        // Every gate named must exist in the catalog, or a deposit would refer
+        // to knowledge nothing declares.
+        var declared = result.Document.Technologies.Select(static item => item.Key).ToHashSet();
+        Assert.All(
+            expected.Where(static item => item.Ladder is not null)
+                .SelectMany(static item => item.Ladder)
+                .Where(static key => key is not null),
+            key => Assert.Contains(key!, declared));
+    }
+
+    /// <summary>
+    /// "Every player always starts with the first two technologies listed below:
+    /// High Pressure Steam Engine and Seed Drill." No record states it, which is
+    /// why it arrives as a default rather than as scenario content.
+    /// </summary>
+    [Fact]
+    public void EveryPowerStartsWithTheManualsFirstTwoTechnologies()
+    {
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+            Record("labo", 0, 4, 2, 1),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()), scenario, null, "defaults-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Equal(
+            ["technology.high-pressure-steam-engine", "technology.seed-drill"],
+            result.Document!.StartingDefaults!.Technologies);
+
+        // labo is the one record naming the Great Powers and only them, so it
+        // is how the importer tells them from minor nations without guessing.
+        Assert.Equal(
+            [result.Document.Countries[0].Key],
+            result.Document.Scenarios[0].DefaultStartCountries);
+    }
+
+    /// <summary>
+    /// <c>tech</c> is <c>[country, id]</c>, the id a 1-based index into the
+    /// manual's table. See <c>docs/formulas/technology.md</c> for the corpus
+    /// check behind that reading.
+    /// </summary>
+    [Fact]
+    public void TechRecordsBecomeStartingKnowledge()
+    {
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+            Record("tech", 0, 5),
+            Record("tech", 0, 23),
+            Record("tech", 0, 99),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()), scenario, null, "tech-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Equal(
+            ["technology.square-set-timbering", "technology.dynamite"],
+            result.Document!.Scenarios[0].CountryTechnologies
+                .Select(static item => item.Technology));
+
+        // An id past the end of the table is reported and dropped rather than
+        // inventing a technology nobody can name.
+        Assert.Contains(result.Report.Diagnostics, item => item.Code == "scenario.unknown-tech-id");
+        Assert.DoesNotContain("scenario.tag.tech", result.Report.DeferredCounts.Keys);
     }
 
     /// <summary>
@@ -656,6 +797,28 @@ public sealed class LegacyWorldConverterTests
             ["s15"] = (368, 452),
             ["s5"] = (201, 517),
         };
+        // Technologies actually granted, after repeats are dropped. s1 gives all
+        // seven powers the same 21; s3 is the discriminating one, giving them 9,
+        // 13 and 14 apiece — which is what makes it the strongest evidence that
+        // the manual's table order is the right reading of the ids, since a
+        // wrong ordering would fire at once on the power holding only nine.
+        //
+        // s3 also ships 98 records for 92 grants: six of them repeat a pair it
+        // has already granted, exactly as s1 develops three cells twice. Legal
+        // authoring, warned about and dropped.
+        var expectedTechnologies = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["s1"] = 147,
+            ["s3"] = 92,
+            ["s5"] = 42,
+            ["s9"] = 63,
+            ["s12"] = 63,
+            ["s13"] = 42,
+            ["s14"] = 42,
+            ["s10"] = 0,
+            ["s11"] = 0,
+            ["s15"] = 0,
+        };
         var converted = 0;
         var totalCivilians = 0;
         var totalOpenProspectable = 0;
@@ -730,12 +893,18 @@ public sealed class LegacyWorldConverterTests
                 Assert.Equal(expected, civilians.Length);
             }
 
-            // The only technology imported content declares, and nobody knows
-            // it: a 1997 tech record is not converted and there is no research.
-            // So the gated ground below is unsearchable in practice, which is
-            // the manual's rule rather than a gap. See docs/formulas/prospecting.md.
-            Assert.Equal("technology.oil-drilling", Assert.Single(result.Document.Technologies).Key);
-            Assert.Empty(result.Document.Scenarios[0].CountryTechnologies);
+            // The manual's whole table, and whatever this scenario grants on top
+            // of the two every power starts with.
+            Assert.Equal(28, result.Document.Technologies.Length);
+            Assert.DoesNotContain("scenario.tag.tech", result.Report.DeferredCounts.Keys);
+            Assert.DoesNotContain(
+                result.Report.Diagnostics,
+                item => item.Code.StartsWith("scenario.invalid-tech", StringComparison.Ordinal) ||
+                    item.Code == "scenario.unknown-tech-id");
+            if (expectedTechnologies.TryGetValue(key, out var granted))
+            {
+                Assert.Equal(granted, result.Document.Scenarios[0].CountryTechnologies.Length);
+            }
 
             var open = TerrainKeysWhere(result.Document, static item => item is { RequiredTechnology: null });
             var gated = TerrainKeysWhere(result.Document, static item => item is { RequiredTechnology: not null });
@@ -766,6 +935,128 @@ public sealed class LegacyWorldConverterTests
         .Where(item => predicate(item.Prospecting))
         .Select(static item => item.Key)
         .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// **The check the technology ladder rests on.** A <c>tech</c> record is a
+    /// bare number and nothing names it; reading it as a position in the
+    /// manual's Benefits of Technology Table is an inference, and this is what
+    /// tests it. Every level a scenario authors is compared against what the
+    /// owning power's technologies would permit a civilian to build.
+    /// </summary>
+    /// <remarks>
+    /// A wrong ordering would misfire everywhere. It does not: across the four
+    /// originals carrying both records, 379 authored levels are permitted and 4
+    /// are not — all four the same deposit, timber at Level III, in one country
+    /// of <c>s1</c>. <c>s3</c> is the decisive case because its powers hold
+    /// **unequal** sets of 9, 13 and 14, so a shifted table would fire at once
+    /// on the power holding only nine. It fires not at all.
+    /// <para>
+    /// The four exceptions are not failures. <b>The gate governs a civilian
+    /// raising a level and never a scenario authoring one</b>, exactly as the
+    /// capacity ladder governs building and not storing, so authoring past the
+    /// ladder is legal input. They are counted rather than tolerated silently,
+    /// because the count moving is how a mistaken transcription would announce
+    /// itself. See <c>docs/formulas/technology.md</c>.
+    /// </para>
+    /// <para>
+    /// <c>s5</c> is excluded: it is a generated world holding six technologies
+    /// with Level III tiles all over it, and it authors 74 levels no power in it
+    /// could build. That is a demonstration of the rule rather than a breach of
+    /// it, and averaging it in would drown the signal.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EveryAuthoredLevelInTheCorpusIsOneItsOwnerCouldHaveBuilt()
+    {
+        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+
+        var permitted = 0;
+        var beyond = new List<string>();
+        var checkedScenarios = 0;
+
+        foreach (var mapPath in Directory.GetFiles(directory, "*.map").OrderBy(static path => path))
+        {
+            var key = Path.GetFileNameWithoutExtension(mapPath);
+            var scenarioPath = Path.Combine(directory, $"{key}.scn");
+
+            // s0 is the working scenario and s5 is generated, not shipped.
+            if (key is "s0" or "s5" || !File.Exists(scenarioPath))
+            {
+                continue;
+            }
+
+            var result = LegacyWorldConverter.Convert(
+                LegacyMapCodec.Decode(File.ReadAllBytes(mapPath), MapFormatProfile.Imperialism1),
+                LegacyScenarioCodec.Decode(File.ReadAllBytes(scenarioPath)),
+                null,
+                $"ladder-{key}");
+            Assert.True(result.Success);
+
+            var document = result.Document!;
+            if (document.Scenarios[0].CellDevelopment.Length == 0)
+            {
+                continue;
+            }
+
+            checkedScenarios++;
+            var owners = document.Scenarios[0].ProvinceOwners
+                .ToDictionary(static item => item.Province, static item => item.Country, StringComparer.Ordinal);
+            var held = document.Scenarios[0].CountryTechnologies
+                .GroupBy(static item => item.Country, StringComparer.Ordinal)
+                .ToDictionary(
+                    static group => group.Key,
+                    static group => group.Select(static item => item.Technology)
+                        .ToHashSet(StringComparer.Ordinal),
+                    StringComparer.Ordinal);
+            var ladders = document.Resources.ToDictionary(
+                static item => item.Key,
+                static item => item.TechnologyByDevelopmentLevel,
+                StringComparer.Ordinal);
+            var starting = document.StartingDefaults!.Technologies;
+
+            foreach (var developed in document.Scenarios[0].CellDevelopment)
+            {
+                var cell = document.Map.Cells[developed.Cell];
+                if (cell.Region.Province is not { } province ||
+                    !owners.TryGetValue(province, out var owner) ||
+                    owner is null)
+                {
+                    continue;
+                }
+
+                var known = held.TryGetValue(owner, out var set) ? set : [];
+                foreach (var resource in cell.Resources)
+                {
+                    if (ladders.GetValueOrDefault(resource) is not { } ladder ||
+                        developed.Level >= ladder.Length)
+                    {
+                        continue;
+                    }
+
+                    var gate = ladder[developed.Level];
+                    if (gate is null || known.Contains(gate) || starting.Contains(gate))
+                    {
+                        permitted++;
+                        continue;
+                    }
+
+                    beyond.Add($"{key} cell {developed.Cell} {resource} L{developed.Level} needs {gate}");
+                }
+            }
+        }
+
+        Assert.True(checkedScenarios >= 4, $"Only {checkedScenarios} scenarios carried both records.");
+        Assert.Equal(380, permitted);
+
+        // Four, all timber at Level III in one country of s1. If this number
+        // moves, the transcription moved with it.
+        Assert.Equal(4, beyond.Count);
+        Assert.All(beyond, entry => Assert.Contains("resource.forest L3", entry, StringComparison.Ordinal));
+    }
 
     /// <summary>
     /// Runs a real turn on a real scenario, end to end: import, compile,

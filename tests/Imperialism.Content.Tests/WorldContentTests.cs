@@ -271,7 +271,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(15)]
+    [InlineData(16)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1011,6 +1011,96 @@ public sealed class WorldContentTests
 
         var gated = compiled.World.Map.GetTerrain(new TerrainId(1))!.Prospecting;
         Assert.Equal(new TechnologyId(0), gated!.RequiredTechnology);
+    }
+
+    /// <summary>
+    /// Version 15 gates improvement behind technology. A version 14 package
+    /// names no gate and no starting knowledge, and neither can be invented for
+    /// it — which technology opens which rung is a property of a world, and the
+    /// 1997 answer is a fact about the original rather than a default. So it
+    /// migrates to a world where every rung is open, exactly as it behaved.
+    /// </summary>
+    [Fact]
+    public void VersionFourteenMigratesToAWorldWhereEveryRungIsUngated()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 14);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.All(migrated.Resources, static item => Assert.Null(item.TechnologyByDevelopmentLevel));
+        Assert.Empty(migrated.StartingDefaults?.Technologies ?? []);
+    }
+
+    [Fact]
+    public void VersionFourteenMigrationRejectsVersionFifteenGates()
+    {
+        var document = CreateValidDocument();
+        document.Resources[0].TechnologyByDevelopmentLevel = [null, "technology.drilling"];
+        var contradictory = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 14);
+        Assert.Contains("technologyByDevelopmentLevel", contradictory, StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(contradictory)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    /// <summary>
+    /// A ladder and a fair start's knowledge, through encode, decode and
+    /// compile. Index 0 is always ungated; a mine opening at Level I is the
+    /// manual's one other ungated rung, which a null entry expresses.
+    /// </summary>
+    [Fact]
+    public void TechnologyLaddersAndStartingKnowledgeSurviveARoundTrip()
+    {
+        var document = CreateValidDocument();
+        document.Resources[0].TechnologyByDevelopmentLevel = [null, null, "technology.drilling"];
+        document.StartingDefaults = new StartingDefaultsContent
+        {
+            Technologies = ["technology.drilling"],
+        };
+        document.Scenarios[0].DefaultStartCountries = [document.Countries[0].Key];
+
+        var first = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(first);
+        Assert.Equal(first, WorldContentCodec.Encode(decoded));
+
+        var compiled = WorldContentCompiler.Compile(decoded);
+        Assert.Equal(
+            [null, null, new TechnologyId(0)],
+            compiled.World.Map.Resources[0].TechnologyByDevelopmentLevel);
+        Assert.Null(compiled.World.Map.Resources[0].GetRequiredTechnology(1));
+        Assert.Equal(new TechnologyId(0), compiled.World.Map.Resources[0].GetRequiredTechnology(2));
+
+        // Past the end of the ladder is ungated rather than forbidden.
+        Assert.Null(compiled.World.Map.Resources[0].GetRequiredTechnology(3));
+
+        // And the default reaches the country the scenario names.
+        var state = new WorldState(compiled.World);
+        Assert.True(state.HasTechnology(new CountryId(0), new TechnologyId(0)));
+    }
+
+    [Fact]
+    public void AGatedRungCannotNameATechnologyTheWorldDoesNotDeclare()
+    {
+        var document = CreateValidDocument();
+        document.Resources[0].TechnologyByDevelopmentLevel = [null, "technology.missing"];
+
+        AssertPath("resources[0].technologyByDevelopmentLevel[1]", document);
+    }
+
+    [Fact]
+    public void StartingTechnologyCannotNameOneTheWorldDoesNotDeclare()
+    {
+        var document = CreateValidDocument();
+        document.StartingDefaults = new StartingDefaultsContent
+        {
+            Technologies = ["technology.missing"],
+        };
+
+        AssertPath("startingDefaults.technologies[0]", document);
     }
 
     [Fact]

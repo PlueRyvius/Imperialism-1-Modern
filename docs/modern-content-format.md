@@ -85,6 +85,13 @@ signal** — present-and-empty means searchable by anyone, which a boolean besid
 nullable technology could not distinguish from ground nobody may look at. A
 version 13 package migrates to a world where nothing hides and nothing is
 searchable, which again reproduces it exactly rather than guessing for it.
+Version 15 gates improvement: `resources[].technologyByDevelopmentLevel` runs
+parallel to the yield curve, entry *n* naming what it takes to reach level *n*,
+with null for an ungated rung; and `startingDefaults.technologies` carries the
+knowledge every power begins with. A ladder shorter than the curve leaves the
+levels above it ungated, so a version 14 package migrates to a world where every
+rung is open and nobody starts knowing anything — once more an exact
+reproduction rather than a default.
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the

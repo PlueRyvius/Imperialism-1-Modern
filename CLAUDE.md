@@ -23,6 +23,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | How a workforce grows | `docs/formulas/migration.md` |
 | How civilians improve land | `docs/formulas/development.md` |
 | What a Prospector finds, and what stays hidden | `docs/formulas/prospecting.md` |
+| Which technology opens which improvement level | `docs/formulas/technology.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Does the economy hold up over 100 turns? | `docs/formulas/soak.md` |
@@ -284,14 +285,48 @@ because our research is missing would invent permission the original never gave.
 Re-read `docs/formulas/prospecting.md` when research lands; the gate is in
 content and should need no code change.
 
-**A conquered mine must be surveyed again, and that is a guess.** The seeding
-rule marks a cell searched by its owner when a scenario authored development on
-it, which runs once at world creation. Nothing in the manual says what capture
-does to a survey. The narrower reading is shipped and labelled.
+**A built mine is visible without a survey**, so `CanSeeDeposits` is *searched or
+developed* and nothing is seeded at world creation. Conquest then needs no rule
+of its own: take a working mine and you may deepen it, take bare ground and you
+must still look.
 
-Transient power, research, conflict, trade markets, diplomacy, sea routes
-between ports, blockade, and the transport capacity pool remain explicitly
-pending.
+`.iworld` v15 gates improvement behind the manual's **Benefits of Technology
+Table** — twenty-eight entries with names, benefits, prerequisites and arrival
+dates, the densest recovered rules in the project. **Every improvement level is
+gated except a mine opening at Level I.** Seed Drill for grain and orchards to
+Level I, Steel and Iron Plows for Level II, Mechanical Reaper for Level III, and
+so on per deposit. `ResourceDefinition.TechnologyByDevelopmentLevel` runs
+parallel to the yield curve.
+
+**It is a gate, not a wall.** Every power starts holding High Pressure Steam
+Engine and Seed Drill — the manual says so outright — so an 1815 start still
+farms and mines on turn one. That is also **the first of the seven engine
+defaults to be recovered, and it came from the manual, not a decompiler.** Look
+there before reaching for Ghidra for `ware` and `cash`.
+
+**The gate governs building and never storing**, exactly as the capacity ladder
+does. `s1` authors four timber tiles at Level III for a power without Dynamite
+and the importer must take them.
+
+**A `tech` record is `[country, id]`, the id a 1-based index into that table.**
+Nothing names it, so the reading was falsified against the corpus before anything
+was built on it: 380 authored levels permitted, 4 not. **`s3` is the decisive
+case** — its powers hold unequal sets of 9, 13 and 14, and a shifted table would
+fire at once on the one holding nine. It fires not at all.
+`EveryAuthoredLevelInTheCorpusIsOneItsOwnerCouldHaveBuilt` keeps that in the
+suite; if the count moves, the transcription moved.
+
+**Where the soak's grain stops is now a technology question.** The farming run
+reported 63 grain and 119 workers before this and reports 42 and 84 after,
+because Level II and III are no longer free. The move is the finding.
+
+**A gate with no research behind it is only ever tested closed**, so the soak
+grants a technology on turn 50 and watches the ceiling lift on turn 51. Reuse
+that pattern; oil is the obvious next candidate.
+
+Buying technology, prerequisites, arrival dates, transient power, research,
+conflict, trade markets, diplomacy, sea routes between ports, blockade, and the
+transport capacity pool remain explicitly pending.
 
 **Production spends labour.** Each recipe costs its total input units, from one
 pool per country shared across every facility. The manual prices exactly one

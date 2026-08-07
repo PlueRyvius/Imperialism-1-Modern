@@ -90,11 +90,23 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     /// <summary>The guessed work duration, spelled out so the run's shape is traceable to it.</summary>
     private const int CivilianWorkTurns = 1;
 
+    /// <summary>The one technology this fixture models, gating grain at Level III.</summary>
+    private const int MechanicalReaper = 0;
+
+    /// <summary>The turn the Reaper is handed over in the unlocking run.</summary>
+    private const int UnlockTurn = 50;
+
     /// <summary>
     /// A deposit and the civilian that improves it, on this fixture's own yield
     /// curve. The curve is not the manual's — nothing here starts at 1 — and is
     /// deliberately harsher, so the economy has to work for its food.
     /// </summary>
+    /// <remarks>
+    /// Grain's top rung is gated, and nothing else is. That is enough to show a
+    /// ceiling lifting mid-run without turning this fixture into a second
+    /// technology test; <see cref="TechnologyGateTests"/> covers the rule
+    /// itself.
+    /// </remarks>
     private static ResourceDefinition Deposit(int resource, int improver) =>
         new(new ResourceId(resource),
             new CommodityId(resource),
@@ -103,10 +115,13 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             new CivilianTypeId(improver),
 
             // The manual's five: a Miner's deposits have to be found first. The
-            // existing rows are all authored at level 1, which counts as a
-            // survey their owner has already done, so this changes nothing for
+            // existing rows are all authored at level 1, so a mine already
+            // stands on them and no survey is needed — this changes nothing for
             // the runs above.
-            requiresDiscovery: improver == Miner);
+            requiresDiscovery: improver == Miner,
+            technologyByDevelopmentLevel: resource == Grain
+                ? [null, null, null, new TechnologyId(MechanicalReaper)]
+                : null);
 
     [Fact]
     public void AHundredTurnsWithNoOrdersKeepsTheWorldIntact()
@@ -263,6 +278,57 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// A ceiling lifting mid-run. Grain's top rung is gated behind Mechanical
+    /// Reaper, which nobody starts with and no research can earn, so it is
+    /// handed to every power on turn 50.
+    /// </summary>
+    /// <remarks>
+    /// This is the pattern for exercising any gate while acquisition does not
+    /// exist, and the reason it is worth having: without it a gate is only ever
+    /// tested closed. Oil is the obvious next use — no imported world can reach
+    /// it at all today.
+    /// <para>
+    /// <b>The order is asserted; the turns are reported.</b> No tile may reach
+    /// the top rung before the grant, and Farmers must be refused for want of
+    /// knowledge before it. When the first one lands afterwards depends on the
+    /// guessed work duration.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void AGatedRungOpensWhenTheTechnologyArrives()
+    {
+        var state = CreateWorld();
+        var log = Run(state, orderPolicy: FarmingGrowthPolicy, out var work, grantOnTurn: UnlockTurn);
+
+        output.WriteLine(log);
+
+        Assert.True(
+            work.KnowledgeRefusals > 0,
+            "No Farmer was ever turned back for want of Mechanical Reaper.");
+        Assert.True(work.TopRungs > 0, "The gated rung was never reached even after the grant.");
+        Assert.NotNull(work.FirstTopRung);
+        Assert.True(
+            work.FirstTopRung >= UnlockTurn,
+            $"A tile reached the gated rung on turn {work.FirstTopRung}, before the grant on {UnlockTurn}.");
+    }
+
+    /// <summary>
+    /// The control for the run above: the same world with the technology never
+    /// granted. The ceiling holds for the whole hundred turns.
+    /// </summary>
+    [Fact]
+    public void AGatedRungNeverOpensWithoutTheTechnology()
+    {
+        var state = CreateWorld();
+        var log = Run(state, orderPolicy: FarmingGrowthPolicy, out var work);
+
+        output.WriteLine(log);
+
+        Assert.Equal(0, work.TopRungs);
+        Assert.True(work.KnowledgeRefusals > 0, "Nothing was ever refused for want of knowledge.");
+    }
+
+    /// <summary>
     /// The control for the run above. Identical world, and the Prospectors are
     /// never told to look — so the hills stay unsearched, no mine is ever
     /// opened, and the four extra columns pay nothing for a hundred turns.
@@ -317,7 +383,8 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         long FirstTurnGrain, long LastTurnGrain, long LastTurnSick,
         long FirstTurnWorkers, long LastTurnWorkers,
         long Prospected, long Revealed, long MinesOpened, long DiscoveryRefusals,
-        int? FirstProspected, int? FirstMineOpened);
+        int? FirstProspected, int? FirstMineOpened,
+        long KnowledgeRefusals, long TopRungs, int? FirstTopRung);
 
     /// <summary>
     /// Makes the comforts a recruit costs and then recruits. A fixture, not an
@@ -486,10 +553,23 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         return new CountryTurnOrders(country, production, expansions);
     }
 
+    /// <summary>
+    /// Runs the fixture forward, optionally handing every power a technology
+    /// part way through.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="grantOnTurn"/> is how a gate is exercised over time
+    /// without a research system to open it: the ceiling is real for the first
+    /// half of the run and lifts in the second. It is the pattern to reuse for
+    /// every future gate — oil, which no imported world can otherwise reach, is
+    /// the obvious next one.
+    /// </remarks>
     private string Run(
         WorldState state,
         Func<WorldState, CountryId, CountryTurnOrders>? orderPolicy,
-        out WorkDone work)
+        out WorkDone work,
+        int? grantOnTurn = null,
+        int grantTechnology = MechanicalReaper)
     {
         long gathered = 0, eaten = 0, delivered = 0, produced = 0, built = 0;
         long recruited = 0, recruitAttempts = 0, developed = 0;
@@ -499,10 +579,20 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         long firstTurnWorkers = 0, lastTurnWorkers = 0;
         long prospected = 0, revealed = 0, minesOpened = 0, discoveryRefusals = 0;
         int? firstProspected = null, firstMineOpened = null;
+        long knowledgeRefusals = 0, topRungs = 0;
+        int? firstTopRung = null;
         var hills = Enumerable.Range(0, state.Definition.Map.Dimensions.CellCount)
             .Select(static index => new CellIndex(index))
             .Where(cell => state.Definition.Map
                 .GetTerrain(state.Definition.Map[cell].Terrain)?.Prospecting is not null)
+            .ToHashSet();
+
+        // Grain is the only deposit with a gated rung, so it is the only one
+        // whose top level says anything about technology. Every other deposit
+        // walks to 3 unhindered and would drown the signal.
+        var grainCells = Enumerable.Range(0, state.Definition.Map.Dimensions.CellCount)
+            .Select(static index => new CellIndex(index))
+            .Where(cell => state.Definition.Map[cell].Resources.Contains(new ResourceId(Grain)))
             .ToHashSet();
         var report = new StringBuilder();
         report.AppendLine(
@@ -512,6 +602,16 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
 
         for (var turn = 1; turn <= Turns; turn++)
         {
+            // Before orders are written, so the turn it lands on is the first
+            // whose orders could have been given knowing it.
+            if (turn == grantOnTurn)
+            {
+                for (var index = 0; index < Powers; index++)
+                {
+                    state.GrantTechnology(new CountryId(index), new TechnologyId(grantTechnology));
+                }
+            }
+
             var labourBefore = Enumerable.Range(0, Powers)
                 .Select(index => state.GetAvailableLabour(new CountryId(index))).ToArray();
             var capacityBefore = CapacitySnapshot(state);
@@ -577,6 +677,17 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
 
             discoveryRefusals += resolution.Events.OfType<CivilianOrderRefusedEvent>()
                 .Count(static item => item.Reason == CivilianOrderRefusal.DepositNotYetDiscovered);
+            knowledgeRefusals += resolution.Events.OfType<CivilianOrderRefusedEvent>()
+                .Count(static item => item.Reason == CivilianOrderRefusal.ImprovementTechnologyNotKnown);
+
+            // The gated rung: grain at level 3, which needs the Reaper.
+            var reachedTop = resolution.Events.OfType<CellDevelopedEvent>()
+                .Count(item => item.ToLevel == 3 && grainCells.Contains(item.Cell));
+            topRungs += reachedTop;
+            if (reachedTop > 0)
+            {
+                firstTopRung ??= turn;
+            }
 
             if (recruitedThisTurn > 0)
             {
@@ -618,7 +729,8 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             firstDeveloped, firstSicknessFree, firstRecruited, sicknessReturned,
             firstTurnGrain, lastTurnGrain, lastTurnSick, firstTurnWorkers, lastTurnWorkers,
             prospected, revealed, minesOpened, discoveryRefusals,
-            firstProspected, firstMineOpened);
+            firstProspected, firstMineOpened,
+            knowledgeRefusals, topRungs, firstTopRung);
         report.AppendLine(
             $"gathered {gathered}, eaten {eaten}, delivered {delivered}, " +
             $"produced {produced} cycles, built {built} times, " +
@@ -637,6 +749,10 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             $"{prospected} tiles searched revealing {revealed} deposits, " +
             $"{minesOpened} mines opened, {discoveryRefusals} refused for want of a survey; " +
             $"first search turn {Or(firstProspected)}, first mine turn {Or(firstMineOpened)}");
+        report.AppendLine(
+            $"{topRungs} tiles reached the gated top rung, " +
+            $"{knowledgeRefusals} refused for want of knowledge; " +
+            $"first top rung turn {Or(firstTopRung)}");
         return report.ToString();
 
         static string Or(int? turn) => turn?.ToString() ?? "never";
@@ -950,7 +1066,7 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             facilities,
             recipes,
             new ExtractionSettings(catchmentRadius: 1),
-            null,
+            [new TechnologyDefinition(new TechnologyId(MechanicalReaper), "Mechanical Reaper")],
             // The original's cycle: grain, fruit, grain, meat.
             new FeedingSettings(
                 [
