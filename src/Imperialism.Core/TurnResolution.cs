@@ -11,6 +11,14 @@ public enum TurnPhase : byte
     Conflict,
     TradeCancellation,
     Extraction,
+
+    /// <summary>
+    /// Moves what Extraction gathered onto the network, up to what the country
+    /// can carry. Sits before <see cref="Feeding"/> because workers eat
+    /// transported food ahead of warehouse stock, which is the whole point of
+    /// the original's grain demand line.
+    /// </summary>
+    Transport,
     Feeding,
     Delivery,
     Connectivity,
@@ -499,6 +507,106 @@ public sealed record ResourceExtractedEvent : TurnEvent
     public IReadOnlyList<CommodityQuantity> Collected => _collected;
 
     public IReadOnlyList<CommodityQuantity> Stranded => _stranded;
+}
+
+/// <summary>
+/// Records what one country's network carried this turn, and what it had to
+/// leave on the ground.
+/// </summary>
+/// <remarks>
+/// <see cref="Wasted"/> is reported rather than silently dropped because it is
+/// the number a player acts on: it is the difference between a network that is
+/// big enough and one that is not, and the original nags about it through a
+/// Minister warning on "wasting transport capacity".
+/// <para>
+/// Distinct from <see cref="ResourceExtractedEvent.Stranded"/>, which is output
+/// no route reached at all. A cell can now fail to reach the warehouse two
+/// different ways, and they want different fixes — build a depot, or build a
+/// railyard.
+/// </para>
+/// </remarks>
+public sealed record CommoditiesTransportedEvent : TurnEvent
+{
+    private readonly IReadOnlyList<CommodityQuantity> _moved;
+    private readonly IReadOnlyList<CommodityQuantity> _wasted;
+
+    public CommoditiesTransportedEvent(
+        int turnNumber,
+        CountryId country,
+        long capacityUsed,
+        long capacityAvailable,
+        IEnumerable<CommodityQuantity> moved,
+        IEnumerable<CommodityQuantity> wasted)
+        : base(turnNumber, TurnPhase.Transport)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(capacityUsed);
+        ArgumentOutOfRangeException.ThrowIfNegative(capacityAvailable);
+        if (capacityUsed > capacityAvailable)
+        {
+            throw new ArgumentOutOfRangeException(nameof(capacityUsed));
+        }
+
+        Country = country;
+        CapacityUsed = capacityUsed;
+        CapacityAvailable = capacityAvailable;
+        _moved = Array.AsReadOnly(moved.ToArray());
+        _wasted = Array.AsReadOnly(wasted.ToArray());
+    }
+
+    public CountryId Country { get; }
+
+    public long CapacityUsed { get; }
+
+    /// <summary>The capacity the turn began with; anything built this turn carries next turn.</summary>
+    public long CapacityAvailable { get; }
+
+    /// <summary>What reached the network, and so the warehouse next turn.</summary>
+    public IReadOnlyList<CommodityQuantity> Moved => _moved;
+
+    /// <summary>Gathered, reachable, and left behind. It does not keep.</summary>
+    public IReadOnlyList<CommodityQuantity> Wasted => _wasted;
+}
+
+/// <summary>Records one country buying transport capacity at the railyard.</summary>
+public sealed record TransportCapacityBuiltEvent : TurnEvent
+{
+    private readonly IReadOnlyList<CommodityQuantity> _paid;
+
+    public TransportCapacityBuiltEvent(
+        int turnNumber,
+        CountryId country,
+        long fromCapacity,
+        long toCapacity,
+        long labourUsed,
+        IEnumerable<CommodityQuantity> paid)
+        : base(turnNumber, TurnPhase.Construction)
+    {
+        if (toCapacity <= fromCapacity)
+        {
+            throw new ArgumentOutOfRangeException(nameof(toCapacity));
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegative(labourUsed);
+        Country = country;
+        FromCapacity = fromCapacity;
+        ToCapacity = toCapacity;
+        LabourUsed = labourUsed;
+        _paid = Array.AsReadOnly(paid.ToArray());
+    }
+
+    public CountryId Country { get; }
+
+    public long FromCapacity { get; }
+
+    public long ToCapacity { get; }
+
+    /// <summary>
+    /// The railyard is the one build that costs labour; expanding a mill does
+    /// not. See <see cref="TransportSettings.LabourPerCapacityPoint"/>.
+    /// </summary>
+    public long LabourUsed { get; }
+
+    public IReadOnlyList<CommodityQuantity> Paid => _paid;
 }
 
 /// <summary>

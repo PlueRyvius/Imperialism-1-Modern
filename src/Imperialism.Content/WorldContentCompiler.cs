@@ -227,6 +227,34 @@ public static class WorldContentCompiler
             commodityIds,
             "expansionCostPerCapacityPoint");
         var migration = CompileMigration(document.Migration, commodityIds);
+        TransportSettings? transport = null;
+        if (document.Transport is { } transportContent)
+        {
+            var cost = CompileCommodityQuantities(
+                RequireArray(transportContent.CostPerCapacityPoint, "transport.costPerCapacityPoint"),
+                commodityIds,
+                "transport.costPerCapacityPoint");
+            if (cost.Length == 0)
+            {
+                throw Error(
+                    "transport.costPerCapacityPoint",
+                    "Capacity that costs nothing would make the railyard free.");
+            }
+
+            if (transportContent.LabourPerCapacityPoint < 0)
+            {
+                throw Error("transport.labourPerCapacityPoint", "Labour cannot be negative.");
+            }
+
+            try
+            {
+                transport = new TransportSettings(cost, transportContent.LabourPerCapacityPoint);
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error("transport.costPerCapacityPoint", exception.Message, exception);
+            }
+        }
         var recipes = CompileProductionRecipes(recipeContent, facilityIds, commodityIds);
 
         MapDimensions dimensions;
@@ -322,7 +350,8 @@ public static class WorldContentCompiler
                     expansionCost,
                     migration,
                     civilianTypes,
-                    civilianTypeIds));
+                    civilianTypeIds,
+                    transport));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -349,7 +378,8 @@ public static class WorldContentCompiler
         CommodityQuantity[] expansionCost,
         MigrationSettings? migration,
         CivilianTypeDefinition[] civilianTypes,
-        IReadOnlyDictionary<string, int> civilianTypeIds)
+        IReadOnlyDictionary<string, int> civilianTypeIds,
+        TransportSettings? transport)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -400,6 +430,23 @@ public static class WorldContentCompiler
             civilianTypeIds,
             path);
 
+        var transportCapacity = new List<InitialTransportCapacity>();
+        var transportEntries = RequireArray(
+            scenarioContent.TransportCapacity, $"{path}.transportCapacity");
+        for (var index = 0; index < transportEntries.Length; index++)
+        {
+            var entryPath = $"{path}.transportCapacity[{index}]";
+            var entry = transportEntries[index] ?? throw Error(entryPath, "Value is required.");
+            if (entry.Capacity < 0)
+            {
+                throw Error($"{entryPath}.capacity", "Capacity cannot be negative.");
+            }
+
+            transportCapacity.Add(new InitialTransportCapacity(
+                new CountryId(FindKey(countryIds, entry.Country, $"{entryPath}.country")),
+                entry.Capacity));
+        }
+
         var defaultStartCountries = new List<CountryId>();
         var defaultStartSeen = new HashSet<string>(StringComparer.Ordinal);
         var defaultStartContent = RequireArray(
@@ -444,7 +491,8 @@ public static class WorldContentCompiler
                 depots,
                 workers,
                 defaultStartCountries,
-                civilians);
+                civilians,
+                transportCapacity);
             return new WorldDefinition(
                 map,
                 countries,
@@ -458,7 +506,8 @@ public static class WorldContentCompiler
                 startingDefaults,
                 expansionCost,
                 migration,
-                civilianTypes);
+                civilianTypes,
+                transport);
         }
         catch (ArgumentException exception)
         {
@@ -652,7 +701,12 @@ public static class WorldContentCompiler
             technologies.Add(new TechnologyId(FindKey(technologyIds, key, path)));
         }
 
-        return new StartingDefaults(capacities, workforce, technologies);
+        if (content.TransportCapacity < 0)
+        {
+            throw Error("startingDefaults.transportCapacity", "Capacity cannot be negative.");
+        }
+
+        return new StartingDefaults(capacities, workforce, technologies, content.TransportCapacity);
     }
 
     private static MigrationSettings? CompileMigration(

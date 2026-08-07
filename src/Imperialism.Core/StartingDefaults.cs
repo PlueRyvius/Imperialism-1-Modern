@@ -35,8 +35,14 @@ public sealed class StartingDefaults
     public StartingDefaults(
         IEnumerable<FacilityCapacityDefault> productionCapacities,
         WorkforceDefault? workforce = null,
-        IEnumerable<TechnologyId>? technologies = null)
+        IEnumerable<TechnologyId>? technologies = null,
+        long? transportCapacity = null)
     {
+        if (transportCapacity < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(transportCapacity));
+        }
+
         ArgumentNullException.ThrowIfNull(productionCapacities);
         var capacities = productionCapacities.ToArray();
         if (capacities.Select(static item => item.Facility).Distinct().Count() != capacities.Length)
@@ -57,6 +63,7 @@ public sealed class StartingDefaults
         _productionCapacities = Array.AsReadOnly(capacities);
         _technologies = Array.AsReadOnly(known);
         Workforce = workforce;
+        TransportCapacity = transportCapacity;
     }
 
     /// <summary>
@@ -88,6 +95,26 @@ public sealed class StartingDefaults
     /// </para>
     /// </remarks>
     public IReadOnlyList<TechnologyId> Technologies => _technologies;
+
+    /// <summary>
+    /// What a listed country's network can carry before it builds anything.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is a guess, and the only number in the transport system without
+    /// evidence behind it.</b> A skirmish carries no <c>tran</c> record, so the
+    /// corpus says nothing except that the engine supplies one — and the mission
+    /// scenarios that do carry `tran` are six authored special cases which this
+    /// project has a standing rule against mining for constants.
+    /// <para>
+    /// Zero was the alternative and it is worse: it would make every imported
+    /// skirmish unplayable, since nothing could ever leave the land. So a number
+    /// is invented, and it lives in content where changing it is an edit rather
+    /// than a code change — the same treatment as
+    /// <see cref="CivilianTypeDefinition.WorkTurns"/>. Do not cite it as
+    /// evidence for anything. See <c>docs/formulas/transport.md</c>.
+    /// </para>
+    /// </remarks>
+    public long? TransportCapacity { get; }
 }
 
 public readonly record struct FacilityCapacityDefault

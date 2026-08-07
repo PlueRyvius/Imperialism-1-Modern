@@ -140,8 +140,11 @@ of them without choosing between the readings.
 
 We implement it as **the recipe's total input units**, carried as an explicit
 `labourCost` per recipe rather than derived at runtime, so a recipe that is not
-2:1 — a modded one, or a future railyard — must state its own price instead of
-silently inheriting a rule that was only ever verified on 2:1 recipes.
+2:1 — a modded one — must state its own price instead of silently inheriting a
+rule that was only ever verified on 2:1 recipes.
+
+**The railyard was expected to be that recipe, and it is not.** See the
+retraction below.
 
 The pool is **per country and shared across every facility**: the manual shows a
 single arm icon on the screen border that every production dialog draws down,
@@ -244,13 +247,32 @@ the workforce does not, which is how a starting position should read.
   shortage. Modern turn orders are currently explicit per-turn submissions.
 - Whether the original stores a per-recipe labour cost or derives one. Every
   shipped recipe is 2:1, so no evidence we have distinguishes them; a recipe
-  that is not 2:1 would, and none exists yet.
+  that is not 2:1 would, and **none exists — including the railyard, which this
+  document expected to be the first. See the retraction below.**
 - Transient power, which the manual says joins the pool on the turn it is
   generated and is spent before any human labour.
 - The Trade School and the University, which take labour and workers out of the
   pool respectively.
 - Whether the UI reserves inputs exactly when an order is entered in every edge
   case, or only presents that behavior while the turn resolver recomputes it.
-- Capacity construction timing and costs in conjunction with the railyard. The
-  railyard is the first facility we expect *not* to be 2:1, so it is where the
-  input-total reading gets its first real test.
+## Retracted: the railyard was not the test
+
+This document predicted, twice, that the railyard would be the first thing not
+2:1 and so the first real test of the input-total reading. **It was built in
+`transport.md` and it is not.**
+
+A point of transport capacity costs one lumber and one steel — two input units
+for one point — so all three readings of the labour sentence give the same
+answer here as they do everywhere else. And the manual never prices the
+railyard's labour at all: it names labour as a requirement and gives no
+quantity, so our number comes from the input-total rule rather than testing it.
+The railyard could not have settled the question whatever its ratio had been.
+
+The prediction is retracted rather than quietly dropped, because a standing
+expectation that has failed is worse than none. **No candidate is currently in
+view.** The reading remains undetermined and undeterminable from anything shipped;
+the binary is the only place left to look.
+
+What the railyard did establish is a real difference from facility expansion,
+which the manual prices at one lumber and one steel and for which it names no
+labour at all. See `transport.md`.

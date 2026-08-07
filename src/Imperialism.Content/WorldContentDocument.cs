@@ -58,6 +58,13 @@ public sealed class WorldContentDocument
 
     public MapContentDocument Map { get; set; } = new();
 
+    /// <summary>
+    /// What carrying commodities costs, or absent where the network has no
+    /// limit — which is how every world behaved before version 16.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TransportContentSettings? Transport { get; set; }
+
     public NamedContentDefinition[] Technologies { get; set; } = [];
 
     public NamedContentDefinition[] Countries { get; set; } = [];
@@ -111,6 +118,9 @@ public sealed class ScenarioContentDocument
 
     public WorkforceContent[] Workers { get; set; } = [];
 
+    /// <summary>What each country's network can carry at the start: the 1997 `tran` record.</summary>
+    public TransportCapacityContent[] TransportCapacity { get; set; } = [];
+
     /// <summary>Civilians on the map at the start, in the order they take ids.</summary>
     public CivilianContent[] Civilians { get; set; } = [];
 
@@ -149,6 +159,14 @@ public sealed class StartingDefaultsContent
     /// outright and no scenario record carries.
     /// </summary>
     public string[] Technologies { get; set; } = [];
+
+    /// <summary>
+    /// What a listed country's network can carry before it builds anything.
+    /// **A guess** — a skirmish carries no <c>tran</c> record and the corpus
+    /// says only that the engine supplies one.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? TransportCapacity { get; set; }
 }
 
 public sealed class FacilityCapacityDefaultContent
@@ -167,6 +185,22 @@ public sealed class WorkforceDefaultContent
     public long Expert { get; set; }
 }
 
+/// <summary>
+/// What the railyard charges for a point of transport capacity. One point moves
+/// one commodity unit a turn.
+/// </summary>
+public sealed class TransportContentSettings
+{
+    public CommodityQuantityContent[] CostPerCapacityPoint { get; set; } = [];
+
+    /// <summary>
+    /// Labour a point costs. The railyard is the one build that wants labour;
+    /// expanding a mill does not.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public long LabourPerCapacityPoint { get; set; }
+}
+
 public sealed class CellDevelopmentContent
 {
     public int Cell { get; set; }
@@ -179,6 +213,13 @@ public sealed class CountryTechnologyContent
     public string Country { get; set; } = string.Empty;
 
     public string Technology { get; set; } = string.Empty;
+}
+
+public sealed class TransportCapacityContent
+{
+    public string Country { get; set; } = string.Empty;
+
+    public long Capacity { get; set; }
 }
 
 /// <summary>

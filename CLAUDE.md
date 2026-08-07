@@ -24,6 +24,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | How civilians improve land | `docs/formulas/development.md` |
 | What a Prospector finds, and what stays hidden | `docs/formulas/prospecting.md` |
 | Which technology opens which improvement level | `docs/formulas/technology.md` |
+| How much the network can carry, and what that costs | `docs/formulas/transport.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Does the economy hold up over 100 turns? | `docs/formulas/soak.md` |
@@ -324,9 +325,43 @@ because Level II and III are no longer free. The move is the finding.
 grants a technology on turn 50 and watches the ceiling lift on turn 51. Reuse
 that pattern; oil is the obvious next candidate.
 
+`.iworld` v16 gives the network a size. A new **`Transport` phase** sits between
+`Extraction` and `Feeding`: extraction no longer queues what it gathers, it fills
+a turn-local pool, and transport carries as much of that as capacity allows.
+Sliders are per commodity against one shared bar, trimmed to what was gathered
+and then to what is left, in the order the player set them.
+
+**What the network cannot carry is lost, and that is a chosen rule** — the same
+standing as which grade takes the damage in `feeding.md`. Reported in
+`CommoditiesTransportedEvent.Wasted`, and **distinct from stranded**: no route at
+all wants a depot, no room wants a railyard.
+
+**The railyard is an order, not a facility**, because capacity is a country pool
+and the manual gives it no ceiling. It is also the one build that costs labour;
+expanding a mill does not.
+
+**The railyard was predicted to break 2:1 and it does not.** `production.md`
+carried that expectation twice and it is now retracted there rather than quietly
+dropped: a capacity point costs one lumber and one steel, two inputs for one
+point, so every reading of the labour sentence still agrees — and the manual
+never prices the railyard's labour at all. No candidate for that test is in view.
+
+**Which slider comes first decides what a country becomes.** In the soak at ten
+points a power, food-first keeps everyone fed and produces nothing for a century
+because coal never arrives; materials-first starves seven workers up front and
+ends carrying almost everything with nobody ill. Neither is asserted correct.
+
+**A network below subsistence never recovers**, and that is a property of the
+model. Escaping needs a railyard, which needs materials, and every unit carried
+is one not carrying food. So `tran`'s engine default is a **viability threshold,
+not a balance knob** — and it is a guess, the only one in the system. It lives in
+`startingDefaults.transportCapacity`. Do not cite it as evidence, and do not read
+a constant out of the corpus's `tran` records: `s1` gives 80–170, `s13` gives
+10–25, and `s12` gives a network to exactly one of its seven powers.
+
 Buying technology, prerequisites, arrival dates, transient power, research,
-conflict, trade markets, diplomacy, sea routes between ports, blockade, and the
-transport capacity pool remain explicitly pending.
+conflict, trade markets, diplomacy, sea routes between ports, blockade, moving
+regiments by rail, and merchant marine capacity remain explicitly pending.
 
 **Production spends labour.** Each recipe costs its total input units, from one
 pool per country shared across every facility. The manual prices exactly one

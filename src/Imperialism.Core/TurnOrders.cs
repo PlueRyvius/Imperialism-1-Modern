@@ -10,6 +10,7 @@ public sealed class CountryTurnOrders
     private readonly IReadOnlyList<ProductionExpansionOrder> _expansions;
     private readonly IReadOnlyList<CivilianDeployOrder> _deployments;
     private readonly IReadOnlyList<CivilianWorkOrder> _civilianWork;
+    private readonly IReadOnlyList<TransportAllocationOrder> _transport;
 
     public CountryTurnOrders(
         CountryId country,
@@ -17,9 +18,12 @@ public sealed class CountryTurnOrders
         IEnumerable<ProductionExpansionOrder>? expansions = null,
         long recruitWorkers = 0,
         IEnumerable<CivilianDeployOrder>? deployments = null,
-        IEnumerable<CivilianWorkOrder>? civilianWork = null)
+        IEnumerable<CivilianWorkOrder>? civilianWork = null,
+        IEnumerable<TransportAllocationOrder>? transport = null,
+        long buildTransportCapacity = 0)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(recruitWorkers);
+        ArgumentOutOfRangeException.ThrowIfNegative(buildTransportCapacity);
         var productionArray = production?.ToArray() ?? [];
         if (productionArray.Any(static item => item.RequestedCycles <= 0))
         {
@@ -54,12 +58,29 @@ public sealed class CountryTurnOrders
                 nameof(civilianWork));
         }
 
+        var transportArray = transport?.ToArray() ?? [];
+        if (transportArray.Any(static item => item.Quantity <= 0))
+        {
+            throw new ArgumentException(
+                "A transport allocation must be positive; leaving a commodity off is how you move none.",
+                nameof(transport));
+        }
+
+        if (transportArray.Select(static item => item.Commodity).Distinct().Count() != transportArray.Length)
+        {
+            throw new ArgumentException(
+                "A commodity has one slider, so it cannot be allocated twice.",
+                nameof(transport));
+        }
+
         Country = country;
         RecruitWorkers = recruitWorkers;
+        BuildTransportCapacity = buildTransportCapacity;
         _production = Array.AsReadOnly(productionArray);
         _expansions = Array.AsReadOnly(expansionArray);
         _deployments = Array.AsReadOnly(deployArray);
         _civilianWork = Array.AsReadOnly(workArray);
+        _transport = Array.AsReadOnly(transportArray);
     }
 
     public CountryId Country { get; }
@@ -82,6 +103,19 @@ public sealed class CountryTurnOrders
 
     /// <summary>Civilians to set to work improving a tile this turn.</summary>
     public IReadOnlyList<CivilianWorkOrder> CivilianWork => _civilianWork;
+
+    /// <summary>
+    /// The Transport screen's sliders, in explicit allocation-priority order. A
+    /// commodity left off moves nothing, which is what a slider at zero means.
+    /// </summary>
+    public IReadOnlyList<TransportAllocationOrder> Transport => _transport;
+
+    /// <summary>
+    /// Points of transport capacity to buy at the railyard. Zero is the ordinary
+    /// case: "since it is unlikely that you will want to increase transport
+    /// capacity every turn, these orders are not saved."
+    /// </summary>
+    public long BuildTransportCapacity { get; }
 }
 
 /// <summary>
@@ -89,6 +123,26 @@ public sealed class CountryTurnOrders
 /// to skip a rung or to choose a target, so the order carries only the facility.
 /// </summary>
 public readonly record struct ProductionExpansionOrder(ProductionFacilityId Facility);
+
+/// <summary>
+/// One Transport-screen slider: move up to this much of this commodity onto the
+/// network this turn.
+/// </summary>
+/// <remarks>
+/// A ceiling, not a demand. Orders are written before the turn resolves and a
+/// player cannot know exactly what the land will yield, so the planner trims to
+/// what was actually gathered and then to the capacity left — the same way a
+/// production order is trimmed to inputs and capacity.
+/// </remarks>
+public readonly record struct TransportAllocationOrder(CommodityId Commodity, long Quantity);
+
+/// <summary>
+/// A request to build transport capacity at the railyard. Unlike a mill there is
+/// no ladder and no target size: "you can build as much transport capacity as you
+/// want, provided you have steel, lumber, and available labour", so the order
+/// names a number of points.
+/// </summary>
+public readonly record struct TransportExpansionOrder(long Points);
 
 /// <summary>
 /// Move a civilian to a tile and leave it idle there. Distance is not part of

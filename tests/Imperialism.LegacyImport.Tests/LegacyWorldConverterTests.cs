@@ -688,6 +688,60 @@ public sealed class LegacyWorldConverterTests
     }
 
     /// <summary>
+    /// <c>tran</c> is <c>[country, capacity]</c> — one number for the whole
+    /// network, matching the manual's single shared capacity bar.
+    /// </summary>
+    [Fact]
+    public void TranRecordsBecomeStartingTransportCapacity()
+    {
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+            Record("tran", 0, 15),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()), scenario, null, "tran-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var capacity = Assert.Single(result.Document!.Scenarios[0].TransportCapacity);
+        Assert.Equal(15, capacity.Capacity);
+        Assert.DoesNotContain("scenario.tag.tran", result.Report.DeferredCounts.Keys);
+
+        // The railyard's price, and the one build that also wants labour.
+        Assert.Equal(
+            ["commodity.lumber", "commodity.steel"],
+            result.Document.Transport!.CostPerCapacityPoint.Select(static item => item.Commodity));
+        Assert.Equal(2, result.Document.Transport.LabourPerCapacityPoint);
+    }
+
+    /// <summary>
+    /// A scenario that carries no <c>tran</c> leaves its powers on the engine's
+    /// default, which is a guess — see <c>docs/formulas/transport.md</c>. It is
+    /// pinned here so that changing it is a deliberate act.
+    /// </summary>
+    [Fact]
+    public void AScenarioWithNoTranLeavesEveryPowerOnTheDefault()
+    {
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+            Record("labo", 0, 4, 2, 1),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()), scenario, null, "no-tran-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Empty(result.Document!.Scenarios[0].TransportCapacity);
+        Assert.Equal(20, result.Document.StartingDefaults!.TransportCapacity);
+    }
+
+    /// <summary>
     /// <c>tech</c> is <c>[country, id]</c>, the id a 1-based index into the
     /// manual's table. See <c>docs/formulas/technology.md</c> for the corpus
     /// check behind that reading.
@@ -819,6 +873,24 @@ public sealed class LegacyWorldConverterTests
             ["s11"] = 0,
             ["s15"] = 0,
         };
+        // tran records per scenario. Four carry none at all and run on the
+        // engine's default — the guess in docs/formulas/transport.md — and s12
+        // gives a network to exactly one of its seven powers, which is as clear
+        // a demonstration as the corpus offers that these are authored
+        // situations rather than a design to be mined.
+        var expectedTransport = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["s1"] = 7,
+            ["s3"] = 7,
+            ["s5"] = 7,
+            ["s13"] = 7,
+            ["s14"] = 7,
+            ["s12"] = 1,
+            ["s9"] = 0,
+            ["s10"] = 0,
+            ["s11"] = 0,
+            ["s15"] = 0,
+        };
         var converted = 0;
         var totalCivilians = 0;
         var totalOpenProspectable = 0;
@@ -914,6 +986,17 @@ public sealed class LegacyWorldConverterTests
                 Assert.Equal(
                     prospectable,
                     (openCells, result.Document.Map.Cells.Count(cell => gated.Contains(cell.Terrain))));
+            }
+
+            // tran is converted now too. A scenario carrying none leaves its
+            // powers on the engine's guessed default.
+            Assert.DoesNotContain("scenario.tag.tran", result.Report.DeferredCounts.Keys);
+            Assert.DoesNotContain(
+                result.Report.Diagnostics,
+                item => item.Code.StartsWith("scenario.invalid-tran", StringComparison.Ordinal));
+            if (expectedTransport.TryGetValue(key, out var networks))
+            {
+                Assert.Equal(networks, result.Document.Scenarios[0].TransportCapacity.Length);
             }
 
             totalOpenProspectable += openCells;

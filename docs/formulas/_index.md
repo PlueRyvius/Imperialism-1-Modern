@@ -54,7 +54,7 @@ the engine's own value for each:
 | `cash` | starting treasury | unrecovered |
 | `deve` | cell development levels | none developed — but see below |
 | `tech` | starting technologies | **recovered — from the manual** |
-| `tran` | transport capacity pool | unrecovered |
+| `tran` | transport capacity pool | unrecovered — **and now load-bearing** |
 | `rail` | depots | none built |
 | `rela` | diplomatic relations | unrecovered |
 
@@ -65,6 +65,12 @@ These are **not recoverable from the corpus** — its whole evidence is that the
 are absent. They are constants in the binary, which makes them one target class
 rather than seven scattered guesses, and the strongest argument for decompiling
 the engine rather than reading its disassembly.
+
+**One of the six that remain is now urgent.** `tran` used to be a number nothing
+read; since [transport.md](transport.md) it decides whether an imported skirmish
+is playable at all, because a network below what its workforce eats collapses to
+subsistence and cannot build its way out. That makes it a viability threshold
+rather than a balance knob, and the best argument yet for reading the binary.
 
 **One of them has fallen, and not to a decompiler.** The manual states the
 `tech` default outright: "every player always starts with the first two
@@ -106,6 +112,9 @@ bottom of this file.
 | What a `tech` id names | `inferred` | [technology](technology.md) | LegacyImport | local corpus |
 | The technologies every power starts with | `inferred` | [technology](technology.md) | Core, Content, LegacyImport | generated |
 | What technology costs, and its prerequisites | `guess` | _technology-investment_ | — | — |
+| How much a network can carry, and what raises it | `inferred` | [transport](transport.md) | Core, Content, LegacyImport | generated + local corpus |
+| Whether un-carried output keeps | `guess` | [transport](transport.md) | Core | generated |
+| What a network starts with | `guess` | [transport](transport.md) | Content, LegacyImport | generated |
 | Whether the whole economy holds up over time | — | [soak](soak.md) | — | 100-turn soak, 7 powers |
 | Trade clearing price | `guess` | _trade-pricing_ | — | — |
 | Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |

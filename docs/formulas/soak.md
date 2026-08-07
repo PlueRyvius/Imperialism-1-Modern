@@ -183,6 +183,35 @@ The idle run's other number is the one to remember: **700 refusals**, one per
 power per turn, each a Miner turned back from hills its country cannot see.
 See [prospecting.md](prospecting.md).
 
+### The network is the constraint everything else was hiding behind
+
+Every run above carries everything it gathers, because until transport capacity
+existed nothing limited the middle of the chain. Three more runs give the same
+world ten points of capacity a power, against fourteen units gathered and seven
+eaten.
+
+```
+                        workers  sick  carried/gathered  produced  capacity built
+unlimited                    84     7     16,548/16,548     3,101              —
+food first                   49     7      7,000/16,548         0               0
+materials first              42     0     15,673/16,548     1,386             672
+```
+
+**Which slider comes first decides what the country becomes.** Food first keeps
+everyone fed and never produces a single cycle, because coal sits at the back of
+the queue and the steel mill never sees any — so no railyard is ever affordable
+and the network never grows. Materials first starves seven workers immediately,
+runs sick for twenty turns, and comes out the other side carrying almost
+everything with nobody ill.
+
+Neither is asserted to be right. What is asserted is that they differ, which is
+what proves the allocation order is load-bearing.
+
+**And below subsistence there is no game at all.** At four points a power the
+workforce falls to what the network can feed and stays there for the century,
+even carrying food first: escaping needs materials, and every unit of those is
+one not carrying food. See [transport.md](transport.md).
+
 ## Open
 
 - Soak an imported `s1` rather than a synthetic fixture. That needs a headless

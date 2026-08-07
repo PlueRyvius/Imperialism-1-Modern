@@ -14,6 +14,7 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<InitialWorkforce> _initialWorkforce;
     private readonly IReadOnlyList<InitialCivilian> _initialCivilians;
     private readonly IReadOnlyList<CountryId> _defaultStartCountries;
+    private readonly IReadOnlyList<InitialTransportCapacity> _initialTransportCapacity;
 
     public ScenarioDefinition(
         string name,
@@ -29,7 +30,8 @@ public sealed class ScenarioDefinition
         IEnumerable<CellIndex>? initialDepots = null,
         IEnumerable<InitialWorkforce>? initialWorkforce = null,
         IEnumerable<CountryId>? defaultStartCountries = null,
-        IEnumerable<InitialCivilian>? initialCivilians = null)
+        IEnumerable<InitialCivilian>? initialCivilians = null,
+        IEnumerable<InitialTransportCapacity>? initialTransportCapacity = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
@@ -57,6 +59,21 @@ public sealed class ScenarioDefinition
             throw new ArgumentException(
                 "A country cannot have more than one initial workforce.",
                 nameof(initialWorkforce));
+        }
+
+        var transportArray = initialTransportCapacity?.ToArray() ?? [];
+        if (transportArray.Select(static item => item.Country).Distinct().Count() != transportArray.Length)
+        {
+            throw new ArgumentException(
+                "A country cannot have more than one initial transport capacity.",
+                nameof(initialTransportCapacity));
+        }
+
+        if (transportArray.Any(static item => item.Capacity < 0))
+        {
+            throw new ArgumentException(
+                "Initial transport capacity cannot be negative.",
+                nameof(initialTransportCapacity));
         }
 
         if (developmentArray.Select(static item => item.Cell).Distinct().Count() != developmentArray.Length)
@@ -126,6 +143,7 @@ public sealed class ScenarioDefinition
         _initialPorts = Array.AsReadOnly(portArray);
         _initialDepots = Array.AsReadOnly(depotArray);
         _initialWorkforce = Array.AsReadOnly(workforceArray);
+        _initialTransportCapacity = Array.AsReadOnly(transportArray);
 
         // Civilians are deliberately not made unique by cell. The original
         // stacks them freely — `s1` gives one power two Miners — and nothing in
@@ -168,6 +186,14 @@ public sealed class ScenarioDefinition
     public IReadOnlyList<CellIndex> InitialDepots => _initialDepots;
 
     public IReadOnlyList<InitialWorkforce> InitialWorkforce => _initialWorkforce;
+
+    /// <summary>
+    /// What each country's network can carry at the start. The 1997 <c>tran</c>
+    /// record, which a mission authors per power and a skirmish leaves to the
+    /// engine.
+    /// </summary>
+    public IReadOnlyList<InitialTransportCapacity> InitialTransportCapacity =>
+        _initialTransportCapacity;
 
     /// <summary>
     /// Civilians on the map at the start, in the order they will be issued ids.
