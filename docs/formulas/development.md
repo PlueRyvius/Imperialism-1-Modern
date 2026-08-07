@@ -214,20 +214,24 @@ recruitment requests. Exactly as before this phase existed.
 | 1 | 49 | 42 / 7 | 21 | 98 |
 | 2 | 49 | 49 / 0 | 35 | 119 |
 | 5 | 56 | 56 / 0 | 42 | 140 |
-| 10 | 77 | 77 / 0 | 63 | 196 |
-| 25 | 126 | 105 / 21 | 63 | 196 |
-| 100 | 119 | 98 / 21 | 63 | 196 |
+| 10 | 77 | 77 / 0 | 42 | 168 |
+| 25 | 84 | 77 / 7 | 42 | 168 |
+| 100 | 84 | 77 / 7 | 42 | 168 |
 
 The chain completes, in order: first improvement on turn 2, sickness gone the
 same turn, **first recruit on turn 4** — migration doing something for the first
-time since it was built — and the workforce more than doubling.
+time since it was built — and the workforce growing by seventy per cent.
 
-**Then it reopens, and that is the finding rather than a failure.** Every tile a
-Farmer can work reaches the top of its curve by turn 10, grain stops at 63, and
-the population keeps growing until it outruns the harvest. Sickness returns on
-turn 14 and the economy settles at 119 workers with 21 permanently ill. That is
+**Then it reopens, and that is the finding rather than a failure.** Grain stops
+at 42 and the population keeps growing until it outruns the harvest. Sickness
+returns and the economy settles at 84 workers with 7 permanently ill. That is
 the manual's own warning about growing faster than you can feed, arrived at
 rather than written in.
+
+**Where grain stops is now a technology question.** These figures were 63 and 119
+before the Benefits of Technology Table was transcribed, when a Farmer could walk
+a tile to Level 3 for free. Level II and Level III each cost an investment now.
+See [technology.md](technology.md).
 
 Both runs are reported rather than asserted into a target, which is the standing
 split in `soak.md`: the soak asserts integrity and *reports* behaviour.
@@ -286,10 +290,11 @@ its control.
   curiosity. See [prospecting.md](prospecting.md).
 - **Engineer construction** — rail, ports, depots, forts. Its own slice.
 - **Developer and buying land** — needs money and diplomacy.
-- **Technology gates on levels II and III.** Square Set Timbering, Dynamite,
-  Feed Grasses, Iron Railroad Bridges, Chemistry, Internal Combustion.
-  `ResourceDefinition.RequiredTechnology` gates *extraction*; the manual gates
-  the *improvement level*, which is a different hook and does not exist yet.
+- ~~**Technology gates on levels II and III.**~~ Built, and the question was
+  understated: the manual's Benefits of Technology Table gates **every** level
+  bar a mine opening at Level I. `ResourceDefinition.TechnologyByDevelopmentLevel`
+  is the hook; `RequiredTechnology`, which gates extraction, is still unused
+  because the manual never does that. See [technology.md](technology.md).
 - **Capital-adjacent farms and orchards starting at Level I.** Stated by the
   manual, absent from the shipped `deve` records, and not implemented. It is an
   engine start rule, and adding it would move the imported corpus's economy.

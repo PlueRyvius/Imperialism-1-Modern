@@ -61,21 +61,44 @@ resource-keyed rule would disagree; no `deve` record touches them. See
 
 ## Technology gates improvement levels
 
-The manual names the technologies precisely:
+The manual carries a full **Benefits of Technology Table** — twenty-eight
+entries with names, benefits, prerequisites and approximate arrival dates. Read
+for improvement, it gates **every level bar one**:
 
-| Gate | Technology |
-|---|---|
-| Mine level II | Square Set Timbering |
-| Mine level III | Dynamite |
-| Prospecting for oil at all | Oil Drilling |
-| Derrick level II | Chemistry |
-| Derrick level III | Internal Combustion |
-| Rancher unit buildable | Feed Grasses |
-| Forester unit buildable | Iron Railroad Bridges |
+| Deposit | Level I | Level II | Level III |
+|---|---|---|---|
+| Grain | Seed Drill | Steel and Iron Plows | Mechanical Reaper |
+| Fruit (orchards) | Seed Drill | Steel and Iron Plows | Commercial Fertiliser |
+| Cotton | Cotton Gin | Spinning Jenny | Power Loom |
+| Wool | Feed Grasses | Spinning Jenny | Power Loom |
+| Livestock | Feed Grasses | Barbed Wire | Chemistry |
+| Timber | Iron Railroad Bridge | Compound Steam Engine | Dynamite |
+| Coal, iron, gold, gems | **none** | Square-Set Timbering | Dynamite |
+| Oil | Oil Drilling | Chemistry | Internal Combustion |
+
+**A mine opening at Level I is the exception** — no technology is named for it,
+which fits the Miner being one of the four civilians buildable from the start.
+
+The table also gates things this project does not model: rail through particular
+terrain (High Pressure Steam Engine, Iron Railroad Bridge, Compound Steam Engine,
+Dynamite), the Rancher (Feed Grasses), the Forester (Iron Railroad Bridge), the
+Driller and the Refinery and Power Plant (Oil Drilling), and every regiment and
+ship type.
 
 Note the shape: technology gates the *improvement*, and in oil's case the
 *discovery*. It does not gate extraction from a deposit that is already open.
-That is why our importer declares no technology requirement on any deposit.
+That is why our importer declares no `requiredTechnology` on any deposit.
+
+**Every player always starts with the first two**, High Pressure Steam Engine
+and Seed Drill. That is stated outright and is one of the seven engine defaults
+in `../formulas/_index.md` — the only one recovered so far, and it came from
+here rather than from a decompiler.
+
+Technology is **bought with cash** on the Investment screen; an investment can
+be cancelled until the turn ends and not after. Advances "become available on a
+world-wide basis; they cannot be kept secret", and cost money to adopt rather
+than to discover. None of the purchasing is modelled — see
+`../formulas/technology.md`.
 
 ## Prospecting
 

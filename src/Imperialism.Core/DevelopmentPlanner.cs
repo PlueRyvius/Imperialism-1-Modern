@@ -256,12 +256,13 @@ internal static class DevelopmentPlanner
     }
 
     /// <summary>
-    /// Whether this kind of civilian can raise this tile. Four separate things
-    /// must all hold, and they come from four different places: the ground must
+    /// Whether this kind of civilian can raise this tile. Five separate things
+    /// must all hold, and they come from five different places: the ground must
     /// admit improvement at all (the manual's Terrain Tiles Table), something on
     /// it must be this civilian's work (the Resource Development Table), that
-    /// deposit must already have been found if it is one of the five that hide,
-    /// and its yield curve must have a rung left.
+    /// deposit must already be visible if it is one of the five that hide, its
+    /// yield curve must have a rung left, and the country must hold whatever
+    /// knowledge that rung takes (the Benefits of Technology Table).
     /// </summary>
     private static CivilianOrderRefusal? LegalityOfImprovement(
         WorldState state,
@@ -278,6 +279,7 @@ internal static class DevelopmentPlanner
         var level = state.GetCellDevelopment(cell);
         var worked = false;
         var undiscovered = false;
+        var unknown = false;
         foreach (var resourceId in map[cell].Resources)
         {
             var resource = map.Resources[resourceId.Value];
@@ -290,7 +292,7 @@ internal static class DevelopmentPlanner
             // coal, or iron to mine." A hidden deposit is not merely unworkable
             // here — as far as its owner is concerned it is not there at all, so
             // it cannot even count towards the tile being fully developed.
-            if (resource.RequiresDiscovery && !state.HasProspected(country, cell))
+            if (resource.RequiresDiscovery && !state.CanSeeDeposits(country, cell))
             {
                 undiscovered = true;
                 continue;
@@ -300,15 +302,31 @@ internal static class DevelopmentPlanner
 
             // A cell holding two deposits has one level, so one deposit still
             // short of the top of its curve is reason enough to keep working.
-            if (level < resource.MaxDevelopmentLevel)
+            if (level >= resource.MaxDevelopmentLevel)
             {
-                return null;
+                continue;
             }
+
+            // The rung being climbed is the next one up, so that is the gate to
+            // ask about. A scenario may already have authored the tile past it;
+            // that is its privilege and this is not the place to argue.
+            if (resource.GetRequiredTechnology(level + 1) is { } required &&
+                !state.HasTechnology(country, required))
+            {
+                unknown = true;
+                continue;
+            }
+
+            return null;
         }
 
         if (worked)
         {
-            return CivilianOrderRefusal.AlreadyFullyDeveloped;
+            // Ordered by what the player can do about it: learn something,
+            // or nothing at all.
+            return unknown
+                ? CivilianOrderRefusal.ImprovementTechnologyNotKnown
+                : CivilianOrderRefusal.AlreadyFullyDeveloped;
         }
 
         // Reported ahead of "nothing here is your work", because it is the more

@@ -76,6 +76,11 @@ internal static class WorldContentMigrator
             MigrateVersionThirteenToFourteen(document);
         }
 
+        if (document.FormatVersion == 14)
+        {
+            MigrateVersionFourteenToFifteen(document);
+        }
+
         return document;
     }
 
@@ -590,6 +595,41 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 14;
+    }
+
+    /// <summary>
+    /// Version 15 gates improvement behind technology, and gives the fair start
+    /// the knowledge it begins with.
+    /// </summary>
+    /// <remarks>
+    /// A version 14 package names no technology per level and no starting
+    /// technology, and neither can be invented: which of an arbitrary world's
+    /// technologies gates which rung is a property of that world, and the 1997
+    /// answer — High Pressure Steam Engine and Seed Drill — is a fact about the
+    /// original's rules rather than a sensible default for anything else. So it
+    /// migrates to a world where every rung is ungated and no country starts
+    /// knowing anything, which is exactly how it behaved before.
+    /// </remarks>
+    private static void MigrateVersionFourteenToFifteen(WorldContentDocument document)
+    {
+        foreach (var resource in document.Resources ?? [])
+        {
+            if (resource?.TechnologyByDevelopmentLevel is not null)
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 14 cannot gate a development level behind technology.");
+            }
+        }
+
+        if (document.StartingDefaults?.Technologies is { Length: > 0 })
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 14 cannot contain version 15 starting technologies.");
+        }
+
+        document.FormatVersion = 15;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

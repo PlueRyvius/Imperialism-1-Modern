@@ -30,10 +30,12 @@ namespace Imperialism.Core;
 public sealed class StartingDefaults
 {
     private readonly IReadOnlyList<FacilityCapacityDefault> _productionCapacities;
+    private readonly IReadOnlyList<TechnologyId> _technologies;
 
     public StartingDefaults(
         IEnumerable<FacilityCapacityDefault> productionCapacities,
-        WorkforceDefault? workforce = null)
+        WorkforceDefault? workforce = null,
+        IEnumerable<TechnologyId>? technologies = null)
     {
         ArgumentNullException.ThrowIfNull(productionCapacities);
         var capacities = productionCapacities.ToArray();
@@ -44,7 +46,16 @@ public sealed class StartingDefaults
                 nameof(productionCapacities));
         }
 
+        var known = technologies?.ToArray() ?? [];
+        if (known.Distinct().Count() != known.Length)
+        {
+            throw new ArgumentException(
+                "Starting defaults cannot name a technology twice.",
+                nameof(technologies));
+        }
+
         _productionCapacities = Array.AsReadOnly(capacities);
+        _technologies = Array.AsReadOnly(known);
         Workforce = workforce;
     }
 
@@ -58,6 +69,25 @@ public sealed class StartingDefaults
 
     /// <summary>The workforce a listed country starts with, if the world says.</summary>
     public WorkforceDefault? Workforce { get; }
+
+    /// <summary>
+    /// Knowledge a listed country begins holding. The manual states this one
+    /// outright: "every player always starts with the first two technologies
+    /// listed below: High Pressure Steam Engine and Seed Drill".
+    /// </summary>
+    /// <remarks>
+    /// This is the only one of the seven engine defaults in
+    /// <c>docs/formulas/_index.md</c> recovered so far, and it came from the
+    /// manual rather than the binary. A skirmish carries no <c>tech</c> record
+    /// and every power still starts able to farm, which is why the corpus alone
+    /// could never have supplied it.
+    /// <para>
+    /// It is also what keeps the technology gates a gate rather than a wall: a
+    /// fresh 1815 start can improve grain and orchards to Level I and open mines
+    /// at Level I on its first turn.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<TechnologyId> Technologies => _technologies;
 }
 
 public readonly record struct FacilityCapacityDefault

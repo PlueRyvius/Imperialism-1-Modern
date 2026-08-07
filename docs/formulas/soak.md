@@ -43,6 +43,9 @@ turn  workers  fed/sick/starved  labour   stock   capacity
  100       49    42/   7/      0      77    1505       700
 ```
 
+Those figures are from the no-orders run, which never improves anything and is
+therefore untouched by everything below.
+
 Totals over the production run: gathered 9,800, eaten 4,900, delivered 2,800,
 produced 2,079 cycles, built 91 times. Those reconcile — 98 gathered a turn is
 14 deposits times seven powers, 49 eaten a turn is one per worker.
@@ -92,27 +95,49 @@ are ever told to work.
 idle Farmers            100       49    42/  7          21           98
 Farmers working           1       49    42/  7          21           98
                           2       49    49/  0          35          119
-                         10       77    77/  0          63          196
-                         25      126   105/ 21          63          196
-                        100      119    98/ 21          63          196
+                         10       77    77/  0          42          168
+                         25       84    77/  7          42          168
+                        100       84    77/  7          42          168
 ```
 
 The chain the owner described runs end to end: farms improved on turn 2,
 sickness gone the same turn, **first recruit on turn 4** — the first time
-migration has done anything since it was built — and the workforce more than
-doubling.
+migration has done anything since it was built — and the workforce growing by
+seventy per cent.
 
-Then the deficit reopens. Every tile a Farmer can work reaches the top of its
-curve by turn 10, grain stops at 63, and the population keeps growing until it
-outruns the harvest; sickness returns on turn 14 and the economy settles at 119
-workers with 21 permanently ill. **That is the manual's own warning about
-growing faster than you can feed**, arrived at rather than written in, and it is
-reported rather than tuned away.
+Then the deficit reopens. Grain stops at 42, the population keeps growing until
+it outruns the harvest, and the economy settles at 84 workers with 7 permanently
+ill. **That is the manual's own warning about growing faster than you can feed**,
+arrived at rather than written in, and it is reported rather than tuned away.
+
+**Grain stops where it does because of technology.** These numbers were 63 and
+119 before the Benefits of Technology Table was transcribed, when a Farmer could
+walk a tile to Level 3 for nothing. Steel and Iron Plows and Mechanical Reaper
+are not free, so the ceiling arrives sooner and lower. The move is the finding
+rather than a regression; see the run below and
+[technology.md](technology.md).
 
 Two caveats before reading anything into the turn numbers. The work duration is
 a guess (`development.md`), and this fixture's yield curve starts at 0 rather
 than the manual's 1, so both the speed and the ceiling are properties of the
 fixture.
+
+### A gate opening, halfway through
+
+Grain's top rung is gated behind Mechanical Reaper. There is no research to earn
+it, so a third pair of runs grants it outright on turn 50 — **the pattern for
+exercising any gate while acquisition does not exist**, and without which a gate
+is only ever tested closed.
+
+```
+                    grain/turn at  10 → 50 → 100   workers  top rungs  refusals
+never granted                42     42     42         84         0       1,960
+granted on turn 50           42     42     63        105        21         889
+```
+
+First gated rung on turn 51, one turn after the grant, which is the work duration
+showing through. Twenty-one extra workers by turn 100 is what one technology is
+worth to this fixture.
 
 ## What is asserted, and what deliberately is not
 

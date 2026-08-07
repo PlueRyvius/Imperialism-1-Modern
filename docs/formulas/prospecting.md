@@ -30,7 +30,7 @@ reuses it rather than adding a second unmeasured number.
 | A fruitless search still marks the tile | **manual**, by implication — the toolbar counts "how many terrain tiles are left to search", which only decreases if empty ground counts |
 | A new mine opens at Level I | **manual** — "when a Miner finishes opening a new mine it produces at Level I" |
 | The four minerals occur only in barren hills and mountains | **manual**, and **corpus-corroborated** |
-| Whether a conquered mine stays surveyed | **nothing. See below** |
+| A built mine is visible without a survey | **inference**, and the one this document leans on — see Conquest |
 
 ## The corpus agrees, from the other direction
 
@@ -103,12 +103,18 @@ Searched-ness is one bit per (country, cell). At the 64,800-cell scale
 regression across 23 countries that is ~187 KB as a `ulong[]` against 1.5 MB as
 `bool[]`, and packed is what `RailConnectivityIndex` already does.
 
-**Seeding is derived, not authored.** The 1997 `.scn` has no record for it, so a
-cell whose scenario development level is above 0 is marked searched by its
-province's owner at world creation. An authored mine cannot coherently still be
-hiding what somebody already improved. This covers `s1`'s 52 barren-hill and 6
-mountain `deve` records, which would otherwise load as mines their owner is
-forbidden to deepen.
+**Nothing is seeded.** A cell that has been developed already has workings on it,
+and a mine is a structure you can see from outside. So what a country may act on
+is `CanSeeDeposits` — *searched, or built on* — and the development level does the
+second half of that job by itself:
+
+```
+visible = HasProspected(country, cell) || GetCellDevelopment(cell) > 0
+```
+
+That covers `s1`'s 52 barren-hill and 6 mountain `deve` records without a
+seeding pass, and it is why the 1997 format having no record for who-searched-what
+costs nothing. `HasProspected` stays the honest record of who actually *looked*.
 
 ## Oil is gated, and that makes it unreachable
 
@@ -129,19 +135,17 @@ which is what makes the gate testable and what a hand-authored world would use.
 **Re-read this section when research lands**; the gate is already in the content
 and should need no code change.
 
-## The one thing nothing settles: conquest
+## Conquest
 
-A mine that changes hands must be surveyed again by its new owner before they may
-deepen it, because the seeding above runs once at world creation and knowledge is
-per Great Power.
+Capturing a working mine hands over a working mine: the level is above zero, so
+the new owner can see it and may deepen it. Capturing bare ground with unfound
+coal under it hands over bare ground, and they must still send a Prospector.
 
-**This is a consequence, not a finding.** The manual says nothing about what
-capturing a province does to a survey, and a built mine is arguably visible from
-outside. Requiring the new owner to look is the narrower reading of the two rules
-that *are* settled — knowledge is per power, and the deposits hide — and it can
-only under-permit. `AConqueredMineMustBeSurveyedAgainBeforeItCanBeDeepened` pins
-the current behaviour and says so in its own remarks. If the original hands the
-mine over intact, the fix is in the seeding, not in the planner.
+Both fall out of the one rule above rather than needing a rule of their own, which
+is the argument for reading visibility off the development level instead of
+seeding a bit. Nobody has surveyed the captured tile — `HasProspected` stays false
+for the new owner — and it would matter again if the mine were ever abandoned back
+to level 0.
 
 Note the refusal is `DepositNotYetDiscovered` and not `AlreadyFullyDeveloped`. A
 hidden deposit is not merely unworkable to its owner — as far as they are
@@ -241,7 +245,6 @@ turn, every one a Miner turned back from hills its country could not see.
 
 ## Open questions
 
-- **Whether a conquered mine stays surveyed.** Above.
 - **Research**, without which the oil gate can never open in imported content.
 - **The Driller has no ground to work.** It is declared, it improves oil, and no
   world it can reach will ever reveal any. It becomes real with research.

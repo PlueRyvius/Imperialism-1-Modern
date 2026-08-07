@@ -90,19 +90,106 @@ public static class LegacyWorldConverter
         };
 
     /// <summary>
-    /// The one technology imported content declares, and the only gate the
-    /// manual states outright: "A Prospector cannot look for oil until you
-    /// invest in Oil Drilling technology."
+    /// The manual's Benefits of Technology Table, in printed order. **The order
+    /// is load-bearing**: a <c>tech</c> record is <c>[country, id]</c> with a
+    /// 1-based id and nothing naming it, and this list is what an id is resolved
+    /// against.
     /// </summary>
     /// <remarks>
-    /// <b>No imported country knows it</b>, because a 1997 scenario's
-    /// <c>tech</c> records are not converted and there is no research system to
-    /// acquire it with. So oil is unreachable in an imported world until one of
-    /// those exists. That is the manual's rule applied honestly rather than a
-    /// gap: the fair start has no refinery for the same reason. See
-    /// <c>docs/formulas/prospecting.md</c>.
+    /// The mapping was tested against the corpus before anything was built on
+    /// it. Of the four originals carrying both <c>tech</c> and <c>deve</c>
+    /// records, 379 authored levels are permitted by the technologies their
+    /// owner holds and 4 are not — all four the same deposit, timber at Level
+    /// III, in one country of <c>s1</c>. The decisive case is <c>s3</c>, whose
+    /// powers hold **unequal** sets (9, 13 and 14 technologies), and which
+    /// produces no contradiction at all: a wrong ordering would fire at once on
+    /// the power holding only nine. See <c>docs/formulas/technology.md</c>.
+    /// <para>
+    /// Only the entries this engine can act on are given a gate below. Regiments,
+    /// ships, the Refinery and rail-through-terrain are named here so the
+    /// numbering is right and modelled nowhere.
+    /// </para>
     /// </remarks>
-    private const string OilDrillingKey = "technology.oil-drilling";
+    private static readonly IReadOnlyList<string> TechnologyTable =
+    [
+        "High Pressure Steam Engine",
+        "Seed Drill",
+        "Cotton Gin",
+        "Streamlined Hulls",
+        "Square-Set Timbering",
+        "Iron Railroad Bridge",
+        "Feed Grasses",
+        "Spinning Jenny",
+        "Paddlewheels",
+        "Steel and Iron Plows",
+        "Bessemer Converter",
+        "Compound Steam Engine",
+        "Rifled Artillery",
+        "Breech-Loading Rifles",
+        "Advanced Iron Working",
+        "Power Loom",
+        "Mechanical Reaper",
+        "Commercial Fertiliser",
+        "Oil Drilling",
+        "Barbed Wire",
+        "Steel Armour Plate",
+        "Large Artillery",
+        "Dynamite",
+        "Marine Engineering",
+        "Machine Guns",
+        "Chemistry",
+        "Improved Range-Finding",
+        "Internal Combustion",
+    ];
+
+    /// <summary>
+    /// Oil Drilling, which gates prospecting swamp, desert and tundra. Held as
+    /// its table position so the key and the gate cannot drift apart.
+    /// </summary>
+    private const int OilDrillingPosition = 19;
+
+    /// <summary>
+    /// The two technologies every power starts with, whatever the scenario says:
+    /// "every player always starts with the first two technologies listed below:
+    /// High Pressure Steam Engine and Seed Drill".
+    /// </summary>
+    /// <remarks>
+    /// This is one of the seven engine defaults <c>docs/formulas/_index.md</c>
+    /// calls unrecoverable from the corpus, and it is recovered — from the
+    /// manual. A skirmish carries no <c>tech</c> record and its powers still
+    /// start able to farm.
+    /// </remarks>
+    private static readonly int[] StartingTechnologyPositions = [1, 2];
+
+    /// <summary>
+    /// The Benefits of Technology Table read as a ladder: what it takes to raise
+    /// each deposit to level 1, 2 and 3, as positions in
+    /// <see cref="TechnologyTable"/>. Zero means the rung is ungated, which is
+    /// true only of a mine opening at Level I.
+    /// </summary>
+    /// <remarks>
+    /// Cross-checked row by row against the seven gates already transcribed in
+    /// <c>docs/reference/manual-mechanics.md</c>; every one agrees. Fish and
+    /// horses are absent because no civilian improves them at all.
+    /// </remarks>
+    private static readonly IReadOnlyDictionary<byte, int[]> ResourceTechnologyLadders =
+        new Dictionary<byte, int[]>
+        {
+            [17] = [2, 10, 17],  // grain:     Seed Drill, Steel and Iron Plows, Mechanical Reaper
+            [18] = [2, 10, 18],  // fruit:     Seed Drill, Steel and Iron Plows, Commercial Fertiliser
+            [0] = [3, 8, 16],    // cotton:    Cotton Gin, Spinning Jenny, Power Loom
+            [1] = [7, 8, 16],    // wool:      Feed Grasses, Spinning Jenny, Power Loom
+            [20] = [7, 20, 26],  // livestock: Feed Grasses, Barbed Wire, Chemistry
+            [2] = [6, 12, 23],   // timber:    Iron RR Bridge, Compound Steam Engine, Dynamite
+            [3] = [0, 5, 23],    // coal:      none, Square-Set Timbering, Dynamite
+            [4] = [0, 5, 23],    // iron
+            [21] = [0, 5, 23],   // gems
+            [22] = [0, 5, 23],   // gold
+            [6] = [19, 26, 28],  // oil:       Oil Drilling, Chemistry, Internal Combustion
+        };
+
+    private static string TechnologyKey(int position) =>
+        $"technology.{TechnologyTable[position - 1].ToLowerInvariant().Replace(' ', '-')}";
 
     /// <summary>
     /// Deposits a Prospector must find first: "coal, iron, gold, gems, and oil
@@ -280,7 +367,10 @@ public static class LegacyWorldConverter
 
     private static readonly HashSet<string> ConvertedScenarioTags =
         new(
-            ["cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port", "rail", "labo", "civi"],
+            [
+                "cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port", "rail", "labo",
+                "civi", "tech",
+            ],
             StringComparer.Ordinal);
 
     /// <summary>
@@ -498,6 +588,7 @@ public static class LegacyWorldConverter
         var ports = ReadPorts(scenario, map, report);
         var depots = ReadDepots(scenario, map, report);
         var workers = ReadWorkforce(scenario, countryKeys, report);
+        var countryTechnologies = ReadCountryTechnologies(scenario, countryKeys, report);
         var civilians = ReadCivilians(scenario, map, countryKeys, report);
         var title = string.IsNullOrWhiteSpace(info?.Title)
             ? $"Legacy {options.PackageKey}"
@@ -513,16 +604,13 @@ public static class LegacyWorldConverter
                 Work = type.Work,
             }).ToArray(),
 
-            // The only technology imported content declares, and nobody starts
-            // knowing it. It exists so the oil terrains have something to name.
-            Technologies =
-            [
-                new NamedContentDefinition
-                {
-                    Key = OilDrillingKey,
-                    Name = "Oil Drilling",
-                },
-            ],
+            // The manual's whole table, in printed order, because a tech record
+            // is a bare 1-based index into it.
+            Technologies = TechnologyTable.Select(static (name, offset) => new NamedContentDefinition
+            {
+                Key = TechnologyKey(offset + 1),
+                Name = name,
+            }).ToArray(),
             Commodities = CreateStandardCommodities(),
             ProductionFacilities = CreateStandardProductionFacilities(),
             ProductionRecipes = CreateStandardProductionRecipes(),
@@ -536,9 +624,10 @@ public static class LegacyWorldConverter
                 // The 1997 map records which deposit sits on a cell and never
                 // its output, so the curve comes from the manual's Resource
                 // Development Table rather than from the file. No deposit
-                // declares a technology requirement: the manual gates
-                // improvement *levels* behind technology, not initial
-                // extraction, and nothing here builds a level yet.
+                // declares a RequiredTechnology: the manual gates improvement
+                // *levels* behind technology and never extraction from a
+                // deposit that is already open, which is a different hook —
+                // TechnologyByDevelopmentLevel below.
                 YieldByDevelopmentLevel = [.. ResourceYieldCurves[code]],
 
                 // Which civilian raises this deposit, from the manual's
@@ -551,8 +640,25 @@ public static class LegacyWorldConverter
                 // Coal, iron, gold, gems and oil are on the map and invisible
                 // to their owner until a Prospector has searched the tile.
                 RequiresDiscovery = HiddenResources.Contains(code),
+
+                // What each rung of this deposit's curve costs in knowledge.
+                // Index 0 is the level a tile starts at and is always ungated.
+                TechnologyByDevelopmentLevel = ResourceTechnologyLadders
+                    .TryGetValue(code, out var ladder)
+                    ? [null, .. ladder.Select(static step =>
+                        step == 0 ? null : TechnologyKey(step))]
+                    : null,
             }).ToArray(),
             Feeding = CreateStandardFeeding(),
+
+            // The two the manual gives every power outright. Nothing else here
+            // is defaulted: a shipped scenario authors its own industry and
+            // workforce, so this block exists purely to carry the knowledge no
+            // record ever states.
+            StartingDefaults = new StartingDefaultsContent
+            {
+                Technologies = [.. StartingTechnologyPositions.Select(TechnologyKey)],
+            },
             Extraction = new ExtractionContentSettings
             {
                 CatchmentRadius = WorldContentCodec.DefaultCatchmentRadius,
@@ -594,6 +700,17 @@ public static class LegacyWorldConverter
                     Depots = depots,
                     Workers = workers,
                     Civilians = civilians,
+                    CountryTechnologies = countryTechnologies,
+
+                    // Every power the scenario gives a workforce to. `labo` is
+                    // the one record that names the Great Powers and only them
+                    // — seven in every shipped scenario — so it is how the
+                    // importer tells them from the minor nations without
+                    // guessing. They are the powers the manual's starting two
+                    // technologies belong to.
+                    DefaultStartCountries = [.. workers
+                        .Select(static item => item.Country)
+                        .Distinct(StringComparer.Ordinal)],
                 },
             ],
         };
@@ -781,6 +898,85 @@ public static class LegacyWorldConverter
         return order
             .Select(cell => new CellDevelopmentContent { Cell = (int)cell, Level = byCell[cell] })
             .ToArray();
+    }
+
+    /// <summary>
+    /// Converts <c>tech</c> records into starting knowledge. The record is
+    /// <c>[country, id]</c>, where the id is a **1-based index into the manual's
+    /// Benefits of Technology Table** — see <see cref="TechnologyTable"/> for the
+    /// corpus evidence behind that reading.
+    /// </summary>
+    /// <remarks>
+    /// A scenario grants technology on top of the two every power starts with,
+    /// so a skirmish carrying no <c>tech</c> record at all is not a power that
+    /// knows nothing. `s10`, `s11` and `s15` do exactly that.
+    /// </remarks>
+    private static CountryTechnologyContent[] ReadCountryTechnologies(
+        ScenarioDocument scenario,
+        IReadOnlyDictionary<uint, string> countryKeys,
+        LegacyImportReport report)
+    {
+        var result = new List<CountryTechnologyContent>();
+        var seen = new HashSet<(uint Country, uint Technology)>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "tech")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 2)
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-tech",
+                    path,
+                    "A tech record must contain a country and a technology.");
+                continue;
+            }
+
+            var country = record.Fields[0];
+            var technology = record.Fields[1];
+            if (!countryKeys.TryGetValue(country, out var countryKey))
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-tech-country",
+                    path,
+                    $"Technology refers to unknown country {country}.");
+                continue;
+            }
+
+            if (technology == 0 || technology > (uint)TechnologyTable.Count)
+            {
+                report.Add(
+                    LegacyImportSeverity.Warning,
+                    "scenario.unknown-tech-id",
+                    path,
+                    $"Technology {technology} is outside the manual's table of " +
+                    $"{TechnologyTable.Count}; no knowledge was granted.");
+                continue;
+            }
+
+            if (!seen.Add((country, technology)))
+            {
+                report.Add(
+                    LegacyImportSeverity.Warning,
+                    "scenario.repeated-tech",
+                    path,
+                    $"Country {country} is granted technology {technology} more than once.");
+                continue;
+            }
+
+            result.Add(new CountryTechnologyContent
+            {
+                Country = countryKey,
+                Technology = TechnologyKey((int)technology),
+            });
+        }
+
+        return result.ToArray();
     }
 
     /// <summary>
@@ -1486,7 +1682,7 @@ public static class LegacyWorldConverter
                     LegacyProspecting.Open => new ProspectingContent(),
                     LegacyProspecting.NeedsOilDrilling => new ProspectingContent
                     {
-                        RequiredTechnology = OilDrillingKey,
+                        RequiredTechnology = TechnologyKey(OilDrillingPosition),
                     },
                     _ => null,
                 },

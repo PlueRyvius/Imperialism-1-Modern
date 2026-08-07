@@ -56,6 +56,7 @@ public sealed record TechnologyDefinition
 public sealed record ResourceDefinition
 {
     private readonly IReadOnlyList<long> _yieldByDevelopmentLevel;
+    private readonly IReadOnlyList<TechnologyId?> _technologyByDevelopmentLevel;
 
     public ResourceDefinition(
         ResourceId id,
@@ -63,7 +64,8 @@ public sealed record ResourceDefinition
         IEnumerable<long> yieldByDevelopmentLevel,
         TechnologyId? requiredTechnology = null,
         CivilianTypeId? improvedBy = null,
-        bool requiresDiscovery = false)
+        bool requiresDiscovery = false,
+        IEnumerable<TechnologyId?>? technologyByDevelopmentLevel = null)
     {
         ArgumentNullException.ThrowIfNull(yieldByDevelopmentLevel);
         var yields = yieldByDevelopmentLevel.ToArray();
@@ -88,12 +90,21 @@ public sealed record ResourceDefinition
                 nameof(yieldByDevelopmentLevel));
         }
 
+        var gates = technologyByDevelopmentLevel?.ToArray() ?? [];
+        if (gates.Length > yields.Length)
+        {
+            throw new ArgumentException(
+                "A deposit cannot gate a development level its yield curve does not reach.",
+                nameof(technologyByDevelopmentLevel));
+        }
+
         Id = id;
         Commodity = commodity;
         RequiredTechnology = requiredTechnology;
         ImprovedBy = improvedBy;
         RequiresDiscovery = requiresDiscovery;
         _yieldByDevelopmentLevel = Array.AsReadOnly(yields);
+        _technologyByDevelopmentLevel = Array.AsReadOnly(gates);
     }
 
     public ResourceId Id { get; }
@@ -157,6 +168,44 @@ public sealed record ResourceDefinition
     /// </para>
     /// </remarks>
     public bool RequiresDiscovery { get; }
+
+    /// <summary>
+    /// Knowledge a country needs before a civilian may raise this deposit to
+    /// each level, indexed the same way as <see cref="YieldByDevelopmentLevel"/>:
+    /// entry <c>n</c> is what it takes to reach level <c>n</c>. Null means that
+    /// rung is ungated, and a short or empty list leaves every level above it
+    /// ungated too.
+    /// </summary>
+    /// <remarks>
+    /// The manual's Benefits of Technology Table gates nearly every rung —
+    /// Seed Drill for grain to Level I, Steel and Iron Plows for Level II,
+    /// Mechanical Reaper for Level III, and so on per deposit. The one exception
+    /// is a mine opening at Level I, which needs nothing, consistent with the
+    /// Miner being buildable from the start and prospecting being the only thing
+    /// in its way.
+    /// <para>
+    /// <b>This gates a civilian raising a level and never a scenario authoring
+    /// one</b>, exactly as the capacity ladder gates building and never storing.
+    /// `s1` authors four timber tiles at Level III for a power that does not hold
+    /// Dynamite, and the importer must take them. See
+    /// <c>docs/formulas/technology.md</c>.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<TechnologyId?> TechnologyByDevelopmentLevel => _technologyByDevelopmentLevel;
+
+    /// <summary>
+    /// What it takes to reach <paramref name="developmentLevel"/>, or null when
+    /// that rung is ungated. Levels past the end of the table are ungated rather
+    /// than forbidden, so a package that declares no gates behaves as it did
+    /// before technology existed.
+    /// </summary>
+    public TechnologyId? GetRequiredTechnology(int developmentLevel)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(developmentLevel);
+        return developmentLevel < _technologyByDevelopmentLevel.Count
+            ? _technologyByDevelopmentLevel[developmentLevel]
+            : null;
+    }
 
     /// <summary>
     /// Yield at <paramref name="developmentLevel"/>, holding at the top of the

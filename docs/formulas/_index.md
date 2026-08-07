@@ -53,7 +53,7 @@ the engine's own value for each:
 | `ware` | starting warehouse stock | unrecovered |
 | `cash` | starting treasury | unrecovered |
 | `deve` | cell development levels | none developed — but see below |
-| `tech` | starting technologies | none known |
+| `tech` | starting technologies | **recovered — from the manual** |
 | `tran` | transport capacity pool | unrecovered |
 | `rail` | depots | none built |
 | `rela` | diplomatic relations | unrecovered |
@@ -65,6 +65,15 @@ These are **not recoverable from the corpus** — its whole evidence is that the
 are absent. They are constants in the binary, which makes them one target class
 rather than seven scattered guesses, and the strongest argument for decompiling
 the engine rather than reading its disassembly.
+
+**One of them has fallen, and not to a decompiler.** The manual states the
+`tech` default outright: "every player always starts with the first two
+technologies listed below: High Pressure Steam Engine and Seed Drill." That is
+why the row above reads recovered while the other six do not, and it is worth
+drawing the lesson — the corpus could never have supplied it, and neither had
+anyone read the manual for it. Two of the six remaining (`ware`, `cash`) are
+plain numbers that the same source might yet state somewhere. Look there before
+reaching for Ghidra. See [technology.md](technology.md).
 
 `deve` gained a concrete instance of this while civilian units were being built.
 The manual says farms and orchards adjacent to the capital begin at Level I, and
@@ -93,7 +102,10 @@ bottom of this file.
 | How many turns a civilian's work takes | `guess` | [development](development.md) | Content | generated |
 | Which deposits must be found before use | `inferred` | [prospecting](prospecting.md) | Core, Content, LegacyImport | generated + local corpus |
 | Which ground a Prospector may search | `inferred` | [prospecting](prospecting.md) | Core, Content, LegacyImport | generated + local corpus |
-| What a captured mine's new owner knows | `guess` | [prospecting](prospecting.md) | Core | generated |
+| Which technology opens which improvement level | `inferred` | [technology](technology.md) | Core, Content, LegacyImport | generated + local corpus |
+| What a `tech` id names | `inferred` | [technology](technology.md) | LegacyImport | local corpus |
+| The technologies every power starts with | `inferred` | [technology](technology.md) | Core, Content, LegacyImport | generated |
+| What technology costs, and its prerequisites | `guess` | _technology-investment_ | — | — |
 | Whether the whole economy holds up over time | — | [soak](soak.md) | — | 100-turn soak, 7 powers |
 | Trade clearing price | `guess` | _trade-pricing_ | — | — |
 | Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |
@@ -117,6 +129,15 @@ of that sentence numerically identical. A recipe that broke 2:1 would separate
 them, and none exists yet — the railyard, when it lands, is the first candidate.
 `production.md` records the disassembly search that failed to find the rate, so
 the next attempt does not repeat it.
+
+Technology is the largest single recovery here and the one that most changed
+what was already built: the manual's Benefits of Technology Table gates **every**
+improvement level bar a mine opening at Level I, where the engine had let any
+Farmer walk a tile to the top of its curve for free. The `tech` record's ids
+resolve against the table's printed order, which was falsified against the corpus
+before anything was built on it — 380 authored levels permitted, 4 not, and the
+decisive case is `s3`, whose powers hold *unequal* sets and produce no
+contradiction at all. See [technology.md](technology.md).
 
 Prospecting is the closest this table comes to a mechanic recovered without any
 invention. The manual states the hidden five, the searchable terrain, the one

@@ -246,10 +246,10 @@ public sealed class ProspectingTests
     }
 
     /// <summary>
-    /// A tile somebody has already improved cannot coherently still be hiding
-    /// what they improved, so a scenario's <c>deve</c> record on a mine counts as
-    /// a survey its owner has already done. Derived rather than authored: the
-    /// 1997 format has no record for it.
+    /// A scenario that authored a development level has, by saying so, put a
+    /// visible mine on the tile. Nothing is seeded for this — the level itself
+    /// is the signal, which is why the 1997 format needing no record for it
+    /// costs us nothing.
     /// </summary>
     [Fact]
     public void AnAuthoredMineIsWorkableWithoutASearch()
@@ -257,7 +257,8 @@ public sealed class ProspectingTests
         var state = CreateState(initialDevelopment: [(1, 1)]);
         var miner = Unit(state, Miner);
 
-        Assert.True(state.HasProspected(new CountryId(0), CoalHill));
+        Assert.False(state.HasProspected(new CountryId(0), CoalHill));
+        Assert.True(state.CanSeeDeposits(new CountryId(0), CoalHill));
 
         _ = Resolve(state, Work(miner, CoalHill));
         var deepened = Resolve(state, TurnOrders.Empty(2));
@@ -267,37 +268,49 @@ public sealed class ProspectingTests
     }
 
     /// <summary>
-    /// A conquered mine has to be surveyed again before its new owner may deepen
-    /// it, because a hidden deposit is not merely unworkable to them — as far as
-    /// they are concerned it is not there, so it cannot make the tile look
-    /// finished either.
+    /// A mine that has been dug is a structure standing on the ground, so its
+    /// new owner can see it without sending anybody to look. Capturing a working
+    /// mine hands over a working mine.
     /// </summary>
     /// <remarks>
-    /// <b>This is a consequence, not a finding.</b> The manual says nothing about
-    /// what changing hands does to a survey, and a built mine is arguably visible
-    /// from outside. What is settled is that knowledge is per Great Power and
-    /// that the deposits hide; requiring the new owner to look is the narrower
-    /// reading of both, and it can only under-permit. If it turns out the
-    /// original hands the mine over intact, the fix is in the seeding rather than
-    /// here. See <c>docs/formulas/prospecting.md</c>.
+    /// Nobody has surveyed the tile — <see cref="WorldState.HasProspected"/> is
+    /// still false for the new owner, and would stay false if the mine were ever
+    /// abandoned back to level 0. What changes is only what they may act on.
     /// </remarks>
     [Fact]
-    public void AConqueredMineMustBeSurveyedAgainBeforeItCanBeDeepened()
+    public void AConqueredMineIsVisibleBecauseItIsBuilt()
     {
-        // Country 1's cell 4 starts as a level-3 coal mine: fully developed, and
-        // surveyed by its owner rather than by country 0.
-        var state = CreateState(initialDevelopment: [(4, 3)]);
+        // Country 1's cell 4 starts as a level-1 coal mine.
+        var state = CreateState(initialDevelopment: [(4, 1)]);
         var conquered = new CellIndex(4);
-        Assert.True(state.HasProspected(new CountryId(1), conquered));
         Assert.False(state.HasProspected(new CountryId(0), conquered));
+        Assert.True(state.CanSeeDeposits(new CountryId(0), conquered));
+
+        state.SetProvinceOwner(new ProvinceId(4), new CountryId(0));
+        var miner = Unit(state, Miner);
+
+        _ = Resolve(state, Work(miner, conquered));
+        var deepened = Resolve(state, TurnOrders.Empty(2));
+
+        var mine = Assert.Single(deepened.Events.OfType<CellDevelopedEvent>());
+        Assert.Equal((1, 2), (mine.FromLevel, mine.ToLevel));
+    }
+
+    /// <summary>
+    /// Bare ground still has to be surveyed, however it was acquired. Conquest
+    /// hands over what is visible on the surface and nothing that is not.
+    /// </summary>
+    [Fact]
+    public void ConqueredGroundWithNoMineOnItStillNeedsASurvey()
+    {
+        var state = CreateState();
+        var conquered = new CellIndex(4);
 
         state.SetProvinceOwner(new ProvinceId(4), new CountryId(0));
         var miner = Unit(state, Miner);
 
         var refused = Resolve(state, Work(miner, conquered));
 
-        // Not "already fully developed", which is what a discovery-blind rule
-        // would say, and which would tell the new owner the wrong thing.
         Assert.Equal(
             CivilianOrderRefusal.DepositNotYetDiscovered,
             Assert.Single(refused.Events.OfType<CivilianOrderRefusedEvent>()).Reason);

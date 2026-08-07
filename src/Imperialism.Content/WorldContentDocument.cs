@@ -142,6 +142,13 @@ public sealed class StartingDefaultsContent
     public FacilityCapacityDefaultContent[] ProductionCapacities { get; set; } = [];
 
     public WorkforceDefaultContent? Workforce { get; set; }
+
+    /// <summary>
+    /// Technology keys a listed country begins holding. The 1997 fair start is
+    /// High Pressure Steam Engine and Seed Drill, which the manual states
+    /// outright and no scenario record carries.
+    /// </summary>
+    public string[] Technologies { get; set; } = [];
 }
 
 public sealed class FacilityCapacityDefaultContent
@@ -287,6 +294,16 @@ public sealed class ResourceContentDefinition
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool RequiresDiscovery { get; set; }
+
+    /// <summary>
+    /// Technology keys needed to raise this deposit to each level, indexed like
+    /// <see cref="YieldByDevelopmentLevel"/>: entry <c>n</c> gates level
+    /// <c>n</c>. Null entries are ungated rungs — index 0 always is, and a mine
+    /// opening at Level I is the manual's one other case. Absent means the
+    /// deposit is ungated at every level.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string?[]? TechnologyByDevelopmentLevel { get; set; }
 }
 
 public sealed class ExtractionContentSettings

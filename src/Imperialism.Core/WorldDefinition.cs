@@ -592,19 +592,6 @@ public sealed class WorldState
         foreach (var development in definition.Scenario.InitialCellDevelopment)
         {
             _cellDevelopment[development.Cell.Value] = development.Level;
-
-            // An authored mine is by definition an already-found one. No 1997
-            // record says which tiles a power has searched, so this is derived
-            // rather than authored: a cell somebody has already improved cannot
-            // coherently still be hiding what they improved. It covers s1's 52
-            // barren-hill and 6 mountain deve records, which would otherwise
-            // load as mines their owner is not allowed to deepen.
-            var region = definition.Map[development.Cell].Region;
-            if (region.Kind == CellRegionKind.Province &&
-                _provinceOwners[region.Province.Value] is { } owner)
-            {
-                SetProspectedBit(owner, development.Cell);
-            }
         }
 
         _ports = definition.Scenario.InitialPorts.ToHashSet();
@@ -635,6 +622,21 @@ public sealed class WorldState
         _sickWorkers = new long[_workers.Length];
         _knownTechnologies = new bool[
             checked(definition.Countries.Count * definition.Technologies.Count)];
+
+        // Defaults first, so an explicit record still wins — the same order the
+        // workforce and capacity above use. The manual gives every power High
+        // Pressure Steam Engine and Seed Drill whatever the scenario says.
+        if (definition.StartingDefaults is { } technologyDefaults)
+        {
+            foreach (var country in definition.Scenario.DefaultStartCountries)
+            {
+                foreach (var technology in technologyDefaults.Technologies)
+                {
+                    _knownTechnologies[GetTechnologyOffset(country, technology)] = true;
+                }
+            }
+        }
+
         foreach (var known in definition.Scenario.InitialCountryTechnologies)
         {
             _knownTechnologies[GetTechnologyOffset(known.Country, known.Technology)] = true;
@@ -776,11 +778,31 @@ public sealed class WorldState
     /// the province does not unlearn what is buried there, and gaining one does
     /// not inherit the last owner's survey.
     /// </summary>
+    /// <remarks>
+    /// This is the record of who has <em>looked</em>. What a country may act on
+    /// is <see cref="CanSeeDeposits"/>, which is wider: a mine that has been dug
+    /// is a structure standing on the ground and needs no survey to notice.
+    /// </remarks>
     public bool HasProspected(CountryId country, CellIndex cell)
     {
         var bit = GetProspectedBit(country, cell);
         return (_prospected[bit >> 6] & (1UL << (int)(bit & 63))) != 0;
     }
+
+    /// <summary>
+    /// Whether this country can act on whatever hidden deposits a cell holds:
+    /// either its own Prospectors have searched it, or somebody has already built
+    /// on it and the workings are there to see.
+    /// </summary>
+    /// <remarks>
+    /// The second clause is what makes conquest behave. Take a working mine and
+    /// you may deepen it; take bare ground and you must still send a Prospector.
+    /// It also removes the need to seed anything at world creation — a scenario
+    /// that authored a development level has, by saying so, put a visible mine
+    /// on the tile.
+    /// </remarks>
+    public bool CanSeeDeposits(CountryId country, CellIndex cell) =>
+        GetCellDevelopment(cell) > 0 || HasProspected(country, cell);
 
     /// <summary>
     /// Records that this country has searched this tile, whether or not the
@@ -790,14 +812,7 @@ public sealed class WorldState
     /// </summary>
     public void SetProspected(CountryId country, CellIndex cell)
     {
-        ValidateCountry(country);
-        ValidateCell(cell);
-        SetProspectedBit(country, cell);
-    }
-
-    private void SetProspectedBit(CountryId country, CellIndex cell)
-    {
-        var bit = ((long)country.Value * Definition.Map.Dimensions.CellCount) + cell.Value;
+        var bit = GetProspectedBit(country, cell);
         _prospected[bit >> 6] |= 1UL << (int)(bit & 63);
     }
 

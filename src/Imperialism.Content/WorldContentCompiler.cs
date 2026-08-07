@@ -149,6 +149,21 @@ public static class WorldContentCompiler
                     civilianTypeIds,
                     definition.ImprovedBy,
                     $"resources[{index}].improvedBy"));
+            TechnologyId?[]? gates = null;
+            if (definition.TechnologyByDevelopmentLevel is { } levels)
+            {
+                gates = new TechnologyId?[levels.Length];
+                for (var level = 0; level < levels.Length; level++)
+                {
+                    gates[level] = levels[level] is not { } key
+                        ? null
+                        : new TechnologyId(FindKey(
+                            technologyIds,
+                            key,
+                            $"resources[{index}].technologyByDevelopmentLevel[{level}]"));
+                }
+            }
+
             try
             {
                 return new ResourceDefinition(
@@ -157,7 +172,8 @@ public static class WorldContentCompiler
                     curve,
                     required,
                     improvedBy,
-                    definition.RequiresDiscovery);
+                    definition.RequiresDiscovery,
+                    gates);
             }
             catch (ArgumentException exception)
             {
@@ -169,7 +185,8 @@ public static class WorldContentCompiler
         }).ToArray();
         var extraction = CompileExtractionSettings(document.Extraction, commodityIds);
         var feeding = CompileFeedingSettings(document.Feeding, commodityIds);
-        var startingDefaults = CompileStartingDefaults(document.StartingDefaults, facilityIds);
+        var startingDefaults = CompileStartingDefaults(
+            document.StartingDefaults, facilityIds, technologyIds);
         var facilities = facilityContent.Select((definition, index) =>
         {
             var path = $"productionFacilities[{index}]";
@@ -579,7 +596,8 @@ public static class WorldContentCompiler
     /// </summary>
     private static StartingDefaults? CompileStartingDefaults(
         StartingDefaultsContent? content,
-        IReadOnlyDictionary<string, int> facilityIds)
+        IReadOnlyDictionary<string, int> facilityIds,
+        IReadOnlyDictionary<string, int> technologyIds)
     {
         if (content is null)
         {
@@ -619,7 +637,22 @@ public static class WorldContentCompiler
             workforce = new WorkforceDefault(crew.Untrained, crew.Trained, crew.Expert);
         }
 
-        return new StartingDefaults(capacities, workforce);
+        var technologies = new List<TechnologyId>();
+        var known = new HashSet<string>(StringComparer.Ordinal);
+        var declared = RequireArray(content.Technologies, "startingDefaults.technologies");
+        for (var index = 0; index < declared.Length; index++)
+        {
+            var path = $"startingDefaults.technologies[{index}]";
+            var key = declared[index] ?? throw Error(path, "Value is required.");
+            if (!known.Add(key))
+            {
+                throw Error(path, "Technology appears more than once.");
+            }
+
+            technologies.Add(new TechnologyId(FindKey(technologyIds, key, path)));
+        }
+
+        return new StartingDefaults(capacities, workforce, technologies);
     }
 
     private static MigrationSettings? CompileMigration(
