@@ -570,9 +570,13 @@ public sealed class LegacyWorldConverterTests
         Assert.Equal([1], byKey["resource.horses"]);
 
         // Which technology gates which deposit is unmeasured, so the importer
-        // declares none rather than inventing the mapping.
-        Assert.Empty(result.Document.Technologies);
+        // declares none rather than inventing the mapping. Oil Drilling is the
+        // one technology it does emit, and it gates the *discovery* of oil
+        // rather than the extraction of anything — a terrain rule, not a
+        // deposit one, which is why every deposit still requires nothing.
         Assert.All(result.Document.Resources, static item => Assert.Null(item.RequiredTechnology));
+        var technology = Assert.Single(result.Document.Technologies);
+        Assert.Equal("technology.oil-drilling", technology.Key);
     }
 
     /// <summary>
@@ -631,8 +635,30 @@ public sealed class LegacyWorldConverterTests
             ["s14"] = 17,
             ["s15"] = 14,
         };
+        // Ground a Prospector may search, per scenario: barren hills and
+        // mountains, then the swamp/desert/tundra behind Oil Drilling. This is
+        // the number the original's toolbar counts down.
+        //
+        // s1, s3, s13 and s14 agree exactly because they share the historical
+        // world map. The ten sum to 4,449 open tiles, which is the 2,860 barren
+        // hills plus 1,589 mountains already counted in
+        // docs/formulas/development.md — arrived at from the other direction.
+        var expectedProspectable = new Dictionary<string, (int Open, int Gated)>(StringComparer.Ordinal)
+        {
+            ["s1"] = (598, 414),
+            ["s3"] = (598, 414),
+            ["s13"] = (598, 414),
+            ["s14"] = (598, 414),
+            ["s9"] = (371, 428),
+            ["s12"] = (371, 428),
+            ["s10"] = (382, 425),
+            ["s11"] = (364, 448),
+            ["s15"] = (368, 452),
+            ["s5"] = (201, 517),
+        };
         var converted = 0;
         var totalCivilians = 0;
+        var totalOpenProspectable = 0;
 
         foreach (var mapPath in Directory.GetFiles(directory, "*.map").OrderBy(static path => path))
         {
@@ -704,13 +730,42 @@ public sealed class LegacyWorldConverterTests
                 Assert.Equal(expected, civilians.Length);
             }
 
+            // The only technology imported content declares, and nobody knows
+            // it: a 1997 tech record is not converted and there is no research.
+            // So the gated ground below is unsearchable in practice, which is
+            // the manual's rule rather than a gap. See docs/formulas/prospecting.md.
+            Assert.Equal("technology.oil-drilling", Assert.Single(result.Document.Technologies).Key);
+            Assert.Empty(result.Document.Scenarios[0].CountryTechnologies);
+
+            var open = TerrainKeysWhere(result.Document, static item => item is { RequiredTechnology: null });
+            var gated = TerrainKeysWhere(result.Document, static item => item is { RequiredTechnology: not null });
+            var openCells = result.Document.Map.Cells.Count(cell => open.Contains(cell.Terrain));
+            if (expectedProspectable.TryGetValue(key, out var prospectable))
+            {
+                Assert.Equal(
+                    prospectable,
+                    (openCells, result.Document.Map.Cells.Count(cell => gated.Contains(cell.Terrain))));
+            }
+
+            totalOpenProspectable += openCells;
             totalCivilians += civilians.Length;
             converted++;
         }
 
         Assert.True(converted >= 9, $"Expected the full corpus, converted only {converted}.");
         Assert.Equal(210, totalCivilians);
+
+        // 2,860 barren hills and 1,589 mountains, counted independently of the
+        // terrain census in docs/formulas/development.md and agreeing with it.
+        Assert.Equal(4449, totalOpenProspectable);
     }
+
+    private static HashSet<string> TerrainKeysWhere(
+        WorldContentDocument document,
+        Func<ProspectingContent?, bool> predicate) => document.Terrains
+        .Where(item => predicate(item.Prospecting))
+        .Select(static item => item.Key)
+        .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>
     /// Runs a real turn on a real scenario, end to end: import, compile,
@@ -811,33 +866,42 @@ public sealed class LegacyWorldConverterTests
     }
 
     /// <summary>
-    /// The manual's Terrain Tiles Table gives every terrain a civilian worker
-    /// and gives three of them "None". Those three are the whole reason terrain
-    /// gained attributes, so they are pinned here one by one rather than left
-    /// to the corpus test, which can only show that nothing contradicts them.
+    /// The manual's Terrain Tiles Table, both columns. It gives every terrain a
+    /// civilian worker and gives three of them "None"; it also names the
+    /// Prospector on exactly five, and gates three of those on Oil Drilling.
+    /// Those cases are the whole reason terrain gained attributes, so they are
+    /// pinned here one by one rather than left to the corpus test, which can
+    /// only show that nothing contradicts them.
     /// </summary>
+    /// <remarks>
+    /// <paramref name="prospecting"/> is a tri-state written as a string so the
+    /// three cases read at a glance: <c>null</c> for ground that hides nothing,
+    /// <c>""</c> for ground anyone may search, and a technology key for ground
+    /// that must be paid for in knowledge first.
+    /// </remarks>
     [Theory]
-    [InlineData(0, "terrain.ocean", false)]
-    [InlineData(1, "terrain.clear", false)]
-    [InlineData(2, "terrain.cotton", true)]
-    [InlineData(3, "terrain.cattle-ranch", true)]
-    [InlineData(4, "terrain.horse-ranch", false)]
-    [InlineData(5, "terrain.grain-farm", true)]
-    [InlineData(6, "terrain.orchard", true)]
-    [InlineData(7, "terrain.wool-hill", true)]
-    [InlineData(8, "terrain.hill", true)]
-    [InlineData(9, "terrain.mountain", true)]
-    [InlineData(10, "terrain.swamp", true)]
-    [InlineData(11, "terrain.desert", true)]
-    [InlineData(12, "terrain.tundra", true)]
-    [InlineData(13, "terrain.forest", true)]
-    [InlineData(14, "terrain.town", false)]
-    [InlineData(15, "terrain.scrub-forest", false)]
-    [InlineData(16, "terrain.capital", false)]
+    [InlineData(0, "terrain.ocean", false, null)]
+    [InlineData(1, "terrain.clear", false, null)]
+    [InlineData(2, "terrain.cotton", true, null)]
+    [InlineData(3, "terrain.cattle-ranch", true, null)]
+    [InlineData(4, "terrain.horse-ranch", false, null)]
+    [InlineData(5, "terrain.grain-farm", true, null)]
+    [InlineData(6, "terrain.orchard", true, null)]
+    [InlineData(7, "terrain.wool-hill", true, null)]
+    [InlineData(8, "terrain.hill", true, "")]
+    [InlineData(9, "terrain.mountain", true, "")]
+    [InlineData(10, "terrain.swamp", true, "technology.oil-drilling")]
+    [InlineData(11, "terrain.desert", true, "technology.oil-drilling")]
+    [InlineData(12, "terrain.tundra", true, "technology.oil-drilling")]
+    [InlineData(13, "terrain.forest", true, null)]
+    [InlineData(14, "terrain.town", false, null)]
+    [InlineData(15, "terrain.scrub-forest", false, null)]
+    [InlineData(16, "terrain.capital", false, null)]
     public void EveryLegacyTerrainCarriesTheManualsImprovability(
         byte code,
         string key,
-        bool isImprovable)
+        bool isImprovable,
+        string? prospecting)
     {
         var cells = new[]
         {
@@ -859,6 +923,95 @@ public sealed class LegacyWorldConverterTests
 
         var terrain = Assert.Single(result.Document!.Terrains, item => item.Key == key);
         Assert.Equal(isImprovable, terrain.IsImprovable);
+        if (prospecting is null)
+        {
+            Assert.Null(terrain.Prospecting);
+        }
+        else
+        {
+            Assert.NotNull(terrain.Prospecting);
+            Assert.Equal(
+                prospecting.Length == 0 ? null : prospecting,
+                terrain.Prospecting!.RequiredTechnology);
+        }
+    }
+
+    /// <summary>
+    /// "Coal, iron, gold, gems, and oil must be found by a Prospector before
+    /// they can be exploited by your other civilians." Everything else on the
+    /// map announces itself by its terrain, so only those five hide.
+    /// </summary>
+    [Fact]
+    public void OnlyTheFiveDepositsTheManualHidesRequireDiscovery()
+    {
+        var expected = new (byte Code, string Resource, bool Hidden)[]
+        {
+            (0, "resource.cotton", false),
+            (1, "resource.wool", false),
+            (2, "resource.forest", false),
+            (3, "resource.coal", true),
+            (4, "resource.iron", true),
+            (5, "resource.horses", false),
+            (6, "resource.oil", true),
+            (17, "resource.grain", false),
+            (18, "resource.fruit", false),
+            (19, "resource.fish", false),
+            (20, "resource.cattle", false),
+            (21, "resource.gems", true),
+            (22, "resource.gold", true),
+        };
+        var cells = expected.Select(item => new HexCell
+        {
+            Terrain = 1,
+            Province = 0,
+            NationZoneA = 0,
+            NationZoneB = 0,
+            ResourceA = item.Code,
+        }).ToArray();
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(cells.Length, 1, cells), scenario, null, "discovery-map");
+
+        Assert.True(result.Success);
+        var hidden = result.Document!.Resources
+            .ToDictionary(static item => item.Key, static item => item.RequiresDiscovery);
+        foreach (var item in expected)
+        {
+            Assert.Equal(item.Hidden, hidden[item.Resource]);
+        }
+    }
+
+    /// <summary>
+    /// A Prospector searches and nothing else does. The work kind is what lets
+    /// one order type mean two things, so it is pinned per civilian rather than
+    /// assumed from the name.
+    /// </summary>
+    [Fact]
+    public void OnlyTheProspectorProspects()
+    {
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()), scenario, null, "work-kind-map");
+
+        Assert.True(result.Success);
+        var byKey = result.Document!.CivilianTypes
+            .ToDictionary(static item => item.Key, static item => item.Work);
+        Assert.Equal(CivilianWorkKind.Prospect, byKey["civilian.prospector"]);
+        Assert.All(
+            byKey.Where(static item => item.Key != "civilian.prospector"),
+            item => Assert.Equal(CivilianWorkKind.Improve, item.Value));
     }
 
     /// <summary>

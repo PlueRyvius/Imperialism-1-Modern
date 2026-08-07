@@ -136,6 +136,28 @@ of them, which is exactly how eleven Python tests stayed green in #24. The soak
 counts what it gathered, ate, delivered, produced and built, and fails if the
 answer is nothing.
 
+### A Prospector finding coal is separable from all of it
+
+A third world adds four columns of barren hills to each power's row — two
+carrying coal, one a depot, one bare — and two runs differ only in whether the
+Prospectors look.
+
+```
+                    searched  found  mines  gathered  levels at 100
+Prospectors idle           0      0      0    19,138            196
+Prospectors working       28     14     14    20,468            210
+```
+
+First search on turn 2, first mine on turn 4. **Workers, grain and sickness are
+identical in both** — 49 rising to 119, sickness back on turn 14 — so the whole
+observable effect of discovery is 14 mines and 1,330 coal. That separation is
+worth having: it means the food chain above can be read without wondering what
+the minerals were doing.
+
+The idle run's other number is the one to remember: **700 refusals**, one per
+power per turn, each a Miner turned back from hills its country cannot see.
+See [prospecting.md](prospecting.md).
+
 ## Open
 
 - Soak an imported `s1` rather than a synthetic fixture. That needs a headless

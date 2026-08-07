@@ -66,8 +66,26 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     private const int Forester = 2;
     private const int Miner = 3;
 
+    private const int Prospector = 4;
+
     /// <summary>Farmers seeded per power. The original builds them; this fixture cannot.</summary>
     private const int FarmersPerPower = 3;
+
+    /// <summary>
+    /// Terrain ids. The default fixture uses only <see cref="Farmland"/>; the
+    /// hidden-minerals variant adds hills, which are the only ground here a
+    /// Prospector may search.
+    /// </summary>
+    private const int Farmland = 0;
+    private const int BarrenHills = 1;
+
+    /// <summary>
+    /// Columns appended to each power's row when the hidden-minerals variant is
+    /// asked for: a coal hill, a depot to lift it, a second coal hill, and one
+    /// bare hill that hides nothing. The bare one matters — most searches find
+    /// nothing, and a run in which every search succeeds would not be the game.
+    /// </summary>
+    private const int HiddenMineralColumns = 4;
 
     /// <summary>The guessed work duration, spelled out so the run's shape is traceable to it.</summary>
     private const int CivilianWorkTurns = 1;
@@ -82,7 +100,13 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             new CommodityId(resource),
             [0, 1, 2, 3],
             null,
-            new CivilianTypeId(improver));
+            new CivilianTypeId(improver),
+
+            // The manual's five: a Miner's deposits have to be found first. The
+            // existing rows are all authored at level 1, which counts as a
+            // survey their owner has already done, so this changes nothing for
+            // the runs above.
+            requiresDiscovery: improver == Miner);
 
     [Fact]
     public void AHundredTurnsWithNoOrdersKeepsTheWorldIntact()
@@ -199,6 +223,70 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// Prospecting end to end over a hundred turns: ground searched, a deposit
+    /// found, a Miner sent to open it, and coal from a mine that did not exist
+    /// at the start reaching the warehouse.
+    /// </summary>
+    /// <remarks>
+    /// The world is the farming one plus four columns of barren hills per power
+    /// — two carrying coal, one a depot to lift it, one bare. The bare hill is
+    /// the honest part: in the shipped corpus only 449 of 2,860 barren hills
+    /// hold anything, so a Prospector that always succeeds would be testing a
+    /// game nobody plays.
+    /// <para>
+    /// <b>The order is asserted; the turn numbers are reported.</b> A tile
+    /// cannot be mined before it has been searched, and coal from the new hills
+    /// cannot arrive before both. When each lands depends on the guessed work
+    /// duration, so it is printed rather than pinned.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void AProspectorFindsCoalAndAMinerTurnsItIntoAWarehouse()
+    {
+        var state = CreateWorld(withHiddenMinerals: true);
+        var log = Run(state, orderPolicy: ProspectingGrowthPolicy, out var work);
+
+        output.WriteLine(log);
+
+        Assert.True(work.Prospected > 0, "No ground was ever searched.");
+        Assert.True(work.Revealed > 0, "No search ever found anything.");
+        Assert.True(work.MinesOpened > 0, "Nothing found was ever mined.");
+
+        // The chain, in order. Anything else means a Miner reached ground its
+        // country could not see.
+        Assert.NotNull(work.FirstProspected);
+        Assert.NotNull(work.FirstMineOpened);
+        Assert.True(
+            work.FirstProspected < work.FirstMineOpened,
+            $"A mine opened on turn {work.FirstMineOpened} on ground first searched " +
+            $"on turn {work.FirstProspected}.");
+    }
+
+    /// <summary>
+    /// The control for the run above. Identical world, and the Prospectors are
+    /// never told to look — so the hills stay unsearched, no mine is ever
+    /// opened, and the four extra columns pay nothing for a hundred turns.
+    /// </summary>
+    [Fact]
+    public void HillsNobodySearchesStayWorthNothing()
+    {
+        var state = CreateWorld(withHiddenMinerals: true);
+        var log = Run(state, orderPolicy: FarmingGrowthPolicy, out var work);
+
+        output.WriteLine(log);
+
+        Assert.Equal(0, work.Prospected);
+        Assert.Equal(0, work.MinesOpened);
+
+        // The Miner is idle for a different reason than the Prospector: the
+        // farming policy does send it somewhere, and every hill it could open
+        // is invisible, so it is refused.
+        Assert.True(
+            work.DiscoveryRefusals > 0,
+            "No Miner was ever turned back for want of a survey.");
+    }
+
+    /// <summary>
     /// The control. Identical world, identical orders, except that no Farmer is
     /// ever told to work — so the deficit stands, the harvest never moves, and
     /// migration stays as inert as it has been since it was built. Without this
@@ -227,7 +315,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         int? FirstDevelopedTurn, int? FirstSicknessFreeTurn, int? FirstRecruitedTurn,
         int? SicknessReturnedTurn,
         long FirstTurnGrain, long LastTurnGrain, long LastTurnSick,
-        long FirstTurnWorkers, long LastTurnWorkers);
+        long FirstTurnWorkers, long LastTurnWorkers,
+        long Prospected, long Revealed, long MinesOpened, long DiscoveryRefusals,
+        int? FirstProspected, int? FirstMineOpened);
 
     /// <summary>
     /// Makes the comforts a recruit costs and then recruits. A fixture, not an
@@ -303,6 +393,68 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// <see cref="FarmingGrowthPolicy"/> plus prospecting: every idle Prospector
+    /// searches the nearest unsearched hill, and every idle Miner opens the
+    /// nearest coal somebody has already found. Same warning as the others — a
+    /// fixture, not an AI.
+    /// </summary>
+    private static CountryTurnOrders ProspectingGrowthPolicy(WorldState state, CountryId country)
+    {
+        var farming = FarmingGrowthPolicy(state, country);
+        var map = state.Definition.Map;
+
+        // The farming policy sends every idle civilian to something its type
+        // improves, and a Miner qualifies for the coal already on the rows. The
+        // discovery chain wins the argument: its orders are dropped and rewritten
+        // below, because one civilian may take only one order a turn.
+        var retasked = state.GetCivilians(country)
+            .Where(item => !item.IsBusy && Searches(state, item.Type) || item.Type == new CivilianTypeId(Miner))
+            .Select(static item => item.Id)
+            .ToHashSet();
+        var kept = farming.CivilianWork.Where(item => !retasked.Contains(item.Unit)).ToArray();
+        var taken = kept.Select(static item => item.Cell).ToHashSet();
+        var work = kept.ToList();
+
+        foreach (var civilian in state.GetCivilians(country).Where(static item => !item.IsBusy))
+        {
+            var kind = state.Definition.CivilianTypes[civilian.Type.Value].Work;
+            if (kind != CivilianWorkKind.Prospect && civilian.Type != new CivilianTypeId(Miner))
+            {
+                continue;
+            }
+
+            var target = map.Cells.FirstOrDefault(cell =>
+                cell.Region.Kind == CellRegionKind.Province &&
+                state.GetProvinceOwner(cell.Region.Province) == country &&
+                !taken.Contains(cell.Index) &&
+                (kind == CivilianWorkKind.Prospect
+                    ? map.GetTerrain(cell.Terrain)?.Prospecting is not null &&
+                        !state.HasProspected(country, cell.Index)
+                    : state.HasProspected(country, cell.Index) &&
+                        state.GetCellDevelopment(cell.Index) == 0 &&
+                        cell.Resources.Any(resource =>
+                            map.Resources[resource.Value].ImprovedBy == civilian.Type)));
+            if (target is null)
+            {
+                continue;
+            }
+
+            taken.Add(target.Index);
+            work.Add(new CivilianWorkOrder(civilian.Id, target.Index));
+        }
+
+        return new CountryTurnOrders(
+            country,
+            farming.Production,
+            farming.Expansions,
+            farming.RecruitWorkers,
+            civilianWork: work);
+    }
+
+    private static bool Searches(WorldState state, CivilianTypeId type) =>
+        state.Definition.CivilianTypes[type.Value].Work == CivilianWorkKind.Prospect;
+
+    /// <summary>
     /// A stand-in for a player, and **not an AI and not a finding**. It exists
     /// so the soak exercises production and construction at all; every choice
     /// in it is arbitrary and nothing downstream should cite it.
@@ -345,6 +497,13 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         int? sicknessReturned = null;
         long firstTurnGrain = 0, lastTurnGrain = 0, lastTurnSick = 0;
         long firstTurnWorkers = 0, lastTurnWorkers = 0;
+        long prospected = 0, revealed = 0, minesOpened = 0, discoveryRefusals = 0;
+        int? firstProspected = null, firstMineOpened = null;
+        var hills = Enumerable.Range(0, state.Definition.Map.Dimensions.CellCount)
+            .Select(static index => new CellIndex(index))
+            .Where(cell => state.Definition.Map
+                .GetTerrain(state.Definition.Map[cell].Terrain)?.Prospecting is not null)
+            .ToHashSet();
         var report = new StringBuilder();
         report.AppendLine(
             "turn  workers  fed/sick/starved  labour   stock   capacity  pending  grain  levels");
@@ -398,6 +557,27 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 firstDeveloped ??= turn;
             }
 
+            var searches = resolution.Events.OfType<CellProspectedEvent>().ToArray();
+            prospected += searches.Length;
+            revealed += searches.Sum(static item => item.Revealed.Count);
+            if (searches.Length > 0)
+            {
+                firstProspected ??= turn;
+            }
+
+            // Only the hills count as mines opened. The rows' own coal was
+            // authored at level 1 and improving it is ordinary development.
+            var opened = resolution.Events.OfType<CellDevelopedEvent>()
+                .Count(item => item.FromLevel == 0 && hills.Contains(item.Cell));
+            minesOpened += opened;
+            if (opened > 0)
+            {
+                firstMineOpened ??= turn;
+            }
+
+            discoveryRefusals += resolution.Events.OfType<CivilianOrderRefusedEvent>()
+                .Count(static item => item.Reason == CivilianOrderRefusal.DepositNotYetDiscovered);
+
             if (recruitedThisTurn > 0)
             {
                 firstRecruited ??= turn;
@@ -436,7 +616,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         work = new WorkDone(
             gathered, eaten, delivered, produced, built, recruited, recruitAttempts, developed,
             firstDeveloped, firstSicknessFree, firstRecruited, sicknessReturned,
-            firstTurnGrain, lastTurnGrain, lastTurnSick, firstTurnWorkers, lastTurnWorkers);
+            firstTurnGrain, lastTurnGrain, lastTurnSick, firstTurnWorkers, lastTurnWorkers,
+            prospected, revealed, minesOpened, discoveryRefusals,
+            firstProspected, firstMineOpened);
         report.AppendLine(
             $"gathered {gathered}, eaten {eaten}, delivered {delivered}, " +
             $"produced {produced} cycles, built {built} times, " +
@@ -451,6 +633,10 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             $"grain a turn {firstTurnGrain} -> {lastTurnGrain}; " +
             $"workers {firstTurnWorkers} -> {lastTurnWorkers}; " +
             $"sick at the end {lastTurnSick}");
+        report.AppendLine(
+            $"{prospected} tiles searched revealing {revealed} deposits, " +
+            $"{minesOpened} mines opened, {discoveryRefusals} refused for want of a survey; " +
+            $"first search turn {Or(firstProspected)}, first mine turn {Or(firstMineOpened)}");
         return report.ToString();
 
         static string Or(int? turn) => turn?.ToString() ?? "never";
@@ -563,13 +749,18 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     /// actually looks like. A resource-rich fixture would come back healthy and
     /// prove nothing.
     /// </summary>
-    private static WorldState CreateWorld()
+    private static WorldState CreateWorld(bool withHiddenMinerals = false)
     {
         // Each power gets a row of 22 cells: a capital at column 0, then a
         // repeating deposit / depot / deposit run. A depot reaches one step, so
         // every deposit sits beside one and nothing is stranded — this fixture
         // is about the economy, not about connectivity, which has its own tests.
-        const int width = 22;
+        //
+        // The hidden-minerals variant appends four more columns rather than
+        // editing these, so the two published runs above are byte for byte the
+        // world they were reported against.
+        const int baseWidth = 22;
+        var width = withHiddenMinerals ? baseWidth + HiddenMineralColumns : baseWidth;
         var dimensions = new MapDimensions(width, Powers);
 
         // Two or three of each resource, which is what a normal start looks
@@ -601,11 +792,24 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 provinces.Add(new ProvinceDefinition(new ProvinceId(index), $"P{power}-{column}"));
                 owners.Add(new CountryId(power));
 
+                var hidden = column >= baseWidth;
                 var isCapital = column == 0;
-                var isDepot = !isCapital && column % 3 == 2;
+                var isDepot = hidden
+                    ? column == baseWidth + 1
+                    : !isCapital && column % 3 == 2;
 
                 ResourceId[] deposits = [];
-                if (!isCapital && !isDepot)
+                if (hidden)
+                {
+                    // Undeveloped, so it yields nothing until a Miner opens it —
+                    // and unsearched, so no Miner may go near it. The last
+                    // column is left bare on purpose.
+                    if (!isDepot && column != width - 1)
+                    {
+                        deposits = [new ResourceId(Coal)];
+                    }
+                }
+                else if (!isCapital && !isDepot)
                 {
                     deposits = [new ResourceId(depositCycle[deposited % depositCycle.Length])];
                     deposited++;
@@ -617,7 +821,7 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 cells.Add(new CellDefinition(
                     cell,
                     dimensions.GetCoordinate(cell),
-                    new TerrainId(0),
+                    new TerrainId(hidden ? BarrenHills : Farmland),
                     CellRegion.ForProvince(new ProvinceId(index)),
                     deposits,
                     isCapital ? SettlementSiteKind.Urban : SettlementSiteKind.None));
@@ -643,6 +847,14 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 civilians.Add(new InitialCivilian(
                     new CountryId(power), new CivilianTypeId(Farmer), new CellIndex(power * width)));
             }
+
+            if (withHiddenMinerals)
+            {
+                civilians.Add(new InitialCivilian(
+                    new CountryId(power), new CivilianTypeId(Prospector), new CellIndex(power * width)));
+                civilians.Add(new InitialCivilian(
+                    new CountryId(power), new CivilianTypeId(Miner), new CellIndex(power * width)));
+            }
         }
 
         var map = new MapDefinition(
@@ -660,10 +872,18 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 Deposit(Iron, Miner),
             ],
 
-            // One terrain, and a civilian may work it. The three the manual
-            // calls unimprovable have their own test; this fixture is about
-            // whether improving anything at all changes the economy.
-            [new TerrainDefinition(new TerrainId(0), "Farmland", isImprovable: true)]);
+            // Farmland is worked but never searched — it announces its crops by
+            // being farmland. Hills are the only ground here that hides
+            // anything, and they need no technology, matching the manual's
+            // barren hills and mountains.
+            [
+                new TerrainDefinition(new TerrainId(Farmland), "Farmland", isImprovable: true),
+                new TerrainDefinition(
+                    new TerrainId(BarrenHills),
+                    "Barren Hills",
+                    isImprovable: true,
+                    prospecting: ProspectingRule.Unrestricted),
+            ]);
 
         var scenario = new ScenarioDefinition(
             "Soak",
@@ -763,6 +983,11 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 new CivilianTypeDefinition(new CivilianTypeId(Rancher), "Rancher", CivilianWorkTurns),
                 new CivilianTypeDefinition(new CivilianTypeId(Forester), "Forester", CivilianWorkTurns),
                 new CivilianTypeDefinition(new CivilianTypeId(Miner), "Miner", CivilianWorkTurns),
+                new CivilianTypeDefinition(
+                    new CivilianTypeId(Prospector),
+                    "Prospector",
+                    CivilianWorkTurns,
+                    CivilianWorkKind.Prospect),
             ]));
     }
 

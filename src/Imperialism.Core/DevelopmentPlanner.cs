@@ -22,6 +22,12 @@ internal sealed record PlannedCellDevelopment(
     int FromLevel,
     int ToLevel) : PlannedCivilianOutcome(Country, Unit);
 
+internal sealed record PlannedCellProspected(
+    CountryId Country,
+    CivilianUnitId Unit,
+    CellIndex Cell,
+    IReadOnlyList<ResourceId> Revealed) : PlannedCivilianOutcome(Country, Unit);
+
 internal sealed record PlannedCivilianRefusal(
     CountryId Country,
     CivilianUnitId Unit,
@@ -29,9 +35,10 @@ internal sealed record PlannedCivilianRefusal(
     CivilianOrderRefusal Reason) : PlannedCivilianOutcome(Country, Unit);
 
 /// <summary>
-/// Moves civilians and raises the tiles they have finished working. This is the
-/// only thing in the engine that creates development; before it, a cell's level
-/// was whatever the scenario authored and nothing could change it.
+/// Moves civilians, raises the tiles they have finished working, and records the
+/// ground their Prospectors have searched. This is the only thing in the engine
+/// that creates development; before it, a cell's level was whatever the scenario
+/// authored and nothing could change it.
 /// </summary>
 /// <remarks>
 /// Like <see cref="FeedingPlanner"/> and unlike <see cref="ExpansionPlanner"/>
@@ -43,6 +50,12 @@ internal sealed record PlannedCivilianRefusal(
 /// Work already under way is advanced <em>before</em> new orders are read, and
 /// the set of busy civilians is taken before that, so a civilian finishing this
 /// turn cannot also accept an order written while it was still busy.
+/// </para>
+/// <para>
+/// Prospecting shares all of that — the timer, the movement, the refusal
+/// reporting — and differs only in what finishing does. Which of the two a
+/// civilian performs is a property of its type, so a work order needs no
+/// discriminator of its own.
 /// </para>
 /// </remarks>
 internal static class DevelopmentPlanner
@@ -126,11 +139,42 @@ internal static class DevelopmentPlanner
                 continue;
             }
 
+            if (WorkOf(state, civilian.Type) == CivilianWorkKind.Prospect)
+            {
+                state.SetProspected(civilian.Country, job.Cell);
+                outcomes.Add(new PlannedCellProspected(
+                    civilian.Country, civilian.Id, job.Cell, HiddenDeposits(state, job.Cell)));
+                continue;
+            }
+
             var from = state.GetCellDevelopment(job.Cell);
             state.SetCellDevelopment(job.Cell, from + 1);
             outcomes.Add(new PlannedCellDevelopment(
                 civilian.Country, civilian.Id, job.Cell, from, from + 1));
         }
+    }
+
+    private static CivilianWorkKind WorkOf(WorldState state, CivilianTypeId type) =>
+        state.Definition.CivilianTypes[type.Value].Work;
+
+    /// <summary>
+    /// Deposits on a cell that a country cannot see until it has searched. The
+    /// list is what the search reveals, and it is empty on most of the ground a
+    /// Prospector is sent to.
+    /// </summary>
+    private static IReadOnlyList<ResourceId> HiddenDeposits(WorldState state, CellIndex cell)
+    {
+        var map = state.Definition.Map;
+        List<ResourceId>? revealed = null;
+        foreach (var resourceId in map[cell].Resources)
+        {
+            if (map.Resources[resourceId.Value].RequiresDiscovery)
+            {
+                (revealed ??= []).Add(resourceId);
+            }
+        }
+
+        return revealed is null ? [] : Array.AsReadOnly(revealed.ToArray());
     }
 
     private static CivilianOrderRefusal? Refuse(
@@ -191,11 +235,9 @@ internal static class DevelopmentPlanner
     }
 
     /// <summary>
-    /// Whether this kind of civilian can raise this tile. Three separate things
-    /// must all hold, and they come from three different places: the ground must
-    /// admit improvement at all (the manual's Terrain Tiles Table), something on
-    /// it must be this civilian's work (the Resource Development Table), and
-    /// that deposit's yield curve must have a rung left.
+    /// Whether this civilian can do its work here. Which work that is comes from
+    /// the civilian's type, so this is the fork between improving a tile and
+    /// searching one.
     /// </summary>
     private static CivilianOrderRefusal? LegalityOfWork(
         WorldState state,
@@ -208,6 +250,25 @@ internal static class DevelopmentPlanner
             return entry;
         }
 
+        return WorkOf(state, type) == CivilianWorkKind.Prospect
+            ? LegalityOfProspecting(state, country, cell)
+            : LegalityOfImprovement(state, country, type, cell);
+    }
+
+    /// <summary>
+    /// Whether this kind of civilian can raise this tile. Four separate things
+    /// must all hold, and they come from four different places: the ground must
+    /// admit improvement at all (the manual's Terrain Tiles Table), something on
+    /// it must be this civilian's work (the Resource Development Table), that
+    /// deposit must already have been found if it is one of the five that hide,
+    /// and its yield curve must have a rung left.
+    /// </summary>
+    private static CivilianOrderRefusal? LegalityOfImprovement(
+        WorldState state,
+        CountryId country,
+        CivilianTypeId type,
+        CellIndex cell)
+    {
         var map = state.Definition.Map;
         if (map.GetTerrain(map[cell].Terrain) is not { IsImprovable: true })
         {
@@ -216,11 +277,22 @@ internal static class DevelopmentPlanner
 
         var level = state.GetCellDevelopment(cell);
         var worked = false;
+        var undiscovered = false;
         foreach (var resourceId in map[cell].Resources)
         {
             var resource = map.Resources[resourceId.Value];
             if (resource.ImprovedBy != type)
             {
+                continue;
+            }
+
+            // "Miners cannot be used until a Prospector locates some gold, gems,
+            // coal, or iron to mine." A hidden deposit is not merely unworkable
+            // here — as far as its owner is concerned it is not there at all, so
+            // it cannot even count towards the tile being fully developed.
+            if (resource.RequiresDiscovery && !state.HasProspected(country, cell))
+            {
+                undiscovered = true;
                 continue;
             }
 
@@ -234,8 +306,48 @@ internal static class DevelopmentPlanner
             }
         }
 
-        return worked
-            ? CivilianOrderRefusal.AlreadyFullyDeveloped
+        if (worked)
+        {
+            return CivilianOrderRefusal.AlreadyFullyDeveloped;
+        }
+
+        // Reported ahead of "nothing here is your work", because it is the more
+        // useful of the two: it means come back with a Prospector rather than
+        // this is the wrong civilian entirely.
+        return undiscovered
+            ? CivilianOrderRefusal.DepositNotYetDiscovered
             : CivilianOrderRefusal.NoDepositThisCivilianWorks;
+    }
+
+    /// <summary>
+    /// Whether a Prospector may search this tile. The ground must be the kind
+    /// that hides anything, the country must know whatever that ground takes,
+    /// and nobody of theirs may have searched it already.
+    /// </summary>
+    /// <remarks>
+    /// Notice what is <em>not</em> checked: whether there is anything to find.
+    /// A search of empty ground is legal, completes normally and reveals
+    /// nothing, which is the common case and the whole reason the original
+    /// counts down the tiles left to search.
+    /// </remarks>
+    private static CivilianOrderRefusal? LegalityOfProspecting(
+        WorldState state,
+        CountryId country,
+        CellIndex cell)
+    {
+        var map = state.Definition.Map;
+        if (map.GetTerrain(map[cell].Terrain)?.Prospecting is not { } rule)
+        {
+            return CivilianOrderRefusal.TerrainCannotBeProspected;
+        }
+
+        if (rule.RequiredTechnology is { } required && !state.HasTechnology(country, required))
+        {
+            return CivilianOrderRefusal.ProspectingTechnologyNotKnown;
+        }
+
+        return state.HasProspected(country, cell)
+            ? CivilianOrderRefusal.AlreadyProspected
+            : null;
     }
 }

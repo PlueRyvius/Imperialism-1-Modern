@@ -71,6 +71,11 @@ internal static class WorldContentMigrator
             MigrateVersionTwelveToThirteen(document);
         }
 
+        if (document.FormatVersion == 13)
+        {
+            MigrateVersionThirteenToFourteen(document);
+        }
+
         return document;
     }
 
@@ -538,6 +543,53 @@ internal static class WorldContentMigrator
         }).ToArray();
         document.TerrainKeys = null;
         document.FormatVersion = 13;
+    }
+
+    /// <summary>
+    /// Version 14 hides the five deposits a Prospector has to find, and says
+    /// which ground is worth searching.
+    /// </summary>
+    /// <remarks>
+    /// A version 13 package declares no prospectable terrain and no hidden
+    /// deposit, and neither can be invented for it: which of an arbitrary
+    /// world's terrains might conceal something is a property of that world, not
+    /// a default. So it migrates to a world where nothing is hidden and no
+    /// civilian searches — every deposit visible from turn one, which is exactly
+    /// how it behaved before. A package that wants discovery declares it.
+    /// </remarks>
+    private static void MigrateVersionThirteenToFourteen(WorldContentDocument document)
+    {
+        foreach (var terrain in document.Terrains ?? [])
+        {
+            if (terrain?.Prospecting is not null)
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 13 cannot contain version 14 prospecting terms.");
+            }
+        }
+
+        foreach (var resource in document.Resources ?? [])
+        {
+            if (resource?.RequiresDiscovery == true)
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 13 cannot hide a deposit behind discovery.");
+            }
+        }
+
+        foreach (var type in document.CivilianTypes ?? [])
+        {
+            if (type?.Work is not (null or Imperialism.Core.CivilianWorkKind.Improve))
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 13 cannot contain a version 14 civilian work kind.");
+            }
+        }
+
+        document.FormatVersion = 14;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

@@ -84,6 +84,25 @@ civilian can work them, and the four minerals occur only in barren hill and
 mountain tiles. Everything else is visible from the terrain type — a cotton
 plantation obviously has cotton.
 
+Three further things the manual states outright, all of them load-bearing:
+
+- **Searched-ness is per Great Power and permanent.** "If a Prospector of your
+  Great Power has already searched a tile, you see a small pickaxe and a red X."
+- **The searchable set grows with technology.** The eye cursor appears over
+  barren hills and mountains from the start, and "when your country invests in
+  Oil Drilling technology, the eye cursor appears over unprospected swamps,
+  deserts, and tundra as well". The Terrain Tiles Table agrees, pairing
+  "Driller, Prospector" with exactly those three.
+- **An empty search still counts.** The toolbar shows "how many terrain tiles are
+  left to search in the country the Prospector is in", a number that can only
+  fall if ground found empty stops being worth revisiting.
+
+A new mine or derrick opens at **Level I**, not at the top of its curve.
+
+This is implemented; see `../formulas/prospecting.md`, including the one
+consequence — imported worlds can never reach their oil, because nothing
+converts a `tech` record and there is no research.
+
 ## Collection: depots, ports and the catchment
 
 The same sentence appears for the Miner, Farmer, Rancher, Forester and Driller:

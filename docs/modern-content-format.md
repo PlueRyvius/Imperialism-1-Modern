@@ -77,6 +77,14 @@ palette becomes `terrains`, whose entries carry a display name and an
 after its key and improvable nowhere, and to a world with no civilians — which
 is not a placeholder standing in for a missing value but an exact reproduction:
 a version 12 world had no way to improve anything at all.
+Version 14 adds discovery: `terrains[].prospecting` says whether a Prospector may
+search that ground and what technology it takes, `resources[].requiresDiscovery`
+marks the five deposits that hide, and `civilianTypes[].work` says whether a
+civilian improves or searches. `prospecting` is an **object whose absence is the
+signal** — present-and-empty means searchable by anyone, which a boolean beside a
+nullable technology could not distinguish from ground nobody may look at. A
+version 13 package migrates to a world where nothing hides and nothing is
+searchable, which again reproduces it exactly rather than guessing for it.
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the

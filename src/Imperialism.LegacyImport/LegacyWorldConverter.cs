@@ -15,8 +15,29 @@ public sealed record LegacyImportResult(
     public bool Success => Document is not null && !Report.HasErrors;
 }
 
-/// <summary>One legacy terrain code's key stem, display name and improvability.</summary>
-internal readonly record struct LegacyTerrain(string Name, string DisplayName, bool IsImprovable);
+/// <summary>
+/// One legacy terrain code's key stem, display name, improvability, and whether
+/// a Prospector may search it — and if so, at what price in knowledge.
+/// </summary>
+/// <remarks>
+/// <paramref name="Prospecting"/> is a tri-state and the middle case is the easy
+/// one to lose: <see cref="LegacyProspecting.No"/> means the ground hides
+/// nothing, <see cref="LegacyProspecting.Open"/> means search it from turn one,
+/// and <see cref="LegacyProspecting.NeedsOilDrilling"/> means the eye cursor
+/// appears only once the country has invested.
+/// </remarks>
+internal readonly record struct LegacyTerrain(
+    string Name,
+    string DisplayName,
+    bool IsImprovable,
+    LegacyProspecting Prospecting = LegacyProspecting.No);
+
+internal enum LegacyProspecting : byte
+{
+    No,
+    Open,
+    NeedsOilDrilling,
+}
 
 public static class LegacyWorldConverter
 {
@@ -36,6 +57,15 @@ public static class LegacyWorldConverter
     /// can. The corpus corroborates without exception — of 481 <c>deve</c>
     /// records across five scenarios, none lands on any of these.
     /// </para>
+    /// <para>
+    /// Prospectability is the same table read for its second column. Barren
+    /// hills and mountains list "Miner, Prospector" and swamp, desert and tundra
+    /// list "Driller, Prospector"; every other terrain names no Prospector at
+    /// all, because it announces what it holds by being what it is. The oil
+    /// three are gated: "when your country invests in Oil Drilling technology,
+    /// the eye cursor appears over unprospected swamps, deserts, and tundra as
+    /// well."
+    /// </para>
     /// </remarks>
     private static readonly IReadOnlyDictionary<byte, LegacyTerrain> Terrains =
         new Dictionary<byte, LegacyTerrain>
@@ -48,15 +78,45 @@ public static class LegacyWorldConverter
             [5] = new("grain-farm", "Farm", true),
             [6] = new("orchard", "Orchard", true),
             [7] = new("wool-hill", "Fertile Hills", true),
-            [8] = new("hill", "Barren Hills", true),
-            [9] = new("mountain", "Mountains", true),
-            [10] = new("swamp", "Swamp", true),
-            [11] = new("desert", "Desert", true),
-            [12] = new("tundra", "Tundra", true),
+            [8] = new("hill", "Barren Hills", true, LegacyProspecting.Open),
+            [9] = new("mountain", "Mountains", true, LegacyProspecting.Open),
+            [10] = new("swamp", "Swamp", true, LegacyProspecting.NeedsOilDrilling),
+            [11] = new("desert", "Desert", true, LegacyProspecting.NeedsOilDrilling),
+            [12] = new("tundra", "Tundra", true, LegacyProspecting.NeedsOilDrilling),
             [13] = new("forest", "Hardwood Forest", true),
             [14] = new("town", "Town", false),
             [15] = new("scrub-forest", "Scrub Forest", false),
             [16] = new("capital", "Capital", false),
+        };
+
+    /// <summary>
+    /// The one technology imported content declares, and the only gate the
+    /// manual states outright: "A Prospector cannot look for oil until you
+    /// invest in Oil Drilling technology."
+    /// </summary>
+    /// <remarks>
+    /// <b>No imported country knows it</b>, because a 1997 scenario's
+    /// <c>tech</c> records are not converted and there is no research system to
+    /// acquire it with. So oil is unreachable in an imported world until one of
+    /// those exists. That is the manual's rule applied honestly rather than a
+    /// gap: the fair start has no refinery for the same reason. See
+    /// <c>docs/formulas/prospecting.md</c>.
+    /// </remarks>
+    private const string OilDrillingKey = "technology.oil-drilling";
+
+    /// <summary>
+    /// Deposits a Prospector must find first: "coal, iron, gold, gems, and oil
+    /// must be found by a Prospector before they can be exploited by your other
+    /// civilians". Everything else is announced by its terrain.
+    /// </summary>
+    private static readonly IReadOnlySet<byte> HiddenResources =
+        new HashSet<byte>
+        {
+            3,  // coal
+            4,  // iron
+            6,  // oil
+            21, // gems
+            22, // gold
         };
 
     /// <summary>
@@ -80,15 +140,15 @@ public static class LegacyWorldConverter
     /// reference them.
     /// </para>
     /// </remarks>
-    private static readonly IReadOnlyList<(string Name, string DisplayName)> CivilianTypes =
+    private static readonly IReadOnlyList<(string Name, string DisplayName, CivilianWorkKind Work)> CivilianTypes =
     [
-        ("miner", "Miner"),
-        ("prospector", "Prospector"),
-        ("farmer", "Farmer"),
-        ("forester", "Forester"),
-        ("engineer", "Engineer"),
-        ("rancher", "Rancher"),
-        ("driller", "Oil Driller"),
+        ("miner", "Miner", CivilianWorkKind.Improve),
+        ("prospector", "Prospector", CivilianWorkKind.Prospect),
+        ("farmer", "Farmer", CivilianWorkKind.Improve),
+        ("forester", "Forester", CivilianWorkKind.Improve),
+        ("engineer", "Engineer", CivilianWorkKind.Improve),
+        ("rancher", "Rancher", CivilianWorkKind.Improve),
+        ("driller", "Oil Driller", CivilianWorkKind.Improve),
     ];
 
     /// <summary>
@@ -450,7 +510,19 @@ public static class LegacyWorldConverter
                 Key = $"civilian.{type.Name}",
                 Name = type.DisplayName,
                 WorkTurns = CivilianWorkTurns,
+                Work = type.Work,
             }).ToArray(),
+
+            // The only technology imported content declares, and nobody starts
+            // knowing it. It exists so the oil terrains have something to name.
+            Technologies =
+            [
+                new NamedContentDefinition
+                {
+                    Key = OilDrillingKey,
+                    Name = "Oil Drilling",
+                },
+            ],
             Commodities = CreateStandardCommodities(),
             ProductionFacilities = CreateStandardProductionFacilities(),
             ProductionRecipes = CreateStandardProductionRecipes(),
@@ -475,6 +547,10 @@ public static class LegacyWorldConverter
                 ImprovedBy = ResourceImprovers.TryGetValue(code, out var improver)
                     ? $"civilian.{improver}"
                     : null,
+
+                // Coal, iron, gold, gems and oil are on the map and invisible
+                // to their owner until a Prospector has searched the tile.
+                RequiresDiscovery = HiddenResources.Contains(code),
             }).ToArray(),
             Feeding = CreateStandardFeeding(),
             Extraction = new ExtractionContentSettings
@@ -1405,6 +1481,15 @@ public static class LegacyWorldConverter
                 Key = TerrainKey(code),
                 Name = terrain.DisplayName,
                 IsImprovable = terrain.IsImprovable,
+                Prospecting = terrain.Prospecting switch
+                {
+                    LegacyProspecting.Open => new ProspectingContent(),
+                    LegacyProspecting.NeedsOilDrilling => new ProspectingContent
+                    {
+                        RequiredTechnology = OilDrillingKey,
+                    },
+                    _ => null,
+                },
             }
             : new TerrainContentDefinition
             {

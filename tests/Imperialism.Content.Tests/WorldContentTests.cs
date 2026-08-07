@@ -271,7 +271,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(14)]
+    [InlineData(15)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -921,6 +921,108 @@ public sealed class WorldContentTests
         document.Resources[0].ImprovedBy = "civilian.missing";
 
         AssertPath("resources[0].improvedBy", document);
+    }
+
+    /// <summary>
+    /// Version 14 hides the five deposits a Prospector must find and says which
+    /// ground is worth searching. Neither can be invented for an older package —
+    /// which of an arbitrary world's terrains conceals something is a property
+    /// of that world — so a migrated one hides nothing and searches nothing,
+    /// exactly as it behaved before.
+    /// </summary>
+    [Fact]
+    public void VersionThirteenMigratesToAWorldWhereNothingIsHiddenAndNothingIsSearchable()
+    {
+        var document = CreateValidDocument();
+        document.CivilianTypes =
+        [
+            new CivilianTypeContentDefinition
+            {
+                Key = "civilian.farmer",
+                Name = "Farmer",
+                WorkTurns = 1,
+            },
+        ];
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 13);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.All(migrated.Terrains, static item => Assert.Null(item.Prospecting));
+        Assert.All(migrated.Resources, static item => Assert.False(item.RequiresDiscovery));
+        Assert.All(
+            migrated.CivilianTypes,
+            static item => Assert.Equal(CivilianWorkKind.Improve, item.Work));
+    }
+
+    [Fact]
+    public void VersionThirteenMigrationRejectsVersionFourteenProspecting()
+    {
+        var document = CreateValidDocument();
+        document.Terrains[0].Prospecting = new ProspectingContent();
+        var contradictory = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 13);
+        Assert.Contains("\"prospecting\"", contradictory, StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(contradictory)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    /// <summary>
+    /// The whole of version 14 in one package: searchable ground, ground gated
+    /// on knowledge, a hidden deposit, and the civilian whose work is to look.
+    /// </summary>
+    [Fact]
+    public void ProspectingTermsAndHiddenDepositsSurviveARoundTrip()
+    {
+        var document = CreateValidDocument();
+        document.Terrains[0].Prospecting = new ProspectingContent();
+        document.Terrains[1].Prospecting = new ProspectingContent
+        {
+            RequiredTechnology = "technology.drilling",
+        };
+        document.Resources[0].RequiresDiscovery = true;
+        document.CivilianTypes =
+        [
+            new CivilianTypeContentDefinition
+            {
+                Key = "civilian.prospector",
+                Name = "Prospector",
+                WorkTurns = 1,
+                Work = CivilianWorkKind.Prospect,
+            },
+        ];
+
+        var first = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(first);
+        Assert.Equal(first, WorldContentCodec.Encode(decoded));
+
+        var compiled = WorldContentCompiler.Compile(decoded);
+        Assert.Equal(
+            CivilianWorkKind.Prospect,
+            Assert.Single(compiled.World.CivilianTypes).Work);
+        Assert.True(compiled.World.Map.Resources[0].RequiresDiscovery);
+
+        var open = compiled.World.Map.GetTerrain(new TerrainId(0))!.Prospecting;
+        Assert.NotNull(open);
+        Assert.Null(open!.RequiredTechnology);
+
+        var gated = compiled.World.Map.GetTerrain(new TerrainId(1))!.Prospecting;
+        Assert.Equal(new TechnologyId(0), gated!.RequiredTechnology);
+    }
+
+    [Fact]
+    public void ProspectableTerrainCannotNameATechnologyTheWorldDoesNotDeclare()
+    {
+        var document = CreateValidDocument();
+        document.Terrains[0].Prospecting = new ProspectingContent
+        {
+            RequiredTechnology = "technology.missing",
+        };
+
+        AssertPath("terrains[0].prospecting.requiredTechnology", document);
     }
 
     [Fact]

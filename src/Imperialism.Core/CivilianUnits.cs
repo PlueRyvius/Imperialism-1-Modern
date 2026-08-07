@@ -1,24 +1,54 @@
 namespace Imperialism.Core;
 
+/// <summary>What a civilian does when it is set to work on a tile.</summary>
+/// <remarks>
+/// The discriminator sits on the type rather than on the order because that is
+/// where the original puts it: the cursor a player sees is decided by the unit
+/// they have selected, a Prospector never improves anything, and no other
+/// civilian ever searches. <see cref="CivilianWorkOrder"/> therefore stays a
+/// bare (unit, cell) pair and what it means follows from who was ordered.
+/// <para>
+/// Keeping the choice in content is also what keeps the word "Prospector" out
+/// of Core, in the same way <see cref="PortFishing"/> keeps "fish" out.
+/// </para>
+/// </remarks>
+public enum CivilianWorkKind : byte
+{
+    /// <summary>Raise the tile's development level by one. Every civilian but the Prospector.</summary>
+    Improve,
+
+    /// <summary>
+    /// Search the tile for deposits its owner cannot otherwise see. Reveals
+    /// whatever is there, which is usually nothing: only 449 of the corpus's
+    /// 2,860 barren hills and 346 of its 1,589 mountains carry a marker at all.
+    /// </summary>
+    Prospect,
+}
+
 /// <summary>
-/// A kind of civilian worker, and how long one of them takes to raise a tile by
-/// a level.
+/// A kind of civilian worker, what its work does, and how long one of them takes
+/// to do it.
 /// </summary>
 /// <remarks>
 /// The manual names nine — Miner, Prospector, Farmer, Forester, Engineer,
 /// Rancher, Fisherman, Developer and Oil Driller — of which the shipped corpus
-/// uses the first six. Only improvement is modelled here; prospecting,
+/// uses the first six. Improvement and prospecting are modelled here;
 /// construction and buying land are each their own slice.
 /// <para>
 /// <b>The duration is the one guess in this system.</b> Nothing in the manual,
 /// the corpus or the binary says how many turns a civilian's work takes, so it
 /// lives here, per type, where changing it is an edit to content rather than to
-/// code. See <c>docs/formulas/development.md</c>.
+/// code. A search reuses that same number rather than inventing a second one.
+/// See <c>docs/formulas/development.md</c>.
 /// </para>
 /// </remarks>
 public sealed record CivilianTypeDefinition
 {
-    public CivilianTypeDefinition(CivilianTypeId id, string name, int workTurns)
+    public CivilianTypeDefinition(
+        CivilianTypeId id,
+        string name,
+        int workTurns,
+        CivilianWorkKind work = CivilianWorkKind.Improve)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (workTurns <= 0)
@@ -28,9 +58,15 @@ public sealed record CivilianTypeDefinition
                 "Work that takes no turns would let one civilian improve a tile every turn for free.");
         }
 
+        if (!Enum.IsDefined(work))
+        {
+            throw new ArgumentOutOfRangeException(nameof(work));
+        }
+
         Id = id;
         Name = name;
         WorkTurns = workTurns;
+        Work = work;
     }
 
     public CivilianTypeId Id { get; }
@@ -38,11 +74,18 @@ public sealed record CivilianTypeDefinition
     public string Name { get; }
 
     /// <summary>
-    /// Turns between ordering the work and the level rising. One means the tile
-    /// is improved during the next turn's Development phase, in time for that
-    /// turn's Extraction.
+    /// Turns between ordering the work and the level rising, or the ground being
+    /// searched. One means the tile is improved during the next turn's
+    /// Development phase, in time for that turn's Extraction.
     /// </summary>
     public int WorkTurns { get; }
+
+    /// <summary>
+    /// What setting this civilian to work actually does. Defaults to improving,
+    /// which is what every civilian did before prospecting existed and what an
+    /// older content package still means.
+    /// </summary>
+    public CivilianWorkKind Work { get; }
 }
 
 /// <summary>Work a civilian has begun and not yet finished.</summary>

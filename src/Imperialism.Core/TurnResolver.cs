@@ -116,6 +116,8 @@ public static class TurnResolver
                             entry.Cell,
                             entry.FromLevel,
                             entry.ToLevel),
+                        PlannedCellProspected entry => new CellProspectedEvent(
+                            turnNumber, entry.Country, entry.Unit, entry.Cell, entry.Revealed),
                         PlannedCivilianWorkStart entry => new CivilianWorkBegunEvent(
                             turnNumber, entry.Country, entry.Unit, entry.Cell, entry.TurnsRequired),
                         PlannedCivilianDeployment entry => new CivilianDeployedEvent(

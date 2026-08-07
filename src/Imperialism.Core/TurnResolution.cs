@@ -138,6 +138,32 @@ public enum CivilianOrderRefusal : byte
 
     /// <summary>The tile is already at the top of its deposit's yield curve.</summary>
     AlreadyFullyDeveloped,
+
+    /// <summary>
+    /// A Prospector was sent to ground that hides nothing. The manual's eye
+    /// cursor appears over barren hills and mountains, and over swamp, desert
+    /// and tundra once Oil Drilling is known; everywhere else announces its own
+    /// resources by its terrain.
+    /// </summary>
+    TerrainCannotBeProspected,
+
+    /// <summary>
+    /// The ground is searchable but this country has not invested in what it
+    /// takes. Oil Drilling is the manual's only instance.
+    /// </summary>
+    ProspectingTechnologyNotKnown,
+
+    /// <summary>
+    /// This country has already searched this tile. Whatever was there is known,
+    /// and a second search would find the same thing or the same nothing.
+    /// </summary>
+    AlreadyProspected,
+
+    /// <summary>
+    /// A Miner or Driller was sent to a deposit nobody has found yet. The
+    /// deposit is on the map and the country cannot see it.
+    /// </summary>
+    DepositNotYetDiscovered,
 }
 
 /// <summary>Records one civilian moving without being set to work.</summary>
@@ -237,6 +263,49 @@ public sealed record CellDevelopedEvent : TurnEvent
     public int FromLevel { get; }
 
     public int ToLevel { get; }
+}
+
+/// <summary>
+/// Records a Prospector finishing a search, and what it turned up.
+/// </summary>
+/// <remarks>
+/// <see cref="Revealed"/> is empty far more often than not — only 449 of the
+/// corpus's 2,860 barren hills and 346 of its 1,589 mountains carry a deposit at
+/// all — and the empty case is reported rather than swallowed. A player needs to
+/// know the tile has been looked at, which is exactly what the original's
+/// pickaxe-and-red-X marker tells them.
+/// </remarks>
+public sealed record CellProspectedEvent : TurnEvent
+{
+    private readonly IReadOnlyList<ResourceId> _revealed;
+
+    public CellProspectedEvent(
+        int turnNumber,
+        CountryId country,
+        CivilianUnitId unit,
+        CellIndex cell,
+        IEnumerable<ResourceId> revealed)
+        : base(turnNumber, TurnPhase.Development)
+    {
+        ArgumentNullException.ThrowIfNull(revealed);
+        Country = country;
+        Unit = unit;
+        Cell = cell;
+        _revealed = Array.AsReadOnly(revealed.ToArray());
+    }
+
+    public CountryId Country { get; }
+
+    /// <summary>The Prospector whose search finished. It is idle again from now.</summary>
+    public CivilianUnitId Unit { get; }
+
+    public CellIndex Cell { get; }
+
+    /// <summary>
+    /// Hidden deposits this search brought to light, in map order. Empty when the
+    /// ground held nothing, which is the ordinary outcome.
+    /// </summary>
+    public IReadOnlyList<ResourceId> Revealed => _revealed;
 }
 
 /// <summary>Records an order a civilian could not carry out, and why.</summary>
