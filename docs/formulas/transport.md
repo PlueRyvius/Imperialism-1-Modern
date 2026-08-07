@@ -230,9 +230,20 @@ network a scenario hands you and nothing can be done about it that turn. That is
 why the guessed starting capacity is still worth getting right.
 
 **Also worth naming:** 805 points of capacity over a century is absurd, and it is
-the same runaway [soak.md](soak.md) already reports for mills — nothing else
-competes for lumber and steel yet. Expect this picture to change again once
-something does, and do not price the railyard against it in the meantime.
+the same runaway [soak.md](soak.md) already reports for mills. It is a property
+of the fixture rather than of the model, and the distinction is worth drawing
+carefully:
+
+- **Already in the model, and simply not ordered by these policies:** furniture
+  from lumber, which the Capitol needs to recruit anybody; hardware and armaments
+  from steel.
+- **Genuinely absent:** ships, which the manual has consuming lumber early and
+  steel later; trade, which turns hardware into money; and the upgrades the
+  original charges against every producing building.
+
+So the railyard is not cheap — it is unopposed. Do not price it against these
+numbers, and re-read them once anything above competes for the same two
+commodities.
 
 ## Open questions
 
