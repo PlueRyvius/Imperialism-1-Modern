@@ -105,6 +105,37 @@ public sealed class TransportTests
     }
 
     /// <summary>
+    /// The sliders are set fresh every turn, so a country can swing its whole
+    /// network onto one commodity and off it again as its needs change.
+    /// </summary>
+    /// <remarks>
+    /// This is the point of allocating capacity rather than dividing it by rule:
+    /// three grain this turn and three timber the next is a legal pair of orders,
+    /// and so is splitting them evenly both turns. Nothing carries over, because
+    /// the orders are per-turn submissions like every other order here.
+    /// </remarks>
+    [Fact]
+    public void ACountryMaySwingItsWholeNetworkFromOneCommodityToAnother()
+    {
+        var state = CreateState(capacity: 3);
+
+        var grainTurn = Assert.Single(
+            Resolve(state, Move((Grain, 3))).Events.OfType<CommoditiesTransportedEvent>());
+        Assert.Equal([new CommodityQuantity(GrainId, 3)], grainTurn.Moved);
+
+        var timberTurn = Assert.Single(
+            Resolve(state, Move((Timber, 3))).Events.OfType<CommoditiesTransportedEvent>());
+        Assert.Equal([new CommodityQuantity(TimberId, 2)], timberTurn.Moved);
+
+        // And split, which is neither of the above and needs no new machinery.
+        var splitTurn = Assert.Single(
+            Resolve(state, Move((Grain, 2), (Timber, 1))).Events.OfType<CommoditiesTransportedEvent>());
+        Assert.Equal(
+            [new CommodityQuantity(GrainId, 2), new CommodityQuantity(TimberId, 1)],
+            splitTurn.Moved);
+    }
+
+    /// <summary>
     /// What the network leaves behind does not wait for it. Next turn's pool is
     /// what next turn's tiles grow, and no more.
     /// </summary>

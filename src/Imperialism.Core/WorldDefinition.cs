@@ -571,6 +571,19 @@ public sealed class WorldState
             _countryCapitals[capital.Country.Value] = capital.Cell;
         }
 
+        // Defaults first, so an explicit `ware` record still wins — the same
+        // order the workforce, capacity and technology defaults use.
+        if (definition.StartingDefaults is { } inventoryDefaults)
+        {
+            foreach (var country in definition.Scenario.DefaultStartCountries)
+            {
+                foreach (var stock in inventoryDefaults.Inventory)
+                {
+                    _availableInventory[GetInventoryOffset(country, stock.Commodity)] = stock.Quantity;
+                }
+            }
+        }
+
         foreach (var stock in definition.Scenario.InitialInventory)
         {
             _availableInventory[GetInventoryOffset(stock.Country, stock.Commodity)] = stock.Quantity;

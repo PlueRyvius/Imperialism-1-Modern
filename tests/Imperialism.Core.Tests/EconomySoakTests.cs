@@ -269,14 +269,24 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// The choice a small network forces, and the point of the whole phase: the
-    /// same world, the same capacity, and the sliders in the other order.
+    /// The choice a small network forces **on a country with nothing in the
+    /// warehouse**: the same world, the same capacity, the sliders in the other
+    /// order.
     /// </summary>
     /// <remarks>
     /// Food first keeps everybody fed and never makes a thing, because the coal
     /// the steel mill wants is at the back of the queue and never arrives.
     /// Materials first feeds the mills and lets the railyard grow the network —
     /// and the workers pay for it in the meantime.
+    /// <para>
+    /// <b>The empty warehouse is doing a lot of the work here.</b> Give the same
+    /// country the manual's opening stockpile and both orderings buy an adequate
+    /// network within a few turns, after which nothing is scarce and the choice
+    /// stops mattering — see
+    /// <see cref="AStartingStockpileIsWhatMakesASmallNetworkSurvivable"/>. So
+    /// this is what the slider order is worth while capacity is genuinely tight,
+    /// not a standing property of the game.
+    /// </para>
     /// <para>
     /// <b>Reported, not asserted into a target.</b> Which is the better opening
     /// is a balance question nobody has the evidence to settle. What is asserted
@@ -285,7 +295,7 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     /// </para>
     /// </remarks>
     [Fact]
-    public void WhichSliderComesFirstDecidesWhatTheCountryBecomes()
+    public void WhichSliderComesFirstDecidesWhatAnUnstockedCountryBecomes()
     {
         var foodFirst = CreateWorld(withTransportLimit: true, startingTransportCapacity: 10);
         var foodLog = Run(foodFirst, orderPolicy: FoodFirstTransportPolicy, out var food);
@@ -327,20 +337,81 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     /// default is not a balance knob but a viability threshold.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// **The starting stockpile is what makes a small network survivable**, and
+    /// finding that out corrected a claim this file used to make.
+    /// </summary>
+    /// <remarks>
+    /// Both runs are the same starved network — four points a power, under the
+    /// seven its workforce eats. The only difference is whether the warehouse
+    /// begins with the lumber and steel the manual says a power starts with:
+    /// "you must construct a lumber and steel mill with your initial stockpiles
+    /// of lumber and steel".
+    /// <para>
+    /// With an empty warehouse the country is trapped — escaping needs a
+    /// railyard, a railyard needs materials, materials need carrying, and every
+    /// unit carried is one not carrying food. With a stockpile it buys its way
+    /// out on the first turn and ends carrying almost everything it gathers.
+    /// </para>
+    /// <para>
+    /// So the trap is a property of an empty warehouse rather than of a small
+    /// network, which is the opposite of what this file concluded before the
+    /// stockpile existed. The turn-one starvation survives either way: capacity
+    /// bought on turn one does not carry until turn two, and the workforce eats
+    /// on turn one regardless.
+    /// </para>
+    /// </remarks>
     [Fact]
-    public void ANetworkBelowSubsistenceNeverRecovers()
+    public void AStartingStockpileIsWhatMakesASmallNetworkSurvivable()
     {
-        var state = CreateWorld(withTransportLimit: true, startingTransportCapacity: 4);
+        var bare = CreateWorld(withTransportLimit: true, startingTransportCapacity: 4);
+        var bareLog = Run(bare, orderPolicy: FoodFirstTransportPolicy, out var without);
+
+        var stocked = CreateWorld(
+            withTransportLimit: true, startingTransportCapacity: 4, startingStock: 20);
+        var stockedLog = Run(stocked, orderPolicy: FoodFirstTransportPolicy, out var with);
+
+        output.WriteLine("=== empty warehouse ===");
+        output.WriteLine(bareLog);
+        output.WriteLine("=== stocked warehouse ===");
+        output.WriteLine(stockedLog);
+
+        // The empty warehouse cannot buy anything, ever.
+        Assert.Equal(0, without.CapacityBuilt);
+        Assert.Equal(0, without.Produced);
+        Assert.True(without.LastTurnSick > 0, "The bare run was expected to stay permanently ill.");
+
+        // The stocked one buys its way out and stops being ill at all.
+        Assert.True(with.CapacityBuilt > 0, "Even with a stockpile the railyard was never built.");
+        Assert.True(with.Produced > 0);
+        Assert.Equal(0, with.LastTurnSick);
+        Assert.True(
+            with.Carried > without.Carried * 2,
+            $"Carried {with.Carried} stocked against {without.Carried} bare.");
+    }
+
+    /// <summary>
+    /// A network under what its workforce eats costs that workforce on the first
+    /// turn, whatever is in the warehouse.
+    /// </summary>
+    /// <remarks>
+    /// Capacity bought on turn one does not carry until turn two, and the
+    /// workers eat on turn one regardless — so the opening headcount is set by
+    /// the network a scenario hands you and nothing can be done about it that
+    /// turn. That is what makes the guessed starting capacity worth getting
+    /// right rather than merely plausible, even now a stockpile makes the rest
+    /// of the century survivable.
+    /// </remarks>
+    [Fact]
+    public void ANetworkUnderSubsistenceCostsWorkersOnTheFirstTurnRegardless()
+    {
+        var state = CreateWorld(
+            withTransportLimit: true, startingTransportCapacity: 4, startingStock: 20);
         var log = Run(state, orderPolicy: FoodFirstTransportPolicy, out var work);
 
         output.WriteLine(log);
 
-        Assert.Equal(0, work.CapacityBuilt);
-        Assert.Equal(0, work.Produced);
-
         // The fair start is [4, 2, 1] a power, so seven powers begin with 49.
-        // The survivors are exactly what four points of capacity a power can
-        // feed, and they are still there at turn 100.
         Assert.True(
             work.LastTurnWorkers is > 0 and < 49,
             $"The workforce ended at {work.LastTurnWorkers}, having started at 49.");
@@ -1056,7 +1127,8 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     private static WorldState CreateWorld(
         bool withHiddenMinerals = false,
         bool withTransportLimit = false,
-        long startingTransportCapacity = 0)
+        long startingTransportCapacity = 0,
+        long startingStock = 0)
     {
         // Each power gets a row of 22 cells: a capital at column 0, then a
         // repeating deposit / depot / deposit run. A depot reaches one step, so
@@ -1274,7 +1346,19 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                     new FacilityCapacityDefault(new ProductionFacilityId(SteelMill), 2),
                 ],
                 new WorkforceDefault(untrained: 4, trained: 2, expert: 1),
-                transportCapacity: withTransportLimit ? startingTransportCapacity : null),
+                transportCapacity: withTransportLimit ? startingTransportCapacity : null,
+
+                // The manual's initial stockpile of lumber and steel. Without
+                // one a starved network cannot buy the railyard that would
+                // unstarve it, which is a trap the original plainly does not
+                // intend — see docs/formulas/transport.md.
+                inventory: startingStock == 0
+                    ? null
+                    :
+                    [
+                        new CommodityQuantity(new CommodityId(Lumber), startingStock),
+                        new CommodityQuantity(new CommodityId(Steel), startingStock),
+                    ]),
             [
                 new CommodityQuantity(new CommodityId(Lumber), 1),
                 new CommodityQuantity(new CommodityId(Steel), 1),

@@ -197,20 +197,35 @@ food first                   49     7      7,000/16,548         0               
 materials first              42     0     15,673/16,548     1,386             672
 ```
 
-**Which slider comes first decides what the country becomes.** Food first keeps
-everyone fed and never produces a single cycle, because coal sits at the back of
-the queue and the steel mill never sees any — so no railyard is ever affordable
-and the network never grows. Materials first starves seven workers immediately,
-runs sick for twenty turns, and comes out the other side carrying almost
-everything with nobody ill.
+**On an empty warehouse, which slider comes first decides what the country
+becomes.** Food first keeps everyone fed and never produces a single cycle,
+because coal sits at the back of the queue and the steel mill never sees any — so
+no railyard is affordable and the network never grows. Materials first starves
+seven workers immediately, runs sick for twenty turns, and comes out carrying
+almost everything.
 
-Neither is asserted to be right. What is asserted is that they differ, which is
-what proves the allocation order is load-bearing.
+**But the empty warehouse was doing the work, and that is a correction.** The
+manual says a power starts with stockpiles of lumber and steel. Give the same
+world twenty of each and the two orderings converge — both reach 16,513 carried
+and roughly 800 points of capacity built, and materials-first is simply worse,
+since it still costs seven workers on turn one for nothing.
 
-**And below subsistence there is no game at all.** At four points a power the
-workforce falls to what the network can feed and stays there for the century,
-even carrying food first: escaping needs materials, and every unit of those is
-one not carrying food. See [transport.md](transport.md).
+```
+                        workers  sick  carried/gathered  produced  capacity built
+food first, stocked          49     0     16,513/16,548     1,372             805
+materials first, stocked     42     0     16,513/16,548     1,386             812
+```
+
+So the slider order is worth as much as capacity is scarce, and a stockpile makes
+it scarce only briefly.
+
+**This file previously concluded that a network below subsistence never
+recovers. That was wrong** — it was true of an empty warehouse, not of a small
+network. At four points a power with a stockpile the country buys its way out on
+turn one. What survives is narrower and still worth knowing: a network under what
+its workforce eats costs that workforce on the **first** turn whatever is in the
+warehouse, because capacity bought on turn one does not carry until turn two. See
+[transport.md](transport.md).
 
 ## Open
 

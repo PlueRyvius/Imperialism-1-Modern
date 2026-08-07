@@ -739,6 +739,42 @@ public sealed class LegacyWorldConverterTests
         Assert.True(result.Success, result.Report.ToHumanReadable());
         Assert.Empty(result.Document!.Scenarios[0].TransportCapacity);
         Assert.Equal(20, result.Document.StartingDefaults!.TransportCapacity);
+
+        // "You must construct a lumber and steel mill with your initial
+        // stockpiles of lumber and steel." The commodities are the manual's;
+        // the quantity is a guess.
+        Assert.Equal(
+            ["commodity.lumber", "commodity.steel"],
+            result.Document.StartingDefaults.Inventory.Select(static item => item.Commodity));
+    }
+
+    /// <summary>
+    /// A power's own <c>ware</c> records beat the default stockpile, the same way
+    /// <c>labo</c> beats the default workforce.
+    /// </summary>
+    [Fact]
+    public void AWareRecordBeatsTheDefaultStockpile()
+    {
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+            Record("labo", 0, 4, 2, 1),
+
+            // Warehouse commodity 9 is lumber; 8 is fabric.
+            Record("ware", 0, 9, 3),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()), scenario, null, "ware-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var compiled = WorldContentCompiler.Compile(result.Document!);
+        var state = new WorldState(compiled.World);
+        var lumber = compiled.Catalog.GetCommodityId("commodity.lumber");
+
+        Assert.Equal(3, state.GetAvailableQuantity(new CountryId(0), lumber));
     }
 
     /// <summary>

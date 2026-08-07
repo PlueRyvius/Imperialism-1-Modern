@@ -186,7 +186,7 @@ public static class WorldContentCompiler
         var extraction = CompileExtractionSettings(document.Extraction, commodityIds);
         var feeding = CompileFeedingSettings(document.Feeding, commodityIds);
         var startingDefaults = CompileStartingDefaults(
-            document.StartingDefaults, facilityIds, technologyIds);
+            document.StartingDefaults, facilityIds, technologyIds, commodityIds);
         var facilities = facilityContent.Select((definition, index) =>
         {
             var path = $"productionFacilities[{index}]";
@@ -646,7 +646,8 @@ public static class WorldContentCompiler
     private static StartingDefaults? CompileStartingDefaults(
         StartingDefaultsContent? content,
         IReadOnlyDictionary<string, int> facilityIds,
-        IReadOnlyDictionary<string, int> technologyIds)
+        IReadOnlyDictionary<string, int> technologyIds,
+        IReadOnlyDictionary<string, int> commodityIds)
     {
         if (content is null)
         {
@@ -706,7 +707,20 @@ public static class WorldContentCompiler
             throw Error("startingDefaults.transportCapacity", "Capacity cannot be negative.");
         }
 
-        return new StartingDefaults(capacities, workforce, technologies, content.TransportCapacity);
+        var inventory = CompileCommodityQuantities(
+            RequireArray(content.Inventory, "startingDefaults.inventory"),
+            commodityIds,
+            "startingDefaults.inventory");
+
+        try
+        {
+            return new StartingDefaults(
+                capacities, workforce, technologies, content.TransportCapacity, inventory);
+        }
+        catch (ArgumentException exception)
+        {
+            throw Error("startingDefaults.inventory", exception.Message, exception);
+        }
     }
 
     private static MigrationSettings? CompileMigration(

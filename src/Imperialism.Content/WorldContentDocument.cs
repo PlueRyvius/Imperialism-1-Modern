@@ -167,6 +167,12 @@ public sealed class StartingDefaultsContent
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? TransportCapacity { get; set; }
+
+    /// <summary>
+    /// What a listed country finds in its warehouse on turn one. The manual says
+    /// a power starts with stockpiles of lumber and steel; how much is a guess.
+    /// </summary>
+    public CommodityQuantityContent[] Inventory { get; set; } = [];
 }
 
 public sealed class FacilityCapacityDefaultContent

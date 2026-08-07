@@ -346,18 +346,33 @@ dropped: a capacity point costs one lumber and one steel, two inputs for one
 point, so every reading of the labour sentence still agrees — and the manual
 never prices the railyard's labour at all. No candidate for that test is in view.
 
-**Which slider comes first decides what a country becomes.** In the soak at ten
-points a power, food-first keeps everyone fed and produces nothing for a century
-because coal never arrives; materials-first starves seven workers up front and
-ends carrying almost everything with nobody ill. Neither is asserted correct.
+**A power starts with a warehouse, and forgetting that produced a wrong
+conclusion.** The manual says so outright — "you must construct a lumber and steel
+mill with your *initial stockpiles of lumber and steel*" — so
+`startingDefaults.inventory` carries lumber and steel. The **existence** is the
+manual's and the **quantity is a guess**; `ware` in the seven engine defaults is
+promoted accordingly.
 
-**A network below subsistence never recovers**, and that is a property of the
-model. Escaping needs a railyard, which needs materials, and every unit carried
-is one not carrying food. So `tran`'s engine default is a **viability threshold,
-not a balance knob** — and it is a guess, the only one in the system. It lives in
-`startingDefaults.transportCapacity`. Do not cite it as evidence, and do not read
-a constant out of the corpus's `tran` records: `s1` gives 80–170, `s13` gives
-10–25, and `s12` gives a network to exactly one of its seven powers.
+Why it matters: the soak first concluded that a network below subsistence can
+never recover, because escaping needs a railyard that needs materials that need
+carrying. **That was an artefact of an empty warehouse and is retracted.** With a
+stockpile the same starved country buys its way out on turn one. Likewise
+"which slider comes first decides what a country becomes" holds only while the
+warehouse is bare; stocked, food-first and materials-first converge and
+materials-first is simply worse. **The slider order is worth as much as capacity
+is scarce, and no more.**
+
+What survives: a network under what its workforce eats costs that workforce on
+the **first** turn regardless, because capacity bought on turn one does not carry
+until turn two. So `tran`'s default still sets a country's opening headcount. It
+is a guess in `startingDefaults.transportCapacity`; do not cite it, and do not
+read a constant out of the corpus's `tran` records — `s1` gives 80–170, `s13`
+gives 10–25, and `s12` gives a network to exactly one of its seven powers.
+
+**Allocation is re-chosen every turn.** A country may put its whole network on
+coal one turn and on iron the next, or split it evenly. The soak's policies hold
+one fixed ordering for a century, which is a fixture simplification and not a
+property of the model.
 
 Buying technology, prerequisites, arrival dates, transient power, research,
 conflict, trade markets, diplomacy, sea routes between ports, blockade, moving

@@ -26,8 +26,9 @@ workers and mills need.
 | The railyard costs labour, unlike expanding a mill | **manual** — "provided you have steel, lumber, and available labour" |
 | Capacity built now works next turn | **manual**, by "as with other industrial expansion" |
 | `tran` is `[country, capacity]` | **corpus-verified** across seven scenarios |
+| A power starts with stockpiles of lumber and steel | **manual** — "you must construct a lumber and steel mill with your *initial stockpiles of lumber and steel*" |
 | **What the network cannot carry is lost** | **a chosen rule** — see below |
-| **What a skirmish starts with** | **a guess.** Nothing anywhere |
+| **What a skirmish's network starts at, and how big the stockpile is** | **guesses.** Nothing anywhere |
 
 ## Design
 
@@ -117,8 +118,34 @@ unplayable, because nothing can leave the land. So a number is invented, lives i
 content as `startingDefaults.transportCapacity` where changing it is an edit, and
 is labelled here. **Do not cite it as evidence for anything.**
 
-The soak below shows why this one matters more than most guesses: it is not a
-balance knob but a viability threshold.
+### The stockpile is a second guess, and the one that rescued the first
+
+A power's opening warehouse is `startingDefaults.inventory`. **That there is one
+at all is the manual's, and so are the two commodities** — "you must construct a
+lumber and steel mill with your *initial stockpiles of lumber and steel*, or you
+may be forced to beg for lumber and steel from other Great Powers", which a power
+starting empty could not do. **How much is a guess.**
+
+It is the more important of the two. An empty warehouse plus a small network is a
+trap with no exit, because escaping needs a railyard, a railyard needs materials,
+and carrying materials means not carrying food. The soak below found that trap,
+concluded it was a property of the model, and was wrong: it is a property of
+starting with nothing, which the original does not do.
+
+**That is also why `ware` deserves promoting** in
+[the seven engine defaults](_index.md#the-seven-engine-defaults). It used to be a
+number nothing read. It now decides whether a start is viable.
+
+### Allocation is re-chosen every turn
+
+Worth stating because it is the whole point of a slider rather than a rule: a
+country may put its entire network on coal one turn and entirely on iron the
+next, or split it evenly both turns. Orders are per-turn submissions and nothing
+carries over.
+
+The soak's policies each hold one fixed ordering for a hundred turns, which is a
+fixture simplification and not a property of the model — a real player would vary
+it as demand moved, and the demand lines exist to tell them when.
 
 ## Where implemented
 
@@ -149,8 +176,8 @@ the per-scenario record counts across the corpus.
 
 ## What a hundred turns looks like
 
-Three runs on the farming world, all at ten points a power against fourteen units
-gathered and seven eaten.
+Runs on the farming world at ten points a power, against fourteen units gathered
+and seven eaten. **With an empty warehouse**, the slider order decides everything:
 
 ```
                         workers  sick  carried/gathered  produced  capacity built
@@ -159,30 +186,53 @@ food first                   49     7      7,000/16,548         0               
 materials first              42     0     15,673/16,548     1,386             672
 ```
 
-**Food first feeds everyone and never makes a thing.** Grain, fruit and livestock
-fill the network; coal is at the back of the queue and never arrives, so the steel
-mill has nothing, so no railyard is ever affordable, so the network never grows.
-A hundred turns of comfortable stagnation.
+Food first fills the network with grain, fruit and livestock; coal is at the back
+of the queue and never arrives, so the steel mill has nothing, so no railyard is
+ever affordable, so the network never grows. A century of comfortable stagnation.
+Materials first starves seven workers immediately and runs sick for twenty turns,
+then the mills run and the railyard grows the network.
 
-**Materials first starves seven workers in the first turn** and spends the next
-twenty-odd sick — then the mills run, the railyard grows the network, and by turn
-25 it is carrying almost everything it gathers with nobody ill at all. It ends
-with 672 points of capacity built and a workforce that is smaller but fed.
+### And then the stockpile changed the answer
 
-That trade-off is the phase working. Neither ordering is asserted to be correct;
-what is asserted is that they differ, which is what proves the slider order is
-load-bearing rather than decorative.
+**Both of those readings are artefacts of an empty warehouse**, which is not how
+a game starts. The manual says a power begins with stockpiles of lumber and steel.
+Give the same world twenty of each:
 
-### A network below subsistence never recovers
+```
+                        workers  sick  carried/gathered  produced  capacity built
+food first, stocked          49     0     16,513/16,548     1,372             805
+materials first, stocked     42     0     16,513/16,548     1,386             812
+```
 
-At four points a power — under the seven a workforce eats — the country falls to
-the headcount its network can feed and stays there for the century, even carrying
-food first. Escaping needs a railyard, which needs lumber and steel, which need
-timber and coal carried, and every unit carried is one not carrying food.
+They converge. With something to build from, either ordering buys an adequate
+network within a few turns, after which nothing is scarce and the choice stops
+mattering — and materials first is now strictly *worse*, because it still costs
+seven workers on turn one and buys nothing the other ordering does not reach
+anyway.
 
-**That is a property of the model, not of this fixture**, and it is why the
-guessed starting capacity is a viability threshold rather than a balance knob.
-Anyone tuning it should know that below a certain point there is no game.
+**The slider order is worth exactly as much as capacity is scarce**, and a
+stockpile makes it scarce only briefly. That is a much smaller claim than this
+document made before the stockpile existed, and it is the true one.
+
+### What survived the correction, and what did not
+
+**Did not survive:** *"a network below subsistence never recovers."* At four
+points a power with an empty warehouse the country is stuck for the century — 28
+workers, 14 permanently ill, nothing ever produced. With the stockpile it buys its
+way out on turn one and ends carrying 16,387 of 16,548 with nobody ill and 784
+points built. **The trap was the empty warehouse, not the small network**, and the
+claim is retracted rather than quietly softened.
+
+**Did survive:** a network under what its workforce eats **costs that workforce on
+the first turn regardless**. Capacity bought on turn one does not carry until turn
+two and the workers eat on turn one, so the opening headcount is set by the
+network a scenario hands you and nothing can be done about it that turn. That is
+why the guessed starting capacity is still worth getting right.
+
+**Also worth naming:** 805 points of capacity over a century is absurd, and it is
+the same runaway [soak.md](soak.md) already reports for mills — nothing else
+competes for lumber and steel yet. Expect this picture to change again once
+something does, and do not price the railyard against it in the meantime.
 
 ## Open questions
 

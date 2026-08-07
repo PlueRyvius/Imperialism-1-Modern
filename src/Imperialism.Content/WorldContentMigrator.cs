@@ -664,6 +664,13 @@ internal static class WorldContentMigrator
                 "Version 15 cannot contain a version 16 starting transport capacity.");
         }
 
+        if (document.StartingDefaults?.Inventory is { Length: > 0 })
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 15 cannot contain a version 16 starting stockpile.");
+        }
+
         foreach (var scenario in document.Scenarios ?? [])
         {
             if (scenario?.TransportCapacity is { Length: > 0 })

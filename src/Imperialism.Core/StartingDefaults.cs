@@ -31,12 +31,14 @@ public sealed class StartingDefaults
 {
     private readonly IReadOnlyList<FacilityCapacityDefault> _productionCapacities;
     private readonly IReadOnlyList<TechnologyId> _technologies;
+    private readonly IReadOnlyList<CommodityQuantity> _inventory;
 
     public StartingDefaults(
         IEnumerable<FacilityCapacityDefault> productionCapacities,
         WorkforceDefault? workforce = null,
         IEnumerable<TechnologyId>? technologies = null,
-        long? transportCapacity = null)
+        long? transportCapacity = null,
+        IEnumerable<CommodityQuantity>? inventory = null)
     {
         if (transportCapacity < 0)
         {
@@ -60,8 +62,24 @@ public sealed class StartingDefaults
                 nameof(technologies));
         }
 
+        var stock = inventory?.ToArray() ?? [];
+        if (stock.Select(static item => item.Commodity).Distinct().Count() != stock.Length)
+        {
+            throw new ArgumentException(
+                "Starting defaults cannot name a commodity twice.",
+                nameof(inventory));
+        }
+
+        if (stock.Any(static item => item.Quantity <= 0))
+        {
+            throw new ArgumentException(
+                "A starting stock of nothing is the absence of an entry.",
+                nameof(inventory));
+        }
+
         _productionCapacities = Array.AsReadOnly(capacities);
         _technologies = Array.AsReadOnly(known);
+        _inventory = Array.AsReadOnly(stock);
         Workforce = workforce;
         TransportCapacity = transportCapacity;
     }
@@ -115,6 +133,27 @@ public sealed class StartingDefaults
     /// </para>
     /// </remarks>
     public long? TransportCapacity { get; }
+
+    /// <summary>
+    /// What a listed country finds in its warehouse on turn one — the `ware`
+    /// record a skirmish never carries.
+    /// </summary>
+    /// <remarks>
+    /// <b>That a stockpile exists is the manual's</b>, and it names the
+    /// commodities: "you must construct a lumber and steel mill with your
+    /// <em>initial stockpiles of lumber and steel</em>, or you may be forced to
+    /// beg for lumber and steel from other Great Powers." A power that began
+    /// with an empty warehouse could not do that, and begging would be its only
+    /// option from the first turn.
+    /// <para>
+    /// <b>How much is not.</b> The quantity is a guess, and it lives in content
+    /// so changing it is an edit. It matters more than most: with nothing in the
+    /// warehouse a country cannot build the railyard that would let it carry the
+    /// materials to fill the warehouse, which is a trap the manual plainly does
+    /// not intend. See <c>docs/formulas/transport.md</c>.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<CommodityQuantity> Inventory => _inventory;
 }
 
 public readonly record struct FacilityCapacityDefault

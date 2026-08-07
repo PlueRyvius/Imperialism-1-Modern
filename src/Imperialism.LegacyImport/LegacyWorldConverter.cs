@@ -660,6 +660,7 @@ public static class LegacyWorldConverter
             {
                 Technologies = [.. StartingTechnologyPositions.Select(TechnologyKey)],
                 TransportCapacity = DefaultTransportCapacity,
+                Inventory = CreateStandardStartingStock(),
             },
             Transport = CreateStandardTransport(),
             Extraction = new ExtractionContentSettings
@@ -1901,6 +1902,28 @@ public static class LegacyWorldConverter
     /// anything off its own land. Do not cite this number as evidence.
     /// </remarks>
     private const int DefaultTransportCapacity = 20;
+
+    /// <summary>
+    /// What a power finds in its warehouse on turn one.
+    /// </summary>
+    /// <remarks>
+    /// <b>That there is a stockpile at all is the manual's, and so are the two
+    /// commodities</b>: "you must construct a lumber and steel mill with your
+    /// <em>initial stockpiles of lumber and steel</em>, or you may be forced to
+    /// beg for lumber and steel from other Great Powers." A power starting with
+    /// an empty warehouse could do neither.
+    /// <para>
+    /// <b>The quantity is a guess.</b> It matters more than it looks: a country
+    /// with an empty warehouse and a small network cannot buy the railyard that
+    /// would let it carry the materials to fill the warehouse, and the soak
+    /// shows it never escapes. See <c>docs/formulas/transport.md</c>.
+    /// </para>
+    /// </remarks>
+    private static CommodityQuantityContent[] CreateStandardStartingStock() =>
+    [
+        Quantity("lumber", 20),
+        Quantity("steel", 20),
+    ];
 
     private static ProductionRecipeContentDefinition[] CreateStandardProductionRecipes() =>
     [

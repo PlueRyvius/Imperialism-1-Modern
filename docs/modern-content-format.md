@@ -96,7 +96,10 @@ Version 16 gives the network a size: a world-level `transport` block pricing a
 point of capacity, `startingDefaults.transportCapacity`, and
 `scenarios[].transportCapacity` for the 1997 `tran` record. Absent `transport`
 means no limit, so a version 15 package migrates to a network that carries
-everything it gathers — which is what it did.
+everything it gathers — which is what it did. It also adds
+`startingDefaults.inventory`, the opening warehouse a skirmish's `ware` record
+never supplies; the manual attests that one exists and names lumber and steel,
+and only the quantity is invented.
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the
