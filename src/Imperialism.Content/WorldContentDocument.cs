@@ -9,7 +9,21 @@ public sealed class WorldContentDocument
 
     public int FormatVersion { get; set; } = WorldContentCodec.CurrentVersion;
 
-    public string[] TerrainKeys { get; set; } = [];
+    /// <summary>
+    /// Version 12's bare key list. Superseded by <see cref="Terrains"/>, which
+    /// gives terrain the attributes improvability depends on; never written at
+    /// version 13.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string[]? TerrainKeys { get; set; }
+
+    public TerrainContentDefinition[] Terrains { get; set; } = [];
+
+    /// <summary>
+    /// The kinds of civilian this world has. Empty means it has none and
+    /// nothing on its map can be improved.
+    /// </summary>
+    public CivilianTypeContentDefinition[] CivilianTypes { get; set; } = [];
 
     public CommodityContentDefinition[] Commodities { get; set; } = [];
 
@@ -97,6 +111,9 @@ public sealed class ScenarioContentDocument
 
     public WorkforceContent[] Workers { get; set; } = [];
 
+    /// <summary>Civilians on the map at the start, in the order they take ids.</summary>
+    public CivilianContent[] Civilians { get; set; } = [];
+
     public CountryTechnologyContent[] CountryTechnologies { get; set; } = [];
 
     /// <summary>
@@ -157,6 +174,48 @@ public sealed class CountryTechnologyContent
     public string Technology { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// A terrain type and what a civilian may do to it. Three of the original's —
+/// dry plains, horse ranch and scrub forest — yield a commodity and admit no
+/// worker at all, which is why improvability cannot be read off the deposit.
+/// </summary>
+public sealed class TerrainContentDefinition
+{
+    public string Key { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    public bool IsImprovable { get; set; }
+}
+
+/// <summary>
+/// A kind of civilian worker. <c>workTurns</c> is the one number here that
+/// nothing supports — see <c>docs/formulas/development.md</c>.
+/// </summary>
+public sealed class CivilianTypeContentDefinition
+{
+    public string Key { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    public int WorkTurns { get; set; }
+}
+
+/// <summary>One civilian a scenario starts with.</summary>
+/// <remarks>
+/// The 1997 <c>civi</c> record names only a type and a cell; the owner comes
+/// from the province the cell sits in. That is resolved at import so this
+/// record can state it outright.
+/// </remarks>
+public sealed class CivilianContent
+{
+    public string Country { get; set; } = string.Empty;
+
+    public string Type { get; set; } = string.Empty;
+
+    public int Cell { get; set; }
+}
+
 public sealed class CommodityContentDefinition
 {
     public string Key { get; set; } = string.Empty;
@@ -181,6 +240,14 @@ public sealed class ResourceContentDefinition
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RequiredTechnology { get; set; }
+
+    /// <summary>
+    /// The civilian type that raises this deposit's level, from the manual's
+    /// Resource Development Table. Null means none does — its answer for fish,
+    /// and its silence about horses.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ImprovedBy { get; set; }
 }
 
 public sealed class ExtractionContentSettings

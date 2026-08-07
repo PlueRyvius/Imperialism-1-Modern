@@ -69,6 +69,14 @@ it migrates to a world whose industry can never be built larger — which is how
 it behaved before. Version 12 adds the Capitol's terms — what a recruit costs and how many
 provinces buy one. A version 11 package has none, and the price of a worker is a
 number nobody has measured, so it migrates to a world that cannot recruit.
+Version 13 adds civilian units and the terrain attributes they need, and is the
+**first bump to rename a field rather than add one**: the bare `terrainKeys`
+palette becomes `terrains`, whose entries carry a display name and an
+`isImprovable` flag. It also adds `civilianTypes`, `resources[].improvedBy` and
+`scenarios[].civilians`. A version 12 package migrates to terrain that is named
+after its key and improvable nowhere, and to a world with no civilians — which
+is not a placeholder standing in for a missing value but an exact reproduction:
+a version 12 world had no way to improve anything at all.
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the
@@ -93,11 +101,14 @@ positions.
 
 The top-level document contains:
 
-- an ordered terrain-key palette;
+- ordered terrain definitions with stable key, Unicode name, and `isImprovable`;
+- ordered civilian-type definitions with stable key, Unicode name, and a
+  positive `workTurns`, or none at all in a world without civilians;
 - ordered commodity definitions with stable key, Unicode name, and `raw`,
   `material`, or `goods` category;
 - ordered resource definitions mapping each deposit key to one commodity key, a
-  `yieldByDevelopmentLevel` curve, and an optional `requiredTechnology`;
+  `yieldByDevelopmentLevel` curve, an optional `requiredTechnology`, and an
+  optional `improvedBy` naming the civilian type that raises it;
 - a world-level `extraction` block holding the gathering `catchmentRadius` and an
   optional `portFishing` naming one commodity and its yield per adjacent water
   tile;
@@ -115,7 +126,8 @@ The top-level document contains:
   rails, capitals, optional positive initial commodity quantities, sparse
   positive capacities for limited facilities, sparse starting cell development,
   which technologies each country begins knowing, the cells carrying a port or a
-  rail depot, and each country's starting workforce.
+  rail depot, each country's starting workforce, and the civilians on the map at
+  the start, each naming its owner, its type and the land cell it stands on.
 
 Each cell references one terrain key, zero or more unique resource keys, and
 at most one province or sea-zone key. Settlement sites and river paths are map

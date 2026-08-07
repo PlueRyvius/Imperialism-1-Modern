@@ -118,6 +118,11 @@ makes a mine worthless until a worker has dug it. A curve that is zero at
 the curve the yield holds rather than throwing, which is what lets fish and
 horses have a single-entry curve.
 
+**Development runs earlier in the same turn.** A tile a civilian finished this
+turn is gathered here at its new rate, and reaches the warehouse through
+`Delivery` for next turn's production, like every other harvest. See
+`development.md`.
+
 Fishing runs alongside this, not through it. A port collects
 `yieldPerAdjacentWaterTile` for each neighbouring tile that is open sea **or**
 carries a river. The **capital fishes too**, being a connected port by
@@ -233,12 +238,15 @@ only against the manual. That is the gap between `inferred` and `verified`.
   ocean and the historical maps use none, yet fishing does not read it.
 - Whether a port on a river tile fishes its own river. No corpus port needs it,
   so only neighbours are counted.
-- **Improvability is terrain-dependent, not resource-dependent.** Dry plains,
-  horse ranch and scrub forest yield but cannot be improved, while grain and
-  timber are improvable elsewhere. The curve is keyed off the resource alone and
-  will need revisiting when workers land.
-- How a worker actually builds a level, and what it costs. Nothing here creates
-  development; only scenarios and direct calls set it.
+- ~~**Improvability is terrain-dependent, not resource-dependent.**~~ **Settled.**
+  Terrain now carries an `IsImprovable` attribute and the deposit names the
+  civilian that works it; both must agree. The curve is still keyed off the
+  resource, which is correct — the manual's two tables answer two different
+  questions. See `development.md`, which also records the corpus check: 481
+  `deve` records and not one on dry plains, horse ranch or scrub forest.
+- ~~How a worker actually builds a level~~ — the `Development` phase does, and
+  it costs nothing but the civilian's time. What is still missing is where the
+  civilian comes from: building one in the University needs a money model.
 - Depots as distinct from rail cells, and ports as buildable, losable objects —
   including the river-port and sea-port edge cases in `game-systems.md`.
 - The transport capacity pool. Until it exists, a connected country moves

@@ -6,6 +6,7 @@ public sealed class MapDefinition
     private readonly IReadOnlyList<ProvinceDefinition> _provinces;
     private readonly IReadOnlyList<SeaZoneDefinition> _seaZones;
     private readonly IReadOnlyList<ResourceDefinition> _resources;
+    private readonly IReadOnlyList<TerrainDefinition> _terrains;
     private readonly IReadOnlyList<CellIndex>[] _provinceCells;
     private readonly IReadOnlyList<CellIndex>[] _seaZoneCells;
 
@@ -14,13 +15,20 @@ public sealed class MapDefinition
         IEnumerable<CellDefinition> cells,
         IEnumerable<ProvinceDefinition>? provinces = null,
         IEnumerable<SeaZoneDefinition>? seaZones = null,
-        IEnumerable<ResourceDefinition>? resources = null)
+        IEnumerable<ResourceDefinition>? resources = null,
+        IEnumerable<TerrainDefinition>? terrains = null)
     {
         ArgumentNullException.ThrowIfNull(cells);
         var cellArray = cells.ToArray();
         var provinceArray = provinces?.ToArray() ?? [];
         var seaZoneArray = seaZones?.ToArray() ?? [];
         var resourceArray = resources?.ToArray() ?? [];
+        var terrainArray = terrains?.ToArray() ?? [];
+        if (terrainArray.Any(static terrain => terrain is null))
+        {
+            throw new ArgumentException("Terrains cannot contain null entries.", nameof(terrains));
+        }
+
         if (cellArray.Any(static cell => cell is null))
         {
             throw new ArgumentException("Cells cannot contain null entries.", nameof(cells));
@@ -51,6 +59,7 @@ public sealed class MapDefinition
         ValidateDenseIds(provinceArray.Select(static province => province.Id.Value), "province");
         ValidateDenseIds(seaZoneArray.Select(static seaZone => seaZone.Id.Value), "sea zone");
         ValidateDenseIds(resourceArray.Select(static resource => resource.Id.Value), "resource");
+        ValidateDenseIds(terrainArray.Select(static terrain => terrain.Id.Value), "terrain");
 
         var provinceCells = CreateMembershipLists(provinceArray.Length);
         var seaZoneCells = CreateMembershipLists(seaZoneArray.Length);
@@ -74,6 +83,16 @@ public sealed class MapDefinition
                         $"Cell {index} refers to missing resource {resource.Value}.",
                         nameof(cells));
                 }
+            }
+
+            // A map that declares no terrain table has terrain ids and no
+            // attributes to look up, which is legal and means nothing can be
+            // improved. Once a table exists every cell must be in it.
+            if (terrainArray.Length > 0 && (uint)cell.Terrain.Value >= (uint)terrainArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Cell {index} refers to missing terrain {cell.Terrain.Value}.",
+                    nameof(cells));
             }
 
             switch (cell.Region.Kind)
@@ -112,6 +131,7 @@ public sealed class MapDefinition
         _provinces = Array.AsReadOnly(provinceArray);
         _seaZones = Array.AsReadOnly(seaZoneArray);
         _resources = Array.AsReadOnly(resourceArray);
+        _terrains = Array.AsReadOnly(terrainArray);
         _provinceCells = FreezeMembershipLists(provinceCells);
         _seaZoneCells = FreezeMembershipLists(seaZoneCells);
     }
@@ -125,6 +145,21 @@ public sealed class MapDefinition
     public IReadOnlyList<SeaZoneDefinition> SeaZones => _seaZones;
 
     public IReadOnlyList<ResourceDefinition> Resources => _resources;
+
+    /// <summary>
+    /// Terrain types and their attributes, or empty in a map that declares
+    /// none. Empty is not an error: cells still carry a terrain id, there is
+    /// simply nothing to ask about it, and nothing can be improved.
+    /// </summary>
+    public IReadOnlyList<TerrainDefinition> Terrains => _terrains;
+
+    /// <summary>
+    /// The attributes of one terrain, or null where the map declares no terrain
+    /// table. Callers must handle null rather than assume a default, since
+    /// "unknown" and "unimprovable" are different claims.
+    /// </summary>
+    public TerrainDefinition? GetTerrain(TerrainId terrain) =>
+        (uint)terrain.Value < (uint)_terrains.Count ? _terrains[terrain.Value] : null;
 
     public CellDefinition this[CellIndex index] => Dimensions.Contains(index)
         ? _cells[index.Value]

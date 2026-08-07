@@ -118,6 +118,32 @@ population growth is gated behind solving the food deficit — and the way to
 solve that is improving farms, which needs civilian units. The mechanism is
 proved by the unit tests; the soak proves what it is waiting for.
 
+## What unblocked it
+
+Civilian units did, and the same soak now shows both sides. The Farmers each
+power starts with are left idle in the run above and put to work in
+`FarmersImprovingGrainCloseTheDeficitAndUnblockMigration`, and nothing else
+differs:
+
+| | idle Farmers | Farmers working |
+|---|---|---|
+| Grain a turn | 21 throughout | 21 → 63 |
+| Sick workers | 7 throughout | 0 by turn 2 |
+| First recruit | never | **turn 4** |
+| Workforce after 100 turns | 49 | 119 |
+| Requests answered | 0 of 700 | 119 of 700 |
+
+The four-step chain above runs in reverse once a Farmer improves a tile: spare
+grain appears, canned food gets made, the Capitol's price can be paid, and
+people arrive.
+
+It then finds its own ceiling. Every tile a Farmer can work is at the top of its
+curve by turn 10, grain stops at 63, and the population keeps growing until it
+outruns the harvest — sickness returns on turn 14 and the economy settles at 119
+workers with 21 permanently ill. That is the manual's warning about growing
+faster than you can feed, and it is reported rather than tuned away. See
+`development.md`.
+
 ## Open questions
 
 - What a worker actually costs. The one thing here that is guessed.

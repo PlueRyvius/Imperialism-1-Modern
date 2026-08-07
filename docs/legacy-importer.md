@@ -30,6 +30,25 @@ deposit has not been measured. See `formulas/extraction.md`.
 and every level in the corpus is 1, 2 or 3. A cell developed more than once —
 `s1` does it three times — keeps the highest level and reports a warning.
 
+**Terrain now carries attributes**, not just a key. Each of the seventeen legacy
+codes is stamped with its display name from the manual's Terrain Tiles Table and
+with whether a civilian can improve it — false for ocean, towns, capitals and
+the manual's three barren cases (dry plains, horse ranch, scrub forest). An
+unknown code keeps its numeric placeholder key and is never improvable: nothing
+is known about the ground, so letting a worker onto it would invent a rule about
+a tile we cannot name. Each deposit also names the civilian that raises it, from
+the Resource Development Table; fish and horses name none.
+
+`civi` records are converted rather than deferred. The record is `[type, cell]`
+and names **no owner** — the original reads it off the province the cell sits
+in, and the corpus supports that without exception: all 210 records across the
+ten scenarios stand on owned land, and every owner holds a capital. Off-map,
+ocean, unowned-land and unknown-type records are errors. Stacking is allowed;
+`s1` gives one power two Miners. The importer declares seven civilian types: the
+six the corpus uses, plus the Oil Driller, which no `civi` record is but which
+the development table names as oil's improver. See `formulas/development.md`
+for how the six were identified.
+
 `labo` records become the starting workforce, and the importer emits the
 standard feeding rules alongside them: the grain / fruit / grain /
 livestock-or-fish cycle, canned food as the substitute, and 1/2/4 labour by

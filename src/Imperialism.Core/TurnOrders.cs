@@ -8,12 +8,16 @@ public sealed class CountryTurnOrders
 {
     private readonly IReadOnlyList<ProductionOrder> _production;
     private readonly IReadOnlyList<ProductionExpansionOrder> _expansions;
+    private readonly IReadOnlyList<CivilianDeployOrder> _deployments;
+    private readonly IReadOnlyList<CivilianWorkOrder> _civilianWork;
 
     public CountryTurnOrders(
         CountryId country,
         IEnumerable<ProductionOrder>? production = null,
         IEnumerable<ProductionExpansionOrder>? expansions = null,
-        long recruitWorkers = 0)
+        long recruitWorkers = 0,
+        IEnumerable<CivilianDeployOrder>? deployments = null,
+        IEnumerable<CivilianWorkOrder>? civilianWork = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(recruitWorkers);
         var productionArray = production?.ToArray() ?? [];
@@ -34,10 +38,28 @@ public sealed class CountryTurnOrders
                 "A facility cannot be expanded twice in one turn.", nameof(expansions));
         }
 
+        var deployArray = deployments?.ToArray() ?? [];
+        var workArray = civilianWork?.ToArray() ?? [];
+
+        // One order per civilian per turn. The manual's cursor table gives
+        // "deploy to this tile, no work this turn" its own cursor, so moving and
+        // working are alternatives rather than a sequence.
+        var ordered = deployArray.Select(static item => item.Unit)
+            .Concat(workArray.Select(static item => item.Unit))
+            .ToArray();
+        if (ordered.Distinct().Count() != ordered.Length)
+        {
+            throw new ArgumentException(
+                "A civilian can be given only one order a turn.",
+                nameof(civilianWork));
+        }
+
         Country = country;
         RecruitWorkers = recruitWorkers;
         _production = Array.AsReadOnly(productionArray);
         _expansions = Array.AsReadOnly(expansionArray);
+        _deployments = Array.AsReadOnly(deployArray);
+        _civilianWork = Array.AsReadOnly(workArray);
     }
 
     public CountryId Country { get; }
@@ -54,6 +76,12 @@ public sealed class CountryTurnOrders
     /// <see cref="MigrationSettings"/>.
     /// </summary>
     public long RecruitWorkers { get; }
+
+    /// <summary>Civilians to move this turn without setting them to work.</summary>
+    public IReadOnlyList<CivilianDeployOrder> Deployments => _deployments;
+
+    /// <summary>Civilians to set to work improving a tile this turn.</summary>
+    public IReadOnlyList<CivilianWorkOrder> CivilianWork => _civilianWork;
 }
 
 /// <summary>
@@ -61,6 +89,19 @@ public sealed class CountryTurnOrders
 /// to skip a rung or to choose a target, so the order carries only the facility.
 /// </summary>
 public readonly record struct ProductionExpansionOrder(ProductionFacilityId Facility);
+
+/// <summary>
+/// Move a civilian to a tile and leave it idle there. Distance is not part of
+/// the order because there is nothing to spend: the manual gives civilians
+/// unlimited movement and no movement-point model to build.
+/// </summary>
+public readonly record struct CivilianDeployOrder(CivilianUnitId Unit, CellIndex Cell);
+
+/// <summary>
+/// Set a civilian to work improving a tile. The civilian moves there in the
+/// same order — the original's hammer cursor does both in one click.
+/// </summary>
+public readonly record struct CivilianWorkOrder(CivilianUnitId Unit, CellIndex Cell);
 
 public readonly record struct ProductionOrder
 {

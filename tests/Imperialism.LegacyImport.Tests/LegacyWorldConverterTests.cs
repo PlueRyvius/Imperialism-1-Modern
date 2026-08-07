@@ -615,7 +615,24 @@ public sealed class LegacyWorldConverterTests
             ["s11"] = 0,
             ["s15"] = 0,
         };
+
+        // Every civi record in the corpus, counted before any of this was
+        // built. 210 across the ten files, all on owned land.
+        var expectedCivilians = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["s1"] = 35,
+            ["s3"] = 32,
+            ["s5"] = 7,
+            ["s9"] = 33,
+            ["s10"] = 13,
+            ["s11"] = 14,
+            ["s12"] = 28,
+            ["s13"] = 17,
+            ["s14"] = 17,
+            ["s15"] = 14,
+        };
         var converted = 0;
+        var totalCivilians = 0;
 
         foreach (var mapPath in Directory.GetFiles(directory, "*.map").OrderBy(static path => path))
         {
@@ -674,10 +691,25 @@ public sealed class LegacyWorldConverterTests
                     item => item.Code == "scenario.depot-without-rail");
             }
 
+            // civi carries no owner, so every one of these is a province
+            // lookup that could have come back empty. None does.
+            var civilians = result.Document!.Scenarios[0].Civilians;
+            Assert.DoesNotContain(
+                result.Report.Diagnostics,
+                item => item.Code.StartsWith("scenario.civi", StringComparison.Ordinal) ||
+                    item.Code == "scenario.invalid-civi");
+            Assert.DoesNotContain("scenario.tag.civi", result.Report.DeferredCounts.Keys);
+            if (expectedCivilians.TryGetValue(key, out var expected))
+            {
+                Assert.Equal(expected, civilians.Length);
+            }
+
+            totalCivilians += civilians.Length;
             converted++;
         }
 
         Assert.True(converted >= 9, $"Expected the full corpus, converted only {converted}.");
+        Assert.Equal(210, totalCivilians);
     }
 
     /// <summary>
@@ -776,6 +808,225 @@ public sealed class LegacyWorldConverterTests
         Assert.Contains(importerReferences, static item => item.Name == "Imperialism.Formats");
         Assert.DoesNotContain(formatReferences, static item =>
             item.Name is "Imperialism.Core" or "Imperialism.Content" or "Imperialism.LegacyImport");
+    }
+
+    /// <summary>
+    /// The manual's Terrain Tiles Table gives every terrain a civilian worker
+    /// and gives three of them "None". Those three are the whole reason terrain
+    /// gained attributes, so they are pinned here one by one rather than left
+    /// to the corpus test, which can only show that nothing contradicts them.
+    /// </summary>
+    [Theory]
+    [InlineData(0, "terrain.ocean", false)]
+    [InlineData(1, "terrain.clear", false)]
+    [InlineData(2, "terrain.cotton", true)]
+    [InlineData(3, "terrain.cattle-ranch", true)]
+    [InlineData(4, "terrain.horse-ranch", false)]
+    [InlineData(5, "terrain.grain-farm", true)]
+    [InlineData(6, "terrain.orchard", true)]
+    [InlineData(7, "terrain.wool-hill", true)]
+    [InlineData(8, "terrain.hill", true)]
+    [InlineData(9, "terrain.mountain", true)]
+    [InlineData(10, "terrain.swamp", true)]
+    [InlineData(11, "terrain.desert", true)]
+    [InlineData(12, "terrain.tundra", true)]
+    [InlineData(13, "terrain.forest", true)]
+    [InlineData(14, "terrain.town", false)]
+    [InlineData(15, "terrain.scrub-forest", false)]
+    [InlineData(16, "terrain.capital", false)]
+    public void EveryLegacyTerrainCarriesTheManualsImprovability(
+        byte code,
+        string key,
+        bool isImprovable)
+    {
+        var cells = new[]
+        {
+            code == 0
+                ? OceanCell()
+                : new HexCell { Terrain = code, Province = 0, NationZoneA = 0, NationZoneB = 0 },
+            LandCell(0, 0),
+        };
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+            NameRecord("zone", 0, "Sea"),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, cells), scenario, null, "terrain-map");
+
+        var terrain = Assert.Single(result.Document!.Terrains, item => item.Key == key);
+        Assert.Equal(isImprovable, terrain.IsImprovable);
+    }
+
+    /// <summary>
+    /// An unknown code gets a placeholder key and no permission to be worked:
+    /// nothing is known about the ground, so letting a civilian improve it
+    /// would invent a rule about a tile we cannot even name.
+    /// </summary>
+    [Fact]
+    public void AnUnknownTerrainCodeIsNeverImprovable()
+    {
+        var cells = new[]
+        {
+            new HexCell { Terrain = 200, Province = 0, NationZoneA = 0, NationZoneB = 0 },
+            LandCell(0, 0),
+        };
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, cells), scenario, null, "unknown-terrain");
+
+        var terrain = Assert.Single(
+            result.Document!.Terrains, item => item.Key == "terrain.legacy-unknown-200");
+        Assert.False(terrain.IsImprovable);
+        Assert.Contains(
+            result.Report.Diagnostics,
+            item => item.Code == "map.unknown-terrain-code");
+    }
+
+    /// <summary>
+    /// The Resource Development Table read the other way round. Fish has no
+    /// improver in the table and horses are absent from it altogether, which is
+    /// why both come out null rather than defaulting to something.
+    /// </summary>
+    [Fact]
+    public void EveryDepositNamesTheCivilianTheManualGivesIt()
+    {
+        var expected = new (byte Code, string Resource, string? Improver)[]
+        {
+            (0, "resource.cotton", "civilian.farmer"),
+            (1, "resource.wool", "civilian.rancher"),
+            (2, "resource.forest", "civilian.forester"),
+            (3, "resource.coal", "civilian.miner"),
+            (4, "resource.iron", "civilian.miner"),
+            (5, "resource.horses", null),
+            (6, "resource.oil", "civilian.driller"),
+            (17, "resource.grain", "civilian.farmer"),
+            (18, "resource.fruit", "civilian.farmer"),
+            (19, "resource.fish", null),
+            (20, "resource.cattle", "civilian.rancher"),
+            (21, "resource.gems", "civilian.miner"),
+            (22, "resource.gold", "civilian.miner"),
+        };
+        var cells = expected.Select(item => new HexCell
+        {
+            Terrain = 1,
+            Province = 0,
+            NationZoneA = 0,
+            NationZoneB = 0,
+            ResourceA = item.Code,
+        }).ToArray();
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(cells.Length, 1, cells), scenario, null, "improver-map");
+
+        Assert.True(result.Success);
+        var improvers = result.Document!.Resources
+            .ToDictionary(static item => item.Key, static item => item.ImprovedBy);
+        foreach (var item in expected)
+        {
+            Assert.Equal(item.Improver, improvers[item.Resource]);
+        }
+
+        // Every improver named above must exist in the catalog, or the deposit
+        // would refer to a civilian type nothing declares.
+        var declared = result.Document.CivilianTypes.Select(static item => item.Key).ToHashSet();
+        Assert.All(
+            expected.Select(static item => item.Improver).Where(static item => item is not null),
+            improver => Assert.Contains(improver!, declared));
+    }
+
+    /// <summary>
+    /// <c>civi</c> is <c>[type, cell]</c> and names no owner; the province the
+    /// cell sits in supplies it.
+    /// </summary>
+    [Fact]
+    public void CiviRecordsBecomeCiviliansOwnedByTheProvinceTheyStandIn()
+    {
+        var map = CreateMap(
+            3,
+            1,
+            LandCell(10, 2),
+            LandCell(11, 3),
+            OceanCell());
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 2, "Blue"),
+            NameRecord("cnam", 3, "Green"),
+            NameRecord("pnam", 10, "West"),
+            NameRecord("pnam", 11, "East"),
+            Record("civi", 2, 0),
+            Record("civi", 4, 1),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(map, scenario, null, "civi-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var civilians = result.Document!.Scenarios[0].Civilians;
+        Assert.Equal(2, civilians.Length);
+        Assert.Equal("civilian.farmer", civilians[0].Type);
+        Assert.Equal(0, civilians[0].Cell);
+        Assert.Equal("civilian.engineer", civilians[1].Type);
+        Assert.Equal(1, civilians[1].Cell);
+        Assert.NotEqual(civilians[0].Country, civilians[1].Country);
+
+        // The tag stops being reported as unconverted, which is the point of
+        // adding it to ConvertedScenarioTags.
+        Assert.DoesNotContain("scenario.tag.civi", result.Report.DeferredCounts.Keys);
+    }
+
+    [Fact]
+    public void CiviRecordsOffTheMapOnOceanOrOnUnownedLandAreRejected()
+    {
+        var map = CreateMap(2, 1, LandCell(10, 2), OceanCell());
+        var unowned = CreateMap(2, 1, LandCell(10, 255), OceanCell());
+        var names = new[]
+        {
+            Record("year", 1815),
+            NameRecord("cnam", 2, "Blue"),
+            NameRecord("pnam", 10, "West"),
+        };
+
+        Assert.Contains(
+            LegacyWorldConverter
+                .Convert(map, new ScenarioDocument([.. names, Record("civi", 0, 99)]), null, "off-map")
+                .Report.Diagnostics,
+            item => item.Code == "scenario.invalid-civi-cell");
+        Assert.Contains(
+            LegacyWorldConverter
+                .Convert(map, new ScenarioDocument([.. names, Record("civi", 0, 1)]), null, "ocean")
+                .Report.Diagnostics,
+            item => item.Code == "scenario.civi-on-ocean");
+        Assert.Contains(
+            LegacyWorldConverter
+                .Convert(unowned, new ScenarioDocument([.. names, Record("civi", 0, 0)]), null, "unowned")
+                .Report.Diagnostics,
+            item => item.Code == "scenario.civi-on-unowned-land");
+        Assert.Contains(
+            LegacyWorldConverter
+                .Convert(map, new ScenarioDocument([.. names, Record("civi", 99, 0)]), null, "type")
+                .Report.Diagnostics,
+            item => item.Code == "scenario.invalid-civi-type");
+        Assert.Contains(
+            LegacyWorldConverter
+                .Convert(map, new ScenarioDocument([.. names, Record("civi", 0)]), null, "fields")
+                .Report.Diagnostics,
+            item => item.Code == "scenario.invalid-civi");
     }
 
     private static MapDocument CreateMap(int width, int height, params HexCell[] cells)

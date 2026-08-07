@@ -9,6 +9,7 @@ public static class TurnResolver
         TurnPhase.Trade,
         TurnPhase.Production,
         TurnPhase.Construction,
+        TurnPhase.Development,
         TurnPhase.Migration,
         TurnPhase.Conflict,
         TurnPhase.TradeCancellation,
@@ -95,6 +96,35 @@ public static class TurnResolver
                         entry.FromCapacity,
                         entry.ToCapacity,
                         entry.Paid));
+                }
+            }
+            else if (phase == TurnPhase.Development)
+            {
+                // Beside Construction, which it resembles: both take an order
+                // now and pay it off later. It sits before Extraction so a tile
+                // finished this turn is gathered at its new rate this turn, and
+                // that harvest reaches the warehouse for next turn's production
+                // like every other harvest.
+                foreach (var outcome in DevelopmentPlanner.Resolve(state, orders))
+                {
+                    events.Add(outcome switch
+                    {
+                        PlannedCellDevelopment entry => new CellDevelopedEvent(
+                            turnNumber,
+                            entry.Country,
+                            entry.Unit,
+                            entry.Cell,
+                            entry.FromLevel,
+                            entry.ToLevel),
+                        PlannedCivilianWorkStart entry => new CivilianWorkBegunEvent(
+                            turnNumber, entry.Country, entry.Unit, entry.Cell, entry.TurnsRequired),
+                        PlannedCivilianDeployment entry => new CivilianDeployedEvent(
+                            turnNumber, entry.Country, entry.Unit, entry.From, entry.To),
+                        PlannedCivilianRefusal entry => new CivilianOrderRefusedEvent(
+                            turnNumber, entry.Country, entry.Unit, entry.Cell, entry.Reason),
+                        _ => throw new InvalidOperationException(
+                            $"Unhandled development outcome {outcome.GetType().Name}."),
+                    });
                 }
             }
             else if (phase == TurnPhase.Migration)

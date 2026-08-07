@@ -15,28 +15,109 @@ public sealed record LegacyImportResult(
     public bool Success => Document is not null && !Report.HasErrors;
 }
 
+/// <summary>One legacy terrain code's key stem, display name and improvability.</summary>
+internal readonly record struct LegacyTerrain(string Name, string DisplayName, bool IsImprovable);
+
 public static class LegacyWorldConverter
 {
-    private static readonly IReadOnlyDictionary<byte, string> TerrainNames =
+    /// <summary>
+    /// The seventeen legacy terrain codes, their display names from the
+    /// manual's Terrain Tiles Table, and whether a civilian can improve them.
+    /// </summary>
+    /// <remarks>
+    /// The codes and the table line up one for one — fourteen land types plus
+    /// town, capital and ocean — which is what lets "dry plains" be identified
+    /// with code 1 despite our key for it being <c>clear</c>.
+    /// <para>
+    /// Improvability is the manual's: the table gives every terrain a civilian
+    /// worker, and dry plains, horse ranch and scrub forest get "None". Towns
+    /// and capitals admit only the Engineer, who builds rather than improves,
+    /// and the manual says a capital already produces at the highest level it
+    /// can. The corpus corroborates without exception — of 481 <c>deve</c>
+    /// records across five scenarios, none lands on any of these.
+    /// </para>
+    /// </remarks>
+    private static readonly IReadOnlyDictionary<byte, LegacyTerrain> Terrains =
+        new Dictionary<byte, LegacyTerrain>
+        {
+            [0] = new("ocean", "Ocean", false),
+            [1] = new("clear", "Dry Plains", false),
+            [2] = new("cotton", "Plantation", true),
+            [3] = new("cattle-ranch", "Open Range", true),
+            [4] = new("horse-ranch", "Horse Ranch", false),
+            [5] = new("grain-farm", "Farm", true),
+            [6] = new("orchard", "Orchard", true),
+            [7] = new("wool-hill", "Fertile Hills", true),
+            [8] = new("hill", "Barren Hills", true),
+            [9] = new("mountain", "Mountains", true),
+            [10] = new("swamp", "Swamp", true),
+            [11] = new("desert", "Desert", true),
+            [12] = new("tundra", "Tundra", true),
+            [13] = new("forest", "Hardwood Forest", true),
+            [14] = new("town", "Town", false),
+            [15] = new("scrub-forest", "Scrub Forest", false),
+            [16] = new("capital", "Capital", false),
+        };
+
+    /// <summary>
+    /// The civilian types this content declares, in the order the 1997
+    /// <c>civi</c> record numbers them.
+    /// </summary>
+    /// <remarks>
+    /// Codes 0 to 5 are the six the corpus ships, identified from where they
+    /// stand: type 4 is the only one found in towns, where the manual says only
+    /// the Engineer may work; type 5 is found on fertile hills and open range,
+    /// which are the Rancher's two terrains; type 2 on plantations, farms and
+    /// orchards, which are the Farmer's three; type 3 in hardwood forest. The
+    /// skirmishes settle the last pair — <c>s11</c> and <c>s15</c> give each of
+    /// the seven powers exactly one type 1 and one type 4, a Prospector and an
+    /// Engineer.
+    /// <para>
+    /// The Driller is appended because the Resource Development Table names it
+    /// as oil's improver and the deposits must be able to refer to it, even
+    /// though no <c>civi</c> record in the corpus is one. The Developer and the
+    /// Fisherman are left out: neither improves anything, so nothing would
+    /// reference them.
+    /// </para>
+    /// </remarks>
+    private static readonly IReadOnlyList<(string Name, string DisplayName)> CivilianTypes =
+    [
+        ("miner", "Miner"),
+        ("prospector", "Prospector"),
+        ("farmer", "Farmer"),
+        ("forester", "Forester"),
+        ("engineer", "Engineer"),
+        ("rancher", "Rancher"),
+        ("driller", "Oil Driller"),
+    ];
+
+    /// <summary>
+    /// How many turns a civilian's work takes. <b>This is a guess</b> — the one
+    /// number in this phase with nothing behind it. See
+    /// <c>docs/formulas/development.md</c>.
+    /// </summary>
+    private const int CivilianWorkTurns = 1;
+
+    /// <summary>
+    /// The manual's Resource Development Table read the other way: which
+    /// civilian raises each deposit. Fish has none, and horses are absent from
+    /// the table entirely, which agrees with the horse ranch admitting no
+    /// worker.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<byte, string> ResourceImprovers =
         new Dictionary<byte, string>
         {
-            [0] = "ocean",
-            [1] = "clear",
-            [2] = "cotton",
-            [3] = "cattle-ranch",
-            [4] = "horse-ranch",
-            [5] = "grain-farm",
-            [6] = "orchard",
-            [7] = "wool-hill",
-            [8] = "hill",
-            [9] = "mountain",
-            [10] = "swamp",
-            [11] = "desert",
-            [12] = "tundra",
-            [13] = "forest",
-            [14] = "town",
-            [15] = "scrub-forest",
-            [16] = "capital",
+            [0] = "farmer",   // cotton
+            [1] = "rancher",  // wool
+            [2] = "forester", // timber
+            [3] = "miner",    // coal
+            [4] = "miner",    // iron
+            [6] = "driller",  // oil
+            [17] = "farmer",  // grain
+            [18] = "farmer",  // fruit
+            [20] = "rancher", // livestock
+            [21] = "miner",   // gems
+            [22] = "miner",   // gold
         };
 
     private static readonly IReadOnlyDictionary<byte, string> ResourceNames =
@@ -139,7 +220,7 @@ public static class LegacyWorldConverter
 
     private static readonly HashSet<string> ConvertedScenarioTags =
         new(
-            ["cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port", "rail", "labo"],
+            ["cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port", "rail", "labo", "civi"],
             StringComparer.Ordinal);
 
     /// <summary>
@@ -357,12 +438,19 @@ public static class LegacyWorldConverter
         var ports = ReadPorts(scenario, map, report);
         var depots = ReadDepots(scenario, map, report);
         var workers = ReadWorkforce(scenario, countryKeys, report);
+        var civilians = ReadCivilians(scenario, map, countryKeys, report);
         var title = string.IsNullOrWhiteSpace(info?.Title)
             ? $"Legacy {options.PackageKey}"
             : info.Title;
         var document = new WorldContentDocument
         {
-            TerrainKeys = terrainCodes.Select(code => terrainKeys[code]).ToArray(),
+            Terrains = terrainCodes.Select(TerrainDefinitionFor).ToArray(),
+            CivilianTypes = CivilianTypes.Select(static type => new CivilianTypeContentDefinition
+            {
+                Key = $"civilian.{type.Name}",
+                Name = type.DisplayName,
+                WorkTurns = CivilianWorkTurns,
+            }).ToArray(),
             Commodities = CreateStandardCommodities(),
             ProductionFacilities = CreateStandardProductionFacilities(),
             ProductionRecipes = CreateStandardProductionRecipes(),
@@ -380,6 +468,13 @@ public static class LegacyWorldConverter
                 // improvement *levels* behind technology, not initial
                 // extraction, and nothing here builds a level yet.
                 YieldByDevelopmentLevel = [.. ResourceYieldCurves[code]],
+
+                // Which civilian raises this deposit, from the manual's
+                // Resource Development Table. Null for fish, which the table
+                // gives no worker, and for horses, which it omits.
+                ImprovedBy = ResourceImprovers.TryGetValue(code, out var improver)
+                    ? $"civilian.{improver}"
+                    : null,
             }).ToArray(),
             Feeding = CreateStandardFeeding(),
             Extraction = new ExtractionContentSettings
@@ -422,6 +517,7 @@ public static class LegacyWorldConverter
                     Ports = ports,
                     Depots = depots,
                     Workers = workers,
+                    Civilians = civilians,
                 },
             ],
         };
@@ -667,6 +763,102 @@ public static class LegacyWorldConverter
             }
 
             result.Add((int)cell);
+        }
+
+        return result.ToArray();
+    }
+
+    /// <summary>
+    /// Converts <c>civi</c> records into starting civilians. The record is
+    /// <c>[type, cell]</c> and names no owner.
+    /// </summary>
+    /// <remarks>
+    /// The owner comes from the province the cell sits in, which the corpus
+    /// supports without exception: all 210 records across the ten scenarios
+    /// stand on owned land, and every one of those owners is a country holding
+    /// a capital. Unowned land is therefore treated as an error rather than
+    /// tolerated — nothing shipped does it, and a civilian nobody owns could
+    /// never be given an order.
+    /// <para>
+    /// Stacking is allowed: <c>s1</c> gives one power two Miners, and nothing
+    /// says a tile holds only one worker.
+    /// </para>
+    /// </remarks>
+    private static CivilianContent[] ReadCivilians(
+        ScenarioDocument scenario,
+        MapDocument map,
+        IReadOnlyDictionary<uint, string> countryKeys,
+        LegacyImportReport report)
+    {
+        var result = new List<CivilianContent>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "civi")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 2)
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-civi",
+                    path,
+                    "A civi record must contain a type and a cell.");
+                continue;
+            }
+
+            var type = record.Fields[0];
+            if (type >= (uint)CivilianTypes.Count)
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-civi-type",
+                    path,
+                    $"Civilian refers to unknown type {type}.");
+                continue;
+            }
+
+            var cell = record.Fields[1];
+            if (cell >= (uint)map.Cells.Count)
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-civi-cell",
+                    path,
+                    $"Civilian refers to cell {cell} outside the map.");
+                continue;
+            }
+
+            var source = map.Cells[(int)cell];
+            if (source.IsOcean)
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.civi-on-ocean",
+                    path,
+                    $"Civilian refers to ocean cell {cell}.");
+                continue;
+            }
+
+            if (source.NationZoneA == byte.MaxValue ||
+                !countryKeys.TryGetValue(source.NationZoneA, out var countryKey))
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.civi-on-unowned-land",
+                    path,
+                    $"Civilian stands on cell {cell}, which no known country owns.");
+                continue;
+            }
+
+            result.Add(new CivilianContent
+            {
+                Country = countryKey,
+                Type = $"civilian.{CivilianTypes[(int)type].Name}",
+                Cell = (int)cell,
+            });
         }
 
         return result.ToArray();
@@ -1107,7 +1299,7 @@ public static class LegacyWorldConverter
 
     private static void WarnUnknownCodes(MapDocument map, LegacyImportReport report)
     {
-        foreach (var group in map.Cells.GroupBy(static cell => cell.Terrain).Where(group => !TerrainNames.ContainsKey(group.Key)))
+        foreach (var group in map.Cells.GroupBy(static cell => cell.Terrain).Where(group => !Terrains.ContainsKey(group.Key)))
         {
             report.Add(
                 LegacyImportSeverity.Warning,
@@ -1197,9 +1389,29 @@ public static class LegacyWorldConverter
         key.Length is >= 1 and <= 96 &&
         Regex.IsMatch(key, "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$", RegexOptions.CultureInvariant);
 
-    private static string TerrainKey(byte code) => TerrainNames.TryGetValue(code, out var name)
-        ? $"terrain.{name}"
+    private static string TerrainKey(byte code) => Terrains.TryGetValue(code, out var terrain)
+        ? $"terrain.{terrain.Name}"
         : $"terrain.legacy-unknown-{code.ToString("D3", CultureInfo.InvariantCulture)}";
+
+    /// <summary>
+    /// An unknown terrain code is not improvable. Nothing is known about the
+    /// ground, and guessing that a civilian may work it would silently invent a
+    /// rule about a tile we cannot even name.
+    /// </summary>
+    private static TerrainContentDefinition TerrainDefinitionFor(byte code) =>
+        Terrains.TryGetValue(code, out var terrain)
+            ? new TerrainContentDefinition
+            {
+                Key = TerrainKey(code),
+                Name = terrain.DisplayName,
+                IsImprovable = terrain.IsImprovable,
+            }
+            : new TerrainContentDefinition
+            {
+                Key = TerrainKey(code),
+                Name = $"Unknown terrain {code.ToString(CultureInfo.InvariantCulture)}",
+                IsImprovable = false,
+            };
 
     private static string ResourceKey(byte code) => $"resource.{ResourceNames[code]}";
 

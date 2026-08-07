@@ -52,18 +52,21 @@ whole hundred turns.
 
 ## Two things worth knowing
 
-### Chronic sickness has no way out
+### Chronic sickness had no way out — and now has one
 
 Exactly **one worker per power is sick every turn, for a hundred turns**, and
 never recovers. That is the model working, not failing: grain supply is 3
 against a demand of 4, so precisely one worker eats the wrong thing every turn.
 Labour sits at 77 against a healthy 84 — a permanent 8% tax with no route back.
 
-In the original a player fixes this by **buying grain**. We have no trade, so
-the shortage is unfixable by construction. This is a missing system showing
-through rather than a balance problem, and it is worth re-reading once
-`ITradeMarket` is real: a chronic deficit should be solvable then, and if it
-still is not, that *is* a defect.
+That was written when nothing in the engine could improve a tile. Civilian units
+changed it, and the fixture now seeds three Farmers per power so both answers can
+be seen side by side. The paragraph above still describes every run that leaves
+them idle.
+
+In the original a player also fixes this by **buying grain**. We have no trade,
+so that route remains closed, and it is still worth re-reading this once
+`ITradeMarket` is real.
 
 ### Building is the only sink, so capacity runs away
 
@@ -79,13 +82,49 @@ steel yet** — no units, no railyard, no transport capacity, no trade. Expect t
 picture to change completely once there is competition for those two commodities,
 and do not tune anything against it in the meantime.
 
+### Improving farms unblocks everything, and then hits its own ceiling
+
+The fixture seeds three Farmers per power. Two runs differ only in whether they
+are ever told to work.
+
+```
+                       turn  workers  fed/sick  grain/turn  total levels
+idle Farmers            100       49    42/  7          21           98
+Farmers working           1       49    42/  7          21           98
+                          2       49    49/  0          35          119
+                         10       77    77/  0          63          196
+                         25      126   105/ 21          63          196
+                        100      119    98/ 21          63          196
+```
+
+The chain the owner described runs end to end: farms improved on turn 2,
+sickness gone the same turn, **first recruit on turn 4** — the first time
+migration has done anything since it was built — and the workforce more than
+doubling.
+
+Then the deficit reopens. Every tile a Farmer can work reaches the top of its
+curve by turn 10, grain stops at 63, and the population keeps growing until it
+outruns the harvest; sickness returns on turn 14 and the economy settles at 119
+workers with 21 permanently ill. **That is the manual's own warning about
+growing faster than you can feed**, arrived at rather than written in, and it is
+reported rather than tuned away.
+
+Two caveats before reading anything into the turn numbers. The work duration is
+a guess (`development.md`), and this fixture's yield curve starts at 0 rather
+than the manual's 1, so both the speed and the ceiling are properties of the
+fixture.
+
 ## What is asserted, and what deliberately is not
 
 **Asserted** — only what can never be true of a correct run: no negative stock,
-sick never exceeding workers per grade, the workforce never growing (nothing
-recruits yet), capacity moving only during `Construction` and only upward to a
-rung the ladder offers, labour spent never exceeding the pool at turn start, and
-the date advancing exactly one quarter.
+sick never exceeding workers per grade, every worker who appears accounted for
+by a recruitment event, capacity moving only during `Construction` and only
+upward to a rung the ladder offers, labour spent never exceeding the pool at
+turn start, and the date advancing exactly one quarter.
+
+The farming run adds one more of the same kind: the chain must happen **in
+order** — a tile improved before sickness clears, sickness cleared before anyone
+is recruited. Which turn each lands on is reported, not asserted.
 
 **Not asserted** — that nobody starves, how much stock accumulates, how large
 capacity grows. Those are balance questions nobody has the evidence to settle,

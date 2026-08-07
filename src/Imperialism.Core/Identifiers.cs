@@ -132,6 +132,41 @@ public readonly record struct TechnologyId
     public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
 }
 
+public readonly record struct CivilianTypeId
+{
+    public CivilianTypeId(int value)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(value);
+        Value = value;
+    }
+
+    public int Value { get; }
+
+    public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
+}
+
+/// <summary>
+/// Identifies one civilian on the map. Unlike every other id here this is not
+/// dense: civilians are created and destroyed during play, so an id is issued
+/// once and never reused.
+/// </summary>
+public readonly record struct CivilianUnitId
+{
+    public CivilianUnitId(long value)
+    {
+        if (value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), "Civilian unit IDs must be positive.");
+        }
+
+        Value = value;
+    }
+
+    public long Value { get; }
+
+    public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
+}
+
 public readonly record struct DeliveryId
 {
     public DeliveryId(long value)

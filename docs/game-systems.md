@@ -79,10 +79,14 @@ since production resolves before feeding. A fair start and capacity construction
 have landed: every power can begin identical, and a facility can be built one
 rung larger at one lumber and one steel per point. The Capitol recruits
 untrained workers, capped at a quarter of the provinces owned and priced in
-canned food, clothing and furniture — though on a food-short economy it can
-never be paid, because canned food needs grain the workers are eating. Prices,
-power, sea routes, the transport capacity pool and research remain pending — see
-`formulas/production.md`, `formulas/extraction.md`, `formulas/feeding.md` and
+canned food, clothing and furniture. **Civilian units improve land**: a Farmer,
+Rancher, Forester, Miner or Driller sent to a tile raises its development level,
+which is what finally lets a food-short economy grow its harvest and pay the
+Capitol's price. Improvement needs the terrain to admit a worker *and* the
+deposit to be that worker's, which are two different tables in the manual.
+Prices, power, sea routes, the transport capacity pool and research remain
+pending — see `formulas/production.md`, `formulas/extraction.md`,
+`formulas/feeding.md`, `formulas/development.md` and
 `reference/manual-mechanics.md`.
 
 **Commodity tiers.** 13 raw resources (grain, livestock, fruit, fish, cotton,

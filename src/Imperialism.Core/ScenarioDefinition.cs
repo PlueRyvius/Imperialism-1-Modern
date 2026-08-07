@@ -12,6 +12,7 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<CellIndex> _initialPorts;
     private readonly IReadOnlyList<CellIndex> _initialDepots;
     private readonly IReadOnlyList<InitialWorkforce> _initialWorkforce;
+    private readonly IReadOnlyList<InitialCivilian> _initialCivilians;
     private readonly IReadOnlyList<CountryId> _defaultStartCountries;
 
     public ScenarioDefinition(
@@ -27,7 +28,8 @@ public sealed class ScenarioDefinition
         IEnumerable<CellIndex>? initialPorts = null,
         IEnumerable<CellIndex>? initialDepots = null,
         IEnumerable<InitialWorkforce>? initialWorkforce = null,
-        IEnumerable<CountryId>? defaultStartCountries = null)
+        IEnumerable<CountryId>? defaultStartCountries = null,
+        IEnumerable<InitialCivilian>? initialCivilians = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
@@ -125,6 +127,11 @@ public sealed class ScenarioDefinition
         _initialDepots = Array.AsReadOnly(depotArray);
         _initialWorkforce = Array.AsReadOnly(workforceArray);
 
+        // Civilians are deliberately not made unique by cell. The original
+        // stacks them freely — `s1` gives one power two Miners — and nothing in
+        // the manual says a tile holds only one.
+        _initialCivilians = Array.AsReadOnly(initialCivilians?.ToArray() ?? []);
+
         var defaultStartArray = defaultStartCountries?.ToArray() ?? [];
         if (defaultStartArray.Distinct().Count() != defaultStartArray.Length)
         {
@@ -161,6 +168,11 @@ public sealed class ScenarioDefinition
     public IReadOnlyList<CellIndex> InitialDepots => _initialDepots;
 
     public IReadOnlyList<InitialWorkforce> InitialWorkforce => _initialWorkforce;
+
+    /// <summary>
+    /// Civilians on the map at the start, in the order they will be issued ids.
+    /// </summary>
+    public IReadOnlyList<InitialCivilian> InitialCivilians => _initialCivilians;
 
     /// <summary>
     /// Countries that begin from the world's <see cref="StartingDefaults"/>: a

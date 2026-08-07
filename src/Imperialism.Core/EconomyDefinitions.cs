@@ -61,7 +61,8 @@ public sealed record ResourceDefinition
         ResourceId id,
         CommodityId commodity,
         IEnumerable<long> yieldByDevelopmentLevel,
-        TechnologyId? requiredTechnology = null)
+        TechnologyId? requiredTechnology = null,
+        CivilianTypeId? improvedBy = null)
     {
         ArgumentNullException.ThrowIfNull(yieldByDevelopmentLevel);
         var yields = yieldByDevelopmentLevel.ToArray();
@@ -89,6 +90,7 @@ public sealed record ResourceDefinition
         Id = id;
         Commodity = commodity;
         RequiredTechnology = requiredTechnology;
+        ImprovedBy = improvedBy;
         _yieldByDevelopmentLevel = Array.AsReadOnly(yields);
     }
 
@@ -115,6 +117,22 @@ public sealed record ResourceDefinition
     /// it would quietly make part of the map worthless.
     /// </summary>
     public TechnologyId? RequiredTechnology { get; }
+
+    /// <summary>
+    /// The kind of civilian that raises this deposit's level, from the manual's
+    /// Resource Development Table: Farmer for grain, fruit and cotton; Rancher
+    /// for livestock and wool; Forester for timber; Miner for coal, iron, gold
+    /// and gems; Driller for oil. Null means no civilian improves it, which is
+    /// the table's answer for fish and its silence about horses.
+    /// </summary>
+    /// <remarks>
+    /// The improver is a property of the deposit and improvability is a property
+    /// of the ground, and both must agree before a cell can be worked. The two
+    /// come from different tables in the manual and neither subsumes the other:
+    /// grain names a Farmer wherever it sits, and dry plains admit no civilian
+    /// however good the grain.
+    /// </remarks>
+    public CivilianTypeId? ImprovedBy { get; }
 
     /// <summary>
     /// Yield at <paramref name="developmentLevel"/>, holding at the top of the

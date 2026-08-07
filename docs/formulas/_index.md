@@ -52,7 +52,7 @@ the engine's own value for each:
 |---|---|---|
 | `ware` | starting warehouse stock | unrecovered |
 | `cash` | starting treasury | unrecovered |
-| `deve` | cell development levels | none developed |
+| `deve` | cell development levels | none developed — but see below |
 | `tech` | starting technologies | none known |
 | `tran` | transport capacity pool | unrecovered |
 | `rail` | depots | none built |
@@ -65,6 +65,14 @@ These are **not recoverable from the corpus** — its whole evidence is that the
 are absent. They are constants in the binary, which makes them one target class
 rather than seven scattered guesses, and the strongest argument for decompiling
 the engine rather than reading its disassembly.
+
+`deve` gained a concrete instance of this while civilian units were being built.
+The manual says farms and orchards adjacent to the capital begin at Level I, and
+the corpus does **not** author that: of 350 capital-adjacent farm and orchard
+tiles across the ten scenarios only 27 carry a `deve` record, and `s3` carries 59
+records with not one of them there. So the rule is the engine's, exactly as this
+table predicts, and it is still unimplemented. See
+[development.md](development.md).
 
 ## Status
 
@@ -80,6 +88,9 @@ bottom of this file.
 | Worker feeding and labour supply | `inferred` | [feeding](feeding.md) | Core, Content, LegacyImport | generated + local corpus |
 | Which grade starves or falls ill | `guess` | [feeding](feeding.md) | Core | generated |
 | Migration cap and price | `inferred`, on one `guess` | [migration](migration.md) | Core, Content, LegacyImport | generated |
+| Which terrain a civilian may improve | `inferred` | [development](development.md) | Core, Content, LegacyImport | generated + local corpus |
+| Which civilian improves which deposit | `inferred` | [development](development.md) | Core, Content, LegacyImport | generated + local corpus |
+| How many turns a civilian's work takes | `guess` | [development](development.md) | Content | generated |
 | Whether the whole economy holds up over time | — | [soak](soak.md) | — | 100-turn soak, 7 powers |
 | Trade clearing price | `guess` | _trade-pricing_ | — | — |
 | Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |
