@@ -40,6 +40,68 @@ public sealed record ExtractionSettings
 }
 
 /// <summary>
+/// What it costs to move commodities off the land, and to be able to move more.
+/// </summary>
+/// <remarks>
+/// "Transport capacity is the total number of commodities that your network can
+/// move each turn." One point moves one unit, whatever it is — the manual's
+/// Transport screen shows a single shared bar with a slider per commodity, and
+/// no commodity weighs more than another.
+/// <para>
+/// A world that declares no settings has no limit at all, which is how every
+/// world behaved before this existed: <see cref="TurnPhase.Extraction"/> handed
+/// everything it gathered straight to <see cref="TurnPhase.Delivery"/>.
+/// </para>
+/// </remarks>
+public sealed record TransportSettings
+{
+    private readonly IReadOnlyList<CommodityQuantity> _costPerCapacityPoint;
+
+    public TransportSettings(
+        IEnumerable<CommodityQuantity> costPerCapacityPoint,
+        long labourPerCapacityPoint = 0)
+    {
+        ArgumentNullException.ThrowIfNull(costPerCapacityPoint);
+        ArgumentOutOfRangeException.ThrowIfNegative(labourPerCapacityPoint);
+        var cost = costPerCapacityPoint.ToArray();
+        if (cost.Any(static item => item.Quantity <= 0))
+        {
+            throw new ArgumentException(
+                "A capacity point cannot cost nothing of a commodity it names.",
+                nameof(costPerCapacityPoint));
+        }
+
+        if (cost.Select(static item => item.Commodity).Distinct().Count() != cost.Length)
+        {
+            throw new ArgumentException(
+                "A capacity point cannot name a commodity twice.",
+                nameof(costPerCapacityPoint));
+        }
+
+        _costPerCapacityPoint = Array.AsReadOnly(cost);
+        LabourPerCapacityPoint = labourPerCapacityPoint;
+    }
+
+    /// <summary>
+    /// What one point of transport capacity costs at the railyard. The manual
+    /// puts it "as with other industrial expansion", which it prices at one
+    /// lumber and one steel per point.
+    /// </summary>
+    public IReadOnlyList<CommodityQuantity> CostPerCapacityPoint => _costPerCapacityPoint;
+
+    /// <summary>
+    /// Labour one point costs. **This is where the railyard differs from
+    /// expanding a mill**: the manual prices facility capacity at "one lumber
+    /// and one steel" and mentions no labour, while the railyard needs "steel,
+    /// lumber, and available labour". It never says how much, so the rate
+    /// follows the same total-input-units rule every recipe's
+    /// <see cref="ProductionRecipeDefinition.LabourCost"/> uses, and is carried
+    /// explicitly here rather than derived, for the same reason.
+    /// </summary>
+    public long LabourPerCapacityPoint { get; }
+}
+
+/// <summary>
 /// A port's catch: one commodity, earned per neighbouring water tile.
 /// </summary>
 /// <remarks>

@@ -24,6 +24,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | How civilians improve land | `docs/formulas/development.md` |
 | What a Prospector finds, and what stays hidden | `docs/formulas/prospecting.md` |
 | Which technology opens which improvement level | `docs/formulas/technology.md` |
+| How much the network can carry, and what that costs | `docs/formulas/transport.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Does the economy hold up over 100 turns? | `docs/formulas/soak.md` |
@@ -324,9 +325,58 @@ because Level II and III are no longer free. The move is the finding.
 grants a technology on turn 50 and watches the ceiling lift on turn 51. Reuse
 that pattern; oil is the obvious next candidate.
 
+`.iworld` v16 gives the network a size. A new **`Transport` phase** sits between
+`Extraction` and `Feeding`: extraction no longer queues what it gathers, it fills
+a turn-local pool, and transport carries as much of that as capacity allows.
+Sliders are per commodity against one shared bar, trimmed to what was gathered
+and then to what is left, in the order the player set them.
+
+**What the network cannot carry is lost, and that is a chosen rule** — the same
+standing as which grade takes the damage in `feeding.md`. Reported in
+`CommoditiesTransportedEvent.Wasted`, and **distinct from stranded**: no route at
+all wants a depot, no room wants a railyard.
+
+**The railyard is an order, not a facility**, because capacity is a country pool
+and the manual gives it no ceiling. It is also the one build that costs labour;
+expanding a mill does not.
+
+**The railyard was predicted to break 2:1 and it does not.** `production.md`
+carried that expectation twice and it is now retracted there rather than quietly
+dropped: a capacity point costs one lumber and one steel, two inputs for one
+point, so every reading of the labour sentence still agrees — and the manual
+never prices the railyard's labour at all. No candidate for that test is in view.
+
+**A power starts with a warehouse, and forgetting that produced a wrong
+conclusion.** The manual says so outright — "you must construct a lumber and steel
+mill with your *initial stockpiles of lumber and steel*" — so
+`startingDefaults.inventory` carries lumber and steel. The **existence** is the
+manual's and the **quantity is a guess**; `ware` in the seven engine defaults is
+promoted accordingly.
+
+Why it matters: the soak first concluded that a network below subsistence can
+never recover, because escaping needs a railyard that needs materials that need
+carrying. **That was an artefact of an empty warehouse and is retracted.** With a
+stockpile the same starved country buys its way out on turn one. Likewise
+"which slider comes first decides what a country becomes" holds only while the
+warehouse is bare; stocked, food-first and materials-first converge and
+materials-first is simply worse. **The slider order is worth as much as capacity
+is scarce, and no more.**
+
+What survives: a network under what its workforce eats costs that workforce on
+the **first** turn regardless, because capacity bought on turn one does not carry
+until turn two. So `tran`'s default still sets a country's opening headcount. It
+is a guess in `startingDefaults.transportCapacity`; do not cite it, and do not
+read a constant out of the corpus's `tran` records — `s1` gives 80–170, `s13`
+gives 10–25, and `s12` gives a network to exactly one of its seven powers.
+
+**Allocation is re-chosen every turn.** A country may put its whole network on
+coal one turn and on iron the next, or split it evenly. The soak's policies hold
+one fixed ordering for a century, which is a fixture simplification and not a
+property of the model.
+
 Buying technology, prerequisites, arrival dates, transient power, research,
-conflict, trade markets, diplomacy, sea routes between ports, blockade, and the
-transport capacity pool remain explicitly pending.
+conflict, trade markets, diplomacy, sea routes between ports, blockade, moving
+regiments by rail, and merchant marine capacity remain explicitly pending.
 
 **Production spends labour.** Each recipe costs its total input units, from one
 pool per country shared across every facility. The manual prices exactly one

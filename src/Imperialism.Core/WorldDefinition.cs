@@ -22,7 +22,8 @@ public sealed class WorldDefinition
         StartingDefaults? startingDefaults = null,
         IEnumerable<CommodityQuantity>? expansionCostPerCapacityPoint = null,
         MigrationSettings? migration = null,
-        IEnumerable<CivilianTypeDefinition>? civilianTypes = null)
+        IEnumerable<CivilianTypeDefinition>? civilianTypes = null,
+        TransportSettings? transport = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
@@ -404,6 +405,7 @@ public sealed class WorldDefinition
         StartingDefaults = startingDefaults;
         ExpansionCostPerCapacityPoint = Array.AsReadOnly(expansionCostPerCapacityPoint?.ToArray() ?? []);
         Migration = migration;
+        Transport = transport;
         _technologies = Array.AsReadOnly(technologyArray);
         _civilianTypes = Array.AsReadOnly(civilianTypeArray);
         _countries = Array.AsReadOnly(countryArray);
@@ -456,6 +458,13 @@ public sealed class WorldDefinition
     /// cannot. See <see cref="MigrationSettings"/>.
     /// </summary>
     public MigrationSettings? Migration { get; }
+
+    /// <summary>
+    /// What it costs to carry commodities and to carry more, or null where the
+    /// network has no limit at all — which is how every world behaved before
+    /// capacity existed.
+    /// </summary>
+    public TransportSettings? Transport { get; }
 
     /// <summary>
     /// A port stands on land. Verified against every <c>port</c> record in the
@@ -540,6 +549,7 @@ public sealed class WorldState
     private readonly HashSet<CellIndex> _depots;
     private readonly long[] _workers;
     private readonly long[] _sickWorkers;
+    private readonly long[] _transportCapacity;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private readonly Dictionary<CivilianUnitId, CivilianUnit> _civilians = [];
     private long _nextDeliveryId = 1;
@@ -559,6 +569,19 @@ public sealed class WorldState
         foreach (var capital in definition.Scenario.InitialCountryCapitals)
         {
             _countryCapitals[capital.Country.Value] = capital.Cell;
+        }
+
+        // Defaults first, so an explicit `ware` record still wins — the same
+        // order the workforce, capacity and technology defaults use.
+        if (definition.StartingDefaults is { } inventoryDefaults)
+        {
+            foreach (var country in definition.Scenario.DefaultStartCountries)
+            {
+                foreach (var stock in inventoryDefaults.Inventory)
+                {
+                    _availableInventory[GetInventoryOffset(country, stock.Commodity)] = stock.Quantity;
+                }
+            }
         }
 
         foreach (var stock in definition.Scenario.InitialInventory)
@@ -614,6 +637,20 @@ public sealed class WorldState
             {
                 _workers[GetWorkerOffset(workforce.Country, grade)] = workforce[grade];
             }
+        }
+
+        _transportCapacity = new long[definition.Countries.Count];
+        if (definition.StartingDefaults?.TransportCapacity is { } defaultCapacity)
+        {
+            foreach (var country in definition.Scenario.DefaultStartCountries)
+            {
+                _transportCapacity[country.Value] = defaultCapacity;
+            }
+        }
+
+        foreach (var capacity in definition.Scenario.InitialTransportCapacity)
+        {
+            _transportCapacity[capacity.Country.Value] = capacity.Capacity;
         }
 
         // Everybody starts well. Illness is decided by what a workforce eats,
@@ -822,6 +859,26 @@ public sealed class WorldState
         ValidateCell(cell);
         return ((long)country.Value * Definition.Map.Dimensions.CellCount) + cell.Value;
     }
+
+    /// <summary>
+    /// How many commodity units this country's network can move in a turn.
+    /// "Transport capacity is the total number of commodities that your network
+    /// can move each turn" — one point moves one unit of anything.
+    /// </summary>
+    public long GetTransportCapacity(CountryId country)
+    {
+        ValidateCountry(country);
+        return _transportCapacity[country.Value];
+    }
+
+    public void SetTransportCapacity(CountryId country, long capacity)
+    {
+        ValidateCountry(country);
+        ArgumentOutOfRangeException.ThrowIfNegative(capacity);
+        _transportCapacity[country.Value] = capacity;
+    }
+
+    internal long[] CopyTransportCapacity() => _transportCapacity.ToArray();
 
     public bool HasPort(CellIndex cell) => _ports.Contains(cell);
 

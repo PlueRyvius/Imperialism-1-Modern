@@ -58,6 +58,20 @@ Pressure Steam Engine and Seed Drill through `startingDefaults`. The Great
 Powers are identified by their `labo` records — the one record that names them
 and only them, seven in every shipped scenario — rather than guessed at.
 
+Every power also starts with a **warehouse**: the manual says a power begins with
+"initial stockpiles of lumber and steel", which no skirmish's `ware` record
+supplies, so `startingDefaults.inventory` does. An explicit `ware` record still
+beats it, the same way `labo` beats the default workforce. The commodities are
+the manual's and the quantity is a guess — and it is the guess that decides
+whether a small network is survivable at all.
+
+`tran` records become each power's starting transport capacity, one number for
+the whole network. Seven scenarios carry them and four carry none; `s12` gives a
+network to exactly one of its seven powers. A scenario carrying none leaves every
+power on the engine's default, which is **a guess** — see
+`formulas/transport.md`, and note that it decides whether an imported skirmish is
+playable at all rather than merely how comfortable it is.
+
 Oil remains unreachable in imported content: no scenario grants Oil Drilling and
 there is no research system, so swamp, desert and tundra can never be prospected.
 That is the manual's own rule rather than a gap. See `formulas/technology.md` and

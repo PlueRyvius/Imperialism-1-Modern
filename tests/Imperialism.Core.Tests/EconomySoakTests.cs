@@ -238,6 +238,186 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// A hundred turns on a network too small for the land it serves.
+    /// </summary>
+    /// <remarks>
+    /// The first constraint between what the land yields and what industry gets.
+    /// Every other run in this file carries everything it gathers; this one
+    /// starts with capacity for a fraction of it and has to build its way out,
+    /// spending the same lumber and steel its mills want.
+    /// <para>
+    /// <b>Reported, not asserted.</b> Whether a country claws its way to a
+    /// working network is a balance question nobody has the evidence to settle,
+    /// and the starting capacity is a guess. What is asserted is only that the
+    /// constraint bites at all and that nothing carried exceeds what was
+    /// gathered.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void AHundredTurnsOnANetworkTooSmallForItsLand()
+    {
+        var state = CreateWorld(withTransportLimit: true, startingTransportCapacity: 10);
+        var log = Run(state, orderPolicy: FoodFirstTransportPolicy, out var work);
+
+        output.WriteLine(log);
+
+        Assert.True(work.Wasted > 0, "Nothing was ever left on the ground, so nothing was scarce.");
+        Assert.True(work.Carried > 0, "The network never carried anything at all.");
+        Assert.True(
+            work.Carried <= work.Gathered,
+            $"Carried {work.Carried} of {work.Gathered} gathered.");
+    }
+
+    /// <summary>
+    /// The choice a small network forces **on a country with nothing in the
+    /// warehouse**: the same world, the same capacity, the sliders in the other
+    /// order.
+    /// </summary>
+    /// <remarks>
+    /// Food first keeps everybody fed and never makes a thing, because the coal
+    /// the steel mill wants is at the back of the queue and never arrives.
+    /// Materials first feeds the mills and lets the railyard grow the network —
+    /// and the workers pay for it in the meantime.
+    /// <para>
+    /// <b>The empty warehouse is doing a lot of the work here.</b> Give the same
+    /// country the manual's opening stockpile and both orderings buy an adequate
+    /// network within a few turns, after which nothing is scarce and the choice
+    /// stops mattering — see
+    /// <see cref="AStartingStockpileIsWhatMakesASmallNetworkSurvivable"/>. So
+    /// this is what the slider order is worth while capacity is genuinely tight,
+    /// not a standing property of the game.
+    /// </para>
+    /// <para>
+    /// <b>Reported, not asserted into a target.</b> Which is the better opening
+    /// is a balance question nobody has the evidence to settle. What is asserted
+    /// is only that the two differ, which is what proves the allocation order is
+    /// load-bearing rather than decorative.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void WhichSliderComesFirstDecidesWhatAnUnstockedCountryBecomes()
+    {
+        var foodFirst = CreateWorld(withTransportLimit: true, startingTransportCapacity: 10);
+        var foodLog = Run(foodFirst, orderPolicy: FoodFirstTransportPolicy, out var food);
+
+        var materialsFirst = CreateWorld(withTransportLimit: true, startingTransportCapacity: 10);
+        var materialsLog = Run(materialsFirst, orderPolicy: MaterialsFirstTransportPolicy, out var materials);
+
+        output.WriteLine("=== food first ===");
+        output.WriteLine(foodLog);
+        output.WriteLine("=== materials first ===");
+        output.WriteLine(materialsLog);
+
+        // Food first cannot run a mill; materials first can.
+        Assert.Equal(0, food.Produced);
+        Assert.True(materials.Produced > 0, "Materials-first never produced anything either.");
+
+        // And only the one that fed its mills could ever build a railyard.
+        Assert.Equal(0, food.CapacityBuilt);
+        Assert.True(
+            materials.CapacityBuilt > 0,
+            "The railyard was never built even with materials at the front of the queue.");
+        Assert.True(materials.FinalCapacity > food.FinalCapacity);
+    }
+
+    /// <summary>
+    /// A network below subsistence cannot dig itself out, and that is a property
+    /// of the model rather than of this fixture.
+    /// </summary>
+    /// <remarks>
+    /// Escaping needs a railyard; a railyard needs lumber and steel; those need
+    /// timber and coal carried; and every unit carried is one not carrying food.
+    /// Set capacity under what the workforce eats and the country falls to the
+    /// headcount its network can feed and stays there, with no route back however
+    /// long it runs — this is a hundred turns of it. Even carrying food first,
+    /// which is the most forgiving order there is.
+    /// <para>
+    /// Reported rather than asserted as desirable, but worth knowing before
+    /// anyone picks a starting capacity for real content: it means the guessed
+    /// default is not a balance knob but a viability threshold.
+    /// </para>
+    /// </remarks>
+    /// <summary>
+    /// **The starting stockpile is what makes a small network survivable**, and
+    /// finding that out corrected a claim this file used to make.
+    /// </summary>
+    /// <remarks>
+    /// Both runs are the same starved network — four points a power, under the
+    /// seven its workforce eats. The only difference is whether the warehouse
+    /// begins with the lumber and steel the manual says a power starts with:
+    /// "you must construct a lumber and steel mill with your initial stockpiles
+    /// of lumber and steel".
+    /// <para>
+    /// With an empty warehouse the country is trapped — escaping needs a
+    /// railyard, a railyard needs materials, materials need carrying, and every
+    /// unit carried is one not carrying food. With a stockpile it buys its way
+    /// out on the first turn and ends carrying almost everything it gathers.
+    /// </para>
+    /// <para>
+    /// So the trap is a property of an empty warehouse rather than of a small
+    /// network, which is the opposite of what this file concluded before the
+    /// stockpile existed. The turn-one starvation survives either way: capacity
+    /// bought on turn one does not carry until turn two, and the workforce eats
+    /// on turn one regardless.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void AStartingStockpileIsWhatMakesASmallNetworkSurvivable()
+    {
+        var bare = CreateWorld(withTransportLimit: true, startingTransportCapacity: 4);
+        var bareLog = Run(bare, orderPolicy: FoodFirstTransportPolicy, out var without);
+
+        var stocked = CreateWorld(
+            withTransportLimit: true, startingTransportCapacity: 4, startingStock: 20);
+        var stockedLog = Run(stocked, orderPolicy: FoodFirstTransportPolicy, out var with);
+
+        output.WriteLine("=== empty warehouse ===");
+        output.WriteLine(bareLog);
+        output.WriteLine("=== stocked warehouse ===");
+        output.WriteLine(stockedLog);
+
+        // The empty warehouse cannot buy anything, ever.
+        Assert.Equal(0, without.CapacityBuilt);
+        Assert.Equal(0, without.Produced);
+        Assert.True(without.LastTurnSick > 0, "The bare run was expected to stay permanently ill.");
+
+        // The stocked one buys its way out and stops being ill at all.
+        Assert.True(with.CapacityBuilt > 0, "Even with a stockpile the railyard was never built.");
+        Assert.True(with.Produced > 0);
+        Assert.Equal(0, with.LastTurnSick);
+        Assert.True(
+            with.Carried > without.Carried * 2,
+            $"Carried {with.Carried} stocked against {without.Carried} bare.");
+    }
+
+    /// <summary>
+    /// A network under what its workforce eats costs that workforce on the first
+    /// turn, whatever is in the warehouse.
+    /// </summary>
+    /// <remarks>
+    /// Capacity bought on turn one does not carry until turn two, and the
+    /// workers eat on turn one regardless — so the opening headcount is set by
+    /// the network a scenario hands you and nothing can be done about it that
+    /// turn. That is what makes the guessed starting capacity worth getting
+    /// right rather than merely plausible, even now a stockpile makes the rest
+    /// of the century survivable.
+    /// </remarks>
+    [Fact]
+    public void ANetworkUnderSubsistenceCostsWorkersOnTheFirstTurnRegardless()
+    {
+        var state = CreateWorld(
+            withTransportLimit: true, startingTransportCapacity: 4, startingStock: 20);
+        var log = Run(state, orderPolicy: FoodFirstTransportPolicy, out var work);
+
+        output.WriteLine(log);
+
+        // The fair start is [4, 2, 1] a power, so seven powers begin with 49.
+        Assert.True(
+            work.LastTurnWorkers is > 0 and < 49,
+            $"The workforce ended at {work.LastTurnWorkers}, having started at 49.");
+    }
+
+    /// <summary>
     /// Prospecting end to end over a hundred turns: ground searched, a deposit
     /// found, a Miner sent to open it, and coal from a mine that did not exist
     /// at the start reaching the warehouse.
@@ -384,7 +564,8 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         long FirstTurnWorkers, long LastTurnWorkers,
         long Prospected, long Revealed, long MinesOpened, long DiscoveryRefusals,
         int? FirstProspected, int? FirstMineOpened,
-        long KnowledgeRefusals, long TopRungs, int? FirstTopRung);
+        long KnowledgeRefusals, long TopRungs, int? FirstTopRung,
+        long Carried, long Wasted, long CapacityBuilt, long FinalCapacity);
 
     /// <summary>
     /// Makes the comforts a recruit costs and then recruits. A fixture, not an
@@ -518,6 +699,72 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             civilianWork: work);
     }
 
+    /// <summary>
+    /// <see cref="FarmingGrowthPolicy"/> plus a Transport screen: move food
+    /// first, then the industrial inputs, and spend anything spare on the
+    /// railyard. A fixture, not an AI — but the ordering is the one choice here
+    /// that matters, because a network too small to carry the harvest starves
+    /// its workers before it stalls its mills.
+    /// </summary>
+    /// <summary>Food before materials, which is the cautious reading of the demand lines.</summary>
+    private static CountryTurnOrders FoodFirstTransportPolicy(WorldState state, CountryId country) =>
+        Transporting(state, country, materialsFirst: false);
+
+    /// <summary>
+    /// Materials before food: starve the workers a little to feed the railyard,
+    /// and see whether the network can grow its way out.
+    /// </summary>
+    private static CountryTurnOrders MaterialsFirstTransportPolicy(WorldState state, CountryId country) =>
+        Transporting(state, country, materialsFirst: true);
+
+    private static CountryTurnOrders Transporting(
+        WorldState state,
+        CountryId country,
+        bool materialsFirst)
+    {
+        var farming = FarmingGrowthPolicy(state, country);
+
+        // The choice the network forces. Whatever is at the front of this list
+        // gets carried; whatever is at the back is left on the ground.
+        int[] priority = materialsFirst
+            ? [Timber, Coal, Grain, Fruit, Livestock, Cotton, Iron]
+            : [Grain, Fruit, Livestock, Cotton, Timber, Coal, Iron];
+        var allocations = priority
+            .Select(static commodity => new TransportAllocationOrder(
+                new CommodityId(commodity), long.MaxValue / 4))
+            .ToArray();
+
+        // **This policy spends on the network rather than on goods.** It makes
+        // only lumber and steel, which is what a railyard eats — ordering
+        // furniture as well starves the yard, and a power on a small network
+        // that keeps furnishing its houses never builds its way out. That is a
+        // fixture choice, not a finding, but it is the one that makes the
+        // railyard visible at soak scale.
+        var production = new List<ProductionOrder>();
+        foreach (var (recipe, input) in new[] { (LumberRecipe, Timber), (SteelRecipe, Coal) })
+        {
+            var affordable = state.GetAvailableQuantity(country, new CommodityId(input)) / 2;
+            if (affordable > 0)
+            {
+                production.Add(new ProductionOrder(new ProductionRecipeId(recipe), affordable));
+            }
+        }
+
+        // Keep a small reserve so the mills are not stripped bare. A starved
+        // network accumulates materials slowly, so the reserve is low on purpose.
+        var spare = Math.Min(
+            state.GetAvailableQuantity(country, new CommodityId(Lumber)),
+            state.GetAvailableQuantity(country, new CommodityId(Steel))) - 2;
+
+        return new CountryTurnOrders(
+            country,
+            production,
+            recruitWorkers: farming.RecruitWorkers,
+            civilianWork: farming.CivilianWork,
+            transport: allocations,
+            buildTransportCapacity: Math.Max(0, spare));
+    }
+
     private static bool Searches(WorldState state, CivilianTypeId type) =>
         state.Definition.CivilianTypes[type.Value].Work == CivilianWorkKind.Prospect;
 
@@ -581,6 +828,7 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         int? firstProspected = null, firstMineOpened = null;
         long knowledgeRefusals = 0, topRungs = 0;
         int? firstTopRung = null;
+        long carried = 0, wasted = 0, capacityBuilt = 0;
         var hills = Enumerable.Range(0, state.Definition.Map.Dimensions.CellCount)
             .Select(static index => new CellIndex(index))
             .Where(cell => state.Definition.Map
@@ -639,6 +887,12 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
 
             gathered += resolution.Events.OfType<ResourceExtractedEvent>()
                 .Sum(item => item.Collected.Sum(q => q.Quantity));
+            carried += resolution.Events.OfType<CommoditiesTransportedEvent>()
+                .Sum(item => item.Moved.Sum(q => q.Quantity));
+            wasted += resolution.Events.OfType<CommoditiesTransportedEvent>()
+                .Sum(item => item.Wasted.Sum(q => q.Quantity));
+            capacityBuilt += resolution.Events.OfType<TransportCapacityBuiltEvent>()
+                .Sum(item => item.ToCapacity - item.FromCapacity);
             eaten += resolution.Events.OfType<WorkersFedEvent>()
                 .Sum(item => item.Eaten.Sum(q => q.Quantity));
             delivered += resolution.Events.OfType<CommodityDeliveredEvent>().Count();
@@ -730,7 +984,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             firstTurnGrain, lastTurnGrain, lastTurnSick, firstTurnWorkers, lastTurnWorkers,
             prospected, revealed, minesOpened, discoveryRefusals,
             firstProspected, firstMineOpened,
-            knowledgeRefusals, topRungs, firstTopRung);
+            knowledgeRefusals, topRungs, firstTopRung,
+            carried, wasted, capacityBuilt,
+            Enumerable.Range(0, Powers).Sum(index => state.GetTransportCapacity(new CountryId(index))));
         report.AppendLine(
             $"gathered {gathered}, eaten {eaten}, delivered {delivered}, " +
             $"produced {produced} cycles, built {built} times, " +
@@ -753,6 +1009,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             $"{topRungs} tiles reached the gated top rung, " +
             $"{knowledgeRefusals} refused for want of knowledge; " +
             $"first top rung turn {Or(firstTopRung)}");
+        report.AppendLine(
+            $"carried {carried} of {gathered} gathered, wasted {wasted}; " +
+            $"built {capacityBuilt} points of capacity");
         return report.ToString();
 
         static string Or(int? turn) => turn?.ToString() ?? "never";
@@ -865,7 +1124,11 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     /// actually looks like. A resource-rich fixture would come back healthy and
     /// prove nothing.
     /// </summary>
-    private static WorldState CreateWorld(bool withHiddenMinerals = false)
+    private static WorldState CreateWorld(
+        bool withHiddenMinerals = false,
+        bool withTransportLimit = false,
+        long startingTransportCapacity = 0,
+        long startingStock = 0)
     {
         // Each power gets a row of 22 cells: a capital at column 0, then a
         // repeating deposit / depot / deposit run. A depot reaches one step, so
@@ -1082,7 +1345,20 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                     new FacilityCapacityDefault(new ProductionFacilityId(LumberMill), 2),
                     new FacilityCapacityDefault(new ProductionFacilityId(SteelMill), 2),
                 ],
-                new WorkforceDefault(untrained: 4, trained: 2, expert: 1)),
+                new WorkforceDefault(untrained: 4, trained: 2, expert: 1),
+                transportCapacity: withTransportLimit ? startingTransportCapacity : null,
+
+                // The manual's initial stockpile of lumber and steel. Without
+                // one a starved network cannot buy the railyard that would
+                // unstarve it, which is a trap the original plainly does not
+                // intend — see docs/formulas/transport.md.
+                inventory: startingStock == 0
+                    ? null
+                    :
+                    [
+                        new CommodityQuantity(new CommodityId(Lumber), startingStock),
+                        new CommodityQuantity(new CommodityId(Steel), startingStock),
+                    ]),
             [
                 new CommodityQuantity(new CommodityId(Lumber), 1),
                 new CommodityQuantity(new CommodityId(Steel), 1),
@@ -1104,7 +1380,15 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                     "Prospector",
                     CivilianWorkTurns,
                     CivilianWorkKind.Prospect),
-            ]));
+            ],
+            transport: withTransportLimit
+                ? new TransportSettings(
+                    [
+                        new CommodityQuantity(new CommodityId(Lumber), 1),
+                        new CommodityQuantity(new CommodityId(Steel), 1),
+                    ],
+                    labourPerCapacityPoint: 2)
+                : null));
     }
 
     private static ProductionRecipeDefinition Recipe(

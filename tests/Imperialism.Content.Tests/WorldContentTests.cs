@@ -271,7 +271,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(16)]
+    [InlineData(17)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1080,6 +1080,82 @@ public sealed class WorldContentTests
         // And the default reaches the country the scenario names.
         var state = new WorldState(compiled.World);
         Assert.True(state.HasTechnology(new CountryId(0), new TechnologyId(0)));
+    }
+
+    /// <summary>
+    /// Version 16 limits how much a network carries. A version 15 package has no
+    /// limit and none can be invented — a sensible capacity depends entirely on
+    /// how much a world's land yields — so it migrates to a network that carries
+    /// everything, which is how it behaved.
+    /// </summary>
+    [Fact]
+    public void VersionFifteenMigratesToANetworkWithNoLimit()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 15);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.Null(migrated.Transport);
+        Assert.Null(migrated.StartingDefaults?.TransportCapacity);
+        Assert.All(migrated.Scenarios, static item => Assert.Empty(item.TransportCapacity));
+        Assert.Null(WorldContentCompiler.Compile(migrated).World.Transport);
+    }
+
+    [Fact]
+    public void VersionFifteenMigrationRejectsVersionSixteenTransport()
+    {
+        var document = CreateValidDocument();
+        document.Transport = new TransportContentSettings
+        {
+            CostPerCapacityPoint = [new CommodityQuantityContent { Commodity = "commodity.grain", Quantity = 1 }],
+        };
+        var contradictory = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 15);
+        Assert.Contains("\"transport\"", contradictory, StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(contradictory)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    [Fact]
+    public void TransportSettingsAndCapacitySurviveARoundTrip()
+    {
+        var document = CreateValidDocument();
+        document.Transport = new TransportContentSettings
+        {
+            CostPerCapacityPoint = [new CommodityQuantityContent { Commodity = "commodity.grain", Quantity = 2 }],
+            LabourPerCapacityPoint = 2,
+        };
+        document.StartingDefaults = new StartingDefaultsContent { TransportCapacity = 12 };
+        document.Scenarios[0].DefaultStartCountries = [document.Countries[0].Key];
+        document.Scenarios[0].TransportCapacity =
+        [
+            new TransportCapacityContent { Country = document.Countries[0].Key, Capacity = 30 },
+        ];
+
+        var first = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(first);
+        Assert.Equal(first, WorldContentCodec.Encode(decoded));
+
+        var compiled = WorldContentCompiler.Compile(decoded);
+        Assert.Equal(2, compiled.World.Transport!.LabourPerCapacityPoint);
+
+        // The explicit record beats the default, the same way workforce and
+        // capacity already work.
+        var state = new WorldState(compiled.World);
+        Assert.Equal(30, state.GetTransportCapacity(new CountryId(0)));
+    }
+
+    [Fact]
+    public void CapacityThatCostsNothingIsRejected()
+    {
+        var document = CreateValidDocument();
+        document.Transport = new TransportContentSettings { CostPerCapacityPoint = [] };
+
+        AssertPath("transport.costPerCapacityPoint", document);
     }
 
     [Fact]

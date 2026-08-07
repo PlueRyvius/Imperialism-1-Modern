@@ -369,7 +369,7 @@ public static class LegacyWorldConverter
         new(
             [
                 "cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port", "rail", "labo",
-                "civi", "tech",
+                "civi", "tech", "tran",
             ],
             StringComparer.Ordinal);
 
@@ -589,6 +589,7 @@ public static class LegacyWorldConverter
         var depots = ReadDepots(scenario, map, report);
         var workers = ReadWorkforce(scenario, countryKeys, report);
         var countryTechnologies = ReadCountryTechnologies(scenario, countryKeys, report);
+        var transportCapacity = ReadTransportCapacity(scenario, countryKeys, report);
         var civilians = ReadCivilians(scenario, map, countryKeys, report);
         var title = string.IsNullOrWhiteSpace(info?.Title)
             ? $"Legacy {options.PackageKey}"
@@ -658,7 +659,10 @@ public static class LegacyWorldConverter
             StartingDefaults = new StartingDefaultsContent
             {
                 Technologies = [.. StartingTechnologyPositions.Select(TechnologyKey)],
+                TransportCapacity = DefaultTransportCapacity,
+                Inventory = CreateStandardStartingStock(),
             },
+            Transport = CreateStandardTransport(),
             Extraction = new ExtractionContentSettings
             {
                 CatchmentRadius = WorldContentCodec.DefaultCatchmentRadius,
@@ -701,6 +705,7 @@ public static class LegacyWorldConverter
                     Workers = workers,
                     Civilians = civilians,
                     CountryTechnologies = countryTechnologies,
+                    TransportCapacity = transportCapacity,
 
                     // Every power the scenario gives a workforce to. `labo` is
                     // the one record that names the Great Powers and only them
@@ -898,6 +903,73 @@ public static class LegacyWorldConverter
         return order
             .Select(cell => new CellDevelopmentContent { Cell = (int)cell, Level = byCell[cell] })
             .ToArray();
+    }
+
+    /// <summary>
+    /// Converts <c>tran</c> records into starting transport capacity. The record
+    /// is <c>[country, capacity]</c> — one number for the whole network, matching
+    /// the manual's single shared capacity bar.
+    /// </summary>
+    /// <remarks>
+    /// A scenario that carries none leaves every power on the engine's default,
+    /// which is a guess; see <see cref="DefaultTransportCapacity"/>. The values
+    /// a mission does author are authored design and must not be read as
+    /// gameplay constants.
+    /// </remarks>
+    private static TransportCapacityContent[] ReadTransportCapacity(
+        ScenarioDocument scenario,
+        IReadOnlyDictionary<uint, string> countryKeys,
+        LegacyImportReport report)
+    {
+        var result = new List<TransportCapacityContent>();
+        var seen = new HashSet<uint>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "tran")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 2)
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-tran",
+                    path,
+                    "A tran record must contain a country and a capacity.");
+                continue;
+            }
+
+            var country = record.Fields[0];
+            if (!countryKeys.TryGetValue(country, out var countryKey))
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-tran-country",
+                    path,
+                    $"Transport capacity refers to unknown country {country}.");
+                continue;
+            }
+
+            if (!seen.Add(country))
+            {
+                report.Add(
+                    LegacyImportSeverity.Warning,
+                    "scenario.repeated-tran",
+                    path,
+                    $"Country {country} has more than one transport capacity record.");
+                continue;
+            }
+
+            result.Add(new TransportCapacityContent
+            {
+                Country = countryKey,
+                Capacity = record.Fields[1],
+            });
+        }
+
+        return result.ToArray();
     }
 
     /// <summary>
@@ -1795,6 +1867,62 @@ public static class LegacyWorldConverter
     [
         Quantity("lumber", 1),
         Quantity("steel", 1),
+    ];
+
+    /// <summary>
+    /// The railyard: "as with other industrial expansion, increasing transport
+    /// capacity requires both lumber and steel", so it takes the same rate the
+    /// manual prices industrial capacity at.
+    /// </summary>
+    /// <remarks>
+    /// The difference is labour. Expanding a mill needs none; the railyard needs
+    /// "steel, lumber, and available labour". The manual never says how much, so
+    /// the rate is the same total-input-units rule every recipe's labour cost
+    /// follows — two inputs, two labour. See <c>docs/formulas/transport.md</c>.
+    /// </remarks>
+    private static TransportContentSettings CreateStandardTransport() => new()
+    {
+        CostPerCapacityPoint =
+        [
+            Quantity("lumber", 1),
+            Quantity("steel", 1),
+        ],
+        LabourPerCapacityPoint = 2,
+    };
+
+    /// <summary>
+    /// What a power's network carries before it builds anything.
+    /// </summary>
+    /// <remarks>
+    /// <b>A guess, and the only one in the transport system.</b> A skirmish
+    /// carries no <c>tran</c> record at all, so the corpus attests only that the
+    /// engine supplies a value; the missions that do carry one are authored
+    /// special cases this project has a standing rule against mining. Zero was
+    /// the alternative and would leave every imported skirmish unable to move
+    /// anything off its own land. Do not cite this number as evidence.
+    /// </remarks>
+    private const int DefaultTransportCapacity = 20;
+
+    /// <summary>
+    /// What a power finds in its warehouse on turn one.
+    /// </summary>
+    /// <remarks>
+    /// <b>That there is a stockpile at all is the manual's, and so are the two
+    /// commodities</b>: "you must construct a lumber and steel mill with your
+    /// <em>initial stockpiles of lumber and steel</em>, or you may be forced to
+    /// beg for lumber and steel from other Great Powers." A power starting with
+    /// an empty warehouse could do neither.
+    /// <para>
+    /// <b>The quantity is a guess.</b> It matters more than it looks: a country
+    /// with an empty warehouse and a small network cannot buy the railyard that
+    /// would let it carry the materials to fill the warehouse, and the soak
+    /// shows it never escapes. See <c>docs/formulas/transport.md</c>.
+    /// </para>
+    /// </remarks>
+    private static CommodityQuantityContent[] CreateStandardStartingStock() =>
+    [
+        Quantity("lumber", 20),
+        Quantity("steel", 20),
     ];
 
     private static ProductionRecipeContentDefinition[] CreateStandardProductionRecipes() =>

@@ -81,6 +81,11 @@ internal static class WorldContentMigrator
             MigrateVersionFourteenToFifteen(document);
         }
 
+        if (document.FormatVersion == 15)
+        {
+            MigrateVersionFifteenToSixteen(document);
+        }
+
         return document;
     }
 
@@ -630,6 +635,53 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 15;
+    }
+
+    /// <summary>
+    /// Version 16 limits how much a network can carry in a turn, and prices the
+    /// railyard that raises it.
+    /// </summary>
+    /// <remarks>
+    /// A version 15 package has no limit, and inventing one would be inventing
+    /// the constraint rather than filling in a value — the capacity that suits a
+    /// world depends entirely on how much its land yields. So it migrates to a
+    /// world whose network carries everything it gathers, which is exactly how
+    /// it behaved. A package that wants scarcity declares it.
+    /// </remarks>
+    private static void MigrateVersionFifteenToSixteen(WorldContentDocument document)
+    {
+        if (document.Transport is not null)
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 15 cannot contain version 16 transport settings.");
+        }
+
+        if (document.StartingDefaults?.TransportCapacity is not null)
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 15 cannot contain a version 16 starting transport capacity.");
+        }
+
+        if (document.StartingDefaults?.Inventory is { Length: > 0 })
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 15 cannot contain a version 16 starting stockpile.");
+        }
+
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.TransportCapacity is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 15 cannot contain version 16 transport capacity.");
+            }
+        }
+
+        document.FormatVersion = 16;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

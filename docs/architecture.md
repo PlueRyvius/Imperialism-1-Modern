@@ -155,10 +155,10 @@ sourcing, not snapshot-and-diff.
 TurnResolver.Resolve(WorldState state, TurnOrders orders, ulong seed)
 ```
 
-Phases run in the original's fixed order, with five of our own interleaved:
+Phases run in the original's fixed order, with six of our own interleaved:
 Diplomacy → Trade → Production → **Construction** → **Development** →
-**Migration** → Conflict → TradeCancellation → **Extraction** → **Feeding** →
-Delivery → Connectivity.
+**Migration** → Conflict → TradeCancellation → **Extraction** → **Transport** →
+**Feeding** → Delivery → Connectivity.
 
 `Construction` sits immediately after `Production` on purpose. The manual says
 an expansion ordered now is working next turn, and putting it here makes that
@@ -187,6 +187,17 @@ economy, conflict, and diplomacy enter the model.
 `Conflict` is deliberate: a province taken this turn stops paying its former
 owner this turn, so the harvest reads the ownership and connectivity the turn
 actually ended with rather than the ones it opened with.
+
+**`Transport` sits between `Extraction` and `Feeding`, and is the first
+constraint in the middle of the chain.** Extraction no longer queues what it
+gathers; it produces a turn-local pool, and Transport decides how much of that
+the network actually carries, against a per-country capacity. It has to be after
+Extraction because you can only carry what you gathered, and before Feeding
+because workers eat carried food ahead of warehouse stock. **What the network
+leaves behind is lost** — a chosen rule, reported rather than dropped silently,
+and distinct from output no route reached at all. Capacity is raised at the
+railyard, which is an order rather than a facility because the pool is
+per-country and the manual gives it no ceiling. See `formulas/transport.md`.
 
 **Economy storage foundation.** `CommodityId` is separate from `ResourceId`:
 a map deposit points through `ResourceDefinition` to the commodity it yields,
@@ -256,8 +267,8 @@ Genuine contention (two powers invading one province) resolves by an explicit
 seeded tiebreak, never by iteration order.
 
 **Deferred delivery is modelled once, with explicit exceptions.** Warehouse
-stock is `Available`; extraction, transport and trade create `PendingDelivery`
-entries.
+stock is `Available`; transport and trade create `PendingDelivery` entries —
+extraction no longer does, because what it gathers has still to be carried.
 Production cannot generally use pending goods, but worker feeding consumes
 transported raw food from `PendingDelivery` before warehouse food, matching
 the original's documented priority. Power is separate transient labour: it is

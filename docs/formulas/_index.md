@@ -50,11 +50,11 @@ the engine's own value for each:
 
 | Record | What it defaults | Status |
 |---|---|---|
-| `ware` | starting warehouse stock | unrecovered |
+| `ware` | starting warehouse stock | **exists, per the manual** — quantity unrecovered |
 | `cash` | starting treasury | unrecovered |
 | `deve` | cell development levels | none developed — but see below |
 | `tech` | starting technologies | **recovered — from the manual** |
-| `tran` | transport capacity pool | unrecovered |
+| `tran` | transport capacity pool | unrecovered — **and now load-bearing** |
 | `rail` | depots | none built |
 | `rela` | diplomatic relations | unrecovered |
 
@@ -65,6 +65,21 @@ These are **not recoverable from the corpus** — its whole evidence is that the
 are absent. They are constants in the binary, which makes them one target class
 rather than seven scattered guesses, and the strongest argument for decompiling
 the engine rather than reading its disassembly.
+
+**Two of the six that remain are now load-bearing**, and the manual moved one of
+them further than expected. `ware` is no longer merely unrecovered: the manual
+says outright that a power begins with "initial stockpiles of lumber and steel",
+so its *existence* is attested and only the quantity is missing. That mattered
+immediately — [transport.md](transport.md) concluded that a small network was an
+inescapable trap, and it was wrong: an *empty warehouse* is the trap, and a power
+that starts with something to build from buys its way out on the first turn.
+
+`tran` is the other. It used to be a number nothing read; it now sets a country's
+opening headcount, because capacity bought on turn one does not carry until turn
+two while the workers eat on turn one regardless.
+
+Both are guesses in content today, and both are better arguments for reading the
+binary than anything else on this list.
 
 **One of them has fallen, and not to a decompiler.** The manual states the
 `tech` default outright: "every player always starts with the first two
@@ -106,6 +121,10 @@ bottom of this file.
 | What a `tech` id names | `inferred` | [technology](technology.md) | LegacyImport | local corpus |
 | The technologies every power starts with | `inferred` | [technology](technology.md) | Core, Content, LegacyImport | generated |
 | What technology costs, and its prerequisites | `guess` | _technology-investment_ | — | — |
+| How much a network can carry, and what raises it | `inferred` | [transport](transport.md) | Core, Content, LegacyImport | generated + local corpus |
+| Whether un-carried output keeps | `guess` | [transport](transport.md) | Core | generated |
+| What a network starts with | `guess` | [transport](transport.md) | Content, LegacyImport | generated |
+| What a warehouse starts with | `inferred` existence, `guess` quantity | [transport](transport.md) | Core, Content, LegacyImport | generated |
 | Whether the whole economy holds up over time | — | [soak](soak.md) | — | 100-turn soak, 7 powers |
 | Trade clearing price | `guess` | _trade-pricing_ | — | — |
 | Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |

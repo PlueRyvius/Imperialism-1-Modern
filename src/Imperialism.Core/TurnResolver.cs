@@ -14,6 +14,7 @@ public static class TurnResolver
         TurnPhase.Conflict,
         TurnPhase.TradeCancellation,
         TurnPhase.Extraction,
+        TurnPhase.Transport,
         TurnPhase.Feeding,
         TurnPhase.Delivery,
         TurnPhase.Connectivity,
@@ -50,6 +51,22 @@ public static class TurnResolver
             spentSoFar[index] = production.InventoryDeltas[index] + expansion.InventoryDeltas[index];
         }
 
+        // The railyard is priced against the same running total, and is the one
+        // build that also draws on the labour pool, so it needs to know what
+        // production already spent there.
+        var labourSpent = new long[orders.Count];
+        foreach (var entry in production.Entries)
+        {
+            labourSpent[entry.Country.Value] = checked(
+                labourSpent[entry.Country.Value] + entry.LabourUsed);
+        }
+
+        var railyard = TransportPlanner.CreateRailyard(state, orders, spentSoFar, labourSpent);
+        for (var index = 0; index < spentSoFar.Length; index++)
+        {
+            spentSoFar[index] += railyard.InventoryDeltas[index];
+        }
+
         // Migration is priced last, against what production and building have
         // already committed, so one turn cannot spend the same clothing twice.
         var migration = MigrationPlanner.Create(state, orders, spentSoFar);
@@ -60,6 +77,12 @@ public static class TurnResolver
         }
 
         state.PreflightInventoryChanges(combined);
+
+        // Capacity bought this turn carries next turn, "as with other industrial
+        // expansion". Transport runs long after Construction in the pipeline, so
+        // it reads the figure the turn opened with rather than the live one.
+        var capacityAtTurnStart = state.CopyTransportCapacity();
+        IReadOnlyList<PlannedExtraction> gathered = [];
         var events = new List<TurnEvent>(Pipeline.Length + production.Entries.Count);
         foreach (var phase in Pipeline)
         {
@@ -86,6 +109,19 @@ public static class TurnResolver
                 // fall out for free: this turn's output was already decided
                 // against the old size.
                 state.CommitProduction(expansion.InventoryDeltas);
+                state.CommitProduction(railyard.InventoryDeltas);
+                foreach (var entry in railyard.Entries)
+                {
+                    state.SetTransportCapacity(entry.Country, entry.ToCapacity);
+                    events.Add(new TransportCapacityBuiltEvent(
+                        turnNumber,
+                        entry.Country,
+                        entry.FromCapacity,
+                        entry.ToCapacity,
+                        entry.LabourUsed,
+                        entry.Paid));
+                }
+
                 foreach (var entry in expansion.Entries)
                 {
                     state.SetProductionCapacity(entry.Country, entry.Facility, entry.ToCapacity);
@@ -159,10 +195,11 @@ public static class TurnResolver
             else if (phase == TurnPhase.Extraction)
             {
                 // Extraction runs after Conflict so a province lost this turn
-                // stops paying its owner this turn, and queues rather than
-                // credits: gathered output reaches the warehouse through
-                // Delivery, making it available to next turn's production.
-                foreach (var entry in ExtractionPlanner.Create(state))
+                // stops paying its owner this turn. It no longer queues
+                // anything: what it gathers is a pool the network may carry
+                // from, and Transport decides how much of it actually moves.
+                gathered = ExtractionPlanner.Create(state);
+                foreach (var entry in gathered)
                 {
                     // A country with no deposits and no ports is not an event.
                     // Anything else is, even when every quantity is zero: a
@@ -174,15 +211,6 @@ public static class TurnResolver
                         continue;
                     }
 
-                    foreach (var quantity in entry.Collected)
-                    {
-                        _ = state.QueuePendingDelivery(
-                            entry.Country,
-                            quantity.Commodity,
-                            quantity.Quantity,
-                            PendingDeliverySource.Extraction);
-                    }
-
                     events.Add(new ResourceExtractedEvent(
                         turnNumber,
                         entry.Country,
@@ -192,6 +220,37 @@ public static class TurnResolver
                         entry.StrandedPortCount,
                         entry.Collected,
                         entry.Stranded));
+                }
+            }
+            else if (phase == TurnPhase.Transport)
+            {
+                // Between Extraction and Feeding: you can only carry what you
+                // gathered, and workers eat what was carried before they touch
+                // the warehouse. What the network leaves behind does not keep.
+                foreach (var entry in TransportPlanner.Create(
+                    state, orders, gathered, capacityAtTurnStart))
+                {
+                    foreach (var quantity in entry.Moved)
+                    {
+                        _ = state.QueuePendingDelivery(
+                            entry.Country,
+                            quantity.Commodity,
+                            quantity.Quantity,
+                            PendingDeliverySource.Extraction);
+                    }
+
+                    if (entry.Moved.Count == 0 && entry.Wasted.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    events.Add(new CommoditiesTransportedEvent(
+                        turnNumber,
+                        entry.Country,
+                        entry.CapacityUsed,
+                        entry.CapacityAvailable,
+                        entry.Moved,
+                        entry.Wasted));
                 }
             }
             else if (phase == TurnPhase.Feeding)
