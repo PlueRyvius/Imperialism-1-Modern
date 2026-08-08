@@ -116,24 +116,33 @@ That covers `s1`'s 52 barren-hill and 6 mountain `deve` records without a
 seeding pass, and it is why the 1997 format having no record for who-searched-what
 costs nothing. `HasProspected` stays the honest record of who actually *looked*.
 
-## Oil is gated, and that makes it unreachable
+## Oil is gated — and it is reachable now
 
-The importer now emits **one** technology, `technology.oil-drilling`, and gives
-it to nobody. A 1997 `tech` record is not converted, and there is no research
-system. So **no imported world can ever prospect swamp, desert or tundra**, and
-its oil is unreachable.
+The importer emits the whole technology table, and `technology.oil-drilling`
+carries a price: **25,000, from 1856, with no prerequisite.** So an imported world
+*can* reach its oil, by saving up and buying the technology like any other.
 
-That is the manual applied honestly rather than a gap. It says a Prospector
-cannot look for oil until the country invests; nothing here can invest; so
-nothing here may look. The fair start already has no refinery for exactly this
-reason. The alternative — leaving the oil ground open because our research is
-missing — would invent permission the original never granted, which is the one
-thing this project has repeatedly agreed not to do.
+**This section used to say the opposite and the change is the point.** Before the
+Investment screen there was no research at all, a 1997 `tech` record was the only
+source of knowledge, and the honest consequence was that **no imported world could
+ever prospect swamp, desert or tundra.** It was recorded here as the manual applied
+honestly rather than as a gap — a Prospector cannot look for oil until the country
+invests, nothing could invest, so nothing could look — and it ended with a note to
+re-read this section when research landed.
 
-A scenario can still grant it outright through `InitialCountryTechnologies`,
-which is what makes the gate testable and what a hand-authored world would use.
-**Re-read this section when research lands**; the gate is already in the content
-and should need no code change.
+That note was right about one thing in particular: **the gate needed no code
+change.** It was already in content, expressed as a `ProspectingRule` naming a
+technology, and giving that technology a price was enough. Three slices of gate
+machinery came alive the same way.
+
+What is untested is what it costs in practice. 25,000 is twice a Mechanical Reaper
+and the soak's gold mine earns about 20,000 in a century, so an imported power very
+plausibly cannot afford oil inside a normal game even though it is no longer
+forbidden — which is a different claim and one nobody has measured. **No soak run
+covers oil.** See [technology.md](technology.md).
+
+A scenario can still grant it outright through `InitialCountryTechnologies`, which
+remains what a hand-authored world would use.
 
 ## Conquest
 

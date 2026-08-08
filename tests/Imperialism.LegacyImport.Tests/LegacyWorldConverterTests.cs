@@ -688,6 +688,157 @@ public sealed class LegacyWorldConverterTests
     }
 
     /// <summary>
+    /// **The whole technology table, pinned**: order, cost, arrival year and
+    /// prerequisites. The order is load-bearing because a <c>tech</c> record is a
+    /// bare 1-based index into it, and the other three columns are what the
+    /// Investment screen reads.
+    /// </summary>
+    /// <remarks>
+    /// This is the wiki's order rather than the manual's printed order — the two
+    /// differ at positions 4–7 and 13–14, which is exactly where the manual's
+    /// two-column layout is worst. **The corpus cannot choose between them**, and
+    /// the reason is worth stating precisely rather than as agreement: a power
+    /// holding *five* technologies genuinely holds different gates under each, and
+    /// the corpus has no such power (its counts are 0, 6, 9, 13, 14 and 21). Both
+    /// falsification counts come out identical under either ordering. See
+    /// <c>docs/formulas/technology.md</c>.
+    /// <para>
+    /// Names stay the manual's where the two sources disagree: "Steel and Iron
+    /// Plows" over the wiki's "Steel Plows", "Fertiliser" over "Fertilizer".
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void TheWholeTechnologyTableIsPinned()
+    {
+        (string Name, long? Cost, int Year, string[] Requires)[] expected =
+        [
+            ("High Pressure Steam Engine", null, 1815, []),
+            ("Seed Drill", null, 1815, []),
+            ("Cotton Gin", 1_000, 1816, []),
+            ("Iron Railroad Bridge", 1_500, 1821, []),
+            ("Feed Grasses", 1_500, 1821, []),
+            ("Square-Set Timbering", 1_500, 1821, []),
+            ("Streamlined Hulls", 1_500, 1821, []),
+            ("Spinning Jenny", 3_000, 1826, ["Cotton Gin", "Feed Grasses"]),
+            ("Paddlewheels", 3_000, 1826, []),
+            ("Steel and Iron Plows", 3_000, 1831, ["Seed Drill"]),
+            ("Bessemer Converter", 6_000, 1836, []),
+            ("Compound Steam Engine", 7_000, 1836, ["Iron Railroad Bridge"]),
+            ("Breech-Loading Rifles", 12_000, 1841, ["Bessemer Converter"]),
+            ("Rifled Artillery", 10_000, 1841, []),
+            ("Advanced Iron Working", 12_000, 1846, []),
+            ("Power Loom", 12_000, 1846, ["Spinning Jenny"]),
+            ("Mechanical Reaper", 12_000, 1851, ["Steel and Iron Plows"]),
+            ("Commercial Fertiliser", 12_000, 1856, ["Steel and Iron Plows"]),
+            ("Oil Drilling", 25_000, 1856, []),
+            ("Barbed Wire", 20_000, 1862, ["Feed Grasses"]),
+            ("Steel Armour Plate", 40_000, 1866, ["Advanced Iron Working"]),
+            ("Large Artillery", 40_000, 1872, ["Rifled Artillery"]),
+            ("Dynamite", 40_000, 1874, ["Compound Steam Engine", "Square-Set Timbering"]),
+            ("Marine Engineering", 40_000, 1873, ["Steel Armour Plate"]),
+            ("Machine Guns", 100_000, 1879, ["Breech-Loading Rifles"]),
+            ("Chemistry", 120_000, 1875, ["Oil Drilling", "Barbed Wire"]),
+            ("Improved Range-Finding", 150_000, 1881, ["Marine Engineering"]),
+            ("Internal Combustion", 150_000, 1884, ["Chemistry"]),
+        ];
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "technology-table-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var table = result.Document!.Technologies;
+        Assert.Equal(28, table.Length);
+
+        static string Key(string name) =>
+            $"technology.{name.ToLowerInvariant().Replace(' ', '-')}";
+
+        for (var index = 0; index < expected.Length; index++)
+        {
+            var (name, cost, year, requires) = expected[index];
+            var actual = table[index];
+            Assert.Equal(
+                (Key(name), name, cost, (int?)year),
+                (actual.Key, actual.Name, actual.Cost, actual.AvailableFrom));
+
+            // Separately, because a tuple would compare the arrays by reference.
+            Assert.Equal(requires.Select(Key), actual.Prerequisites);
+        }
+
+        // The first two are **not for sale** rather than free: the price list gives
+        // them no price, and nobody can buy what every power already holds.
+        Assert.Null(table[0].Cost);
+        Assert.Null(table[1].Cost);
+        Assert.All(table.Skip(2), item => Assert.NotNull(item.Cost));
+    }
+
+    /// <summary>
+    /// Every prerequisite points strictly earlier, so any contiguous prefix of the
+    /// table is prerequisite-closed — which is the shape a <c>tech</c> record has,
+    /// being a bare 1-based index into it.
+    /// </summary>
+    /// <remarks>
+    /// **This proves nothing about which ordering is right, and saying so is the
+    /// point.** It holds under the manual's printed order as well as the wiki's, so
+    /// it cannot discriminate between them. What it does catch is a future edit that
+    /// moves an entry above something it depends on.
+    /// </remarks>
+    [Fact]
+    public void EveryPrerequisiteSitsEarlierInTheTable()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "closure-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var table = result.Document!.Technologies;
+        var positionOf = table
+            .Select(static (item, index) => (item.Key, index))
+            .ToDictionary(static item => item.Key, static item => item.index, StringComparer.Ordinal);
+
+        var edges = 0;
+        var withPrerequisites = 0;
+        for (var index = 0; index < table.Length; index++)
+        {
+            if (table[index].Prerequisites.Length > 0)
+            {
+                withPrerequisites++;
+            }
+
+            foreach (var required in table[index].Prerequisites)
+            {
+                Assert.True(
+                    positionOf.TryGetValue(required, out var at),
+                    $"{table[index].Key} requires {required}, which the table does not declare.");
+                Assert.True(
+                    at < index,
+                    $"{table[index].Key} at {index} requires {required} at {at}.");
+                edges++;
+            }
+        }
+
+        // Not vacuous in the weak sense — there is plenty to check — while still
+        // being vacuous as evidence about the ordering. Sixteen entries name a
+        // prerequisite and three of them name two, so there are nineteen edges.
+        Assert.Equal(16, withPrerequisites);
+        Assert.Equal(19, edges);
+    }
+
+    /// <summary>
     /// <c>tran</c> is <c>[country, capacity]</c> — one number for the whole
     /// network, matching the manual's single shared capacity bar.
     /// </summary>
@@ -854,15 +1005,21 @@ public sealed class LegacyWorldConverterTests
 
     /// <summary>
     /// <c>tech</c> is <c>[country, id]</c>, the id a 1-based index into the
-    /// manual's table. See <c>docs/formulas/technology.md</c> for the corpus
+    /// technology table. See <c>docs/formulas/technology.md</c> for the corpus
     /// check behind that reading.
     /// </summary>
+    /// <remarks>
+    /// **Id 5 is one of the six positions the reordering moved**, and this is the
+    /// assertion that would have caught it: it used to resolve to Square-Set
+    /// Timbering under the manual's printed order and resolves to Feed Grasses
+    /// under the wiki's. Id 23 is Dynamite under both.
+    /// </remarks>
     [Fact]
     public void TechRecordsBecomeStartingKnowledge()
     {
         var scenario = new ScenarioDocument(
         [
-            Record("year", 1815),
+            Record("year", 0),
             NameRecord("cnam", 0, "Country"),
             NameRecord("pnam", 0, "Province"),
             Record("tech", 0, 5),
@@ -875,7 +1032,7 @@ public sealed class LegacyWorldConverterTests
 
         Assert.True(result.Success, result.Report.ToHumanReadable());
         Assert.Equal(
-            ["technology.square-set-timbering", "technology.dynamite"],
+            ["technology.feed-grasses", "technology.dynamite"],
             result.Document!.Scenarios[0].CountryTechnologies
                 .Select(static item => item.Technology));
 
@@ -1483,6 +1640,146 @@ public sealed class LegacyWorldConverterTests
     }
 
     /// <summary>
+    /// **A <c>year</c> record is an offset from 1815, not an absolute year**, and
+    /// this pins the epoch against the corpus. The importer used to pass the field
+    /// through verbatim, which nothing noticed because nothing read the year until
+    /// technology gained an arrival date.
+    /// </summary>
+    /// <remarks>
+    /// The epoch comes from the scenarios' own briefing text: <c>s1.inf</c> is
+    /// "Naval Competition 1882" against a field of 67, and <c>s3.inf</c> is
+    /// "Unification Movements 1848-1890" against 33. Both are 1815 + field exactly,
+    /// which is also the manual's campaign start.
+    /// </remarks>
+    [Fact]
+    public void AScenarioYearIsAnOffsetFrom1815()
+    {
+        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+
+        var years = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var mapPath in Directory.GetFiles(directory, "*.map").OrderBy(static path => path))
+        {
+            var key = Path.GetFileNameWithoutExtension(mapPath);
+            var scenarioPath = Path.Combine(directory, $"{key}.scn");
+            if (key == "s0" || !File.Exists(scenarioPath))
+            {
+                continue;
+            }
+
+            var document = LegacyWorldConverter.Convert(
+                LegacyMapCodec.Decode(File.ReadAllBytes(mapPath), MapFormatProfile.Imperialism1),
+                LegacyScenarioCodec.Decode(File.ReadAllBytes(scenarioPath)),
+                null,
+                $"year-{key}").Document!;
+            years[key] = document.Scenarios[0].StartingYear;
+        }
+
+        Assert.Equal(10, years.Count);
+
+        // The two the briefings name outright.
+        Assert.Equal(1882, years["s1"]);
+        Assert.Equal(1848, years["s3"]);
+        Assert.Equal(1820, years["s5"]);
+
+        // And the rest, so a change to the epoch shows up everywhere at once. The
+        // three skirmishes carry field 1, so a skirmish starts in 1816 rather than
+        // 1815 — what the data says, not rounded to the manual's campaign year.
+        Assert.Equal(1826, years["s9"]);
+        Assert.Equal(1825, years["s12"]);
+        Assert.Equal(1820, years["s13"]);
+        Assert.Equal(1820, years["s14"]);
+        Assert.Equal(1816, years["s10"]);
+        Assert.Equal(1816, years["s11"]);
+        Assert.Equal(1816, years["s15"]);
+    }
+
+    /// <summary>
+    /// The arrival years against what each scenario grants. **Measured and not
+    /// enforced**: the manual calls its dates "approximate" and the standing rule
+    /// is that a scenario may author anything, so this is expected to fire.
+    /// </summary>
+    /// <remarks>
+    /// It fires much less than expected, and that is the finding. Three of the four
+    /// dated missions grant **nothing** that has not yet arrived — <c>s1</c> in 1882
+    /// holds 21 of the 27 available, <c>s3</c> in 1848 holds 14 of 16, and <c>s9</c>
+    /// in 1826 holds 9 of exactly 9. That last one sits on the boundary: Spinning
+    /// Jenny and Paddlewheels both arrive in 1826, and <c>s9</c> holds both and
+    /// nothing later.
+    /// <para>
+    /// The two that do overshoot are each **one year** short: <c>s12</c> in 1825
+    /// holds two technologies arriving in 1826, and <c>s13</c>/<c>s14</c>/<c>s5</c>
+    /// in 1820 hold three arriving in 1821. For dates the manual calls approximate,
+    /// against an epoch derived from two briefing paragraphs, that is a much tighter
+    /// agreement than a scenario's authoring liberty would predict — so it
+    /// corroborates the arrival years and the epoch together.
+    /// </para>
+    /// <para>
+    /// <b>It cannot separate the two candidate orderings.</b> Positions 4–7 all
+    /// arrive in 1821, so permuting them among themselves changes no scenario's
+    /// count. The third check, like the other two, is silent on the question.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void HowMuchTheCorpusGrantsAheadOfItsArrivalDates()
+    {
+        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+
+        var early = new Dictionary<string, int>(StringComparer.Ordinal);
+        var granted = 0;
+        foreach (var mapPath in Directory.GetFiles(directory, "*.map").OrderBy(static path => path))
+        {
+            var key = Path.GetFileNameWithoutExtension(mapPath);
+            var scenarioPath = Path.Combine(directory, $"{key}.scn");
+            if (key == "s0" || !File.Exists(scenarioPath))
+            {
+                continue;
+            }
+
+            var document = LegacyWorldConverter.Convert(
+                LegacyMapCodec.Decode(File.ReadAllBytes(mapPath), MapFormatProfile.Imperialism1),
+                LegacyScenarioCodec.Decode(File.ReadAllBytes(scenarioPath)),
+                null,
+                $"arrival-{key}").Document!;
+            var scenario = document.Scenarios[0];
+            var arrival = document.Technologies.ToDictionary(
+                static item => item.Key, static item => item.AvailableFrom, StringComparer.Ordinal);
+
+            granted += scenario.CountryTechnologies.Length;
+            early[key] = scenario.CountryTechnologies
+                .Count(item => arrival[item.Technology] > scenario.StartingYear);
+        }
+
+        // Every tech record in the corpus, s5 included: it is a generated world
+        // rather than a shipped mission, but it is dated like one.
+        Assert.Equal(491, granted);
+
+        // Nothing early at all in the three latest missions.
+        Assert.Equal(0, early["s1"]);
+        Assert.Equal(0, early["s3"]);
+        Assert.Equal(0, early["s9"]);
+
+        // And one year early in the two earliest, across every power they equip.
+        Assert.Equal(14, early["s12"]);
+        Assert.Equal(21, early["s13"]);
+        Assert.Equal(21, early["s14"]);
+        Assert.Equal(21, early["s5"]);
+
+        // The skirmishes grant nothing, so they can be neither early nor late.
+        foreach (var key in new[] { "s10", "s11", "s15" })
+        {
+            Assert.Equal(0, early[key]);
+        }
+    }
+
+    /// <summary>
     /// Runs a real turn on a real scenario, end to end: import, compile,
     /// resolve. Unit fixtures are four cells and four workers; this is 6,480
     /// cells and seven powers, and it is the only check that the phases compose
@@ -1843,8 +2140,10 @@ public sealed class LegacyWorldConverterTests
     }
 
     /// <summary>
-    /// The three construction prices. Pinned so that changing them is a
-    /// deliberate act, because two are recollection and one is invention.
+    /// The two structure prices. Pinned so that changing them is a deliberate
+    /// act, because both are recollection. **Rail is not among them any more**:
+    /// the price list charges by the ground, so rail is priced on the terrain and
+    /// this block must not carry version 17's flat figure at all.
     /// </summary>
     [Fact]
     public void ConstructionIsPricedInCashAndAPortCostsMoreThanADepot()
@@ -1853,7 +2152,7 @@ public sealed class LegacyWorldConverterTests
             CreateMap(2, 1, LandCell(0, 0), OceanCell()),
             new ScenarioDocument(
             [
-                Record("year", 1815),
+                Record("year", 0),
                 NameRecord("cnam", 0, "Country"),
                 NameRecord("pnam", 0, "Province"),
             ]),
@@ -1862,11 +2161,74 @@ public sealed class LegacyWorldConverterTests
 
         Assert.True(result.Success, result.Report.ToHumanReadable());
         var construction = result.Document!.Construction!;
-        Assert.Equal((500L, 1500L, 2000L), (
-            construction.RailCashCost, construction.DepotCashCost, construction.PortCashCost));
+        Assert.Equal((1500L, 2000L), (construction.DepotCashCost, construction.PortCashCost));
+        Assert.Null(construction.RailCashCost);
 
-        // The manual's one statement about any of them.
+        // The manual's one statement about either.
         Assert.True(construction.PortCashCost > construction.DepotCashCost);
+    }
+
+    /// <summary>
+    /// Rail's price, per terrain, from the price list: 100 for plains, farm and
+    /// desert and the grounds that plainly go with them, 150 for tundra and either
+    /// forest, 200 for hills, 300 for swamp.
+    /// </summary>
+    /// <remarks>
+    /// **This is a guess becoming an observation.** Version 17 priced a tile of
+    /// track at a flat 500 and labelled it "a guess. Nothing supports it at all".
+    /// <para>
+    /// Mountains are the one exception and the one guess left: the list does not
+    /// price them, so they take swamp's price rather than a fifth invented number.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void RailIsPricedByTheGroundItCrosses()
+    {
+        // Every terrain code on the map, because the importer emits definitions
+        // only for the ground a world actually contains.
+        var cells = Enumerable.Range(0, 17)
+            .Select(static code => code == 0
+                ? OceanCell()
+                : LandCell(0, 0) with { Terrain = (byte)code })
+            .ToArray();
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(17, 1, cells),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "rail-price-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var byKey = result.Document!.Terrains.ToDictionary(
+            static item => item.Key, static item => item.Rail?.CashCost, StringComparer.Ordinal);
+
+        foreach (var key in new[]
+        {
+            "terrain.clear", "terrain.cotton", "terrain.cattle-ranch", "terrain.horse-ranch",
+            "terrain.grain-farm", "terrain.orchard", "terrain.desert", "terrain.town",
+            "terrain.capital",
+        })
+        {
+            Assert.Equal(100L, byKey[key]);
+        }
+
+        Assert.Equal(150L, byKey["terrain.tundra"]);
+        Assert.Equal(150L, byKey["terrain.forest"]);
+        Assert.Equal(150L, byKey["terrain.scrub-forest"]);
+        Assert.Equal(200L, byKey["terrain.wool-hill"]);
+        Assert.Equal(200L, byKey["terrain.hill"]);
+        Assert.Equal(300L, byKey["terrain.swamp"]);
+
+        // Unpriced by the list; swamp's figure rather than an invented one.
+        Assert.Equal(300L, byKey["terrain.mountain"]);
+
+        // Ocean carries no line, so it needs no price.
+        Assert.Null(byKey["terrain.ocean"]);
     }
 
     /// <summary>

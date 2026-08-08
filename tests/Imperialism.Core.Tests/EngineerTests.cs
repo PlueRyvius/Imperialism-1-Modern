@@ -33,7 +33,11 @@ public sealed class EngineerTests
     private const int MountainCell = 5;
     private const int CoastCell = 6;
 
-    private const long RailCost = 500;
+    // Rail is priced by the ground it crosses, so the fixture's three terrains
+    // carry three prices and the depot and the port carry the world's two.
+    private const long PlainsRail = 100;
+    private const long HillRail = 200;
+    private const long MountainRail = 300;
     private const long DepotCost = 1500;
     private const long PortCost = 2000;
 
@@ -316,11 +320,56 @@ public sealed class EngineerTests
     {
         var rail = CreateState(engineerAt: RailEnd);
         _ = Resolve(rail, Build(GrainCell, EngineerConstruction.Rail));
-        Assert.Equal(10_000 - RailCost, rail.GetCash(Country));
+        Assert.Equal(10_000 - PlainsRail, rail.GetCash(Country));
 
         var port = CreateState(engineerAt: CoastCell);
         _ = Resolve(port, Build(CoastCell, EngineerConstruction.Port));
         Assert.Equal(10_000 - PortCost, port.GetCash(Country));
+    }
+
+    /// <summary>
+    /// Rail is priced by the ground, and a link crossing two grounds pays for
+    /// **the dearer of them** — which is a chosen rule, not a finding. The price
+    /// list gives one figure per ground and a link has two ends.
+    /// </summary>
+    /// <remarks>
+    /// The two rejected alternatives are what this pins down. Summing would charge
+    /// 300 for the plains-to-hill link below and 200 for a plains-to-plains one,
+    /// doubling every attested figure. Charging the *target* end would make the
+    /// same link cost 200 built uphill and 100 built downhill, so a player would
+    /// simply always build from the cheaper side.
+    /// </remarks>
+    [Fact]
+    public void ALinkPaysForItsDearerEnd()
+    {
+        var uphill = CreateState(engineerAt: GrainCell);
+        uphill.GrantTechnology(Country, HillTechnology);
+        _ = Resolve(uphill, Build(HillCell, EngineerConstruction.Rail));
+        Assert.Equal(10_000 - HillRail, uphill.GetCash(Country));
+
+        // The same link from the other end, for the same price.
+        var downhill = CreateState(engineerAt: HillCell);
+        downhill.GrantTechnology(Country, HillTechnology);
+        _ = Resolve(downhill, Build(GrainCell, EngineerConstruction.Rail));
+        Assert.Equal(10_000 - HillRail, downhill.GetCash(Country));
+    }
+
+    /// <summary>
+    /// A terrain that names no price builds free, the way a world with no
+    /// <c>improvement</c> block improves free. Zero is free and not forbidden.
+    /// </summary>
+    [Fact]
+    public void RailAcrossUnpricedGroundIsFree()
+    {
+        var state = CreateState(engineerAt: RailEnd, unpricedRail: true);
+
+        // Ordered on the first turn and finished on the second, like any other
+        // construction: free is not the same as instant.
+        _ = Resolve(state, Build(GrainCell, EngineerConstruction.Rail));
+        _ = Resolve(state, TurnOrders.Empty(1));
+
+        Assert.Equal(10_000, state.GetCash(Country));
+        Assert.True(state.HasRail(new CellLink(new CellIndex(RailEnd), new CellIndex(GrainCell))));
     }
 
     /// <summary>
@@ -446,7 +495,8 @@ public sealed class EngineerTests
         int? farmerAt = null,
         int? riverAt = null,
         IEnumerable<int>? depots = null,
-        bool withConstruction = true)
+        bool withConstruction = true,
+        bool unpricedRail = false)
     {
         const int width = 6;
         const int height = 3;
@@ -487,11 +537,12 @@ public sealed class EngineerTests
             [new SeaZoneDefinition(new SeaZoneId(0), "Sea")],
             [new ResourceDefinition(new ResourceId(0), GrainId, [1])],
             [
-                new TerrainDefinition(new TerrainId(Plains), "Plains", true, rail: RailRule.Unrestricted),
+                new TerrainDefinition(new TerrainId(Plains), "Plains", true,
+                    rail: unpricedRail ? RailRule.Unrestricted : new RailRule(cashCost: PlainsRail)),
                 new TerrainDefinition(new TerrainId(Hills), "Hills", true,
-                    rail: new RailRule(HillTechnology)),
+                    rail: new RailRule(HillTechnology, unpricedRail ? 0 : HillRail)),
                 new TerrainDefinition(new TerrainId(Mountains), "Mountains", true,
-                    rail: new RailRule(MountainTechnology)),
+                    rail: new RailRule(MountainTechnology, unpricedRail ? 0 : MountainRail)),
                 new TerrainDefinition(new TerrainId(Ocean), "Ocean"),
             ]);
 
@@ -541,7 +592,7 @@ public sealed class EngineerTests
                 new CivilianTypeDefinition(new CivilianTypeId(1), "Farmer", 1),
             ],
             construction: withConstruction
-                ? new ConstructionSettings(RailCost, DepotCost, PortCost)
+                ? new ConstructionSettings(DepotCost, PortCost)
                 : null));
     }
 }

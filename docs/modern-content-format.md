@@ -115,6 +115,23 @@ Version 18 charges a civilian for its work: a world-level `improvement` block
 whose `cashCostByDevelopmentLevel` is indexed by the level being reached, index 0
 unused and a rung past the end free. A version 17 package prices none and
 migrates to free improvement, which is how it behaved.
+Version 19 puts technology up for sale. `technologies[]` stops being a bare
+key/name pair and gains `cost`, `availableFrom` and `prerequisites`; **absent
+`cost` means not for sale**, which is a different statement from a price of zero
+and is what the two technologies every power starts with carry. Prerequisites are
+keys resolved against the same catalog and **must point earlier in it**, so that any
+prefix is prerequisite-closed — a chosen constraint that forbids cycles without a
+graph walk and matches the shape a legacy `tech` index needs. A version 18 package
+migrates to a world where nothing is for sale, which is how it behaved.
+
+The same version moves rail's price to `terrains[].rail.cashCost`, beside the gate,
+and drops it from `construction`. **That migration deliberately does not preserve
+behaviour, which makes it the first here that does not**: version 17's flat
+`railCashCost` is discarded rather than spread across the terrains, so a migrated
+package lays track for nothing. The figure was an invention the project had already
+labelled unsupported, and a re-import supplies the real per-terrain prices. The
+field survives on the document only so a v18 file still deserializes; carrying it at
+version 19 is a validation error.
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the

@@ -198,7 +198,7 @@ see `docs/map-viewer.md`.
 
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an
-inert dense order bundle, unrestricted quarterly `TurnDate`, fixed eleven-phase
+inert dense order bundle, unrestricted quarterly `TurnDate`, fixed fourteen-phase
 `TurnResolver`, and immutable event log. `.iworld` defines stable
 commodities, facilities, recipes, and sparse scenario capacity, with explicit
 v1→v2→v3 migration. Core stores checked dense Available inventory and
@@ -339,8 +339,9 @@ reported 63 grain and 119 workers before this and reports 42 and 84 after,
 because Level II and III are no longer free. The move is the finding.
 
 **A gate with no research behind it is only ever tested closed**, so the soak
-grants a technology on turn 50 and watches the ceiling lift on turn 51. Reuse
-that pattern; oil is the obvious next candidate.
+grants a technology on turn 50 and watches the ceiling lift on turn 51. That was
+the pattern until v19; the soak no longer needs it and the granting run is now a
+control. See below.
 
 `.iworld` v16 gives the network a size. A new **`Transport` phase** sits between
 `Extraction` and `Feeding`: extraction no longer queues what it gathers, it fills
@@ -465,12 +466,84 @@ for lumber and steel — so it outruns anything an Engineer can reach. Retracted
 `docs/formulas/engineer.md` rather than softened, and worth re-reading once ships
 or trade land.
 
-Buying technology, prerequisites, arrival dates, transient power, research,
-conflict, trade markets, diplomacy, sea routes between ports, blockade, moving
-regiments by rail, merchant marine capacity, and fortifications remain explicitly
-pending. So does **whether a civilian's work costs cash generally** — the manual
-implies it does, and `docs/formulas/money.md` records the finding without acting
-on it, because pricing every civilian's work would move every number in the soak.
+`.iworld` **v19** lets a country **buy technology**, and that ends the longest
+running dead end in this project. Until now a `tech` record was the only source of
+knowledge in the engine, so **three separate slices of gate machinery could only
+ever be tested shut** — the improvement ladder, the Engineer's four rail terrains,
+and oil prospecting, which `prospecting.md` recorded as making imported oil
+permanently unreachable. **None of the three needed a code change.** Every gate was
+already expressed in content; they only ever needed something able to pass them.
+
+**A new `Investment` phase sits after `Delivery`, and being last is the whole
+mechanism.** Everything that reads knowledge during a turn has already run, so
+"bought this turn, known next turn" falls out of the ordering exactly as "completes
+next turn" falls out of `Construction` following `Production`. **A chain of
+prerequisites therefore takes a turn per link** — the owner's reading of the
+original, where buying spends the money and the research "finishes after the turn
+ends before the next starts". `TechnologyPlanner` snapshots knowledge before
+spending any, so the phase never reads its own output.
+
+**Research is charged last and takes what building leaves. A chosen rule**, and not
+a formality: the soak's greedy power never accumulates the 12,000 a Mechanical
+Reaper costs and its ceiling never lifts, while a patient one buys it the quarter it
+arrives. Note the honest caveat — the greedy run misses by a *thousand*, so that is
+a knife edge and the robust claim is only the direction.
+
+**The prices, prerequisites and arrival dates come from a price list the owner
+supplied**, transcribed from a fan wiki of the original's Investment screen. The
+host 402s, so `docs/formulas/technology.md` **is** the record of it. It is
+data-derived rather than remembered, which earns it a new row on the evidence scale
+in `_index.md`, and it is second-hand and unverifiable, which keeps it below the
+manual.
+
+**It reordered the table, and the corpus provably cannot say whether that is
+right.** A `tech` id is a bare index, so the six moved positions change what every
+shipped power holds. All three corpus checks were run under both orderings and
+**none discriminates** — not because the orderings agree but because the one case
+where they genuinely disagree, a power holding exactly *five* technologies, does not
+occur in the corpus (its counts are 0, 6, 9, 13, 14, 21). 380/4 and 1,140/0 are
+identical either way. The order ships on source quality, and that is the weakest
+link in the chain. **Prefix closure is a vacuous control between them and is
+labelled as one.**
+
+**While reordering, the gates were name-keyed.** `ResourceTechnologyLadders`, the
+four rail constants and Oil Drilling were table *positions*, so a reorder silently
+rewired every gate while looking like a rename. They resolve through `TechnologyKey`
+now.
+
+**A scenario's `year` field is an offset from 1815, and the importer read it as an
+absolute year.** The corpus's fields are 1, 5, 10, 11, 33, 67. `s1.inf` is titled
+"Naval Competition 1882" against a field of 67 and `s3.inf` names 1848 against 33 —
+both exactly `1815 + field`. **This is the fourth instance of the same pattern as
+`tran` and `cash`**: nothing read the value, so nothing caught it, until arrival
+dates made it load-bearing. **An unread field is unverified, not correct.** The
+price list's arrival years then corroborated the epoch from a direction nobody was
+looking in: `s1`, `s3` and `s9` grant nothing that has not yet arrived, and `s9`
+sits exactly on a boundary year holding 9 of exactly 9 available. A skirmish starts
+in **1816**, which is what the data says rather than what looks tidy.
+
+**Rail is priced per terrain now, and that is a guess becoming an observation.**
+The flat $500 this repository called "a guess. Nothing supports it at all" is gone;
+the list charges 100 for plains, farm and desert, 150 for tundra and either forest,
+200 for hills, 300 for swamp. The price moved to `RailRule.CashCost` beside the
+gate, because a terrain that cannot carry rail needs no price. **A link pays for its
+dearer end — a chosen rule**, since the list prices a ground and a link has two;
+summing would double every attested figure and charging the target end would reward
+building from the cheap side. **Mountains are the one ground the list skips** and
+take swamp's figure rather than a fifth invented number. The depot and the port are
+now the two weakest numbers in the importer.
+
+**The v18→v19 migration deliberately does not preserve behaviour, and it is the
+first here that does not.** The flat rail price is dropped rather than carried, so a
+migrated package builds free track. The number is *retracted*, not superseded, and
+keeping it would give an invention a longer life than it earned.
+
+Transient power, research *progress*, conflict, trade markets, diplomacy, sea routes
+between ports, blockade, moving regiments by rail, merchant marine capacity, the
+University, the newspaper and fortifications remain explicitly pending. So does
+**whether a civilian's work costs cash generally** — the manual implies it does, and
+`docs/formulas/money.md` records the finding without acting on it, because pricing
+every civilian's work would move every number in the soak.
 
 **Production spends labour.** Each recipe costs its total input units, from one
 pool per country shared across every facility. The manual prices exactly one

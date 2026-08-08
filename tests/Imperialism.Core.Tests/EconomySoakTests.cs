@@ -137,10 +137,55 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     /// </summary>
     private const int CivilianWorkTurns = 3;
 
-    /// <summary>The one technology this fixture models, gating grain at Level III.</summary>
-    private const int MechanicalReaper = 0;
+    /// <summary>
+    /// The three technologies this fixture models, in the order the real table
+    /// puts them: Seed Drill, then Steel and Iron Plows, then Mechanical Reaper.
+    /// </summary>
+    /// <remarks>
+    /// Only the Reaper gates anything here — grain at Level III — and the other two
+    /// exist so the **prerequisite chain is the real one** rather than a convenient
+    /// single purchase. Seed Drill is the one every power starts holding and is not
+    /// for sale; the Plows are its dependent and the Reaper's prerequisite.
+    /// </remarks>
+    private const int SeedDrill = 0;
+    private const int SteelAndIronPlows = 1;
+    private const int MechanicalReaper = 2;
 
-    /// <summary>The turn the Reaper is handed over in the unlocking run.</summary>
+    /// <summary>
+    /// The price list's own terms for the two that are for sale. **Not fixture
+    /// numbers** — that is the point of the investing run: what a century buys has
+    /// to be measured against real prices or it measures nothing.
+    /// </summary>
+    private const long PlowsCost = 3_000;
+    private const long PlowsYear = 1831;
+    private const long ReaperCost = 12_000;
+    private const int ReaperYear = 1851;
+
+    /// <summary>
+    /// The year this fixture starts. **1840 rather than 1815, and only so the real
+    /// arrival dates fall inside a hundred-quarter run.**
+    /// </summary>
+    /// <remarks>
+    /// A turn is a quarter, so a hundred turns from 1815 stop in 1839 and the
+    /// Mechanical Reaper's 1851 would be permanently out of reach — the gate would
+    /// go back to being tested only shut, which is the whole thing this slice
+    /// exists to end. From 1840 the run reaches 1864: the Plows have already
+    /// arrived and are buyable on turn one, and the Reaper arrives on
+    /// <see cref="ReaperArrivalTurn"/>, a little before halfway.
+    /// <para>
+    /// Nothing else in the fixture reads the year, so moving it moved no published
+    /// number.
+    /// </para>
+    /// </remarks>
+    private const int StartYear = 1840;
+
+    /// <summary>
+    /// The turn the Reaper becomes buyable: quarter one of 1851, counting from
+    /// <see cref="StartYear"/>.
+    /// </summary>
+    private const int ReaperArrivalTurn = ((ReaperYear - StartYear) * 4) + 1;
+
+    /// <summary>The turn the Reaper is handed over in the granting run.</summary>
     private const int UnlockTurn = 50;
 
     /// <summary>
@@ -811,6 +856,102 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// **The soak stops cheating.** The same ceiling, lifted by powers that pay for
+    /// the technology out of a gold mine instead of being handed it on turn 50.
+    /// </summary>
+    /// <remarks>
+    /// This is what the slice was for. Every gate in this project — three
+    /// improvement rungs per deposit, four rail terrains, oil prospecting — could
+    /// previously only be tested shut, because knowledge came from a `tech` record
+    /// and nothing else; <see cref="AGatedRungOpensWhenTheTechnologyArrives"/> had
+    /// to call <c>GrantTechnology</c> outright to see a gate open at all.
+    /// <para>
+    /// The chain is the real one at the real prices. Steel and Iron Plows cost
+    /// 3,000 and arrived in 1831, so they are buyable on turn one from a 1840 start;
+    /// Mechanical Reaper costs 12,000, wants the Plows, and does not arrive until
+    /// 1851 — turn <see cref="ReaperArrivalTurn"/>. So <b>two different walls stand
+    /// in the way and the run has to clear both</b>: the money, from a mine, and the
+    /// calendar, which no amount of money moves.
+    /// </para>
+    /// <para>
+    /// <b>The granting run is the control and the two must differ.</b> If a bought
+    /// ceiling and a gifted one produced the same log, this run would be measuring
+    /// nothing.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void PowersThatInvestLiftTheCeilingThemselves()
+    {
+        // A treasury big enough that the calendar is the only thing left in the
+        // way. **The figure is a dial, not evidence** — the starting treasury is
+        // one of the seven engine defaults and a guess — and it is set here so the
+        // run separates the two walls instead of blurring them together.
+        var investing = CreateWorld(
+            withImprovementCost: true, startingCash: 20_000, withGoldMine: true);
+        var investingLog = Run(investing, orderPolicy: InvestingGrowthPolicy, out var invested);
+
+        // The same world at the ordinary treasury, improving whenever it can and
+        // buying out of the remainder.
+        var spending = CreateWorld(
+            withImprovementCost: true, startingCash: 5000, withGoldMine: true);
+        var spendingLog = Run(spending, orderPolicy: SpendingGrowthPolicy, out var spent);
+
+        // The control: the same world and the technology handed over free on 50.
+        var granted = CreateWorld(
+            withImprovementCost: true, startingCash: 20_000, withGoldMine: true);
+        var grantedLog = Run(
+            granted, orderPolicy: FarmingGrowthPolicy, out var gifted, grantOnTurn: UnlockTurn);
+
+        output.WriteLine("=== funded and patient ===");
+        output.WriteLine(investingLog);
+        output.WriteLine("=== ordinary treasury, improves first ===");
+        output.WriteLine(spendingLog);
+        output.WriteLine("=== granted free on turn 50 ===");
+        output.WriteLine(grantedLog);
+
+        // Both technologies bought by every power, and paid for at list price.
+        Assert.Equal(Powers * 2, invested.Bought);
+        Assert.Equal(Powers * (PlowsCost + ReaperCost), invested.SpentOnResearch);
+
+        // **The calendar is the only wall left.** The Plows are affordable at once
+        // and the Reaper is bought the very quarter it arrives, not a turn earlier.
+        Assert.Equal(1, invested.FirstPlowsBought);
+        Assert.Equal(ReaperArrivalTurn, invested.FirstReaperBought);
+
+        // The policy walks into the closed gate every turn until it opens, so the
+        // refusals are the date being real rather than noise.
+        Assert.True(
+            invested.PurchaseRefusals > 0,
+            "Nothing was ever refused, so no wall was ever hit.");
+
+        // And the ceiling lifted, after the purchase rather than before it.
+        Assert.True(invested.TopRungs > 0, "The gated rung was never reached despite buying it.");
+        Assert.True(
+            invested.FirstTopRung > invested.FirstReaperBought,
+            $"A tile reached the gated rung on turn {invested.FirstTopRung}, before the Reaper " +
+            $"was bought on {invested.FirstReaperBought}.");
+
+        // **The money is a wall too, and this is where it shows.** A power on the
+        // ordinary treasury that improves whenever it can buys the Plows and never
+        // the Reaper: twelve thousand is more than a century of one gold mine has
+        // left over once its Farmers have been paid.
+        Assert.Equal(Powers, spent.Bought);
+        Assert.NotNull(spent.FirstPlowsBought);
+        Assert.Null(spent.FirstReaperBought);
+        Assert.Equal(0, spent.TopRungs);
+
+        // **The three runs differ**, so none is measuring another. The gifted run
+        // pays nothing, buys nothing, and reaches its ceiling on its own turn.
+        Assert.Equal(0, gifted.Bought);
+        Assert.Equal(0, gifted.SpentOnResearch);
+        Assert.NotEqual(gifted.FirstTopRung, invested.FirstTopRung);
+        Assert.True(
+            invested.FinalCash < gifted.FinalCash,
+            $"Paying {invested.SpentOnResearch} for the ceiling left {invested.FinalCash} against " +
+            $"the gifted run's {gifted.FinalCash}.");
+    }
+
+    /// <summary>
     /// The control for the run above. Identical world, and the Prospectors are
     /// never told to look — so the hills stay unsearched, no mine is ever
     /// opened, and the four extra columns pay nothing for a hundred turns.
@@ -868,7 +1009,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         int? FirstProspected, int? FirstMineOpened,
         long KnowledgeRefusals, long TopRungs, int? FirstTopRung,
         long Carried, long Wasted, long CapacityBuilt, long FinalCapacity,
-        long Constructed, long FinalCash);
+        long Constructed, long FinalCash,
+        long Bought, long SpentOnResearch, long PurchaseRefusals,
+        int? FirstPlowsBought, int? FirstReaperBought);
 
     /// <summary>
     /// Makes the comforts a recruit costs and then recruits. A fixture, not an
@@ -1072,6 +1215,74 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         state.Definition.CivilianTypes[type.Value].Work == CivilianWorkKind.Prospect;
 
     /// <summary>
+    /// <see cref="FarmingGrowthPolicy"/> plus a power that actually invests, so the
+    /// grain ceiling lifts because somebody paid for it rather than because a test
+    /// handed it over. **Saves for the next technology instead of improving.**
+    /// </summary>
+    /// <remarks>
+    /// It orders every unowned purchasable technology every turn and lets the engine
+    /// refuse what is not yet buyable, which is what makes the refusal count worth
+    /// reading: the policy walks into the closed gate every turn and the log shows
+    /// the date being real.
+    /// <para>
+    /// The saving is the interesting half. <b>Improvement is charged during
+    /// Development and research takes what is left</b> — the chosen contention rule
+    /// — so a power that improves whenever it can never accumulates the twelve
+    /// thousand a Mechanical Reaper wants.
+    /// <see cref="SpendingGrowthPolicy"/> is exactly that power, and it never buys
+    /// the Reaper at all. This one stops its Farmers while the money piles up, which
+    /// is the trade the rule forces on a player: improve now, or improve higher
+    /// later.
+    /// </para>
+    /// </remarks>
+    private static CountryTurnOrders InvestingGrowthPolicy(WorldState state, CountryId country) =>
+        Investing(state, country, saveForResearch: true);
+
+    /// <summary>
+    /// The same investor with no patience: it improves whenever it can and buys
+    /// only from what is left over. **It never affords the Reaper**, which is the
+    /// measured consequence of research being charged last.
+    /// </summary>
+    private static CountryTurnOrders SpendingGrowthPolicy(WorldState state, CountryId country) =>
+        Investing(state, country, saveForResearch: false);
+
+    private static CountryTurnOrders Investing(
+        WorldState state,
+        CountryId country,
+        bool saveForResearch)
+    {
+        var farming = FarmingGrowthPolicy(state, country);
+        var wanted = new List<TechnologyId>();
+        long? saveFor = null;
+        for (var index = 0; index < state.Definition.Technologies.Count; index++)
+        {
+            var definition = state.Definition.Technologies[index];
+            var technology = new TechnologyId(index);
+            if (definition.Cost is not { } cost || state.HasTechnology(country, technology))
+            {
+                continue;
+            }
+
+            wanted.Add(technology);
+
+            // The cheapest thing still out of reach is what there is any point
+            // banking for, whether or not it has arrived yet — a player who can
+            // read the Investment screen knows what is coming and saves for it.
+            if (cost > state.GetCash(country) && (saveFor is null || cost < saveFor))
+            {
+                saveFor = cost;
+            }
+        }
+
+        return new CountryTurnOrders(
+            country,
+            farming.Production,
+            recruitWorkers: farming.RecruitWorkers,
+            civilianWork: saveForResearch && saveFor is not null ? null : farming.CivilianWork,
+            buyTechnology: wanted);
+    }
+
+    /// <summary>
     /// <see cref="FoodFirstTransportPolicy"/> plus an Engineer walking out past
     /// the end of the depots and building more. A fixture, not an AI.
     /// </summary>
@@ -1178,6 +1389,8 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         long knowledgeRefusals = 0, topRungs = 0;
         int? firstTopRung = null;
         long carried = 0, wasted = 0, capacityBuilt = 0, constructed = 0;
+        long bought = 0, spentOnResearch = 0, purchaseRefusals = 0;
+        int? firstPlowsBought = null, firstReaperBought = null;
         var hills = Enumerable.Range(0, state.Definition.Map.Dimensions.CellCount)
             .Select(static index => new CellIndex(index))
             .Where(cell => state.Definition.Map
@@ -1243,6 +1456,21 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             capacityBuilt += resolution.Events.OfType<TransportCapacityBuiltEvent>()
                 .Sum(item => item.ToCapacity - item.FromCapacity);
             constructed += resolution.Events.OfType<ConstructionCompletedEvent>().Count();
+            foreach (var purchase in resolution.Events.OfType<TechnologyPurchasedEvent>())
+            {
+                bought++;
+                spentOnResearch += purchase.Paid;
+                if (purchase.Technology.Value == SteelAndIronPlows)
+                {
+                    firstPlowsBought ??= turn;
+                }
+                else if (purchase.Technology.Value == MechanicalReaper)
+                {
+                    firstReaperBought ??= turn;
+                }
+            }
+
+            purchaseRefusals += resolution.Events.OfType<TechnologyPurchaseRefusedEvent>().Count();
             eaten += resolution.Events.OfType<WorkersFedEvent>()
                 .Sum(item => item.Eaten.Sum(q => q.Quantity));
             delivered += resolution.Events.OfType<CommodityDeliveredEvent>().Count();
@@ -1338,7 +1566,12 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             carried, wasted, capacityBuilt,
             Enumerable.Range(0, Powers).Sum(index => state.GetTransportCapacity(new CountryId(index))),
             constructed,
-            Enumerable.Range(0, Powers).Sum(index => state.GetCash(new CountryId(index))));
+            Enumerable.Range(0, Powers).Sum(index => state.GetCash(new CountryId(index))),
+            bought,
+            spentOnResearch,
+            purchaseRefusals,
+            firstPlowsBought,
+            firstReaperBought);
         report.AppendLine(
             $"gathered {gathered}, eaten {eaten}, delivered {delivered}, " +
             $"produced {produced} cycles, built {built} times, " +
@@ -1367,6 +1600,10 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         report.AppendLine(
             $"{constructed} structures built by Engineers; " +
             $"treasuries hold {Enumerable.Range(0, Powers).Sum(index => state.GetCash(new CountryId(index)))}");
+        report.AppendLine(
+            $"{bought} technologies bought for {spentOnResearch}, " +
+            $"{purchaseRefusals} purchases refused; " +
+            $"first Plows turn {Or(firstPlowsBought)}, first Reaper turn {Or(firstReaperBought)}");
         return report.ToString();
 
         static string Or(int? turn) => turn?.ToString() ?? "never";
@@ -1654,24 +1891,27 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             //
             // Both carry rail with no technology behind it. The terrain gates
             // are a rule of their own and EngineerTests covers them; making this
-            // fixture fight them too would only obscure what it is for.
+            // fixture fight them too would only obscure what it is for. They do
+            // carry the price list's real per-terrain prices, so a run that ever
+            // starts laying track is charged for it — no run does today, and the
+            // Engineer run's treasury column is depots and nothing else.
             [
                 new TerrainDefinition(
                     new TerrainId(Farmland),
                     "Farmland",
                     isImprovable: true,
-                    rail: RailRule.Unrestricted),
+                    rail: new RailRule(cashCost: 100)),
                 new TerrainDefinition(
                     new TerrainId(BarrenHills),
                     "Barren Hills",
                     isImprovable: true,
                     prospecting: ProspectingRule.Unrestricted,
-                    rail: RailRule.Unrestricted),
+                    rail: new RailRule(cashCost: 200)),
             ]);
 
         var scenario = new ScenarioDefinition(
             "Soak",
-            1815,
+            StartYear,
             owners,
             rails,
             capitals,
@@ -1739,7 +1979,24 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             facilities,
             recipes,
             new ExtractionSettings(catchmentRadius: 1),
-            [new TechnologyDefinition(new TechnologyId(MechanicalReaper), "Mechanical Reaper")],
+            // The price list's own costs, years and prerequisite chain. Seed Drill
+            // has no price because every power already holds it, which is what
+            // makes it a prerequisite and never a purchase.
+            [
+                new TechnologyDefinition(new TechnologyId(SeedDrill), "Seed Drill", null, 1815),
+                new TechnologyDefinition(
+                    new TechnologyId(SteelAndIronPlows),
+                    "Steel and Iron Plows",
+                    [new TechnologyId(SeedDrill)],
+                    (int)PlowsYear,
+                    PlowsCost),
+                new TechnologyDefinition(
+                    new TechnologyId(MechanicalReaper),
+                    "Mechanical Reaper",
+                    [new TechnologyId(SteelAndIronPlows)],
+                    ReaperYear,
+                    ReaperCost),
+            ],
             // The original's cycle: grain, fruit, grain, meat.
             new FeedingSettings(
                 [
@@ -1756,6 +2013,12 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                     new FacilityCapacityDefault(new ProductionFacilityId(SteelMill), 2),
                 ],
                 new WorkforceDefault(untrained: 4, trained: 2, expert: 1),
+
+                // "Every player always starts with the first two technologies."
+                // Only Seed Drill of the two is in this catalog, and it is the
+                // Plows' prerequisite — so the investing run's chain starts from
+                // where a real power starts rather than from nothing.
+                technologies: [new TechnologyId(SeedDrill)],
                 transportCapacity: withTransportLimit ? startingTransportCapacity : null,
                 cash: withEngineer ? 6000 : startingCash == 0 ? null : startingCash,
 
@@ -1808,8 +2071,8 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
 
             // Priced so that a treasury of 6,000 buys the two depots this run
             // needs and no more. Neither number is evidence; see
-            // docs/formulas/engineer.md.
-            construction: withEngineer ? new ConstructionSettings(500, 1500, 2000) : null,
+            // docs/formulas/engineer.md. Rail is priced on the terrain instead.
+            construction: withEngineer ? new ConstructionSettings(1500, 2000) : null,
             improvement: withImprovementCost ? new ImprovementSettings(ImprovementLadder) : null));
     }
 

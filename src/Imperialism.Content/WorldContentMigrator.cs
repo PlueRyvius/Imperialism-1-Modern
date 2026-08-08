@@ -96,6 +96,11 @@ internal static class WorldContentMigrator
             MigrateVersionSeventeenToEighteen(document);
         }
 
+        if (document.FormatVersion == 18)
+        {
+            MigrateVersionEighteenToNineteen(document);
+        }
+
         return document;
     }
 
@@ -785,6 +790,61 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 18;
+    }
+
+    /// <summary>
+    /// Version 19 lets a country buy technology, and prices rail by the ground it
+    /// crosses.
+    /// </summary>
+    /// <remarks>
+    /// A version 18 package prices no technology, so it migrates to a world where
+    /// nothing is for sale — knowledge still comes only from a scenario, from the
+    /// fair-start default, or from a test granting it, which is exactly how it
+    /// behaved. Costs, arrival years and prerequisites cannot be invented: they are
+    /// facts about the 1997 table rather than sensible defaults for any world.
+    /// <para>
+    /// <b>Rail is the exception, and it is the first migration here that does not
+    /// preserve behaviour.</b> Version 17's flat <c>construction.railCashCost</c>
+    /// is dropped rather than spread across the terrains, so a migrated package
+    /// lays track for nothing. That is the owner's call: the flat figure was an
+    /// invention this project had already labelled unsupported, and carrying a
+    /// retracted number forward would give it a longer life than it earned. A
+    /// re-import supplies the real per-terrain prices. See
+    /// <c>docs/formulas/engineer.md</c>.
+    /// </para>
+    /// </remarks>
+    private static void MigrateVersionEighteenToNineteen(WorldContentDocument document)
+    {
+        foreach (var technology in document.Technologies ?? [])
+        {
+            if (technology?.Cost is not null ||
+                technology?.AvailableFrom is not null ||
+                technology?.Prerequisites is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 18 cannot put a technology up for sale.");
+            }
+        }
+
+        foreach (var terrain in document.Terrains ?? [])
+        {
+            if (terrain?.Rail is { CashCost: not 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 18 prices rail flat, not per terrain.");
+            }
+        }
+
+        // Read and discarded. Nulling it is what stops it being re-emitted at
+        // version 19, where the field no longer means anything.
+        if (document.Construction is { } construction)
+        {
+            construction.RailCashCost = null;
+        }
+
+        document.FormatVersion = 19;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

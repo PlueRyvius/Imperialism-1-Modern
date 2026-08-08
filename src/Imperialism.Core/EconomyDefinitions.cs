@@ -62,24 +62,98 @@ public sealed record CommodityDefinition
     public long? CashPerUnit { get; }
 }
 
-/// <summary>A technology a country either knows or does not.</summary>
+/// <summary>
+/// A technology a country either knows or does not, and the terms on which it may
+/// be bought.
+/// </summary>
 /// <remarks>
-/// There is no research system yet: nothing costs anything and nothing is
-/// discovered. This exists so a scenario can state what its countries begin
-/// knowing and so rules that gate on knowledge have something real to ask.
+/// <b>A technology with no <see cref="Cost"/> cannot be bought at all.</b> That is
+/// the same shape <see cref="RailRule"/> and <see cref="ImprovementSettings"/>
+/// already use, and it is what makes a package older than version 19 behave
+/// exactly as it did: every technology unpurchasable, knowledge coming only from a
+/// scenario, from the fair-start default, or from a test granting it.
+/// <para>
+/// It is also how the two every power starts with are modelled. The price list
+/// gives them no price, and <em>unpurchasable</em> is the right reading rather than
+/// <em>free</em>: a price of zero would put them on the Investment screen at no
+/// charge, and nobody can buy what they already have.
+/// </para>
+/// <para>
+/// <see cref="AvailableFrom"/> is a year and nothing per country: "advances become
+/// available on a world-wide basis; they cannot be kept secret", and "technology,
+/// once available, does not vanish. If you cannot afford the cotton gin in 1818,
+/// invest in 1830." See <c>docs/formulas/technology.md</c>.
+/// </para>
 /// </remarks>
 public sealed record TechnologyDefinition
 {
-    public TechnologyDefinition(TechnologyId id, string name)
+    private readonly IReadOnlyList<TechnologyId> _prerequisites;
+
+    public TechnologyDefinition(
+        TechnologyId id,
+        string name,
+        IEnumerable<TechnologyId>? prerequisites = null,
+        int? availableFrom = null,
+        long? cost = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (cost is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(cost),
+                "A technology that costs nothing is one nobody can buy; leave the cost absent.");
+        }
+
+        var required = prerequisites?.ToArray() ?? [];
+        if (required.Distinct().Count() != required.Length)
+        {
+            throw new ArgumentException(
+                "A technology cannot name the same prerequisite twice.",
+                nameof(prerequisites));
+        }
+
+        // A prerequisite must sit strictly earlier in the catalog. **A chosen
+        // constraint rather than a finding**: it forbids cycles without a graph
+        // walk, and it is exactly what makes any contiguous prefix of the catalog
+        // prerequisite-closed — which is the shape a legacy `tech` record has,
+        // being a bare index into it. The 1997 table satisfies it throughout: 16
+        // of its 28 entries name a prerequisite, 19 edges in all, every one
+        // pointing backwards.
+        if (required.Any(item => item.Value >= id.Value))
+        {
+            throw new ArgumentException(
+                "A prerequisite must sit earlier in the catalog than the technology " +
+                "requiring it, so that any prefix of the catalog is prerequisite-closed.",
+                nameof(prerequisites));
+        }
+
         Id = id;
         Name = name;
+        AvailableFrom = availableFrom;
+        Cost = cost;
+        _prerequisites = Array.AsReadOnly(required);
     }
 
     public TechnologyId Id { get; }
 
     public string Name { get; }
+
+    /// <summary>
+    /// What a country must already know before it may invest in this. Checked when
+    /// buying and never when a scenario grants knowledge outright.
+    /// </summary>
+    public IReadOnlyList<TechnologyId> Prerequisites => _prerequisites;
+
+    /// <summary>
+    /// The first year anybody may buy this, or null for no date at all. World-wide
+    /// and never per country.
+    /// </summary>
+    public int? AvailableFrom { get; }
+
+    /// <summary>
+    /// What investing in this costs the treasury, or null where it is not for sale.
+    /// </summary>
+    public long? Cost { get; }
 }
 
 /// <summary>

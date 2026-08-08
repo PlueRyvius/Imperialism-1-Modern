@@ -85,20 +85,38 @@ public sealed record ProspectingRule
 /// be laid and depots may be built", with no separate depot table given
 /// anywhere. See <c>docs/formulas/engineer.md</c>.
 /// </para>
+/// <para>
+/// <b>Rail's price lives here rather than in <see cref="ConstructionSettings"/>,
+/// because it is a property of the ground.</b> A flat figure shipped with version
+/// 17 and was the weakest number in the project; the price list charges by
+/// terrain, and a terrain that cannot carry rail needs no price at all — which is
+/// exactly the shape this rule already had. Depots and ports stay in
+/// <see cref="ConstructionSettings"/>: nothing prices those per terrain.
+/// </para>
 /// </remarks>
 public sealed record RailRule
 {
-    /// <summary>Railable by anyone, from the first turn.</summary>
+    /// <summary>Railable by anyone, from the first turn, for nothing.</summary>
     public static readonly RailRule Unrestricted = new();
 
-    public RailRule(TechnologyId? requiredTechnology = null) =>
+    public RailRule(TechnologyId? requiredTechnology = null, long cashCost = 0)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(cashCost);
         RequiredTechnology = requiredTechnology;
+        CashCost = cashCost;
+    }
 
     /// <summary>
     /// Knowledge a country needs before an Engineer may build here. Null means
     /// none.
     /// </summary>
     public TechnologyId? RequiredTechnology { get; }
+
+    /// <summary>
+    /// What one tile of track across this ground costs the treasury. Zero is free,
+    /// not forbidden — and it is what a world that names no price gets.
+    /// </summary>
+    public long CashCost { get; }
 }
 
 /// <summary>

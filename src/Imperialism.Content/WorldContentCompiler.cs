@@ -111,9 +111,26 @@ public static class WorldContentCompiler
                 new CommodityId(index), definition.Name, definition.Category, definition.CashPerUnit);
         }).ToArray();
         var technologyContent = RequireArray(document.Technologies, "technologies");
-        var technologyIds = BuildNamedKeyMap(technologyContent, "technologies");
+        var technologyIds = BuildTechnologyKeyMap(technologyContent);
         var technologies = technologyContent.Select((definition, index) =>
-            new TechnologyDefinition(new TechnologyId(index), definition.Name)).ToArray();
+        {
+            var prerequisites = RequireArray(
+                definition!.Prerequisites, $"technologies[{index}].prerequisites");
+            try
+            {
+                return new TechnologyDefinition(
+                    new TechnologyId(index),
+                    definition.Name,
+                    prerequisites.Select((key, offset) => new TechnologyId(FindKey(
+                        technologyIds, key, $"technologies[{index}].prerequisites[{offset}]"))),
+                    definition.AvailableFrom,
+                    definition.Cost);
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error($"technologies[{index}]", exception.Message, exception);
+            }
+        }).ToArray();
 
         // After the technology map, because prospectable ground may name the
         // knowledge it takes to search: swamp, desert and tundra are open only
@@ -128,14 +145,24 @@ public static class WorldContentCompiler
                         technologyIds,
                         rule.RequiredTechnology,
                         $"terrains[{index}].prospecting.requiredTechnology")));
-            RailRule? rail = definition.Rail is not { } line
-                ? null
-                : new RailRule(line.RequiredTechnology is null
-                    ? null
-                    : new TechnologyId(FindKey(
-                        technologyIds,
-                        line.RequiredTechnology,
-                        $"terrains[{index}].rail.requiredTechnology")));
+            RailRule? rail = null;
+            if (definition.Rail is { } line)
+            {
+                if (line.CashCost < 0)
+                {
+                    throw Error($"terrains[{index}].rail.cashCost", "Rail cannot cost a negative amount.");
+                }
+
+                rail = new RailRule(
+                    line.RequiredTechnology is null
+                        ? null
+                        : new TechnologyId(FindKey(
+                            technologyIds,
+                            line.RequiredTechnology,
+                            $"terrains[{index}].rail.requiredTechnology")),
+                    line.CashCost);
+            }
+
             return new TerrainDefinition(
                 new TerrainId(index), definition.Name, definition.IsImprovable, prospecting, rail);
         }).ToArray();
@@ -276,15 +303,19 @@ public static class WorldContentCompiler
         ConstructionSettings? construction = null;
         if (document.Construction is { } constructionContent)
         {
-            if (constructionContent.RailCashCost < 0 ||
-                constructionContent.DepotCashCost < 0 ||
-                constructionContent.PortCashCost < 0)
+            if (constructionContent.RailCashCost is not null)
+            {
+                throw Error(
+                    "construction.railCashCost",
+                    "This version prices rail per terrain, on terrains[].rail.cashCost.");
+            }
+
+            if (constructionContent.DepotCashCost < 0 || constructionContent.PortCashCost < 0)
             {
                 throw Error("construction", "A construction cannot cost a negative amount.");
             }
 
             construction = new ConstructionSettings(
-                constructionContent.RailCashCost,
                 constructionContent.DepotCashCost,
                 constructionContent.PortCashCost);
         }
@@ -1342,6 +1373,25 @@ public static class WorldContentCompiler
         }
 
         return BuildKeyMap(keys, path);
+    }
+
+    private static Dictionary<string, int> BuildTechnologyKeyMap(
+        TechnologyContentDefinition?[] definitions)
+    {
+        var keys = new string[definitions.Length];
+        for (var index = 0; index < definitions.Length; index++)
+        {
+            var definition = definitions[index] ??
+                throw Error($"technologies[{index}]", "Value is required.");
+            if (string.IsNullOrWhiteSpace(definition.Name))
+            {
+                throw Error($"technologies[{index}].name", "Value cannot be blank.");
+            }
+
+            keys[index] = definition.Key;
+        }
+
+        return BuildKeyMap(keys, "technologies");
     }
 
     private static Dictionary<string, int> BuildNamedKeyMap(

@@ -155,10 +155,10 @@ sourcing, not snapshot-and-diff.
 TurnResolver.Resolve(WorldState state, TurnOrders orders, ulong seed)
 ```
 
-Phases run in the original's fixed order, with six of our own interleaved:
+Phases run in the original's fixed order, with seven of our own interleaved:
 Diplomacy → Trade → Production → **Construction** → **Development** →
 **Migration** → Conflict → TradeCancellation → **Extraction** → **Transport** →
-**Feeding** → Delivery → Connectivity.
+**Feeding** → Delivery → **Investment** → Connectivity.
 
 `Construction` sits immediately after `Production` on purpose. The manual says
 an expansion ordered now is working next turn, and putting it here makes that
@@ -213,6 +213,28 @@ the treasury per rung reached — 100, 1,000, 3,000 — when the order is given
 rather than when it finishes. Prospecting is free. The price is per *cell*, which
 needs no new modelling because a cell already has one development level however
 many deposits sit on it. See `formulas/development.md`.
+
+**`Investment` sits after `Delivery`, second from last, and being last is the
+mechanism rather than a detail.** A country buys technology with cash there, and
+every rule that reads knowledge during a turn — `Development`'s three gates,
+`Extraction`'s deposit requirement — has already run against what the turn opened
+with. So "bought this turn, known next turn" falls out of the ordering exactly as
+"completes next turn" falls out of `Construction` sitting after `Production`; no
+pending state and no rule of its own.
+
+It also settles cash contention without a preflight, and **that is a chosen rule**:
+construction and improvement are charged in `Development` and get first call on the
+treasury, and research takes the remainder. `TechnologyPlanner` snapshots a
+country's knowledge before spending any of it, so a chain of prerequisites takes a
+turn per link and `Investment` never reads its own output. Refusals get their own
+`TechnologyPurchaseRefusal` rather than joining `CivilianOrderRefusal`, which is
+about civilians. See `formulas/technology.md`.
+
+**This is the first thing in the engine that acquires knowledge**, and it turned
+three existing slices of gate machinery from dead code into rules: the improvement
+ladder, the Engineer's four rail terrains, and oil prospecting. All three were
+already expressed in content, so none of them needed a code change — the gates only
+ever needed something able to pass them.
 
 **A depot is connected two ways, not one.** `ExtractionPlanner.SeedCollectionPoints`
 treats a rail component as connected when it holds the capital **or** any owned

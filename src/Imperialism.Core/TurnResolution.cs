@@ -21,7 +21,73 @@ public enum TurnPhase : byte
     Transport,
     Feeding,
     Delivery,
+
+    /// <summary>
+    /// The Investment screen: a country buys technology with what is left of its
+    /// treasury.
+    /// </summary>
+    /// <remarks>
+    /// <b>Last, and deliberately so.</b> Everything that reads knowledge during a
+    /// turn — <see cref="Development"/>'s three gates and
+    /// <see cref="Extraction"/>'s deposit requirement — has already run, which is
+    /// the whole of how "bought this turn, known next turn" is modelled. It is the
+    /// same trick <see cref="Construction"/> uses to complete next turn.
+    /// <para>
+    /// It also settles cash contention without a preflight, and <b>that is a chosen
+    /// rule</b>: construction and improvement are charged during
+    /// <see cref="Development"/> and get first call on the treasury, and research
+    /// takes what is left. See <c>docs/formulas/technology.md</c>.
+    /// </para>
+    /// </remarks>
+    Investment,
     Connectivity,
+}
+
+/// <summary>
+/// Why a country did not get the technology it tried to buy.
+/// </summary>
+/// <remarks>
+/// Separate from <see cref="CivilianOrderRefusal"/>, which is about civilians:
+/// nothing on the Investment screen has a unit, a tile or a terrain, and folding
+/// the two together would give each half a set of reasons that can never apply.
+/// </remarks>
+public enum TechnologyPurchaseRefusal : byte
+{
+    /// <summary>No technology carries that id in this world.</summary>
+    NoSuchTechnology,
+
+    /// <summary>
+    /// Already held, whether from a scenario, the fair start, or an earlier
+    /// purchase. The original does not offer it, so this is the refusal a
+    /// well-behaved client never provokes.
+    /// </summary>
+    AlreadyKnown,
+
+    /// <summary>
+    /// The year has not come. World-wide and never per country: advances "cannot
+    /// be kept secret", and one that has arrived never goes away again.
+    /// </summary>
+    NotYetAvailable,
+
+    /// <summary>
+    /// Something it builds on is not known <em>yet</em>. Buying the prerequisite
+    /// in the same turn does not help: the research "finishes after the turn ends
+    /// before the next starts", so a chain takes as many turns as it has links.
+    /// </summary>
+    PrerequisiteNotKnown,
+
+    /// <summary>
+    /// The treasury will not cover it. Construction and improvement were charged
+    /// earlier in the turn and had first call.
+    /// </summary>
+    NotEnoughCash,
+
+    /// <summary>
+    /// It has no price, so it was never on the screen. The two every power starts
+    /// with are written this way, and so is every technology in a world older than
+    /// version 19.
+    /// </summary>
+    NotForSale,
 }
 
 /// <summary>Records one country's turn at the Capitol.</summary>
@@ -847,6 +913,64 @@ public sealed record WorkersFedEvent : TurnEvent
     public long Starved { get; }
 
     public IReadOnlyList<CommodityQuantity> Eaten => _eaten;
+}
+
+/// <summary>Records one country buying one technology.</summary>
+/// <remarks>
+/// The knowledge is granted here and nothing reads it again this turn, so the
+/// first orders that can act on it are next turn's. See
+/// <see cref="TurnPhase.Investment"/>.
+/// </remarks>
+public sealed record TechnologyPurchasedEvent : TurnEvent
+{
+    public TechnologyPurchasedEvent(
+        int turnNumber,
+        CountryId country,
+        TechnologyId technology,
+        long paid)
+        : base(turnNumber, TurnPhase.Investment)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(paid);
+        Country = country;
+        Technology = technology;
+        Paid = paid;
+    }
+
+    public CountryId Country { get; }
+
+    public TechnologyId Technology { get; }
+
+    /// <summary>What left the treasury. Never refunded.</summary>
+    public long Paid { get; }
+}
+
+/// <summary>
+/// Records one country failing to buy one technology, and why.
+/// </summary>
+/// <remarks>
+/// Reported rather than silent, for the reason every refusal here is: a player who
+/// dragged something onto the Investment screen and got nothing needs to know
+/// whether to wait for the date, buy the prerequisite, or find some money.
+/// </remarks>
+public sealed record TechnologyPurchaseRefusedEvent : TurnEvent
+{
+    public TechnologyPurchaseRefusedEvent(
+        int turnNumber,
+        CountryId country,
+        TechnologyId technology,
+        TechnologyPurchaseRefusal reason)
+        : base(turnNumber, TurnPhase.Investment)
+    {
+        Country = country;
+        Technology = technology;
+        Reason = reason;
+    }
+
+    public CountryId Country { get; }
+
+    public TechnologyId Technology { get; }
+
+    public TechnologyPurchaseRefusal Reason { get; }
 }
 
 public sealed class TurnResolution

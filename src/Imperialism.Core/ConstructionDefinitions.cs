@@ -1,7 +1,7 @@
 namespace Imperialism.Core;
 
 /// <summary>
-/// What an Engineer's constructions cost, and how long they take.
+/// What an Engineer's structures cost, and how long they take.
 /// </summary>
 /// <remarks>
 /// A world that declares no settings has no construction at all: every Engineer
@@ -9,11 +9,16 @@ namespace Imperialism.Core;
 /// is why the prices are not optional — a free network would be a different game
 /// rather than an unpriced one.
 /// <para>
-/// <b>The prices are the weakest numbers in this slice and are deliberately kept
-/// in content.</b> The manual states no figure for any of the three. It says only
-/// that ports "cost more than depots", which is a single ordering constraint
-/// across three prices. Rail's is not attested at all. See
-/// <c>docs/formulas/engineer.md</c>.
+/// <b>Rail is not priced here.</b> Version 19 moved it to
+/// <see cref="RailRule.CashCost"/>, because the price list charges by the ground
+/// crossed and the gate already lived per terrain. Asking this object for rail's
+/// price throws rather than returning a number, so the two cannot drift apart.
+/// </para>
+/// <para>
+/// <b>The two prices left are the weakest numbers in this slice and are
+/// deliberately kept in content.</b> The manual states no figure for either. It
+/// says only that ports "cost more than depots", which is a single ordering
+/// constraint across two prices. See <c>docs/formulas/engineer.md</c>.
 /// </para>
 /// <para>
 /// Duration is not here: it comes from the Engineer's own
@@ -24,24 +29,31 @@ namespace Imperialism.Core;
 /// </remarks>
 public sealed record ConstructionSettings
 {
-    private readonly long[] _cashCost;
+    private readonly long _depotCashCost;
+    private readonly long _portCashCost;
 
-    public ConstructionSettings(long railCashCost, long depotCashCost, long portCashCost)
+    public ConstructionSettings(long depotCashCost, long portCashCost)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(railCashCost);
         ArgumentOutOfRangeException.ThrowIfNegative(depotCashCost);
         ArgumentOutOfRangeException.ThrowIfNegative(portCashCost);
-        _cashCost = new long[EngineerConstructions.Count];
-        _cashCost[(int)EngineerConstruction.Rail] = railCashCost;
-        _cashCost[(int)EngineerConstruction.Depot] = depotCashCost;
-        _cashCost[(int)EngineerConstruction.Port] = portCashCost;
+        _depotCashCost = depotCashCost;
+        _portCashCost = portCashCost;
     }
 
-    /// <summary>What one of these costs the treasury. Zero is free, not forbidden.</summary>
-    public long GetCashCost(EngineerConstruction structure) =>
-        Enum.IsDefined(structure)
-            ? _cashCost[(int)structure]
-            : throw new ArgumentOutOfRangeException(nameof(structure));
+    /// <summary>
+    /// What one of these costs the treasury. Zero is free, not forbidden.
+    /// <see cref="EngineerConstruction.Rail"/> is priced by the terrain it crosses
+    /// and is not an answer this object has.
+    /// </summary>
+    public long GetCashCost(EngineerConstruction structure) => structure switch
+    {
+        EngineerConstruction.Depot => _depotCashCost,
+        EngineerConstruction.Port => _portCashCost,
+        EngineerConstruction.Rail => throw new ArgumentOutOfRangeException(
+            nameof(structure),
+            "Rail is priced per terrain, on RailRule.CashCost."),
+        _ => throw new ArgumentOutOfRangeException(nameof(structure)),
+    };
 }
 
 /// <summary>The construction kinds, for iterating without reflecting over the enum.</summary>
