@@ -12,6 +12,15 @@ instruction stream verbatim, so it is a derived copyrighted work and is
 `*.alfdb` are gitignored as a backstop. `docs/disasm/module-map.md` is safe to
 commit because it holds only addresses, sizes and filenames.
 
+## Definitive original-game data
+
+[definitive-original-data.md](definitive-original-data.md) and
+[definitive-original-data.json](definitive-original-data.json) preserve the
+evidence-backed values recovered from the original executable and resource
+archive. Direct observations are labeled definitive; unresolved semantic
+interpretations remain marked candidate. The original copyrighted sources and
+disassembly listing remain outside the repository.
+
 ## Building the index
 
 ```sh

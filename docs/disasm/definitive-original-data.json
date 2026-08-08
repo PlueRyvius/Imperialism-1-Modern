@@ -1,0 +1,3393 @@
+{
+  "publication": {
+    "label": "definitive_original_information",
+    "scope": "Direct executable and resource observations recovered from the original local Imperialism binary and STR#ENU.GOB archive.",
+    "limitations": [
+      "The original binary, resource archive, disassembly listing, and audit database are not committed.",
+      "Records whose status is candidate retain unresolved semantic labels and must not be treated as confirmed meanings."
+    ]
+  },  "schema": "imperialism.basegame.semantic.v1",
+  "source": {
+    "executable": "Imperialism.exe",
+    "size": 3133440,
+    "sha256": "6afab8495db715fd9e719cffa74abe5ede4dd763428ff65d73be4edf16c9e691",
+    "audit_json": "local disassembly audit database (not committed)"
+  },
+  "confidence_legend": {
+    "verified": "reader function plus label/numeric cross-check identifies the field",
+    "verified_internal_role": "reader function identifies the internal role, but stored scale is not the displayed manual value",
+    "resource_backed": "original executable resource text directly states the formula",
+    "candidate": "useful table/reader lead whose full semantic label remains open"
+  },
+  "naval": {
+    "table": {
+      "base_address": "0x00698108",
+      "row_count": 14,
+      "row_stride_bytes": 36,
+      "field_count": 9,
+      "storage": "nine dword slots per row; accessors read the low signed 16 bits",
+      "generic_accessor": "0x00550F30"
+    },
+    "fields": [
+      {
+        "index": 0,
+        "name": "firepower_x100",
+        "display_name": "Firepower",
+        "status": "verified",
+        "decode": "display_firepower = stored_value / 100",
+        "reader": "0x00550D80",
+        "ui_reader": "0x004C9547",
+        "evidence": "The ship panel's first stat case calls the field-0 accessor and formats it as Firepower; combat rows equal the reference firepower values times 100."
+      },
+      {
+        "index": 1,
+        "name": "range",
+        "display_name": "Range",
+        "status": "verified",
+        "decode": "stored_value",
+        "reader": "0x00550DB0",
+        "ui_reader": "0x004C9567",
+        "evidence": "The second ship-panel stat case reads field 1; Frigate through Battlecruiser rows match the reference ranges exactly."
+      },
+      {
+        "index": 2,
+        "name": "armor_complement",
+        "display_name": "Armor",
+        "status": "verified",
+        "decode": "display_armor = 100 - stored_value",
+        "reader": "0x00550DE0",
+        "ui_reader": "0x004C9580",
+        "evidence": "The executable explicitly subtracts field 2 from 100 before formatting Armor; the derived values match the reference armor values."
+      },
+      {
+        "index": 3,
+        "name": "hull_scale",
+        "display_name": "Hull",
+        "status": "verified_internal_role",
+        "decode": "stored_value is the internal maximum-hull scale used by battle-report damage normalization",
+        "reader": "0x00550E10",
+        "battle_reader": "0x004AF382",
+        "evidence": "The battle-report reader divides current hull/damage data by field 3 to normalize the displayed damage bar. The literal scale is not the manual's H number."
+      },
+      {
+        "index": 4,
+        "name": "battle_speed",
+        "display_name": "Speed",
+        "status": "verified",
+        "decode": "stored_value",
+        "reader": "0x00550E40",
+        "ui_reader": "0x004C95B5",
+        "evidence": "The fifth ship-panel stat case reads field 4; combat rows match the reference battle-speed values."
+      },
+      {
+        "index": 5,
+        "name": "cargo_capacity",
+        "display_name": "Cargo",
+        "status": "verified",
+        "decode": "stored_value",
+        "reader": "0x00550E70",
+        "ui_reader": "0x004C95CE",
+        "evidence": "The sixth ship-panel stat case reads field 5, and the resource label block identifies the sixth displayed ship stat as Cargo. City transport code also multiplies this value by ship counts."
+      },
+      {
+        "index": 6,
+        "name": "combat_group",
+        "display_name": "Combat group",
+        "status": "verified_internal_role",
+        "decode": "stored_value",
+        "reader": "0x00550EA0",
+        "evidence": "UNavy list insertion and removal code uses this field as the sorted combat-group key and maintains per-group counts; merchant/non-war records store -1."
+      },
+      {
+        "index": 7,
+        "name": "sea_zones",
+        "display_name": "Sea zones",
+        "status": "verified",
+        "decode": "stored_value",
+        "reader": "0x00550ED0",
+        "evidence": "Combat rows match the reference sea-zone allowances exactly; the accessor is used in city/naval eligibility logic."
+      },
+      {
+        "index": 8,
+        "name": "combat_tier_candidate",
+        "display_name": "Combat tier (candidate)",
+        "status": "candidate",
+        "decode": "stored_value",
+        "reader": "0x00550F30",
+        "evidence": "UNavy aggregate-strength routines use the field as a threshold while summing and counting eligible ship firepower. The values form internal 0-4 bands that separate merchant records from increasingly strong warships, but no direct technology/availability label has been established."
+      }
+    ],
+    "rows": [
+      {
+        "id": 0,
+        "name": "unused/placeholder",
+        "raw_u16": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          65535,
+          0,
+          0
+        ],
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          -1,
+          0,
+          0
+        ],
+        "decoded": {
+          "firepower": 0.0,
+          "range": 0,
+          "armor": 100,
+          "hull_scale": 0,
+          "speed": 0,
+          "cargo": 0,
+          "sea_zones": 0
+        }
+      },
+      {
+        "id": 1,
+        "name": "Trader",
+        "raw_u16": [
+          0,
+          0,
+          100,
+          600,
+          0,
+          2,
+          65535,
+          1,
+          0
+        ],
+        "values": [
+          0,
+          0,
+          100,
+          600,
+          0,
+          2,
+          -1,
+          1,
+          0
+        ],
+        "decoded": {
+          "firepower": 0.0,
+          "range": 0,
+          "armor": 0,
+          "hull_scale": 600,
+          "speed": 0,
+          "cargo": 2,
+          "sea_zones": 1
+        }
+      },
+      {
+        "id": 2,
+        "name": "Indiaman",
+        "raw_u16": [
+          0,
+          0,
+          95,
+          1000,
+          0,
+          4,
+          65535,
+          1,
+          0
+        ],
+        "values": [
+          0,
+          0,
+          95,
+          1000,
+          0,
+          4,
+          -1,
+          1,
+          0
+        ],
+        "decoded": {
+          "firepower": 0.0,
+          "range": 0,
+          "armor": 5,
+          "hull_scale": 1000,
+          "speed": 0,
+          "cargo": 4,
+          "sea_zones": 1
+        }
+      },
+      {
+        "id": 3,
+        "name": "Frigate",
+        "raw_u16": [
+          300,
+          5,
+          90,
+          900,
+          4,
+          0,
+          1,
+          3,
+          1
+        ],
+        "values": [
+          300,
+          5,
+          90,
+          900,
+          4,
+          0,
+          1,
+          3,
+          1
+        ],
+        "decoded": {
+          "firepower": 3.0,
+          "range": 5,
+          "armor": 10,
+          "hull_scale": 900,
+          "speed": 4,
+          "cargo": 0,
+          "sea_zones": 3
+        }
+      },
+      {
+        "id": 4,
+        "name": "Ship-of-the-Line",
+        "raw_u16": [
+          600,
+          6,
+          80,
+          1700,
+          3,
+          0,
+          0,
+          2,
+          1
+        ],
+        "values": [
+          600,
+          6,
+          80,
+          1700,
+          3,
+          0,
+          0,
+          2,
+          1
+        ],
+        "decoded": {
+          "firepower": 6.0,
+          "range": 6,
+          "armor": 20,
+          "hull_scale": 1700,
+          "speed": 3,
+          "cargo": 0,
+          "sea_zones": 2
+        }
+      },
+      {
+        "id": 5,
+        "name": "Paddlewheeler",
+        "raw_u16": [
+          0,
+          0,
+          95,
+          900,
+          0,
+          8,
+          65535,
+          1,
+          0
+        ],
+        "values": [
+          0,
+          0,
+          95,
+          900,
+          0,
+          8,
+          -1,
+          1,
+          0
+        ],
+        "decoded": {
+          "firepower": 0.0,
+          "range": 0,
+          "armor": 5,
+          "hull_scale": 900,
+          "speed": 0,
+          "cargo": 8,
+          "sea_zones": 1
+        }
+      },
+      {
+        "id": 6,
+        "name": "Clipper",
+        "raw_u16": [
+          0,
+          0,
+          100,
+          600,
+          0,
+          4,
+          65535,
+          1,
+          0
+        ],
+        "values": [
+          0,
+          0,
+          100,
+          600,
+          0,
+          4,
+          -1,
+          1,
+          0
+        ],
+        "decoded": {
+          "firepower": 0.0,
+          "range": 0,
+          "armor": 0,
+          "hull_scale": 600,
+          "speed": 0,
+          "cargo": 4,
+          "sea_zones": 1
+        }
+      },
+      {
+        "id": 7,
+        "name": "Raider",
+        "raw_u16": [
+          300,
+          7,
+          80,
+          700,
+          7,
+          0,
+          2,
+          5,
+          2
+        ],
+        "values": [
+          300,
+          7,
+          80,
+          700,
+          7,
+          0,
+          2,
+          5,
+          2
+        ],
+        "decoded": {
+          "firepower": 3.0,
+          "range": 7,
+          "armor": 20,
+          "hull_scale": 700,
+          "speed": 7,
+          "cargo": 0,
+          "sea_zones": 5
+        }
+      },
+      {
+        "id": 8,
+        "name": "Ironclad",
+        "raw_u16": [
+          500,
+          8,
+          45,
+          1200,
+          5,
+          0,
+          3,
+          3,
+          2
+        ],
+        "values": [
+          500,
+          8,
+          45,
+          1200,
+          5,
+          0,
+          3,
+          3,
+          2
+        ],
+        "decoded": {
+          "firepower": 5.0,
+          "range": 8,
+          "armor": 55,
+          "hull_scale": 1200,
+          "speed": 5,
+          "cargo": 0,
+          "sea_zones": 3
+        }
+      },
+      {
+        "id": 9,
+        "name": "Advanced Ironclad",
+        "raw_u16": [
+          1000,
+          10,
+          40,
+          1800,
+          6,
+          0,
+          0,
+          4,
+          3
+        ],
+        "values": [
+          1000,
+          10,
+          40,
+          1800,
+          6,
+          0,
+          0,
+          4,
+          3
+        ],
+        "decoded": {
+          "firepower": 10.0,
+          "range": 10,
+          "armor": 60,
+          "hull_scale": 1800,
+          "speed": 6,
+          "cargo": 0,
+          "sea_zones": 4
+        }
+      },
+      {
+        "id": 10,
+        "name": "Freighter",
+        "raw_u16": [
+          0,
+          0,
+          75,
+          1200,
+          0,
+          16,
+          65535,
+          1,
+          0
+        ],
+        "values": [
+          0,
+          0,
+          75,
+          1200,
+          0,
+          16,
+          -1,
+          1,
+          0
+        ],
+        "decoded": {
+          "firepower": 0.0,
+          "range": 0,
+          "armor": 25,
+          "hull_scale": 1200,
+          "speed": 0,
+          "cargo": 16,
+          "sea_zones": 1
+        }
+      },
+      {
+        "id": 11,
+        "name": "Armored Cruiser",
+        "raw_u16": [
+          600,
+          9,
+          50,
+          1000,
+          8,
+          0,
+          1,
+          6,
+          3
+        ],
+        "values": [
+          600,
+          9,
+          50,
+          1000,
+          8,
+          0,
+          1,
+          6,
+          3
+        ],
+        "decoded": {
+          "firepower": 6.0,
+          "range": 9,
+          "armor": 50,
+          "hull_scale": 1000,
+          "speed": 8,
+          "cargo": 0,
+          "sea_zones": 6
+        }
+      },
+      {
+        "id": 12,
+        "name": "Dreadnought",
+        "raw_u16": [
+          2000,
+          13,
+          30,
+          2800,
+          7,
+          0,
+          3,
+          5,
+          4
+        ],
+        "values": [
+          2000,
+          13,
+          30,
+          2800,
+          7,
+          0,
+          3,
+          5,
+          4
+        ],
+        "decoded": {
+          "firepower": 20.0,
+          "range": 13,
+          "armor": 70,
+          "hull_scale": 2800,
+          "speed": 7,
+          "cargo": 0,
+          "sea_zones": 5
+        }
+      },
+      {
+        "id": 13,
+        "name": "Battlecruiser",
+        "raw_u16": [
+          1800,
+          13,
+          45,
+          2200,
+          9,
+          0,
+          2,
+          6,
+          4
+        ],
+        "values": [
+          1800,
+          13,
+          45,
+          2200,
+          9,
+          0,
+          2,
+          6,
+          4
+        ],
+        "decoded": {
+          "firepower": 18.0,
+          "range": 13,
+          "armor": 55,
+          "hull_scale": 2200,
+          "speed": 9,
+          "cargo": 0,
+          "sea_zones": 6
+        }
+      }
+    ]
+  },
+  "naval_purchase_costs": {
+    "status": "verified_material_costs",
+    "indexing": "all six arrays are indexed by the order/unit type ID",
+    "tables": [
+      {
+        "address": "0x00695B50",
+        "name": "lumber",
+        "label": "Lumber",
+        "commodity_id": 9,
+        "storage": "uint16",
+        "values_by_type": [
+          0,
+          4,
+          7,
+          5,
+          8,
+          6,
+          6,
+          6,
+          4,
+          8,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          3,
+          2,
+          3,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "address": "0x00695B70",
+        "name": "fabric_textiles",
+        "label": "Fabric/Textiles",
+        "commodity_id": 8,
+        "storage": "uint16",
+        "values_by_type": [
+          0,
+          2,
+          3,
+          2,
+          3,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          5,
+          0,
+          0,
+          3,
+          6,
+          15,
+          0,
+          8,
+          24,
+          18
+        ]
+      },
+      {
+        "address": "0x00695B90",
+        "name": "armaments",
+        "label": "Armaments",
+        "commodity_id": 16,
+        "storage": "uint16",
+        "values_by_type": [
+          0,
+          0,
+          0,
+          2,
+          5,
+          0,
+          0,
+          3,
+          6,
+          15,
+          0,
+          8,
+          24,
+          18,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          4,
+          10,
+          8,
+          6,
+          30,
+          22
+        ]
+      },
+      {
+        "address": "0x00695BB0",
+        "name": "steel",
+        "label": "Steel",
+        "commodity_id": 11,
+        "storage": "uint16",
+        "values_by_type": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          4,
+          10,
+          8,
+          6,
+          30,
+          22,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          10,
+          10,
+          20,
+          20,
+          20,
+          0,
+          0
+        ]
+      },
+      {
+        "address": "0x00695BD0",
+        "name": "coal",
+        "label": "Coal",
+        "commodity_id": 3,
+        "storage": "uint16",
+        "values_by_type": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          10,
+          10,
+          20,
+          20,
+          20,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          20,
+          20
+        ]
+      },
+      {
+        "address": "0x00695BF0",
+        "name": "fuel",
+        "label": "Fuel",
+        "commodity_id": 12,
+        "storage": "uint16",
+        "values_by_type": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          20,
+          20,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    ],
+    "ship_rows": [
+      {
+        "id": 1,
+        "name": "Trader",
+        "costs": {
+          "lumber": 4,
+          "fabric_textiles": 2
+        }
+      },
+      {
+        "id": 2,
+        "name": "Indiaman",
+        "costs": {
+          "lumber": 7,
+          "fabric_textiles": 3
+        }
+      },
+      {
+        "id": 3,
+        "name": "Frigate",
+        "costs": {
+          "lumber": 5,
+          "fabric_textiles": 2,
+          "armaments": 2
+        }
+      },
+      {
+        "id": 4,
+        "name": "Ship-of-the-Line",
+        "costs": {
+          "lumber": 8,
+          "fabric_textiles": 3,
+          "armaments": 5
+        }
+      },
+      {
+        "id": 5,
+        "name": "Paddlewheeler",
+        "costs": {
+          "lumber": 6,
+          "steel": 2,
+          "coal": 10
+        }
+      },
+      {
+        "id": 6,
+        "name": "Clipper",
+        "costs": {
+          "lumber": 6,
+          "fabric_textiles": 2
+        }
+      },
+      {
+        "id": 7,
+        "name": "Raider",
+        "costs": {
+          "lumber": 6,
+          "armaments": 3,
+          "coal": 10
+        }
+      },
+      {
+        "id": 8,
+        "name": "Ironclad",
+        "costs": {
+          "lumber": 4,
+          "armaments": 6,
+          "steel": 4,
+          "coal": 10
+        }
+      },
+      {
+        "id": 9,
+        "name": "Advanced Ironclad",
+        "costs": {
+          "lumber": 8,
+          "armaments": 15,
+          "steel": 10,
+          "coal": 20
+        }
+      },
+      {
+        "id": 10,
+        "name": "Freighter",
+        "costs": {
+          "steel": 8,
+          "coal": 20
+        }
+      },
+      {
+        "id": 11,
+        "name": "Armored Cruiser",
+        "costs": {
+          "lumber": 2,
+          "armaments": 8,
+          "steel": 6,
+          "coal": 20
+        }
+      },
+      {
+        "id": 12,
+        "name": "Dreadnought",
+        "costs": {
+          "armaments": 24,
+          "steel": 30,
+          "fuel": 20
+        }
+      },
+      {
+        "id": 13,
+        "name": "Battlecruiser",
+        "costs": {
+          "armaments": 18,
+          "steel": 22,
+          "fuel": 20
+        }
+      }
+    ],
+    "readers": {
+      "availability_check": "0x004B85A0-0x004B8609",
+      "max_quantity": "0x004B86DE-0x004B879F",
+      "deduction": "0x004B8843-0x004B88F3",
+      "order_cost_build": "0x004B8B8E-0x004B8C3E",
+      "ui_cost_list": "0x004C8F1C-0x004C8FCF"
+    },
+    "evidence": "The cost-check, max-quantity, deduction, order-cost, and UI cost-list paths index these arrays by type ID. Ship IDs 3-13 match the material recipes in ImpUnits.doc exactly; the UI reader maps the arrays to commodity IDs 8, 9, 16, 11, 3, and 12.",
+    "scope_note": "Rows 1-13 are reported as ship costs. Non-naval rows in the same arrays are retained in values_by_type but are not promoted to army costs without tracing their selector/object path."
+  },
+  "army_purchase_costs": {
+    "status": "verified_purchase_costs",
+    "table": {
+      "base_address": "0x00695CD0",
+      "record_count": 30,
+      "record_stride_bytes": 14,
+      "field_count": 7,
+      "fields": [
+        {
+          "offset": 0,
+          "name": "stored_unit_id",
+          "storage": "uint16"
+        },
+        {
+          "offset": 2,
+          "name": "primary_commodity_id",
+          "storage": "uint16",
+          "sentinel": 65535
+        },
+        {
+          "offset": 4,
+          "name": "primary_quantity",
+          "storage": "uint16"
+        },
+        {
+          "offset": 6,
+          "name": "secondary_commodity_id",
+          "storage": "uint16",
+          "sentinel": 65535
+        },
+        {
+          "offset": 8,
+          "name": "secondary_quantity",
+          "storage": "uint16"
+        },
+        {
+          "offset": 10,
+          "name": "cash",
+          "storage": "uint16"
+        },
+        {
+          "offset": 12,
+          "name": "worker_level",
+          "storage": "uint16",
+          "values": {
+            "1": "untrained",
+            "2": "trained",
+            "4": "expert"
+          }
+        }
+      ]
+    },
+    "commodity_ids": {
+      "5": "horses",
+      "12": "fuel",
+      "16": "armaments"
+    },
+    "records": [
+      {
+        "id": 0,
+        "name": "Minutemen",
+        "worker_level": 1,
+        "worker_label": "untrained",
+        "materials": {},
+        "cash": 0,
+        "raw": {
+          "worker_level": 1,
+          "primary_commodity_id": 65535,
+          "primary_quantity": 0,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 0,
+          "stored_id": 0
+        }
+      },
+      {
+        "id": 1,
+        "name": "Skirmishers",
+        "worker_level": 1,
+        "worker_label": "untrained",
+        "materials": {
+          "armaments": 1
+        },
+        "cash": 200,
+        "raw": {
+          "worker_level": 1,
+          "primary_commodity_id": 16,
+          "primary_quantity": 1,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 200,
+          "stored_id": 1
+        }
+      },
+      {
+        "id": 2,
+        "name": "Regulars",
+        "worker_level": 1,
+        "worker_label": "untrained",
+        "materials": {
+          "armaments": 1
+        },
+        "cash": 500,
+        "raw": {
+          "worker_level": 1,
+          "primary_commodity_id": 16,
+          "primary_quantity": 1,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 500,
+          "stored_id": 2
+        }
+      },
+      {
+        "id": 3,
+        "name": "Grenadiers",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 1
+        },
+        "cash": 1000,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 1,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 1000,
+          "stored_id": 3
+        }
+      },
+      {
+        "id": 4,
+        "name": "Hussars",
+        "worker_level": 1,
+        "worker_label": "untrained",
+        "materials": {
+          "armaments": 1,
+          "horses": 1
+        },
+        "cash": 100,
+        "raw": {
+          "worker_level": 1,
+          "primary_commodity_id": 16,
+          "primary_quantity": 1,
+          "secondary_commodity_id": 5,
+          "secondary_quantity": 1,
+          "cash": 100,
+          "stored_id": 4
+        }
+      },
+      {
+        "id": 5,
+        "name": "Cuirassers",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 1,
+          "horses": 1
+        },
+        "cash": 500,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 1,
+          "secondary_commodity_id": 5,
+          "secondary_quantity": 1,
+          "cash": 500,
+          "stored_id": 5
+        }
+      },
+      {
+        "id": 6,
+        "name": "Light Artillery",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 2,
+          "horses": 1
+        },
+        "cash": 1000,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 2,
+          "secondary_commodity_id": 5,
+          "secondary_quantity": 1,
+          "cash": 1000,
+          "stored_id": 6
+        }
+      },
+      {
+        "id": 7,
+        "name": "Artillery",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 2
+        },
+        "cash": 1000,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 2,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 1000,
+          "stored_id": 7
+        }
+      },
+      {
+        "id": 8,
+        "name": "Militia",
+        "worker_level": 1,
+        "worker_label": "untrained",
+        "materials": {},
+        "cash": 0,
+        "raw": {
+          "worker_level": 1,
+          "primary_commodity_id": 65535,
+          "primary_quantity": 0,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 0,
+          "stored_id": 8
+        }
+      },
+      {
+        "id": 9,
+        "name": "Sharpshooters",
+        "worker_level": 1,
+        "worker_label": "untrained",
+        "materials": {
+          "armaments": 2
+        },
+        "cash": 3000,
+        "raw": {
+          "worker_level": 1,
+          "primary_commodity_id": 16,
+          "primary_quantity": 2,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 3000,
+          "stored_id": 9
+        }
+      },
+      {
+        "id": 10,
+        "name": "Rifle Infantry",
+        "worker_level": 1,
+        "worker_label": "untrained",
+        "materials": {
+          "armaments": 2
+        },
+        "cash": 3000,
+        "raw": {
+          "worker_level": 1,
+          "primary_commodity_id": 16,
+          "primary_quantity": 2,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 3000,
+          "stored_id": 10
+        }
+      },
+      {
+        "id": 11,
+        "name": "Guards",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 2
+        },
+        "cash": 4000,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 2,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 4000,
+          "stored_id": 11
+        }
+      },
+      {
+        "id": 12,
+        "name": "Scouts",
+        "worker_level": 1,
+        "worker_label": "untrained",
+        "materials": {
+          "armaments": 2,
+          "horses": 1
+        },
+        "cash": 2000,
+        "raw": {
+          "worker_level": 1,
+          "primary_commodity_id": 16,
+          "primary_quantity": 2,
+          "secondary_commodity_id": 5,
+          "secondary_quantity": 1,
+          "cash": 2000,
+          "stored_id": 12
+        }
+      },
+      {
+        "id": 13,
+        "name": "Carbine Cavalry",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 2,
+          "horses": 1
+        },
+        "cash": 3500,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 2,
+          "secondary_commodity_id": 5,
+          "secondary_quantity": 1,
+          "cash": 3500,
+          "stored_id": 13
+        }
+      },
+      {
+        "id": 14,
+        "name": "Field Artillery",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 4,
+          "horses": 1
+        },
+        "cash": 5000,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 4,
+          "secondary_commodity_id": 5,
+          "secondary_quantity": 1,
+          "cash": 5000,
+          "stored_id": 14
+        }
+      },
+      {
+        "id": 15,
+        "name": "Siege Artillery",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 4
+        },
+        "cash": 5000,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 4,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 5000,
+          "stored_id": 15
+        }
+      },
+      {
+        "id": 16,
+        "name": "Conscripts",
+        "worker_level": 1,
+        "worker_label": "untrained",
+        "materials": {},
+        "cash": 0,
+        "raw": {
+          "worker_level": 1,
+          "primary_commodity_id": 65535,
+          "primary_quantity": 0,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 0,
+          "stored_id": 16
+        }
+      },
+      {
+        "id": 17,
+        "name": "Rangers",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 4
+        },
+        "cash": 5000,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 4,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 5000,
+          "stored_id": 17
+        }
+      },
+      {
+        "id": 18,
+        "name": "Modern Infantry",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 4
+        },
+        "cash": 5000,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 4,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 5000,
+          "stored_id": 18
+        }
+      },
+      {
+        "id": 19,
+        "name": "Machinegunners",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 4
+        },
+        "cash": 7000,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 4,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 7000,
+          "stored_id": 19
+        }
+      },
+      {
+        "id": 20,
+        "name": "Mechanized Infantry",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 4,
+          "fuel": 4
+        },
+        "cash": 5000,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 4,
+          "secondary_commodity_id": 12,
+          "secondary_quantity": 4,
+          "cash": 5000,
+          "stored_id": 20
+        }
+      },
+      {
+        "id": 21,
+        "name": "Armor",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 10,
+          "fuel": 4
+        },
+        "cash": 9000,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 10,
+          "secondary_commodity_id": 12,
+          "secondary_quantity": 4,
+          "cash": 9000,
+          "stored_id": 21
+        }
+      },
+      {
+        "id": 22,
+        "name": "Mobile Artillery",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 6,
+          "fuel": 4
+        },
+        "cash": 5000,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 6,
+          "secondary_commodity_id": 12,
+          "secondary_quantity": 4,
+          "cash": 5000,
+          "stored_id": 22
+        }
+      },
+      {
+        "id": 23,
+        "name": "Railroad Gun",
+        "worker_level": 2,
+        "worker_label": "trained",
+        "materials": {
+          "armaments": 8
+        },
+        "cash": 9000,
+        "raw": {
+          "worker_level": 2,
+          "primary_commodity_id": 16,
+          "primary_quantity": 8,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 9000,
+          "stored_id": 23
+        }
+      },
+      {
+        "id": 24,
+        "name": "Sappers",
+        "worker_level": 4,
+        "worker_label": "expert",
+        "materials": {
+          "armaments": 2
+        },
+        "cash": 5000,
+        "raw": {
+          "worker_level": 4,
+          "primary_commodity_id": 16,
+          "primary_quantity": 2,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 5000,
+          "stored_id": 24
+        }
+      },
+      {
+        "id": 25,
+        "name": "Combat Engineers",
+        "worker_level": 4,
+        "worker_label": "expert",
+        "materials": {
+          "armaments": 2
+        },
+        "cash": 7000,
+        "raw": {
+          "worker_level": 4,
+          "primary_commodity_id": 16,
+          "primary_quantity": 2,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 7000,
+          "stored_id": 25
+        }
+      },
+      {
+        "id": 26,
+        "name": "Saboteurs",
+        "worker_level": 4,
+        "worker_label": "expert",
+        "materials": {
+          "armaments": 3
+        },
+        "cash": 9000,
+        "raw": {
+          "worker_level": 4,
+          "primary_commodity_id": 16,
+          "primary_quantity": 3,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 9000,
+          "stored_id": 26
+        }
+      },
+      {
+        "id": 27,
+        "name": "General",
+        "worker_level": 4,
+        "worker_label": "expert",
+        "materials": {},
+        "cash": 0,
+        "raw": {
+          "worker_level": 4,
+          "primary_commodity_id": 65535,
+          "primary_quantity": 0,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 0,
+          "stored_id": 27
+        }
+      },
+      {
+        "id": 28,
+        "name": "General",
+        "worker_level": 4,
+        "worker_label": "expert",
+        "materials": {},
+        "cash": 0,
+        "raw": {
+          "worker_level": 4,
+          "primary_commodity_id": 65535,
+          "primary_quantity": 0,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 0,
+          "stored_id": 28
+        }
+      },
+      {
+        "id": 29,
+        "name": "General",
+        "worker_level": 4,
+        "worker_label": "expert",
+        "materials": {},
+        "cash": 0,
+        "raw": {
+          "worker_level": 4,
+          "primary_commodity_id": 65535,
+          "primary_quantity": 0,
+          "secondary_commodity_id": 65535,
+          "secondary_quantity": 0,
+          "cash": 0,
+          "stored_id": 29
+        }
+      }
+    ],
+    "readers": {
+      "purchase_cost": "0x004EA700-0x004EA7E5",
+      "order_record_build": "0x005B03E4-0x005B041E",
+      "armament_quantity": "0x005C3400-0x005C3472",
+      "unit_cost_fields": "0x005C3840-0x005C38AE",
+      "army_armament_total": "0x004D8430-0x004D848A"
+    },
+    "evidence": "The purchase-cost reader indexes the table as 14 * unit_type and adds cash, each commodity quantity times the live commodity price, and the worker-tier price. The order builder reads all seven fields. Unit IDs, material quantities, worker tiers, and cash values match ImpUnits.doc exactly."
+  },
+  "army": {
+    "fields": [
+      {
+        "name": "movement",
+        "status": "verified",
+        "address": "0x0064C660",
+        "storage": "uint16",
+        "decode": "stored_value / 10",
+        "reader": "0x004A7F4E",
+        "evidence": "The army-strength reader indexes this array by army unit type; all 30 values equal the reference movement values times 10."
+      },
+      {
+        "name": "firepower",
+        "status": "verified",
+        "address": "0x0064C6A0",
+        "storage": "float32",
+        "decode": "stored_value / 10",
+        "reader": "0x004A7F28",
+        "evidence": "The army-strength reader indexes this float array by army unit type; the values match the reference firepower scale, including the executable's 12.5 value for Grenadiers."
+      },
+      {
+        "name": "range",
+        "status": "verified",
+        "address": "0x0064C790",
+        "storage": "uint32",
+        "decode": "stored_value",
+        "reader": "0x004A7F33",
+        "evidence": "The army-strength reader indexes this array by army unit type; all 27 non-general values match the reference ranges."
+      },
+      {
+        "name": "unknown_combat_factor",
+        "status": "candidate",
+        "address": "0x0064C718",
+        "storage": "float32",
+        "decode": "stored_value",
+        "reader": "0x004A818A",
+        "evidence": "A tactical/army damage path consumes this contiguous array, but the original label and unit of measure are not established."
+      },
+      {
+        "name": "behavior_flags",
+        "status": "candidate",
+        "address": "0x0064C808",
+        "storage": "uint8",
+        "decode": "stored_value != 0",
+        "reader": "0x004A38F6",
+        "evidence": "The army manager uses this per-type flag to set a unit-object bit; the bit's gameplay label is unresolved."
+      },
+      {
+        "name": "score_additive",
+        "status": "candidate",
+        "address": "0x00695578",
+        "storage": "uint32",
+        "decode": "stored_value",
+        "reader": "0x004A7F99",
+        "evidence": "The army-strength reader adds this value to its score, but it is not a player-facing stat table."
+      },
+      {
+        "name": "unit_value_candidate",
+        "status": "candidate",
+        "address": "0x006955F0",
+        "storage": "uint32[30]",
+        "decode": "stored_value",
+        "reader": "0x004A5AA0 / 0x004E3111",
+        "evidence": "The army manager sums this table across an army and a second routine weights it by unit condition/strength. It is therefore an internal unit-value/combat-score input, not a confirmed player-facing stat."
+      }
+    ],
+    "units": [
+      {
+        "id": 0,
+        "name": "Minutemen",
+        "movement": 4.0,
+        "firepower": 5.0,
+        "range": 5,
+        "raw": {
+          "movement_tenths": 40,
+          "firepower_float": 50.0,
+          "range": 5,
+          "unknown_combat_factor": 0.0024999999441206455,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 70
+        }
+      },
+      {
+        "id": 1,
+        "name": "Skirmishers",
+        "movement": 6.0,
+        "firepower": 5.0,
+        "range": 5,
+        "raw": {
+          "movement_tenths": 60,
+          "firepower_float": 50.0,
+          "range": 5,
+          "unknown_combat_factor": 0.001500000013038516,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 137
+        }
+      },
+      {
+        "id": 2,
+        "name": "Regulars",
+        "movement": 4.0,
+        "firepower": 10.0,
+        "range": 5,
+        "raw": {
+          "movement_tenths": 40,
+          "firepower_float": 100.0,
+          "range": 5,
+          "unknown_combat_factor": 0.0020000000949949026,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 135
+        }
+      },
+      {
+        "id": 3,
+        "name": "Grenadiers",
+        "movement": 4.0,
+        "firepower": 12.5,
+        "range": 5,
+        "raw": {
+          "movement_tenths": 40,
+          "firepower_float": 125.0,
+          "range": 5,
+          "unknown_combat_factor": 0.0020000000949949026,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 164
+        }
+      },
+      {
+        "id": 4,
+        "name": "Hussars",
+        "movement": 11.0,
+        "firepower": 7.5,
+        "range": 3,
+        "raw": {
+          "movement_tenths": 110,
+          "firepower_float": 75.0,
+          "range": 3,
+          "unknown_combat_factor": 0.001500000013038516,
+          "behavior_flag": 0,
+          "score_additive": 0,
+          "unit_value_candidate": 165
+        }
+      },
+      {
+        "id": 5,
+        "name": "Cuirassers",
+        "movement": 9.0,
+        "firepower": 15.0,
+        "range": 3,
+        "raw": {
+          "movement_tenths": 90,
+          "firepower_float": 150.0,
+          "range": 3,
+          "unknown_combat_factor": 0.0020000000949949026,
+          "behavior_flag": 0,
+          "score_additive": 0,
+          "unit_value_candidate": 211
+        }
+      },
+      {
+        "id": 6,
+        "name": "Light Artillery",
+        "movement": 5.0,
+        "firepower": 10.0,
+        "range": 9,
+        "raw": {
+          "movement_tenths": 50,
+          "firepower_float": 100.0,
+          "range": 9,
+          "unknown_combat_factor": 0.004000000189989805,
+          "behavior_flag": 1,
+          "score_additive": 2,
+          "unit_value_candidate": 193
+        }
+      },
+      {
+        "id": 7,
+        "name": "Artillery",
+        "movement": 3.0,
+        "firepower": 16.0,
+        "range": 11,
+        "raw": {
+          "movement_tenths": 30,
+          "firepower_float": 160.0,
+          "range": 11,
+          "unknown_combat_factor": 0.004999999888241291,
+          "behavior_flag": 1,
+          "score_additive": 2,
+          "unit_value_candidate": 300
+        }
+      },
+      {
+        "id": 8,
+        "name": "Militia",
+        "movement": 4.0,
+        "firepower": 7.5,
+        "range": 8,
+        "raw": {
+          "movement_tenths": 40,
+          "firepower_float": 75.0,
+          "range": 8,
+          "unknown_combat_factor": 0.0024999999441206455,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 95
+        }
+      },
+      {
+        "id": 9,
+        "name": "Sharpshooters",
+        "movement": 6.0,
+        "firepower": 10.0,
+        "range": 8,
+        "raw": {
+          "movement_tenths": 60,
+          "firepower_float": 100.0,
+          "range": 8,
+          "unknown_combat_factor": 0.001500000013038516,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 243
+        }
+      },
+      {
+        "id": 10,
+        "name": "Rifle Infantry",
+        "movement": 4.0,
+        "firepower": 15.0,
+        "range": 8,
+        "raw": {
+          "movement_tenths": 40,
+          "firepower_float": 150.0,
+          "range": 8,
+          "unknown_combat_factor": 0.001500000013038516,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 230
+        }
+      },
+      {
+        "id": 11,
+        "name": "Guards",
+        "movement": 4.0,
+        "firepower": 17.5,
+        "range": 8,
+        "raw": {
+          "movement_tenths": 40,
+          "firepower_float": 175.0,
+          "range": 8,
+          "unknown_combat_factor": 0.001500000013038516,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 265
+        }
+      },
+      {
+        "id": 12,
+        "name": "Scouts",
+        "movement": 11.0,
+        "firepower": 10.0,
+        "range": 5,
+        "raw": {
+          "movement_tenths": 110,
+          "firepower_float": 100.0,
+          "range": 5,
+          "unknown_combat_factor": 0.001500000013038516,
+          "behavior_flag": 0,
+          "score_additive": 0,
+          "unit_value_candidate": 230
+        }
+      },
+      {
+        "id": 13,
+        "name": "Carbine Cavalry",
+        "movement": 9.0,
+        "firepower": 20.0,
+        "range": 5,
+        "raw": {
+          "movement_tenths": 90,
+          "firepower_float": 200.0,
+          "range": 5,
+          "unknown_combat_factor": 0.0020000000949949026,
+          "behavior_flag": 0,
+          "score_additive": 0,
+          "unit_value_candidate": 275
+        }
+      },
+      {
+        "id": 14,
+        "name": "Field Artillery",
+        "movement": 6.0,
+        "firepower": 17.5,
+        "range": 12,
+        "raw": {
+          "movement_tenths": 60,
+          "firepower_float": 175.0,
+          "range": 12,
+          "unknown_combat_factor": 0.003000000026077032,
+          "behavior_flag": 1,
+          "score_additive": 2,
+          "unit_value_candidate": 323
+        }
+      },
+      {
+        "id": 15,
+        "name": "Siege Artillery",
+        "movement": 3.0,
+        "firepower": 30.0,
+        "range": 14,
+        "raw": {
+          "movement_tenths": 30,
+          "firepower_float": 300.0,
+          "range": 14,
+          "unknown_combat_factor": 0.0035000001080334187,
+          "behavior_flag": 1,
+          "score_additive": 2,
+          "unit_value_candidate": 549
+        }
+      },
+      {
+        "id": 16,
+        "name": "Conscripts",
+        "movement": 5.0,
+        "firepower": 10.0,
+        "range": 10,
+        "raw": {
+          "movement_tenths": 50,
+          "firepower_float": 100.0,
+          "range": 10,
+          "unknown_combat_factor": 0.0010000000474974513,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 170
+        }
+      },
+      {
+        "id": 17,
+        "name": "Rangers",
+        "movement": 7.0,
+        "firepower": 15.0,
+        "range": 10,
+        "raw": {
+          "movement_tenths": 70,
+          "firepower_float": 150.0,
+          "range": 10,
+          "unknown_combat_factor": 0.0005000000237487257,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 450
+        }
+      },
+      {
+        "id": 18,
+        "name": "Modern Infantry",
+        "movement": 5.0,
+        "firepower": 22.5,
+        "range": 10,
+        "raw": {
+          "movement_tenths": 50,
+          "firepower_float": 225.0,
+          "range": 10,
+          "unknown_combat_factor": 0.0005000000237487257,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 471
+        }
+      },
+      {
+        "id": 19,
+        "name": "Machinegunners",
+        "movement": 4.0,
+        "firepower": 25.0,
+        "range": 10,
+        "raw": {
+          "movement_tenths": 40,
+          "firepower_float": 250.0,
+          "range": 10,
+          "unknown_combat_factor": 0.0005000000237487257,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 495
+        }
+      },
+      {
+        "id": 20,
+        "name": "Mechanized Infantry",
+        "movement": 11.0,
+        "firepower": 22.5,
+        "range": 10,
+        "raw": {
+          "movement_tenths": 110,
+          "firepower_float": 225.0,
+          "range": 10,
+          "unknown_combat_factor": 0.0010000000474974513,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 493
+        }
+      },
+      {
+        "id": 21,
+        "name": "Armor",
+        "movement": 9.0,
+        "firepower": 45.0,
+        "range": 12,
+        "raw": {
+          "movement_tenths": 90,
+          "firepower_float": 450.0,
+          "range": 12,
+          "unknown_combat_factor": 0.0005000000237487257,
+          "behavior_flag": 0,
+          "score_additive": 0,
+          "unit_value_candidate": 1010
+        }
+      },
+      {
+        "id": 22,
+        "name": "Mobile Artillery",
+        "movement": 8.0,
+        "firepower": 25.0,
+        "range": 15,
+        "raw": {
+          "movement_tenths": 80,
+          "firepower_float": 250.0,
+          "range": 15,
+          "unknown_combat_factor": 0.0005000000237487257,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 715
+        }
+      },
+      {
+        "id": 23,
+        "name": "Railroad Gun",
+        "movement": 3.0,
+        "firepower": 50.0,
+        "range": 17,
+        "raw": {
+          "movement_tenths": 30,
+          "firepower_float": 500.0,
+          "range": 17,
+          "unknown_combat_factor": 0.0005000000237487257,
+          "behavior_flag": 1,
+          "score_additive": 0,
+          "unit_value_candidate": 913
+        }
+      },
+      {
+        "id": 24,
+        "name": "Sappers",
+        "movement": 4.0,
+        "firepower": 0.0,
+        "range": 5,
+        "raw": {
+          "movement_tenths": 40,
+          "firepower_float": 0.0,
+          "range": 5,
+          "unknown_combat_factor": 0.003000000026077032,
+          "behavior_flag": 1,
+          "score_additive": 5,
+          "unit_value_candidate": 193
+        }
+      },
+      {
+        "id": 25,
+        "name": "Combat Engineers",
+        "movement": 4.0,
+        "firepower": 0.0,
+        "range": 8,
+        "raw": {
+          "movement_tenths": 40,
+          "firepower_float": 0.0,
+          "range": 8,
+          "unknown_combat_factor": 0.0024999999441206455,
+          "behavior_flag": 1,
+          "score_additive": 5,
+          "unit_value_candidate": 260
+        }
+      },
+      {
+        "id": 26,
+        "name": "Saboteurs",
+        "movement": 5.0,
+        "firepower": 0.0,
+        "range": 10,
+        "raw": {
+          "movement_tenths": 50,
+          "firepower_float": 0.0,
+          "range": 10,
+          "unknown_combat_factor": 0.0010000000474974513,
+          "behavior_flag": 1,
+          "score_additive": 5,
+          "unit_value_candidate": 360
+        }
+      },
+      {
+        "id": 27,
+        "name": "General",
+        "movement": 9.0,
+        "firepower": 0.0,
+        "range": 0,
+        "raw": {
+          "movement_tenths": 90,
+          "firepower_float": 0.0,
+          "range": 0,
+          "unknown_combat_factor": 0.0020000000949949026,
+          "behavior_flag": 0,
+          "score_additive": 0,
+          "unit_value_candidate": 200
+        }
+      },
+      {
+        "id": 28,
+        "name": "General",
+        "movement": 9.0,
+        "firepower": 0.0,
+        "range": 0,
+        "raw": {
+          "movement_tenths": 90,
+          "firepower_float": 0.0,
+          "range": 0,
+          "unknown_combat_factor": 0.001500000013038516,
+          "behavior_flag": 0,
+          "score_additive": 0,
+          "unit_value_candidate": 200
+        }
+      },
+      {
+        "id": 29,
+        "name": "General",
+        "movement": 9.0,
+        "firepower": 0.0,
+        "range": 0,
+        "raw": {
+          "movement_tenths": 90,
+          "firepower_float": 0.0,
+          "range": 0,
+          "unknown_combat_factor": 0.0005000000237487257,
+          "behavior_flag": 0,
+          "score_additive": 0,
+          "unit_value_candidate": 200
+        }
+      }
+    ]
+  },
+  "army_tactical": {
+    "status": "verified_internal_roles",
+    "fields": [
+      {
+        "name": "composition_class",
+        "status": "verified_internal_role",
+        "address": "0x00695380",
+        "storage": "uint16[30]",
+        "decode": "stored class value (1-3)",
+        "reader": "0x004A2214 / 0x004A7C85 / 0x00515156",
+        "evidence": "Army-manager and multiplayer code map every unit through this table, compute the minimum and maximum class in a stack, and feed those values into the adjacent composition lookup."
+      },
+      {
+        "name": "composition_lookup",
+        "status": "verified_internal_role",
+        "address": "0x006953C0",
+        "storage": "int8[4][4]",
+        "decode": "lookup[min_class + 4 * max_class]",
+        "reader": "0x004A224B / 0x004A7CBC",
+        "evidence": "The stack-normalization path indexes the 4-byte-stride matrix with the observed minimum and maximum composition classes and stores the resulting code on the army object; the final player-facing label is unresolved."
+      },
+      {
+        "name": "defense_power_x10",
+        "status": "verified_internal_role",
+        "address": "0x006953E8",
+        "storage": "uint16[30]",
+        "decode": "stored_value / 10",
+        "reader": "0x004ED1DF",
+        "evidence": "The defense-minister path multiplies this table by unit strength. Most ordinary unit entries equal the main firepower table at 0x0064C6A0 multiplied by 10; the Armor entry stores 60, matching the manual's parenthetical alternate value, while artillery and special records are zero."
+      },
+      {
+        "name": "artillery_flag",
+        "status": "verified_internal_role",
+        "address": "0x00695428",
+        "storage": "uint8[30]",
+        "decode": "stored_value != 0",
+        "reader": "0x004A8173",
+        "evidence": "The tactical damage path branches on this flag. It is set exactly for Light Artillery, Artillery, Field Artillery, Siege Artillery, Mobile Artillery, and Railroad Gun."
+      },
+      {
+        "name": "unit_role_slot",
+        "status": "verified_internal_role",
+        "address": "0x00695528",
+        "storage": "uint16[30]",
+        "decode": "stored role slot (0-9)",
+        "reader": "0x005C3494 / 0x005B0355",
+        "evidence": "Order-list and small-view code use this table to group units. Slots 0-7 repeat for the three eight-unit eras; Sappers through Saboteurs use slot 8 and the three General records use slot 9."
+      }
+    ],
+    "composition_lookup": {
+      "base_address": "0x006953C0",
+      "row_stride_bytes": 4,
+      "index_formula": "min_class + 4 * max_class",
+      "matrix_by_max_class": [
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          3,
+          0
+        ],
+        [
+          0,
+          3,
+          4,
+          5
+        ]
+      ]
+    },
+    "units": [
+      {
+        "id": 0,
+        "name": "Minutemen",
+        "composition_class": 1,
+        "defense_power": 5.0,
+        "artillery": false,
+        "role_slot": 0
+      },
+      {
+        "id": 1,
+        "name": "Skirmishers",
+        "composition_class": 2,
+        "defense_power": 5.0,
+        "artillery": false,
+        "role_slot": 1
+      },
+      {
+        "id": 2,
+        "name": "Regulars",
+        "composition_class": 1,
+        "defense_power": 10.0,
+        "artillery": false,
+        "role_slot": 2
+      },
+      {
+        "id": 3,
+        "name": "Grenadiers",
+        "composition_class": 1,
+        "defense_power": 12.5,
+        "artillery": false,
+        "role_slot": 3
+      },
+      {
+        "id": 4,
+        "name": "Hussars",
+        "composition_class": 3,
+        "defense_power": 7.5,
+        "artillery": false,
+        "role_slot": 4
+      },
+      {
+        "id": 5,
+        "name": "Cuirassers",
+        "composition_class": 2,
+        "defense_power": 15.0,
+        "artillery": false,
+        "role_slot": 5
+      },
+      {
+        "id": 6,
+        "name": "Light Artillery",
+        "composition_class": 2,
+        "defense_power": 0.0,
+        "artillery": true,
+        "role_slot": 6
+      },
+      {
+        "id": 7,
+        "name": "Artillery",
+        "composition_class": 1,
+        "defense_power": 0.0,
+        "artillery": true,
+        "role_slot": 7
+      },
+      {
+        "id": 8,
+        "name": "Militia",
+        "composition_class": 1,
+        "defense_power": 7.5,
+        "artillery": false,
+        "role_slot": 0
+      },
+      {
+        "id": 9,
+        "name": "Sharpshooters",
+        "composition_class": 2,
+        "defense_power": 10.0,
+        "artillery": false,
+        "role_slot": 1
+      },
+      {
+        "id": 10,
+        "name": "Rifle Infantry",
+        "composition_class": 1,
+        "defense_power": 15.0,
+        "artillery": false,
+        "role_slot": 2
+      },
+      {
+        "id": 11,
+        "name": "Guards",
+        "composition_class": 1,
+        "defense_power": 17.5,
+        "artillery": false,
+        "role_slot": 3
+      },
+      {
+        "id": 12,
+        "name": "Scouts",
+        "composition_class": 3,
+        "defense_power": 10.0,
+        "artillery": false,
+        "role_slot": 4
+      },
+      {
+        "id": 13,
+        "name": "Carbine Cavalry",
+        "composition_class": 2,
+        "defense_power": 20.0,
+        "artillery": false,
+        "role_slot": 5
+      },
+      {
+        "id": 14,
+        "name": "Field Artillery",
+        "composition_class": 2,
+        "defense_power": 0.0,
+        "artillery": true,
+        "role_slot": 6
+      },
+      {
+        "id": 15,
+        "name": "Siege Artillery",
+        "composition_class": 1,
+        "defense_power": 0.0,
+        "artillery": true,
+        "role_slot": 7
+      },
+      {
+        "id": 16,
+        "name": "Conscripts",
+        "composition_class": 1,
+        "defense_power": 10.0,
+        "artillery": false,
+        "role_slot": 0
+      },
+      {
+        "id": 17,
+        "name": "Rangers",
+        "composition_class": 2,
+        "defense_power": 15.0,
+        "artillery": false,
+        "role_slot": 1
+      },
+      {
+        "id": 18,
+        "name": "Modern Infantry",
+        "composition_class": 1,
+        "defense_power": 22.5,
+        "artillery": false,
+        "role_slot": 2
+      },
+      {
+        "id": 19,
+        "name": "Machinegunners",
+        "composition_class": 1,
+        "defense_power": 25.0,
+        "artillery": false,
+        "role_slot": 3
+      },
+      {
+        "id": 20,
+        "name": "Mechanized Infantry",
+        "composition_class": 3,
+        "defense_power": 22.5,
+        "artillery": false,
+        "role_slot": 4
+      },
+      {
+        "id": 21,
+        "name": "Armor",
+        "composition_class": 3,
+        "defense_power": 60.0,
+        "artillery": false,
+        "role_slot": 5
+      },
+      {
+        "id": 22,
+        "name": "Mobile Artillery",
+        "composition_class": 2,
+        "defense_power": 0.0,
+        "artillery": true,
+        "role_slot": 6
+      },
+      {
+        "id": 23,
+        "name": "Railroad Gun",
+        "composition_class": 1,
+        "defense_power": 0.0,
+        "artillery": true,
+        "role_slot": 7
+      },
+      {
+        "id": 24,
+        "name": "Sappers",
+        "composition_class": 1,
+        "defense_power": 0.0,
+        "artillery": false,
+        "role_slot": 8
+      },
+      {
+        "id": 25,
+        "name": "Combat Engineers",
+        "composition_class": 2,
+        "defense_power": 0.0,
+        "artillery": false,
+        "role_slot": 8
+      },
+      {
+        "id": 26,
+        "name": "Saboteurs",
+        "composition_class": 3,
+        "defense_power": 0.0,
+        "artillery": false,
+        "role_slot": 8
+      },
+      {
+        "id": 27,
+        "name": "General",
+        "composition_class": 2,
+        "defense_power": 0.0,
+        "artillery": false,
+        "role_slot": 9
+      },
+      {
+        "id": 28,
+        "name": "General",
+        "composition_class": 2,
+        "defense_power": 0.0,
+        "artillery": false,
+        "role_slot": 9
+      },
+      {
+        "id": 29,
+        "name": "General",
+        "composition_class": 2,
+        "defense_power": 0.0,
+        "artillery": false,
+        "role_slot": 9
+      }
+    ]
+  },
+  "production": {
+    "status": "resource_backed",
+    "source_archive": "Data/STR#ENU.GOB",
+    "resource_blocks": [
+      469,
+      475,
+      482,
+      488,
+      494,
+      500,
+      507,
+      538,
+      1311,
+      1312,
+      1313
+    ],
+    "recipes": [
+      {
+        "facility": "Textile Mill",
+        "inputs": {
+          "labor": 2,
+          "cotton_or_wool": 2
+        },
+        "outputs": {
+          "fabric": 1
+        }
+      },
+      {
+        "facility": "Clothing Factory",
+        "inputs": {
+          "labor": 2,
+          "fabric": 2
+        },
+        "outputs": {
+          "clothing": 1
+        }
+      },
+      {
+        "facility": "Steel Mill",
+        "inputs": {
+          "labor": 2,
+          "coal": 1,
+          "iron": 1
+        },
+        "outputs": {
+          "steel": 1
+        }
+      },
+      {
+        "facility": "Metalworks",
+        "inputs": {
+          "labor": 2,
+          "steel": 2
+        },
+        "outputs": {
+          "armaments_or_hardware": 1
+        }
+      },
+      {
+        "facility": "Lumber Mill",
+        "inputs": {
+          "labor": 2,
+          "timber": 2
+        },
+        "outputs": {
+          "lumber_or_paper": 1
+        }
+      },
+      {
+        "facility": "Furniture Factory",
+        "inputs": {
+          "labor": 2,
+          "lumber": 2
+        },
+        "outputs": {
+          "furniture": 1
+        }
+      },
+      {
+        "facility": "Oil Refinery",
+        "inputs": {
+          "labor": 2,
+          "oil": 2
+        },
+        "outputs": {
+          "fuel": 1
+        }
+      },
+      {
+        "facility": "Food processing",
+        "inputs": {
+          "labor": 2,
+          "grain": 2,
+          "produce": 1,
+          "meat": 1
+        },
+        "outputs": {
+          "canned_food": 2
+        }
+      },
+      {
+        "facility": "Transport capacity",
+        "inputs": {
+          "labor": 2,
+          "steel": 1,
+          "lumber": 1
+        },
+        "outputs": {
+          "transport_capacity": 1
+        }
+      }
+    ],
+    "power": {
+      "inputs": {
+        "fuel": 1
+      },
+      "outputs": {
+        "power": 6
+      },
+      "fuel_limit_per_turn": 100
+    },
+    "worker_conversions": [
+      {
+        "inputs": {
+          "food": 1,
+          "furniture": 1,
+          "clothing": 1
+        },
+        "outputs": {
+          "untrained_worker": 1
+        }
+      },
+      {
+        "inputs": {
+          "untrained_worker": 1,
+          "paper": 1,
+          "cash": 100
+        },
+        "outputs": {
+          "trained_worker": 1
+        }
+      },
+      {
+        "inputs": {
+          "trained_worker": 1,
+          "paper": 2,
+          "cash": 1000
+        },
+        "outputs": {
+          "expert_worker": 1
+        }
+      }
+    ],
+    "evidence": "The original help strings state the recipe inputs/outputs, power conversion, fuel limit, and worker conversion costs. These are not inferred from the modern project's current catalog."
+  },
+  "technology": {
+    "status": "resource_backed",
+    "source_archive": "Data/STR#ENU.GOB",
+    "source_archive_sha256": "d754e503d144086051b70be53a085ae428e151908992530b8463c2e040c2d97f",
+    "name_resource_blocks": [
+      1073,
+      1074,
+      1075
+    ],
+    "description_resource_blocks": [
+      144,
+      145,
+      146
+    ],
+    "purchase_ui_resource_blocks": [
+      1454,
+      1455
+    ],
+    "technologies": [
+      {
+        "id": 1,
+        "name": "High Pressure Steam Engine",
+        "source_block": 1073,
+        "source_string_index": 10,
+        "resource_text": "High Pressure Steam Engine",
+        "description_source_block": 144,
+        "description_source_string_index": 13,
+        "description_text": "Building on the work of engineer-inventors Thomas Newcomen and John Smeaton, who designed small steam engines for pumping water out of mines, James Watt (1736-1819) developed the first efficient steam engines.  \n\nWatt's engines were used in factories and mills but due to the supposed danger that the boilers would burst if pressure went too high, they were designed as low pressure engines. Richard Trevethick in Britain and Oliver Evans in the United States challenged this assumption to build the first high pressure engines. Trevethick designed a mobile steam road carriage in 1801.\n\nTrevethick's engine designs probably influenced George Stephenson's work in the coal fields. In 1812 Stephenson altered an engine that was used for pumping water from the mine to have it move coal. \n\nThis development led to railroads, and this technology allows Engineers to build railroads through farms, plains, deserts, and forests.\n"
+      },
+      {
+        "id": 2,
+        "name": "Seed Drill",
+        "source_block": 1073,
+        "source_string_index": 11,
+        "resource_text": "Seed Drill",
+        "description_source_block": 144,
+        "description_source_string_index": 14,
+        "description_text": "The seed drill, a farm machine used for sowing crops more efficiently, began to appear during the eighteenth century. Although not the first such device, the seed drill invented by Jethro Tull (1674-1741) in 1701 and made public in 1731 was more practical and efficient than other such machines. \n\nSeed drilling equipment required an investment most farmers were unwilling or unable to make in the eighteenth century. In England drilling was adopted slowly with drills being shared from farm to farm and rarely being used on smaller holdings. The seed drill developed by James Cooke in 1782 and improved over the years led directly to modern seed drill machines.\n\nThe seed drill allows Farmers to improve Grain and Produce farms to Level I. Farms produce two units per turn when improved.\n"
+      },
+      {
+        "id": 3,
+        "name": "Cotton Gin",
+        "source_block": 1073,
+        "source_string_index": 12,
+        "resource_text": "Cotton Gin",
+        "description_source_block": 144,
+        "description_source_string_index": 15,
+        "description_text": "In 1793, when Eli Whitney visited a plantation, cotton was  cultivated and harvested primarily by slaves, especially in the United States. Plantation owners recognized that the labor-intensive and time-consuming process of removing seeds by hand kept too many slaves out of the fields, but textile mills would not accept cotton that was full of seeds.\n\nWhitney invented a simple device that revolutionized cotton growing. His cotton gin spun the cotton through a roller covered with teeth and the seeds fell away.  The machine was later improved by Hogden Holmes. Large gins could be powered by steam engines or water wheels.\n\nThis advance allows Farmers to improve Cotton plantations to Level I. Plantations will produce two units of cotton per turn."
+      },
+      {
+        "id": 4,
+        "name": "Streamlined Hulls",
+        "source_block": 1073,
+        "source_string_index": 13,
+        "resource_text": "Streamlined Hulls",
+        "description_source_block": 145,
+        "description_source_string_index": 0,
+        "description_text": "Scientific studies of hull design coupled with a need for speedy transport of mail, passengers, and rare products from the Far East led to the clipper ship.  Some clippers were constructed with four, rather than three, masts to increase sail area.  Iron or even steel frames could be planked with wood to make the hull more sturdy. Clippers continued to be useful throughout the century, even in the days of steam.   The Cutty Sark,  built in 1875, was designed for strong winds and once clocked 17 1/2 knots.  \n\nClipper ships may be constructed in the shipyard. In time of war, clippers are more likely to run a blockade  or escape from hostile fleets than are other merchant ships.\n"
+      },
+      {
+        "id": 5,
+        "name": "Square-Set Timbering",
+        "source_block": 1073,
+        "source_string_index": 14,
+        "resource_text": "Square-Set Timbering",
+        "description_source_block": 145,
+        "description_source_string_index": 1,
+        "description_text": "Square set timbering is a system for supporting the rock above an area in a mine that has been emptied of valuable ore.  These square sets--hollow cubes of timber--could be assembled on the surface and then fitted into place in the mine. \n\nThis development increases safety in the mine and allows greater quantities of the valuable minerals to be removed.\n\nMiners may improve all mines to Level II. Coal and Iron mines produce four units per turn. Gold and Gem mines produce two units per turn.\n"
+      },
+      {
+        "id": 6,
+        "name": "Iron Railroad Bridge",
+        "source_block": 1073,
+        "source_string_index": 15,
+        "resource_text": "Iron Railroad Bridge",
+        "description_source_block": 145,
+        "description_source_string_index": 2,
+        "description_text": "Early in the history of railroads the inadequacy of wooden bridging became apparent; heavier trains required bridges of greater stability.  Fortunately, improved techniques of metallurgy permitted the use of iron for bridges. George Stephenson designed and built the first such bridge for the Stockton-Darlington Railroad in 1822. This railroad later became the first to carry passengers.\n\nWith this breakthrough, engineers may build railroads through swamps.  Foresters, produced in the university,  use this technology to provide easier access to more Timber in forests. Timber terrain improves to Level I, producing 2 units of timber per turn.\n"
+      },
+      {
+        "id": 7,
+        "name": "Feed Grasses",
+        "source_block": 1074,
+        "source_string_index": 0,
+        "resource_text": "Feed Grasses",
+        "description_source_block": 145,
+        "description_source_string_index": 3,
+        "description_text": "The development of superior feeds for livestock and the increased efficiency of crop rotation methods were important throughout the eighteenth and early nineteenth centuries.  The traditional crop rotation--winter grain, spring grain, fallow--provided insufficient fodder for livestock, and, in consequence, manure yields were low and livestock unhealthy. Gradually, farmers began to add fodder crops such as clover to the cycle, providing increased feed for their stock during winter. \n\nIn some countries the enclosure of former common land encouraged this trend by giving individuals control over the land and the herd.  This development allows for the education of Ranchers in the university, who may then improve Wool farms and Livestock ranches to Level I, producing two units per turn.\n"
+      },
+      {
+        "id": 8,
+        "name": "Spinning Jenny",
+        "source_block": 1074,
+        "source_string_index": 1,
+        "resource_text": "Spinning Jenny",
+        "description_source_block": 145,
+        "description_source_string_index": 4,
+        "description_text": "The spinning jenny, invented in 1764 by James Hargreaves, was first used for large scale industry by Richard Arkwright.  The machine took over the work of many hand spinners thereby multiplying the yarn that could be spun by one laborer.  Once an industrialist provided the initial investment to buy the spinning jennies, to establish the mill, and to hire enough workers, huge profits were made.\n\nMore than any other device, the spinning jenny came to represent the social costs of the Industrial Revolution. The workforce at Arkwright's mill, which was probably typical, was mainly children from 7 to 13 years old who worked a thirteen-hour day crouched low beneath the machines.\n\nWith this advance, farmers improve cotton plantations to Level II. Ranchers improve Wool farms to Level II. Both will produce three units per turn when improved."
+      },
+      {
+        "id": 9,
+        "name": "Paddlewheels",
+        "source_block": 1074,
+        "source_string_index": 2,
+        "resource_text": "Paddlewheels",
+        "description_source_block": 145,
+        "description_source_string_index": 5,
+        "description_text": "Prior to the invention and general acceptance of the screw propeller, ships equipped with steam engines were propelled with paddle wheels. This technology has costs, especially for military vessels, because the huge wheels take space which cannot be used for mounting cannon. \n\nThe lack of space for cannons on the raider is partly redressed by the power of new breech-loading rifled guns rather than the older smoothbore cannon.  However, raiders' firepower and small size will not allow them to stand up to a ship of the line.  \n\nPaddle wheels appeared on many types of merchant ships. The largest was the Great Eastern  which first crossed the Atlantic in 1860. Later this ship laid an Atlantic telegraph cable. No larger ships were built until 1899.\n\nPaddle wheels permit the construction of a large merchant ship and a raider--a fast escort vessel."
+      },
+      {
+        "id": 10,
+        "name": "Steel Plows",
+        "source_block": 1074,
+        "source_string_index": 3,
+        "resource_text": "Steel Plows",
+        "description_source_block": 145,
+        "description_source_string_index": 6,
+        "description_text": "At the close of the eighteenth and beginning of the nineteenth centuries, plow designs rapidly improved as more iron, and later steel, were used. The first development came with the hardening of cast iron plowshares. Robert Ransome invented a process whereby one surface was cooled more quickly resulting in a plowshare that was self-sharpening through use. \n\nNext the moldboard of the plow and later the entire implement were made of replaceable iron parts. At the close of this period, in 1846, John Deere built a plow with a steel moldboard.\n\nThese developments permit Farmers to improve Grain and Produce farms to Level II. Farms will produce three units per turn."
+      },
+      {
+        "id": 11,
+        "name": "Bessemer Converter",
+        "source_block": 1074,
+        "source_string_index": 4,
+        "resource_text": "Bessemer Converter",
+        "description_source_block": 145,
+        "description_source_string_index": 7,
+        "description_text": "In 1856 Henry Bessemer invented a process whereby air could be blown into the bottom of a vat of molten iron to remove the carbon, producing steel much more cheaply than previously possible. These Bessemer converters rapidly supplanted earlier forms of steel-making throughout the industrializing nations. For example, between 1865 and 1879 the yearly steel production of Britain and Germany multiplied by four. \n\nCheap high grade steel significantly affected military technology and growth. Mass produced rifles and artillery using this steel, coupled with ever higher rates of conscription, increased the size and the destructive ability of the great powers' armies .\n\nThese improvements to heavy industry allow the recruiting of Sharpshooters and Scouts, and permit the upgrading of Light Infantry and Hussars to these more modern units."
+      },
+      {
+        "id": 12,
+        "name": "Compound Steam Engine",
+        "source_block": 1074,
+        "source_string_index": 5,
+        "resource_text": "Compound Steam Engine",
+        "description_source_block": 145,
+        "description_source_string_index": 8,
+        "description_text": "Richard Trevethick's work with high pressure steam opened the door to build a compound steam engine that allowed greater  expanding of the steam without increasing the temperature in the cylinder. When Arthur Woolf built such an engine with two cylinders in 1811, a 50% savings in fuel consumption occurred.  Trevethick also began building compound engines.\n\nWith this technology Engineers may build railroads through hills, and Foresters may reach more Timber,  improving Timber terrain to Level II and producing three units per turn.\n"
+      },
+      {
+        "id": 13,
+        "name": "Rifled Artillery",
+        "source_block": 1074,
+        "source_string_index": 6,
+        "resource_text": "Rifled Artillery",
+        "description_source_block": 145,
+        "description_source_string_index": 9,
+        "description_text": "Traditionally, cannons were made of bronze, but as artillery grew larger this became prohibitively expensive.  Consequently, wrought and cast iron cannons became more common as the nineteenth century progressed. Often these guns were reinforced with bands of iron to prevent them from flying apart when fired, making it possible to use larger guns.\n\nDesire for greater range and accuracy led to rifling the barrels of the new guns. Firing such a gun could result in damage to the barrel until flexible copper bands molded to the rifling were used to prevent wear.\n\nThis new technology allows recruiting of Field Artillery and Siege Artillery regiments and upgrading older artillery to these more modern units.\n"
+      },
+      {
+        "id": 14,
+        "name": "Breech-Loading Rifles",
+        "source_block": 1074,
+        "source_string_index": 7,
+        "resource_text": "Breech-Loading Rifles",
+        "description_source_block": 145,
+        "description_source_string_index": 10,
+        "description_text": "Niklaus von Dreyse invented his needle gun, the first successful breech-loading rifle, in 1829, but this weapon was not adopted by the Prussian Army until 1840. Other armies were even slower to upgrade, and Austria lost the battle of Sadowa to Prussia in 1866 at least in part due to the superiority of the needle gun. However, even without the breech-loading feature, small arms at mid-century were much more deadly than Napoleonic Era muskets. During the American Civil War both sides experienced the horrible cost of attacking entrenched infantry armed with long range rifles.\n\nDuring the 1860s, France equipped its army with a superior breech-loading rifle,  the Chassepot, which led all the great powers to rapidly upgrade their infantry weapons. By the 1880s, all modern armies were equipped with bolt action magazine rifles.  \n\nThis weapon allows the military to recruit Rifle Infantry, Guards, and Carbine Cavalry, and to upgrade older regiments to these modern units."
+      },
+      {
+        "id": 15,
+        "name": "Advanced Iron Working",
+        "source_block": 1074,
+        "source_string_index": 8,
+        "resource_text": "Advanced Iron Working",
+        "description_source_block": 145,
+        "description_source_string_index": 11,
+        "description_text": "Although the benefits of armor on ships were recognized early in the nineteenth century,  conservative thinking, ship instability and technical difficulties in iron-working prevented the construction of sea-going ironclads until the late 1850s.  When France built La Gloire, the British responded with the Warrior.   This three-masted sailing ship was driven in battle by a screw (propeller) and was armed with both smoothbore cannons and more modern rifled naval guns. She had an iron frame and wood planking with iron plates attached to her sides for much of her length.\n\nDuring the American Civil War the benefits of ironclads were confirmed when C.S.S. Virginia  (formerly U.S.S. Merrimac ) decimated a small fleet of wooden steam frigates and was prevented from sinking them all only by the arrival of another ironclad, the U.S.S. Monitor. \n\nIronclads may be constructed in the shipyard. Although less heavily gunned than a ship of the line, an ironclad may defeat  one due to the ironclad's armor."
+      },
+      {
+        "id": 16,
+        "name": "Power Loom",
+        "source_block": 1074,
+        "source_string_index": 9,
+        "resource_text": "Power Loom",
+        "description_source_block": 145,
+        "description_source_string_index": 12,
+        "description_text": "Because of the large number of different actions carried out by a hand loom weaver, it was difficult to develop a powered loom for weaving cloth, and the first power looms were uneconomical. In addition, a way to stop the power if the thread broke had to be developed. Once perfected, this feature allowed one weaver to watch several operating looms at once.\n\nThe labor savings and profits to the mill owners resulting from power looms and other new industrial machinery threatened workers' livelihood and resulted in violent protests.  In 1811, for example, the Luddites destroyed industrial machines in England.\n\nIn spite of resistance, the number of operating power looms in Britain grew from 2400 to 14,150 from 1813 to 1820. By 1822 one model, Robert's loom, was the most widely used in England.  By mid-century efficient power looms had displaced hand loom weaving for both cotton and worsted cloth. \n\nFarmers improve Cotton plantations to Level III. Ranchers improve Wool farms to Level III. Both will produce four units per turn."
+      },
+      {
+        "id": 17,
+        "name": "Mechanical Reaper",
+        "source_block": 1074,
+        "source_string_index": 10,
+        "resource_text": "Mechanical Reaper",
+        "description_source_block": 145,
+        "description_source_string_index": 13,
+        "description_text": "The most labor-intensive work on an eighteenth century farm was the harvest. Since the start of the Industrial Revolution, many attempts to mechanize the process of cutting the grain had been made. In 1826 Patrick Bell invented a cutting machine (which consisted of scissors pushed by horses) that achieved some success.\n\nThe mechanical reaper invented by Cyrus McCormick in 1831 and patented in 1834, which used the knife and cutter bar, achieved general popularity, especially after the Great Exhibition of 1851.\nMechanical reapers speeded the harvest and greatly reduced the number of laborers needed to cut the grain.  \n\nFarmers may improve Grain farms to Level III, producing four units of Grain per turn.\n"
+      },
+      {
+        "id": 18,
+        "name": "Commercial Fertilizer",
+        "source_block": 1074,
+        "source_string_index": 11,
+        "resource_text": "Commercial Fertilizer",
+        "description_source_block": 145,
+        "description_source_string_index": 14,
+        "description_text": "During the late eighteenth century, the value of phosphates for growing crops was first discovered.  This knowledge was of small use until, in 1841, John Lawes first treated the phosphates with sulfuric acid. This began the super phosphate industry and significantly improved the effectiveness of fertilizers.\n\nWith this technology Farmers may improve Produce farms to Level III, growing four units of Produce each turn. \n"
+      },
+      {
+        "id": 19,
+        "name": "Oil Drilling",
+        "source_block": 1074,
+        "source_string_index": 12,
+        "resource_text": "Oil Drilling",
+        "description_source_block": 145,
+        "description_source_string_index": 15,
+        "description_text": "Oil was drilled for the first time at Titusville, Pennsylvania, in 1859.  In 1865 the first oil pipeline, six miles long, was constructed. Eventually, oil came to supply much of the world's energy needs.  \n\nThe discovery that oil drilling could be performed economically permits Drillers to be educated in the university. They will  produce Oil at Level I: two units per turn.  Additionally, Prospectors may search for Oil in Desert, Tundra and Swamp terrain. It is now possible to construct a Refinery and Power Plant.\n"
+      },
+      {
+        "id": 20,
+        "name": "Barbed Wire",
+        "source_block": 1074,
+        "source_string_index": 13,
+        "resource_text": "Barbed Wire",
+        "description_source_block": 146,
+        "description_source_string_index": 0,
+        "description_text": "The invention of barbed wire significantly increased the enclosure of open range land and allowed ranchers to better regulate their herds. Breeds were improved and disease reduced by isolating one herd from another.\n\nRanchers improve Livestock ranches to Level II, producing three units of Livestock per turn."
+      },
+      {
+        "id": 21,
+        "name": "Steel Armor Plate",
+        "source_block": 1074,
+        "source_string_index": 14,
+        "resource_text": "Steel Armor Plate",
+        "description_source_block": 146,
+        "description_source_string_index": 1,
+        "description_text": "New ironclad design, shortly after the American Civil War, primarily affected the (British) Royal Navy, resulting in heavier and more powerful guns as well as thicker armor.   H.M.S. Inflexible, although the last battleship designed to carry sails, significantly changed naval warfare and remained the strongest ship afloat throughout the 1880s.  She was armed with four 80 ton guns in two huge rotating turrets and was equipped with electric lighting.  Later in the century ironclad battleships lost their sails but continued to develop the power and range of their guns as well as the thickness of their armor plate.   \n\nBuild these warships in the shipyard to achieve command of the sea.  Their larger guns provide a longer range than earlier warships and they are exceptionally difficult to sink. "
+      },
+      {
+        "id": 22,
+        "name": "Large Artillery",
+        "source_block": 1074,
+        "source_string_index": 15,
+        "resource_text": "Large Artillery",
+        "description_source_block": 146,
+        "description_source_string_index": 2,
+        "description_text": "Alfred Krupp of the Krupp Works in Germany exhibited all-steel artillery at the Great Exhibition of 1851. Although the first steel guns were made of several separate pieces, improved techniques of metallurgy and larger production facilities soon resulted in heavy guns cast in one massive piece of steel.\n\nRecoil, a growing problem with ever larger cannons, was reduced with the invention of a recuperator between the barrel and the gun carriage. Using a recuperator, the carriage of the cannon barely moves when the gun is fired. Gun crews no longer need to move the gun back into position after firing. \n\nIn the siege of Port Arthur in 1904-05 the heavy howitzers of the Japanese Army proved decisive, both by destroying the walls of the fortress and by battering the ships in the harbor.  \n\nThis technology permits the recruiting of Railroad Gun and Mobile Artillery regiments, and the upgrading of older artillery to these more modern units."
+      },
+      {
+        "id": 23,
+        "name": "Dynamite",
+        "source_block": 1075,
+        "source_string_index": 0,
+        "resource_text": "Dynamite",
+        "description_source_block": 146,
+        "description_source_string_index": 3,
+        "description_text": "In 1866 Alfred Nobel invented a new form of explosive called dynamite. Although dynamite has many military applications, especially in demolitions,  it has many non-military uses as well.\n\nUsing dynamite to blast a path, Engineers may build rail through mountain terrain. Foresters can reach previously inaccessible Timber and improve Timber production to Level III, producing four units per turn.  Finally, dynamite allows miners to improve all mines to Level III: Coal and Iron to six units per turn; Gold and Gems to three units per turn.\n"
+      },
+      {
+        "id": 24,
+        "name": "Marine Engineering",
+        "source_block": 1075,
+        "source_string_index": 1,
+        "resource_text": "Marine Engineering",
+        "description_source_block": 146,
+        "description_source_string_index": 4,
+        "description_text": "In the latter part of the nineteenth century, the great powers evolved a new class of ship to protect merchant commerce from cruising commerce raiders. These ships, designated armored cruisers, were as fast or faster than the earlier raiders, with better guns and light armor plate.  Since the primary goal of small (non-capital) ship designers was speed, not armor, the steam turbine engine, first made practical by Sir Charles Parsons, was used in smaller vessels like the armored cruiser and the destroyer first.  After turbines proved more reliable and cleaner than traditional engines, they were fitted in capital ships as well.\n\nArmored Cruisers are relatively inexpensive and are highly efficient in protecting merchants and demolishing the trade of the enemy.  One Armored Cruiser can sink a large number of raiders or early ironclads by remaining out of their range with its superior speed.  These ships should not be placed in the line of battle.  \n"
+      },
+      {
+        "id": 25,
+        "name": "Machine Guns",
+        "source_block": 1075,
+        "source_string_index": 2,
+        "resource_text": "Machine Guns",
+        "description_source_block": 146,
+        "description_source_string_index": 5,
+        "description_text": "Early machine guns and automatic fire weapons included the Gatling gun, a ten-barrel gun constructed by Richard Gatling in 1862; the repeating rifle invented by Ferdinand Mannlicher in 1878; and the Maxim gun patented by Hiram Maxim in 1882. These weapons led to the machine guns that decimated armies during World War I.\n\nThis firepower immensely increased the casualty rates of armies. For example, at the beginning of World War I,  a rifle fired 15 rounds per minute and a machine gun fired 600.  Fire this heavy destroyed entire regiments in a few minutes when they ventured from their entrenchments to attack the enemies' lines.\n\nThis advance allows recruiting of Modern Infantry, Machine Gunners, and Rangers, and the upgrading of older regiments to these more modern units.  \n"
+      },
+      {
+        "id": 26,
+        "name": "Chemistry",
+        "source_block": 1075,
+        "source_string_index": 3,
+        "resource_text": "Chemistry",
+        "description_source_block": 146,
+        "description_source_string_index": 6,
+        "description_text": "Throughout the period of the Industrial Revolution, chemistry as a branch of learning grew from a purely empirical and incomplete science to a theoretically founded science which could respond rapidly to the demands of growing industries. New developments in many industries, including food preservation, glass making, soap production, and textiles led to greater experimentation. The general acceptance of the system of chemical elements after the work of Lavoisier provided a theoretical underpinning for the new empirical discoveries.\n\nThis revolution in chemistry is represented by growth in production of food and oil. Drillers improve Oil wells to Level II, producing four units per turn. Ranchers improve Livestock ranches to Level III, producing four units per turn.\n"
+      },
+      {
+        "id": 27,
+        "name": "Improved Range-Finding",
+        "source_block": 1075,
+        "source_string_index": 4,
+        "resource_text": "Improved Range-Finding",
+        "description_source_block": 146,
+        "description_source_string_index": 7,
+        "description_text": "During 1905 Admiral Sir John A. Fisher designed the first all-big- gun warship, the H.M.S  Dreadnought, which gave its name to the modern battleship.   When launched in 1906,  Dreadnought  made all other battleships immediately obsolete.  The armament of ten 12-inch, long-range guns meant that the Dreadnought could sink its foes from a greater range and with a heavier weight of metal, but only if accurately aimed.  \n\nIn 1912 Sir Percy Scott introduced director firing to the Royal Navy. This system allowed a single officer, high above the smoke-shrouded decks, to fire all the guns on the ship electrically. Using  salvo firing, a battleship could demolish any ship with shorter range guns.\n\nAlthough early dreadnoughts and battle cruisers burned coal, the advantages of oil for speed and efficiency soon mandated oil-burning designs and conversion of older coal burners.   In the shipyards, all Dreadnoughts and Battle Cruisers require oil, not coal. "
+      },
+      {
+        "id": 28,
+        "name": "Internal Combustion",
+        "source_block": 1075,
+        "source_string_index": 5,
+        "resource_text": "Internal Combustion",
+        "description_source_block": 146,
+        "description_source_string_index": 8,
+        "description_text": "Although the first successful internal combustion engine was invented in 1860 by Lenoir, practical applications were not developed until the close of the century.  Diesel patented his engine in 1892, and in 1893 both Karl Benz and Henry Ford built their first motorcars.\n\nPractical oil and gasoline burning internal combustion engines permit the recruiting of Armored and Mechanized regiments and the upgrading of older units to these modern types. Additionally, Drillers may improve Oil wells to Level III, producing six units per turn."
+      }
+    ],
+    "purchase_ui_templates": {
+      "purchased_in": {
+        "block": 1454,
+        "string_index": 12,
+        "text": "Purchased in [1:year]"
+      },
+      "requires_two": {
+        "block": 1454,
+        "string_index": 13,
+        "text": "Requires [1:technology name] and [2:technology name]"
+      },
+      "requires_one": {
+        "block": 1454,
+        "string_index": 14,
+        "text": "Requires [1:technology name]"
+      },
+      "screen_labels": {
+        "purchasing": {
+          "block": 1455,
+          "string_index": 0,
+          "text": "Purchasing"
+        },
+        "technologies": {
+          "block": 1455,
+          "string_index": 1,
+          "text": "Technologies"
+        },
+        "cost": {
+          "block": 1455,
+          "string_index": 2,
+          "text": "Cost"
+        },
+        "benefits": {
+          "block": 1455,
+          "string_index": 3,
+          "text": "Benefits"
+        },
+        "view_details": {
+          "block": 1455,
+          "string_index": 4,
+          "text": "View Technology Details"
+        },
+        "purchase": {
+          "block": 1455,
+          "string_index": 5,
+          "text": "Purchase Technology"
+        },
+        "cancel": {
+          "block": 1455,
+          "string_index": 6,
+          "text": "Cancel Purchase"
+        }
+      }
+    },
+    "evidence": "STR#ENU.GOB blocks #1073-#1075 contain all 28 technology names in exact progression order. Blocks #144-#146 contain the corresponding in-game descriptions, which explicitly state terrain, production, unit, and ship effects. Blocks #1454-#1455 contain the year/prerequisite templates and purchase-screen labels. Numeric costs, years, and prerequisites remain pending executable-reader work."
+  },
+  "cost_leads": {
+    "status": "candidate",
+    "note": "These are executable cash-table leads for other city actions. Army and ship purchase costs are recovered separately; these tables are not needed for the verified unit-cost records.",
+    "tables": [
+      {
+        "address": "0x0065046A",
+        "storage": "int16",
+        "values": [
+          5000,
+          7500,
+          10000
+        ],
+        "reader": "0x004C1A47",
+        "module": "UCityMinister.cpp",
+        "interpretation": "cash thresholds for a city-minister action; exact action label unresolved"
+      },
+      {
+        "address": "0x00650660",
+        "storage": "int32",
+        "values": [
+          0,
+          100,
+          1000,
+          5000
+        ],
+        "reader": "0x004C1E5C",
+        "module": "UCityMinister.cpp",
+        "interpretation": "cash deduction ladder; the $100 and $1000 entries agree with worker conversion help text, but the selector's full meaning remains unresolved"
+      },
+      {
+        "address": "0x00650650",
+        "storage": "uint8",
+        "reader": "0x004C1D59",
+        "module": "UCityMinister.cpp",
+        "interpretation": "eligibility flags used while selecting a city action"
+      }
+    ],
+    "constructor_cost_leads": {
+      "status": "candidate",
+      "record_schema": {
+        "field_count": 7,
+        "record_stride_bytes": 14,
+        "fields": [
+          "stored_id",
+          "primary_commodity_id",
+          "primary_quantity",
+          "secondary_commodity_id",
+          "secondary_quantity",
+          "cash",
+          "worker_level"
+        ],
+        "sentinel": "0xFFFF means no commodity"
+      },
+      "city_cost_object": {
+        "constructor": "0x004B2570",
+        "initializer_vtable_method": "0x004B6FE0",
+        "availability_method": "0x004B7080",
+        "deduction_method": "0x004B7210",
+        "order_cost_method": "0x004B7320",
+        "object_field_map": {
+          "+0x48": "stored action/item ID",
+          "+0x4C": "primary commodity ID",
+          "+0x50": "primary commodity quantity",
+          "+0x4E": "secondary commodity ID",
+          "+0x52": "secondary commodity quantity",
+          "+0x54": "cash cost",
+          "+0x56": "worker tier",
+          "+0x58": "object mode/flag"
+        },
+        "evidence": "UCity.cpp constructs both blocks with the same cost-object vtable, then its methods calculate available quantity from city stock/workers, deduct both commodities and cash, and write per-order costs."
+      },
+      "tables": [
+        {
+          "name": "city_manager_constructor_table_a",
+          "base_address": "0x00695C50",
+          "record_count": 9,
+          "records": [
+            {
+              "index": 0,
+              "stored_id": 0,
+              "materials": {
+                "paper": 2
+              },
+              "cash": 1500,
+              "worker_level": 4,
+              "raw": {
+                "stored_id": 0,
+                "primary_commodity_id": 10,
+                "primary_quantity": 2,
+                "secondary_commodity_id": 65535,
+                "secondary_quantity": 0,
+                "cash": 1500,
+                "worker_level": 4
+              }
+            },
+            {
+              "index": 1,
+              "stored_id": 1,
+              "materials": {
+                "paper": 2
+              },
+              "cash": 500,
+              "worker_level": 4,
+              "raw": {
+                "stored_id": 1,
+                "primary_commodity_id": 10,
+                "primary_quantity": 2,
+                "secondary_commodity_id": 65535,
+                "secondary_quantity": 0,
+                "cash": 500,
+                "worker_level": 4
+              }
+            },
+            {
+              "index": 2,
+              "stored_id": 2,
+              "materials": {
+                "paper": 2
+              },
+              "cash": 1000,
+              "worker_level": 4,
+              "raw": {
+                "stored_id": 2,
+                "primary_commodity_id": 10,
+                "primary_quantity": 2,
+                "secondary_commodity_id": 65535,
+                "secondary_quantity": 0,
+                "cash": 1000,
+                "worker_level": 4
+              }
+            },
+            {
+              "index": 3,
+              "stored_id": 3,
+              "materials": {
+                "paper": 2
+              },
+              "cash": 1000,
+              "worker_level": 4,
+              "raw": {
+                "stored_id": 3,
+                "primary_commodity_id": 10,
+                "primary_quantity": 2,
+                "secondary_commodity_id": 65535,
+                "secondary_quantity": 0,
+                "cash": 1000,
+                "worker_level": 4
+              }
+            },
+            {
+              "index": 4,
+              "stored_id": 4,
+              "materials": {
+                "paper": 2
+              },
+              "cash": 2000,
+              "worker_level": 4,
+              "raw": {
+                "stored_id": 4,
+                "primary_commodity_id": 10,
+                "primary_quantity": 2,
+                "secondary_commodity_id": 65535,
+                "secondary_quantity": 0,
+                "cash": 2000,
+                "worker_level": 4
+              }
+            },
+            {
+              "index": 5,
+              "stored_id": 5,
+              "materials": {
+                "paper": 2
+              },
+              "cash": 1000,
+              "worker_level": 4,
+              "raw": {
+                "stored_id": 5,
+                "primary_commodity_id": 10,
+                "primary_quantity": 2,
+                "secondary_commodity_id": 65535,
+                "secondary_quantity": 0,
+                "cash": 1000,
+                "worker_level": 4
+              }
+            },
+            {
+              "index": 6,
+              "stored_id": 6,
+              "materials": {
+                "paper": 2
+              },
+              "cash": 1000,
+              "worker_level": 4,
+              "raw": {
+                "stored_id": 6,
+                "primary_commodity_id": 10,
+                "primary_quantity": 2,
+                "secondary_commodity_id": 65535,
+                "secondary_quantity": 0,
+                "cash": 1000,
+                "worker_level": 4
+              }
+            },
+            {
+              "index": 7,
+              "stored_id": 7,
+              "materials": {
+                "paper": 2
+              },
+              "cash": 2000,
+              "worker_level": 4,
+              "raw": {
+                "stored_id": 7,
+                "primary_commodity_id": 10,
+                "primary_quantity": 2,
+                "secondary_commodity_id": 65535,
+                "secondary_quantity": 0,
+                "cash": 2000,
+                "worker_level": 4
+              }
+            },
+            {
+              "index": 8,
+              "stored_id": 8,
+              "materials": {
+                "paper": 2
+              },
+              "cash": 5000,
+              "worker_level": 4,
+              "raw": {
+                "stored_id": 8,
+                "primary_commodity_id": 10,
+                "primary_quantity": 2,
+                "secondary_commodity_id": 65535,
+                "secondary_quantity": 0,
+                "cash": 5000,
+                "worker_level": 4
+              }
+            }
+          ],
+          "reader": "0x004B2A3A-0x004B2AA8",
+          "interpretation": "nine constructor-created cost objects; every record requires 2 paper and an expert worker, with cash varying from $500 to $5,000; owning action labels unresolved"
+        },
+        {
+          "name": "city_manager_constructor_table_b",
+          "base_address": "0x00695CDE",
+          "record_count": 7,
+          "records": [
+            {
+              "index": 0,
+              "stored_id": 1,
+              "materials": {
+                "armaments": 1
+              },
+              "cash": 200,
+              "worker_level": 1,
+              "raw": {
+                "stored_id": 1,
+                "primary_commodity_id": 16,
+                "primary_quantity": 1,
+                "secondary_commodity_id": 65535,
+                "secondary_quantity": 0,
+                "cash": 200,
+                "worker_level": 1
+              }
+            },
+            {
+              "index": 1,
+              "stored_id": 2,
+              "materials": {
+                "armaments": 1
+              },
+              "cash": 500,
+              "worker_level": 1,
+              "raw": {
+                "stored_id": 2,
+                "primary_commodity_id": 16,
+                "primary_quantity": 1,
+                "secondary_commodity_id": 65535,
+                "secondary_quantity": 0,
+                "cash": 500,
+                "worker_level": 1
+              }
+            },
+            {
+              "index": 2,
+              "stored_id": 3,
+              "materials": {
+                "armaments": 1
+              },
+              "cash": 1000,
+              "worker_level": 2,
+              "raw": {
+                "stored_id": 3,
+                "primary_commodity_id": 16,
+                "primary_quantity": 1,
+                "secondary_commodity_id": 65535,
+                "secondary_quantity": 0,
+                "cash": 1000,
+                "worker_level": 2
+              }
+            },
+            {
+              "index": 3,
+              "stored_id": 4,
+              "materials": {
+                "armaments": 1,
+                "horses": 1
+              },
+              "cash": 100,
+              "worker_level": 1,
+              "raw": {
+                "stored_id": 4,
+                "primary_commodity_id": 16,
+                "primary_quantity": 1,
+                "secondary_commodity_id": 5,
+                "secondary_quantity": 1,
+                "cash": 100,
+                "worker_level": 1
+              }
+            },
+            {
+              "index": 4,
+              "stored_id": 5,
+              "materials": {
+                "armaments": 1,
+                "horses": 1
+              },
+              "cash": 500,
+              "worker_level": 2,
+              "raw": {
+                "stored_id": 5,
+                "primary_commodity_id": 16,
+                "primary_quantity": 1,
+                "secondary_commodity_id": 5,
+                "secondary_quantity": 1,
+                "cash": 500,
+                "worker_level": 2
+              }
+            },
+            {
+              "index": 5,
+              "stored_id": 6,
+              "materials": {
+                "armaments": 2,
+                "horses": 1
+              },
+              "cash": 1000,
+              "worker_level": 2,
+              "raw": {
+                "stored_id": 6,
+                "primary_commodity_id": 16,
+                "primary_quantity": 2,
+                "secondary_commodity_id": 5,
+                "secondary_quantity": 1,
+                "cash": 1000,
+                "worker_level": 2
+              }
+            },
+            {
+              "index": 6,
+              "stored_id": 7,
+              "materials": {
+                "armaments": 2
+              },
+              "cash": 1000,
+              "worker_level": 2,
+              "raw": {
+                "stored_id": 7,
+                "primary_commodity_id": 16,
+                "primary_quantity": 2,
+                "secondary_commodity_id": 65535,
+                "secondary_quantity": 0,
+                "cash": 1000,
+                "worker_level": 2
+              }
+            }
+          ],
+          "reader": "0x004B2B18-0x004B2B6B",
+          "interpretation": "seven constructor-created records whose stored IDs 1-7 and all cost fields duplicate the authoritative army purchase records for Skirmishers through Artillery; the owning list/action remains unresolved"
+        }
+      ],
+      "commodity_ids": {
+        "5": "horses",
+        "10": "paper",
+        "16": "armaments"
+      },
+      "evidence": "The constructor reads all seven words of each record and passes them to the same cost-object initializer. Table B is an exact overlap with army purchase records 1-7, but its second reader context does not establish that the object list is the canonical army selector."
+    }
+  },
+  "notes": [
+    "The table addresses are for this exact local executable and its existing W32Dasm index.",
+    "The legacy ImpUnits.doc is used as a cross-check for labels and scales, not as a substitute for executable extraction.",
+    "No values in this report have been wired into the Modern engine yet."
+  ]
+}
