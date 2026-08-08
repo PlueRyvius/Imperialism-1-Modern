@@ -17,6 +17,7 @@ public static class TurnResolver
         TurnPhase.Transport,
         TurnPhase.Feeding,
         TurnPhase.Delivery,
+        TurnPhase.Investment,
         TurnPhase.Connectivity,
     ];
 
@@ -306,6 +307,25 @@ public static class TurnResolver
                 foreach (var delivery in state.CommitPendingDeliveries())
                 {
                     events.Add(new CommodityDeliveredEvent(turnNumber, delivery));
+                }
+            }
+            else if (phase == TurnPhase.Investment)
+            {
+                // Last, so every gate that reads knowledge during a turn has
+                // already run against what the turn opened with. That is the
+                // whole of "bought this turn, known next turn" — the same trick
+                // Construction uses to complete next turn.
+                foreach (var outcome in TechnologyPlanner.Resolve(state, orders))
+                {
+                    events.Add(outcome switch
+                    {
+                        PlannedTechnologyPurchase entry => new TechnologyPurchasedEvent(
+                            turnNumber, entry.Country, entry.Technology, entry.Paid),
+                        PlannedTechnologyRefusal entry => new TechnologyPurchaseRefusedEvent(
+                            turnNumber, entry.Country, entry.Technology, entry.Reason),
+                        _ => throw new InvalidOperationException(
+                            $"Unhandled investment outcome {outcome.GetType().Name}."),
+                    });
                 }
             }
             else if (phase == TurnPhase.Connectivity)

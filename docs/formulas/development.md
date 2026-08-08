@@ -182,11 +182,25 @@ ever printing a figure: a player might tell a unit to do nothing "when you lack
 the cash to pay for the civilian's improvements." The owner supplies the numbers,
 and they climb steeply:
 
-| Reaching | Costs |
-|---|---|
-| Level I | 100 |
-| Level II | 1,000 |
-| Level III | 3,000 |
+| Reaching | Costs | Standing |
+|---|---|---|
+| Level I | 100 | **corroborated** — the price list states it three separate times |
+| Level II | 1,000 | **corroborated** — likewise |
+| Level III | 3,000 | the owner's recollection, unchallenged |
+
+**Two of these three are no longer only a recollection.** The price list
+transcribed in [technology.md](technology.md) states "$100 to reach Level I" and
+"$1,000 for Level II" three separate times over, from a source that never saw the
+owner's memory of playing. That is two independent sources agreeing on two of the
+three numbers, which is better support than anything else in this document has.
+
+Level III is **not** priced there, so the owner's 3,000 stands alone and
+unchallenged — and it is the one that matters most, being the rung the soak spends
+its treasury on. Do not read the corroboration of the first two as covering it.
+
+The same list independently corroborates the manual's Resource Development Table
+from the other direction: "Miner upgrades mines to level 2 (**4 units**)" is exactly
+what [extraction.md](extraction.md) transcribes for a coal or iron mine at Level II.
 
 **Charged per rung, not once per tile.** A worker opens a mine for 100, leaves,
 and comes back to pay 1,000 when Square-Set Timbering arrives — three more turns

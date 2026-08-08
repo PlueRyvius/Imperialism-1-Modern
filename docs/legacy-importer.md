@@ -45,13 +45,29 @@ Drilling; the other twelve codes and every unknown one hide nothing. Coal, iron,
 oil, gems and gold are marked as requiring discovery, and `civilian.prospector`
 is the one type whose work is to search rather than to improve.
 
-**The importer declares the manual's whole technology table**, twenty-eight
-entries in printed order, because a `tech` record is `[country, id]` with a bare
-1-based index into it and nothing naming it. That reading was falsified against
-the corpus before being built on: 380 authored levels are permitted by their
-owner's technologies and 4 are not, with `s3` — whose powers hold *unequal* sets
-— producing no contradiction at all. `s3` also repeats six of its own grants,
-which are warned about and dropped exactly as a repeated `deve` cell is.
+**The importer declares the whole technology table**, twenty-eight entries with
+their costs, arrival years and prerequisites, because a `tech` record is
+`[country, id]` with a bare 1-based index into it and nothing naming it. That
+reading was falsified against the corpus before being built on: 380 authored levels
+are permitted by their owner's technologies and 4 are not, with `s3` — whose powers
+hold *unequal* sets — producing no contradiction at all. `s3` also repeats six of
+its own grants, which are warned about and dropped exactly as a repeated `deve` cell
+is.
+
+**The order is the price list's, not the manual's printed order**, and they differ at
+positions 4–7 and 13–14. Both falsification counts come out identical under either,
+so the corpus cannot decide it and the choice rests on source quality alone; see
+`formulas/technology.md` for exactly why the corpus is silent. **The gates no longer
+depend on the order at all** — `ResourceTechnologyLadders`, the four rail constants
+and `OilDrilling` are all name-keyed through `TechnologyKey`, where they used to be
+table positions and a reorder silently rewired every one of them.
+
+**A `year` record is an offset from 1815, and this importer used to read it as a
+year.** The corpus's fields are 1, 5, 10, 11, 33 and 67; `s1.inf`'s briefing names
+1882 against a field of 67 and `s3.inf`'s names 1848 against 33, both exactly
+`1815 + field`. Nothing read the value until technology gained an arrival date,
+which is the same trap `tran` and `cash` set. A skirmish carries field 1, so it
+starts in **1816**.
 
 Each deposit carries the ladder that table implies, and every power gets High
 Pressure Steam Engine and Seed Drill through `startingDefaults`. The Great
@@ -93,8 +109,15 @@ As with every other gate, **nothing validates against it**: a scenario may lay
 track wherever it likes and the importer must take it. Fertile hills taking the
 hills gate, and towns and capitals taking the plains one, are inferences the
 corpus cannot separate from their alternatives; both are flagged in
-`formulas/engineer.md`. The Engineer's three construction prices are emitted too,
-and they are the weakest numbers this importer carries.
+`formulas/engineer.md`.
+
+**Rail is priced per terrain and the price sits beside the gate**, on
+`terrains[].rail.cashCost`: 100 for plains, farm and desert, 150 for tundra and
+either forest, 200 for hills, 300 for swamp. That replaced a flat 500 this document
+used to call the weakest number it carried — a guess becoming an observation.
+Mountains are the one ground the price list skips and take swamp's figure rather
+than a new invented one. The depot and the port keep flat prices in `construction`
+and are now the two weakest numbers here.
 
 A civilian's work is priced in both currencies. `workTurns` is **3**, from
 observed play, where it used to be 1 and a flagged guess; `improvement`

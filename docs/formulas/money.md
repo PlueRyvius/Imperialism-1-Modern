@@ -107,6 +107,35 @@ the slice that motivated the treasury does nothing.
 the way `ware` was, and for the same reason: it used to be a number nothing read,
 and it now decides whether an imported skirmish can build anything at all.
 
+## What competes for the treasury, and in what order
+
+There are four calls on a country's cash now, and they are settled by **where they
+sit in the turn** rather than by any pooling or preflight:
+
+| Charged in | What | Notes |
+|---|---|---|
+| `Development` | an improvement, per rung | 100 / 1,000 / 3,000 |
+| `Development` | an Engineer's rail, depot or port | rail per terrain |
+| `Migration` | a recruit at the Capitol | commodities, not cash |
+| **`Investment`** | **technology** | **last, so it takes the remainder** |
+
+**Research running last is a chosen rule**, not a finding. Construction and
+improvement are charged during `Development` and get first call; technology spends
+what survives. There is no preflight and no reservation: within a phase, orders are
+read in sequence and the first one the treasury cannot cover is refused outright
+rather than part-funded.
+
+**This is not a formality, and the soak measures it.** A power that improves
+whenever it can never accumulates the twelve thousand a Mechanical Reaper costs, so
+its ceiling never lifts at all — it ends the century a thousand short. A power that
+stops its Farmers to bank for the purchase gets it the quarter it becomes
+available. The rule forces a real trade: improve now, or improve higher later. See
+[technology.md](technology.md#what-a-hundred-turns-looks-like).
+
+Worth naming what that does to the guessed starting treasury: it is now
+**load-bearing three times over** — the first depot, five Level II improvements, and
+whether a late technology is reachable inside a century at all.
+
 ## What the manual says that is *not* modelled
 
 Recorded so the next slice does not have to rediscover it.
@@ -116,9 +145,12 @@ Recorded so the next slice does not have to rediscover it.
   on the manual's own list of three. Nothing here models it, so the only income
   in this engine is the smallest of the three.
 - **Overseas profits** are the third, and need embassies and Minor Nations.
-- **Technology is bought with cash** on the Investment screen. A treasury makes
+- ~~**Technology is bought with cash** on the Investment screen. A treasury makes
   that newly possible and it still wants the prerequisite graph and arrival
-  dates; see [technology.md](technology.md).
+  dates.~~ **Implemented.** Prices, prerequisites and arrival dates all come from
+  the price list, and `TurnPhase.Investment` spends the treasury on them. See
+  [technology.md](technology.md), and the section below on what that does to
+  contention.
 - ~~**Civilian units cost cash, and so does their work** — recorded and
   deliberately not implemented.~~ **The work half is implemented now.** The
   owner supplies the prices — 100, 1,000 and 3,000 for the three rungs — and

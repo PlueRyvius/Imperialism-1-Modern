@@ -32,7 +32,9 @@ prices are the weakest numbers in the project.**
 | **Fertile hills take the hills gate** | **inference** — the manual says "hills" unqualified |
 | **Towns and capitals are railable** | **inference** — a capital could not be a hub otherwise |
 | What a depot and a port cost | **observed play**, and tentative |
-| **What rail costs** | **a guess.** Nothing anywhere |
+| **What rail costs, per terrain** | **the price list** — see below. **This used to be a guess and is not any more** |
+| **What mountains' rail costs** | **a guess**, and the only one left: the list prices four grounds and not that one |
+| **A link pays for its dearer end** | **a chosen rule** — the list prices a ground, and a link has two |
 
 ## The terrain gates, and the corpus check
 
@@ -159,14 +161,81 @@ civilian uses, because the manual's sentence is the same one — **and cash**.
 |---|---|---|
 | Depot | 1,500 | **the owner's recollection from play.** "Good for shape, poor for exact numbers" |
 | Port | 2,000 | the same, and it satisfies the manual's one constraint |
-| Rail | 500 | **a guess. Nothing supports it at all** |
+| Rail | **per terrain** | **the price list.** See below |
 
-The manual prices none of the three. It says only that ports "cost more than
-depots"; these satisfy that and nothing else. Rail's number is set below the
-depot's on the reasoning that a single tile of track plainly buys less than the
-structure that gathers a whole catchment, which is an argument about plausibility
-rather than evidence. **Do not cite any of the three.** All live in content, so
-changing them is an edit.
+The manual prices none of them. It says only that ports "cost more than depots";
+the two structure prices satisfy that and nothing else, and the price list does not
+price either, so they stand unchallenged. **Do not cite either.** Both live in
+content, so changing them is an edit.
+
+### Rail's price: a guess becoming an observation
+
+**This was the weakest number in the project and it is not any more.** The
+Engineer slice shipped a flat $500 and labelled it, in this document, "a guess.
+Nothing supports it at all" — reasoned only from a tile of track plainly buying
+less than a depot. The price list ([technology.md](technology.md)) charges by the
+ground crossed:
+
+| Ground | Price | Terrain codes it covers |
+|---|---|---|
+| plains, farm, desert | **100** | dry plains, plantation, open range, horse ranch, farm, orchard, desert, town, capital |
+| tundra, **either** forest | **150** | tundra, hardwood forest, scrub forest |
+| hills | **200** | barren hills, fertile hills |
+| swamp | **300** | swamp |
+| *mountains* | *300* | **not priced by the list.** See below |
+
+Write it as the upgrade it is, the way [development.md](development.md) handled the
+work duration: the shape was right and the number was invented, and now the number
+is observed. The flat figure was not merely superseded, it was **wrong** — a single
+price cannot be right when the real one varies threefold.
+
+**Three readings inside it are still inferences.** The list names five grounds and
+this engine has seventeen terrain codes, so each price covers the codes that ground
+plainly means. Plantation, open range, horse ranch, orchard, town and capital take
+the plains price — the same reading that already gives towns and capitals the plains
+*gate*. Fertile hills take the hills price for the same reason they take the hills
+gate. "Tundra and either forest" is the one place the list is explicit that two
+terrains sharing a name share a price.
+
+**Mountains are the one ground the list does not price, and the one guess left in
+the table.** They take swamp's price — the most expensive ground that *is* attested
+— rather than a fifth invented number, because inventing one is exactly what the
+flat $500 did. The corpus cannot check it either way: no shipped power holds
+Dynamite and no shipped scenario rails a single mountain.
+
+### Where the price lives, and why it moved
+
+`RailRule.CashCost`, beside the technology gate, not in `ConstructionSettings`
+beside the depot and the port. The rule already existed per terrain, already carried
+the gate, and **a terrain that cannot carry rail needs no price** — which is the
+shape `RailRule?` already had. Asking `ConstructionSettings` for rail's price now
+throws rather than returning a number, so the two cannot drift apart.
+
+### A link pays for its dearer end, and that is a chosen rule
+
+The list gives one figure per ground and a link crosses two, so something has to
+choose. **The dearer end**, which is direction-independent and agrees exactly with
+the list wherever both ends are the same ground — the case the list can actually be
+describing.
+
+Two alternatives were rejected for reasons worth keeping:
+
+- **Summing the ends** would double every attested figure. A plains-to-plains link
+  would cost 200 where the list says 100, which contradicts the source outright.
+- **Charging the target end** reads the manual's "build rail *into* certain
+  terrain" literally, and is asymmetric: a player would lay every swamp line from
+  the swamp side to pay the plains price. A rule that rewards nothing but knowing
+  about it.
+
+### A v18 package does not keep the old price
+
+The v18→v19 migration **drops** `construction.railCashCost` rather than spreading
+it across the terrains, so a migrated package lays track for nothing. That makes it
+**the first migration in this project that deliberately does not preserve
+behaviour**, and the reason is that the number is *retracted* rather than
+superseded: carrying a figure this document had already called unsupported would
+give it a longer life than it earned. Re-importing legacy content supplies the real
+per-terrain prices.
 
 ## What a hundred turns looks like
 
@@ -242,14 +311,24 @@ construction settings building nothing; and one order a turn.
 `tests/Imperialism.Core.Tests/EconomySoakTests.cs` carries the hundred-turn run
 above, with a control that is verified to differ.
 
+`tests/Imperialism.Core.Tests/EngineerTests.cs` also pins the per-terrain pricing:
+a link paying for its dearer end, **the same link costing the same from either
+side**, and unpriced ground building free.
+
 `tests/Imperialism.LegacyImport.Tests/LegacyWorldConverterTests.cs` pins the rail
-gate per terrain, the three prices, the Engineer's work kind, and the corpus
-falsification check above.
+gate per terrain, **the per-terrain rail prices**, the two structure prices and the
+absence of the flat one, the Engineer's work kind, and the corpus falsification
+check above.
 
 ## Open questions
 
-- **What any of it costs.** Two recollections and one invention. The binary is
-  the only plausible source; the manual has been searched and prices nothing.
+- **What the depot and the port cost.** Two recollections. The binary is the only
+  plausible source; the manual has been searched and prices neither, and the price
+  list prices neither either. **Rail is no longer on this list** — it was the
+  invention, and it has been replaced by an observation.
+- **What mountains' rail costs**, the one ground the price list skips. It takes
+  swamp's figure rather than a new invented one, and the corpus cannot check it
+  because nobody in it can rail a mountain at all.
 - **Fortifications**, the dialog's third choice — military, and built
   "throughout the province, not just the current tile", which is a different
   shape entirely.

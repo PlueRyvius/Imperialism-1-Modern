@@ -271,7 +271,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(19)]
+    [InlineData(20)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1229,7 +1229,7 @@ public sealed class WorldContentTests
     /// <summary>
     /// A terrain with no <c>rail</c> block can never carry a line, which is
     /// ocean's answer and every terrain's answer in a world with no
-    /// construction. Present-but-empty means anyone may build on it.
+    /// construction. Present-but-empty means anyone may build on it, free.
     /// </summary>
     [Fact]
     public void ConstructionAndTheRailGateSurviveARoundTrip()
@@ -1237,13 +1237,13 @@ public sealed class WorldContentTests
         var document = CreateValidDocument();
         document.Construction = new ConstructionContentSettings
         {
-            RailCashCost = 500,
             DepotCashCost = 1500,
             PortCashCost = 2000,
         };
         document.Terrains[0].Rail = new RailContent
         {
             RequiredTechnology = document.Technologies[0].Key,
+            CashCost = 200,
         };
 
         var first = WorldContentCodec.Encode(document);
@@ -1252,9 +1252,35 @@ public sealed class WorldContentTests
 
         var world = WorldContentCompiler.Compile(decoded).World;
         Assert.Equal(1500, world.Construction!.GetCashCost(EngineerConstruction.Depot));
-        Assert.Equal(
-            new TechnologyId(0),
-            world.Map.GetTerrain(new TerrainId(0))!.Rail!.RequiredTechnology);
+
+        // Rail is not one of this object's answers any more.
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            world.Construction!.GetCashCost(EngineerConstruction.Rail));
+
+        var rail = world.Map.GetTerrain(new TerrainId(0))!.Rail!;
+        Assert.Equal(new TechnologyId(0), rail.RequiredTechnology);
+        Assert.Equal(200, rail.CashCost);
+    }
+
+    /// <summary>
+    /// A version 19 package cannot carry version 17's flat rail price. The field
+    /// exists on the document only so a v18 package still deserializes.
+    /// </summary>
+    [Fact]
+    public void TheFlatRailPriceIsRejectedAtTheCurrentVersion()
+    {
+        var document = CreateValidDocument();
+        document.Construction = new ConstructionContentSettings
+        {
+            RailCashCost = 500,
+            DepotCashCost = 1500,
+            PortCashCost = 2000,
+        };
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCompiler.Compile(document));
+
+        Assert.Equal("construction.railCashCost", exception.Path);
     }
 
     [Fact]
@@ -1312,6 +1338,179 @@ public sealed class WorldContentTests
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(contradictory)));
 
         Assert.Equal("formatVersion", exception.Path);
+    }
+
+    /// <summary>
+    /// Version 19 lets a country buy technology. A version 18 package prices none,
+    /// so it migrates to a world where nothing is for sale — which is how it
+    /// behaved: knowledge came only from a scenario, from the fair-start default,
+    /// or from a test granting it.
+    /// </summary>
+    [Fact]
+    public void VersionEighteenMigratesToUnpurchasableTechnology()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 18);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.All(migrated.Technologies, technology =>
+        {
+            Assert.Null(technology.Cost);
+            Assert.Null(technology.AvailableFrom);
+            Assert.Empty(technology.Prerequisites);
+        });
+        Assert.All(
+            WorldContentCompiler.Compile(migrated).World.Technologies,
+            technology => Assert.Null(technology.Cost));
+    }
+
+    /// <summary>
+    /// **The one migration here that deliberately does not preserve behaviour.**
+    /// Version 17's flat rail price is dropped rather than spread across the
+    /// terrains, so a migrated package lays track for nothing. The figure was an
+    /// invention this project had already labelled unsupported, and carrying a
+    /// retracted number forward would give it a longer life than it earned.
+    /// </summary>
+    [Fact]
+    public void VersionEighteenMigrationDropsTheFlatRailPrice()
+    {
+        var document = CreateValidDocument();
+        document.Construction = new ConstructionContentSettings
+        {
+            DepotCashCost = 1500,
+            PortCashCost = 2000,
+        };
+        document.Terrains[0].Rail = new RailContent();
+
+        // The field cannot be encoded at the current version, so a version 18
+        // package has to be written by hand. That is the point of the field
+        // existing at all: only a file already on disk can carry it.
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 18)
+            .Replace(
+                "\"depotCashCost\": 1500",
+                "\"railCashCost\": 500,\n    \"depotCashCost\": 1500",
+                StringComparison.Ordinal);
+        Assert.Contains("\"railCashCost\": 500", json, StringComparison.Ordinal);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Null(migrated.Construction!.RailCashCost);
+        Assert.Equal(1500, migrated.Construction.DepotCashCost);
+        Assert.Equal(0, migrated.Terrains[0].Rail!.CashCost);
+
+        // And it is gone from what is written back out, not merely ignored.
+        Assert.DoesNotContain(
+            "railCashCost",
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(migrated)),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void VersionEighteenMigrationRejectsAPurchasableTechnology()
+    {
+        var document = CreateValidDocument();
+        document.Technologies[0].Cost = 1_000;
+        document.Technologies[0].AvailableFrom = 1816;
+        var contradictory = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 18);
+        Assert.Contains("\"cost\": 1000", contradictory, StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(contradictory)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    [Fact]
+    public void VersionEighteenMigrationRejectsPerTerrainRailPricing()
+    {
+        var document = CreateValidDocument();
+        document.Terrains[0].Rail = new RailContent { CashCost = 200 };
+        var contradictory = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 18);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(contradictory)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    /// <summary>
+    /// Prices, arrival years and prerequisites all survive a round trip, and a
+    /// prerequisite resolves by key against the catalog.
+    /// </summary>
+    [Fact]
+    public void TechnologyTermsSurviveARoundTrip()
+    {
+        var document = CreateValidDocument();
+        document.Technologies =
+        [
+            new TechnologyContentDefinition { Key = "technology.drilling", Name = "Oil Drilling" },
+            new TechnologyContentDefinition
+            {
+                Key = "technology.chemistry",
+                Name = "Chemistry",
+                Prerequisites = ["technology.drilling"],
+                AvailableFrom = 1875,
+                Cost = 120_000,
+            },
+        ];
+
+        var first = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(first);
+        Assert.Equal(first, WorldContentCodec.Encode(decoded));
+
+        var chemistry = WorldContentCompiler.Compile(decoded).World.Technologies[1];
+        Assert.Equal((1875, 120_000L), (chemistry.AvailableFrom!.Value, chemistry.Cost!.Value));
+        Assert.Equal(new TechnologyId(0), Assert.Single(chemistry.Prerequisites));
+
+        // The one it builds on is not for sale, and writes nothing at all.
+        var drilling = WorldContentCompiler.Compile(decoded).World.Technologies[0];
+        Assert.Null(drilling.Cost);
+    }
+
+    [Fact]
+    public void APrerequisiteCannotNameATechnologyTheWorldDoesNotDeclare()
+    {
+        var document = CreateValidDocument();
+        document.Technologies =
+        [
+            new TechnologyContentDefinition { Key = "technology.drilling", Name = "Oil Drilling" },
+            new TechnologyContentDefinition
+            {
+                Key = "technology.chemistry",
+                Name = "Chemistry",
+                Prerequisites = ["technology.missing"],
+                Cost = 100,
+            },
+        ];
+
+        AssertPath("technologies[1].prerequisites[0]", document);
+    }
+
+    /// <summary>
+    /// A prerequisite must sit earlier in the catalog, so that any prefix of it is
+    /// prerequisite-closed. **A chosen constraint**, and the 1997 table satisfies
+    /// it for all sixteen of its prerequisites.
+    /// </summary>
+    [Fact]
+    public void APrerequisiteCannotPointForwards()
+    {
+        var document = CreateValidDocument();
+        document.Technologies =
+        [
+            new TechnologyContentDefinition
+            {
+                Key = "technology.chemistry",
+                Name = "Chemistry",
+                Prerequisites = ["technology.drilling"],
+                Cost = 100,
+            },
+            new TechnologyContentDefinition { Key = "technology.drilling", Name = "Oil Drilling" },
+        ];
+
+        AssertPath("technologies[0]", document);
     }
 
     /// <summary>
@@ -1624,7 +1823,7 @@ public sealed class WorldContentTests
         ],
         Technologies =
         [
-            new NamedContentDefinition { Key = "technology.drilling", Name = "Oil Drilling" },
+            new TechnologyContentDefinition { Key = "technology.drilling", Name = "Oil Drilling" },
         ],
         Extraction = new ExtractionContentSettings { CatchmentRadius = 1 },
         ProductionFacilities =

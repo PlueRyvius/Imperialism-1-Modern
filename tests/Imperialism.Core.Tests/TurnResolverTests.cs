@@ -19,6 +19,7 @@ public sealed class TurnResolverTests
         TurnPhase.Transport,
         TurnPhase.Feeding,
         TurnPhase.Delivery,
+        TurnPhase.Investment,
         TurnPhase.Connectivity,
     ];
 

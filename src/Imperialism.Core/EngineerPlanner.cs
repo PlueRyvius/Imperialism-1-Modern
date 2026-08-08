@@ -101,10 +101,40 @@ internal static class EngineerPlanner
             return refusal;
         }
 
-        cost = settings.GetCashCost(order.Structure);
+        cost = order.Structure == EngineerConstruction.Rail
+            ? PriceOfRail(state, engineer.Cell, order.Cell)
+            : settings.GetCashCost(order.Structure);
         return cost > 0 && state.GetCash(country) < cost
             ? CivilianOrderRefusal.NotEnoughCash
             : null;
+    }
+
+    /// <summary>
+    /// What one link costs: <b>the dearer of its two ends.</b>
+    /// </summary>
+    /// <remarks>
+    /// The price list gives one figure per ground for a link and a link crosses
+    /// two, so something has to choose, and <b>this is a chosen rule.</b> Two
+    /// alternatives were rejected for reasons worth keeping. Summing the ends
+    /// would double every attested figure — a plains-to-plains link would cost
+    /// 200 where the list says 100 — which contradicts the source outright.
+    /// Charging the *target* end reads the manual's "build rail into certain
+    /// terrain" literally and is asymmetric: a player would lay every swamp line
+    /// from the swamp side to pay the plains price, which is a rule that rewards
+    /// nothing but knowing about it.
+    /// <para>
+    /// The dearer end is direction-independent and agrees exactly with the list
+    /// wherever both ends are the same ground, which is the case the list can
+    /// actually be describing. The gate has already been checked, so both
+    /// terrains are known to carry rail; a world that names no price builds free.
+    /// </para>
+    /// </remarks>
+    private static long PriceOfRail(WorldState state, CellIndex from, CellIndex to)
+    {
+        var map = state.Definition.Map;
+        var here = map.GetTerrain(map[from].Terrain)?.Rail?.CashCost ?? 0;
+        var there = map.GetTerrain(map[to].Terrain)?.Rail?.CashCost ?? 0;
+        return Math.Max(here, there);
     }
 
     /// <summary>

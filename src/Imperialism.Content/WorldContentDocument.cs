@@ -79,7 +79,11 @@ public sealed class WorldContentDocument
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ImprovementContentSettings? Improvement { get; set; }
 
-    public NamedContentDefinition[] Technologies { get; set; } = [];
+    /// <summary>
+    /// The technology catalog. **Order is load-bearing for the legacy importer**,
+    /// whose <c>tech</c> records are bare 1-based indices into it.
+    /// </summary>
+    public TechnologyContentDefinition[] Technologies { get; set; } = [];
 
     public NamedContentDefinition[] Countries { get; set; } = [];
 
@@ -304,19 +308,42 @@ public sealed class RailContent
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RequiredTechnology { get; set; }
+
+    /// <summary>
+    /// What one tile of track across this ground costs the treasury. Zero, the
+    /// default, is free — which is what a pre-v19 package gets. The price list
+    /// charges 100 for plains, farm and desert, 150 for tundra and either forest,
+    /// 200 for hills, 300 for swamp; mountains it does not price at all.
+    /// </summary>
+    public long CashCost { get; set; }
 }
 
 /// <summary>
-/// What an Engineer's constructions cost the treasury. Absent means the world
+/// What an Engineer's two structures cost the treasury. Absent means the world
 /// has no construction at all.
 /// </summary>
 /// <remarks>
-/// **All three are weak numbers.** The manual prices none of them and says only
-/// that ports "cost more than depots". See <c>docs/formulas/engineer.md</c>.
+/// **Both are weak numbers.** The manual prices neither and says only that ports
+/// "cost more than depots". Rail moved out at version 19: it is priced per terrain
+/// on <see cref="RailContent.CashCost"/>, because the price list charges by the
+/// ground crossed. See <c>docs/formulas/engineer.md</c>.
 /// </remarks>
 public sealed class ConstructionContentSettings
 {
-    public long RailCashCost { get; set; }
+    /// <summary>
+    /// Version 17's flat price for a tile of track, superseded by
+    /// <see cref="RailContent.CashCost"/>; never written at version 19.
+    /// </summary>
+    /// <remarks>
+    /// **It is dropped rather than carried across, and that is deliberate.** The
+    /// number was an invention — "a guess. Nothing supports it at all" — and the
+    /// owner's call is that it was simply wrong. Every migration before this one
+    /// preserved the old package's behaviour exactly; this one does not, because
+    /// preserving a retracted number is worse than losing it. Re-importing legacy
+    /// content is what supplies the real per-terrain prices.
+    /// </remarks>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? RailCashCost { get; set; }
 
     public long DepotCashCost { get; set; }
 
@@ -552,6 +579,44 @@ public sealed class NamedContentDefinition
     public string Key { get; set; } = string.Empty;
 
     public string Name { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// One technology, and the terms on which a country may invest in it.
+/// </summary>
+/// <remarks>
+/// Technologies used to be plain <see cref="NamedContentDefinition"/> entries,
+/// because knowledge could only be granted and never bought.
+/// <para>
+/// **A technology with no <see cref="Cost"/> is not for sale**, which is how a
+/// pre-v19 package migrates and how the two every power starts holding are
+/// written. See <c>docs/formulas/technology.md</c>.
+/// </para>
+/// </remarks>
+public sealed class TechnologyContentDefinition
+{
+    public string Key { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Technology keys a country must already know before buying this. Checked
+    /// when buying and never when a scenario grants knowledge outright.
+    /// </summary>
+    public string[] Prerequisites { get; set; } = [];
+
+    /// <summary>
+    /// The first year anybody may buy this, or absent for no date. World-wide:
+    /// advances "cannot be kept secret".
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? AvailableFrom { get; set; }
+
+    /// <summary>
+    /// What investing costs the treasury, or absent where it is not for sale.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Cost { get; set; }
 }
 
 public sealed class CellContentDocument

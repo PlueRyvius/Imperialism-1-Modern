@@ -30,8 +30,22 @@ picture of how a game plays.
 | The manual and quick reference | **strong** for anything they state outright |
 | Release notes | **strong**, and they beat the manual where they disagree |
 | A *skirmish-shaped* scenario (`s10`, `s11`, `s15`) | **good** — all seven powers identical, so it shows the intended fair start |
+| **A community transcription of an in-game screen** | **good for exact numbers, and unverifiable.** See below |
 | A mission scenario (`s1`, `s3`, `s9`, `s12`–`s14`) | **weak** — it shows what one designer authored for one mission |
 | Observed play | **good** for shape, poor for exact numbers |
+
+The fifth row is new, and it is worth being careful about. The technology price
+list is a fan-wiki transcription of the original's own Investment screen: it is
+**data-derived rather than remembered**, which puts it above observed play for exact
+values, and it is **second-hand and unreachable from this environment**, which puts
+it below the manual. It cannot be re-checked — the host 402s, so
+[technology.md](technology.md) is the record of it.
+
+What raises its standing considerably is that one of its three columns turned out to
+have **independent corpus support**: its arrival years agree with the corpus's `tech`
+grants far more tightly than a designer's authoring liberty would predict. Nothing
+corroborates its prices except two of them matching the owner's recollection, and
+nothing at all corroborates its ordering.
 
 The trap in practice: `capa`, `labo` and `tran` all look like gameplay
 constants, and in the missions they are nothing of the kind. `s1` gives one
@@ -51,7 +65,7 @@ the engine's own value for each:
 | Record | What it defaults | Status |
 |---|---|---|
 | `ware` | starting warehouse stock | **exists, per the manual** — quantity unrecovered |
-| `cash` | starting treasury | **exists, per the manual** — quantity unrecovered, **and now load-bearing** |
+| `cash` | starting treasury | **exists, per the manual** — quantity unrecovered, **and now load-bearing three times over** |
 | `deve` | cell development levels | none developed — but see below |
 | `tech` | starting technologies | **recovered — from the manual** |
 | `tran` | transport capacity pool | unrecovered — **and now load-bearing** |
@@ -77,8 +91,10 @@ that starts with something to build from buys its way out on the first turn.
 `cash` is the same story a slice later. "Each Great Power begins the game with a
 limited amount of cash which is totally inadequate to meet its needs" attests the
 treasury and never its size, and with construction priced in money the size now
-decides whether an imported skirmish can build its first depot. See
-[money.md](money.md).
+decides whether an imported skirmish can build its first depot. **Three slices on it
+decides three things**: that first depot, how many Level II improvements a power can
+afford, and — since technology is bought with cash and charged last — whether a late
+technology is reachable inside a century at all. See [money.md](money.md).
 
 `tran` is the third. It used to be a number nothing read; it now sets a country's
 opening headcount, because capacity bought on turn one does not carry until turn
@@ -123,24 +139,30 @@ bottom of this file.
 | Which terrain a civilian may improve | `inferred` | [development](development.md) | Core, Content, LegacyImport | generated + local corpus |
 | Which civilian improves which deposit | `inferred` | [development](development.md) | Core, Content, LegacyImport | generated + local corpus |
 | How many turns a civilian's work takes | `inferred`, from observed play | [development](development.md) | Content | generated |
-| What an improvement costs in cash | `inferred`, from observed play | [development](development.md) | Core, Content, LegacyImport | generated |
+| What an improvement costs in cash | `inferred` — Levels I and II **corroborated by a second source**, III not | [development](development.md) | Core, Content, LegacyImport | generated |
 | Which deposits must be found before use | `inferred` | [prospecting](prospecting.md) | Core, Content, LegacyImport | generated + local corpus |
 | Which ground a Prospector may search | `inferred` | [prospecting](prospecting.md) | Core, Content, LegacyImport | generated + local corpus |
 | Which technology opens which improvement level | `inferred` | [technology](technology.md) | Core, Content, LegacyImport | generated + local corpus |
 | What a `tech` id names | `inferred` | [technology](technology.md) | LegacyImport | local corpus |
 | The technologies every power starts with | `inferred` | [technology](technology.md) | Core, Content, LegacyImport | generated |
-| What technology costs, and its prerequisites | `guess` | _technology-investment_ | — | — |
+| What technology costs, and its prerequisites | `inferred` — from the price list | [technology](technology.md) | Core, Content, LegacyImport | generated |
+| When a technology becomes available | `inferred` — **corpus-corroborated** | [technology](technology.md) | Core, Content, LegacyImport | generated + local corpus |
+| **The order of the technology table** | `inferred`, and **the corpus provably cannot decide it** | [technology](technology.md) | LegacyImport | local corpus |
+| What a scenario's `year` field means | `inferred` — **the briefings state two of them outright** | [technology](technology.md) | LegacyImport | local corpus |
+| When research is charged against the treasury | **a chosen rule** — last, after building | [technology](technology.md) | Core | generated |
 | How much a network can carry, and what raises it | `inferred` | [transport](transport.md) | Core, Content, LegacyImport | generated + local corpus |
 | Whether un-carried output keeps | `guess` | [transport](transport.md) | Core | generated |
 | What a network starts with | `guess` | [transport](transport.md) | Content, LegacyImport | generated |
 | What a warehouse starts with | `inferred` existence, `guess` quantity | [transport](transport.md) | Core, Content, LegacyImport | generated |
 | What gold and gems are worth in cash | `inferred` — **both rates stated outright** | [money](money.md) | Core, Content, LegacyImport | generated + local corpus |
 | Whether carrying them costs capacity | `inferred` | [money](money.md) | Core | generated |
-| What a treasury starts with | `inferred` existence, `guess` quantity | [money](money.md) | Core, Content, LegacyImport | generated + local corpus |
+| What a treasury starts with | `inferred` existence, `guess` quantity — **load-bearing three times over now** | [money](money.md) | Core, Content, LegacyImport | generated + local corpus |
 | Which terrain admits rail, and which depots | `inferred` | [engineer](engineer.md) | Core, Content, LegacyImport | generated + local corpus |
 | Where an Engineer may build each structure | `inferred` | [engineer](engineer.md) | Core, Content, LegacyImport | generated |
 | What a depot and a port cost | `inferred`, from observed play | [engineer](engineer.md) | Content, LegacyImport | generated |
-| What rail costs | `guess` | [engineer](engineer.md) | Content, LegacyImport | generated |
+| What rail costs, per terrain | `inferred` — from the price list. **Was a `guess`** | [engineer](engineer.md) | Core, Content, LegacyImport | generated |
+| What mountains' rail costs | `guess` — the one ground the list skips | [engineer](engineer.md) | LegacyImport | generated |
+| What a link crossing two grounds costs | **a chosen rule** — the dearer end | [engineer](engineer.md) | Core | generated |
 | Whether the whole economy holds up over time | — | [soak](soak.md) | — | 100-turn soak, 7 powers |
 | Trade clearing price | `guess` | _trade-pricing_ | — | — |
 | Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |
@@ -169,10 +191,36 @@ Technology is the largest single recovery here and the one that most changed
 what was already built: the manual's Benefits of Technology Table gates **every**
 improvement level bar a mine opening at Level I, where the engine had let any
 Farmer walk a tile to the top of its curve for free. The `tech` record's ids
-resolve against the table's printed order, which was falsified against the corpus
+resolve against a printed order, which was falsified against the corpus
 before anything was built on it — 380 authored levels permitted, 4 not, and the
 decisive case is `s3`, whose powers hold *unequal* sets and produce no
 contradiction at all. See [technology.md](technology.md).
+
+**Buying it landed next, and it turned three gates from dead code into rules.**
+Until then a `tech` record was the only source of knowledge in the engine, so the
+improvement ladder, the Engineer's rail terrains and oil prospecting could only ever
+be tested shut — the soak had to call `GrantTechnology` outright to see one open.
+The prices, prerequisites and arrival dates come from the price list.
+
+Three things about that slice belong on this page rather than only in its own
+document, because each is a lesson about evidence:
+
+- **A negative result is a result.** The price list reorders six entries, and
+  reordering them changes which technologies every shipped power holds. All three
+  available corpus checks were run under both orderings and **none discriminates** —
+  not because the orderings agree, but because the one case where they genuinely
+  disagree (a power holding exactly five technologies) does not occur in the corpus.
+  The order therefore ships on source quality, which is a weaker footing than
+  anything else in the chain, and it says so.
+- **A number nothing reads is a bug waiting to be load-bearing.** A scenario's
+  `year` field is an offset from 1815 and the importer read it as an absolute year.
+  Nothing noticed for four slices because nothing read the year. This is now the
+  fourth instance of the pattern `tran` and `cash` established, and the lesson is
+  worth generalising: **an unread field is unverified, not correct.**
+- **Corroboration can arrive from an unexpected column.** The price list's arrival
+  years were transcribed for the Investment screen and turned out to confirm the
+  year epoch: three of the four dated missions grant nothing that has not yet
+  arrived, and `s9` sits exactly on a boundary year. Neither fact was sought.
 
 Prospecting is the closest this table comes to a mechanic recovered without any
 invention. The manual states the hidden five, the searchable terrain, the one
@@ -194,9 +242,14 @@ links with not one hill among them, while `s1`, whose powers hold it, rails
 forty-two. And no shipped power holds Dynamite while no shipped scenario rails a
 single mountain. See [engineer](engineer.md).
 
-Against that, **the three construction prices are the weakest numbers here**: two
-are the owner's recollection from play and one is invention. The manual prices
-none of them and states only that a port costs more than a depot.
+Against that, **the construction prices used to be the weakest numbers here and
+one of them has been fixed.** Rail was pure invention — a flat 500, reasoned from
+nothing — and the price list charges by the ground crossed, 100 to 300 across five
+terrains. That is a guess becoming an observation, and the flat figure was not
+merely superseded but *wrong*: no single number can be right when the real one
+varies threefold. The depot and the port remain the owner's recollection, and the
+price list does not price either, so they stand unchallenged. Mountains are the one
+ground it skips and the one guess left in that table.
 
 Extraction carries its evidence at three different strengths at once, and its
 document tabulates them rather than averaging them: the development levels are

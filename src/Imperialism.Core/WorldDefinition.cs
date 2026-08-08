@@ -62,6 +62,20 @@ public sealed class WorldDefinition
                     $"got {technologyArray[index].Id.Value}.",
                     nameof(technologies));
             }
+
+            // TechnologyDefinition already refuses a prerequisite at or past its
+            // own id, so anything reaching here points backwards and is in range
+            // by construction. This only has to catch a catalog too short to
+            // contain the id it claims.
+            foreach (var required in technologyArray[index].Prerequisites)
+            {
+                if ((uint)required.Value >= (uint)technologyArray.Length)
+                {
+                    throw new ArgumentException(
+                        $"Technology {index} requires missing technology {required.Value}.",
+                        nameof(technologies));
+                }
+            }
         }
 
         var countryArray = countries.ToArray();

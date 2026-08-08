@@ -31,7 +31,8 @@ internal readonly record struct LegacyTerrain(
     string DisplayName,
     bool IsImprovable,
     LegacyProspecting Prospecting = LegacyProspecting.No,
-    int Rail = 0);
+    string? Rail = null,
+    long RailCost = 0);
 
 internal enum LegacyProspecting : byte
 {
@@ -72,27 +73,66 @@ public static class LegacyWorldConverter
         new Dictionary<byte, LegacyTerrain>
         {
             [0] = new("ocean", "Ocean", false),
-            [1] = new("clear", "Dry Plains", false, Rail: SteamEnginePosition),
-            [2] = new("cotton", "Plantation", true, Rail: SteamEnginePosition),
-            [3] = new("cattle-ranch", "Open Range", true, Rail: SteamEnginePosition),
-            [4] = new("horse-ranch", "Horse Ranch", false, Rail: SteamEnginePosition),
-            [5] = new("grain-farm", "Farm", true, Rail: SteamEnginePosition),
-            [6] = new("orchard", "Orchard", true, Rail: SteamEnginePosition),
-            [7] = new("wool-hill", "Fertile Hills", true, Rail: CompoundSteamEnginePosition),
-            [8] = new("hill", "Barren Hills", true, LegacyProspecting.Open, CompoundSteamEnginePosition),
-            [9] = new("mountain", "Mountains", true, LegacyProspecting.Open, DynamitePosition),
-            [10] = new("swamp", "Swamp", true, LegacyProspecting.NeedsOilDrilling, IronRailroadBridgePosition),
-            [11] = new("desert", "Desert", true, LegacyProspecting.NeedsOilDrilling, SteamEnginePosition),
-            [12] = new("tundra", "Tundra", true, LegacyProspecting.NeedsOilDrilling, SteamEnginePosition),
-            [13] = new("forest", "Hardwood Forest", true, Rail: SteamEnginePosition),
-            [14] = new("town", "Town", false, Rail: SteamEnginePosition),
-            [15] = new("scrub-forest", "Scrub Forest", false, Rail: SteamEnginePosition),
-            [16] = new("capital", "Capital", false, Rail: SteamEnginePosition),
+            [1] = new("clear", "Dry Plains", false, Rail: SteamEngine, RailCost: OpenGroundRail),
+            [2] = new("cotton", "Plantation", true, Rail: SteamEngine, RailCost: OpenGroundRail),
+            [3] = new("cattle-ranch", "Open Range", true, Rail: SteamEngine, RailCost: OpenGroundRail),
+            [4] = new("horse-ranch", "Horse Ranch", false, Rail: SteamEngine, RailCost: OpenGroundRail),
+            [5] = new("grain-farm", "Farm", true, Rail: SteamEngine, RailCost: OpenGroundRail),
+            [6] = new("orchard", "Orchard", true, Rail: SteamEngine, RailCost: OpenGroundRail),
+            [7] = new("wool-hill", "Fertile Hills", true, Rail: CompoundSteamEngine, RailCost: HillRail),
+            [8] = new(
+                "hill", "Barren Hills", true, LegacyProspecting.Open, CompoundSteamEngine, HillRail),
+            [9] = new("mountain", "Mountains", true, LegacyProspecting.Open, Dynamite, MountainRail),
+            [10] = new(
+                "swamp", "Swamp", true, LegacyProspecting.NeedsOilDrilling, IronRailroadBridge, SwampRail),
+            [11] = new(
+                "desert", "Desert", true, LegacyProspecting.NeedsOilDrilling, SteamEngine, OpenGroundRail),
+            [12] = new(
+                "tundra", "Tundra", true, LegacyProspecting.NeedsOilDrilling, SteamEngine, RoughGroundRail),
+            [13] = new("forest", "Hardwood Forest", true, Rail: SteamEngine, RailCost: RoughGroundRail),
+            [14] = new("town", "Town", false, Rail: SteamEngine, RailCost: OpenGroundRail),
+            [15] = new("scrub-forest", "Scrub Forest", false, Rail: SteamEngine, RailCost: RoughGroundRail),
+            [16] = new("capital", "Capital", false, Rail: SteamEngine, RailCost: OpenGroundRail),
         };
 
     /// <summary>
-    /// The four technologies the Benefits of Technology Table names for rail,
-    /// held as table positions so the key and the gate cannot drift apart.
+    /// What a tile of rail costs, by the ground it crosses.
+    /// </summary>
+    /// <remarks>
+    /// <b>This replaces the weakest number in the project with an observed one.</b>
+    /// A flat $500 shipped with the Engineer slice and was labelled "a guess.
+    /// Nothing supports it at all"; the price list gives rail per terrain, which
+    /// is also why the price now lives on <see cref="RailContent"/> beside the
+    /// technology gate rather than in <c>construction</c> beside the depot and the
+    /// port. A terrain that cannot carry rail needs no price.
+    /// <para>
+    /// The list names five grounds and this engine has seventeen terrain codes, so
+    /// each constant covers the codes that ground plainly means. "Plains, farm,
+    /// desert" is <see cref="OpenGroundRail"/> and takes the plantation, the open
+    /// range, the horse ranch, the orchard, the town and the capital with them —
+    /// the same reading that already gives towns and capitals the plains *gate*.
+    /// "Tundra and either forest" is <see cref="RoughGroundRail"/>, which is the
+    /// one place the list is explicit that two terrains sharing a name share a
+    /// price. Fertile hills take the hills price for the same reason they take the
+    /// hills gate. See <c>docs/formulas/engineer.md</c>.
+    /// </para>
+    /// <para>
+    /// <b>Mountains are the one ground the list does not price, and they are the
+    /// one guess left in this table.</b> They take swamp's price — the most
+    /// expensive ground that *is* attested — rather than a fifth invented number,
+    /// because inventing one is what the flat $500 did. The corpus cannot check it
+    /// either way: no shipped power holds Dynamite and no shipped scenario rails a
+    /// single mountain.
+    /// </para>
+    /// </remarks>
+    private const long OpenGroundRail = 100;
+    private const long RoughGroundRail = 150;
+    private const long HillRail = 200;
+    private const long SwampRail = 300;
+    private const long MountainRail = SwampRail;
+
+    /// <summary>
+    /// The four technologies the Benefits of Technology Table names for rail.
     /// </summary>
     /// <remarks>
     /// "Allows Engineers to build railroads through farms, plains, deserts,
@@ -100,6 +140,14 @@ public static class LegacyWorldConverter
     /// Railroad Bridge); "through hills" (Compound Steam Engine); "through
     /// mountains" (Dynamite). Every power starts with the first, so an 1815 start
     /// can already build across most of its land.
+    /// <para>
+    /// <b>Held by name, not by table position.</b> They used to be positions, and
+    /// that made <see cref="TechnologyTable"/>'s order load-bearing twice over: a
+    /// reorder silently rewired every gate while looking like a rename. A name
+    /// survives a reorder because <see cref="TechnologyKey(string)"/> is derived
+    /// from it. The same applies to <see cref="ResourceTechnologyLadders"/> and to
+    /// <see cref="OilDrilling"/>.
+    /// </para>
     /// <para>
     /// <b>Two readings here are inferences and are flagged in
     /// <c>docs/formulas/engineer.md</c>.</b> Fertile Hills takes the hills gate,
@@ -109,69 +157,136 @@ public static class LegacyWorldConverter
     /// connects to; the manual lists neither.
     /// </para>
     /// </remarks>
-    private const int SteamEnginePosition = 1;
-    private const int IronRailroadBridgePosition = 6;
-    private const int CompoundSteamEnginePosition = 12;
-    private const int DynamitePosition = 23;
+    private const string SteamEngine = "High Pressure Steam Engine";
+    private const string IronRailroadBridge = "Iron Railroad Bridge";
+    private const string CompoundSteamEngine = "Compound Steam Engine";
+    private const string Dynamite = "Dynamite";
+
+    /// <summary>Oil Drilling, which gates prospecting swamp, desert and tundra.</summary>
+    private const string OilDrilling = "Oil Drilling";
 
     /// <summary>
-    /// The manual's Benefits of Technology Table, in printed order. **The order
-    /// is load-bearing**: a <c>tech</c> record is <c>[country, id]</c> with a
-    /// 1-based id and nothing naming it, and this list is what an id is resolved
-    /// against.
+    /// One entry of the technology table: what it is called, what investing in it
+    /// costs, the year it becomes available world-wide, and what a country must
+    /// already know before it may be bought.
     /// </summary>
     /// <remarks>
-    /// The mapping was tested against the corpus before anything was built on
-    /// it. Of the four originals carrying both <c>tech</c> and <c>deve</c>
-    /// records, 379 authored levels are permitted by the technologies their
-    /// owner holds and 4 are not — all four the same deposit, timber at Level
-    /// III, in one country of <c>s1</c>. The decisive case is <c>s3</c>, whose
-    /// powers hold **unequal** sets (9, 13 and 14 technologies), and which
-    /// produces no contradiction at all: a wrong ordering would fire at once on
-    /// the power holding only nine. See <c>docs/formulas/technology.md</c>.
+    /// <paramref name="Cost"/> is null for the two every power starts holding.
+    /// **They are unpurchasable rather than free**, which is a different fact: a
+    /// price of zero would put them on the Investment screen at no charge, and
+    /// nobody can ever buy what they already have.
+    /// <para>
+    /// <paramref name="Prerequisites"/> are names rather than positions, for the
+    /// same reason the rail gates are.
+    /// </para>
+    /// </remarks>
+    private readonly record struct LegacyTechnology(
+        string Name,
+        long? Cost,
+        int AvailableFrom,
+        params string[] Prerequisites);
+
+    /// <summary>
+    /// The technology table: names, order, costs, arrival years and
+    /// prerequisites. **The order is load-bearing**: a <c>tech</c> record is
+    /// <c>[country, id]</c> with a 1-based id and nothing naming it, and this
+    /// list is what an id is resolved against.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the wiki's order, not the manual's printed order</b>, and the
+    /// two differ at positions 4–7 and 13–14 — exactly the rows where the
+    /// manual's two-column layout is worst. The costs, years and prerequisites
+    /// come from the same source, which is a community transcription of the
+    /// original's own Investment screen
+    /// (<c>imperialism.fandom.com/wiki/Technology_(Imp1)</c>).
+    /// <para>
+    /// <b>The corpus cannot choose between the two orderings, and the reason is
+    /// not that they agree.</b> They genuinely disagree at exactly one place: a
+    /// power holding **five** technologies holds Square-Set Timbering under the
+    /// manual's order — mines to Level II — and holds Iron Railroad Bridge and Feed
+    /// Grasses instead under the wiki's. That is a real discriminating case and
+    /// **the corpus does not contain it**: its powers hold 0, 6, 9, 13, 14 or 21,
+    /// never 5. From six upwards the wiki prefix is a superset of the manual's, and
+    /// from seven upwards the two prefixes are the same *set* — positions 4–7 are a
+    /// permutation within it — so nothing above five can tell them apart either.
+    /// Positions 13/14 gate nothing at all.
+    /// <para>
+    /// Measured rather than argued: 380 authored levels permitted and 4 not, and
+    /// 1,140 rail ends permitted and 0 not, **identical under both orderings**. The
+    /// arrival dates cannot separate them either, because positions 4–7 all arrive
+    /// in 1821. So the wiki order ships on source quality — data-derived, internally
+    /// consistent on prerequisites, and legible where the manual's two-column OCR
+    /// is worst in exactly these rows — and **not on evidence.** See
+    /// <c>docs/formulas/technology.md</c>.
+    /// </para>
+    /// <para>
+    /// Names stay the manual's where the two disagree: "Steel and Iron Plows"
+    /// over the wiki's "Steel Plows", "Fertiliser" over "Fertilizer". The keys
+    /// are name-derived and already shipped, so a rename would be a content
+    /// break for no gain.
+    /// </para>
+    /// <para>
+    /// The arrival years are the *earliest* of each of the wiki's ranges. The
+    /// manual calls its dates "approximate" and the wiki's are not strictly
+    /// monotonic — 24 arrives before 23, 26 before 25 — so one fixed year per
+    /// technology is a simplification of a range, recorded in the doc.
+    /// </para>
     /// <para>
     /// Only the entries this engine can act on are given a gate below. Regiments,
     /// ships, the Refinery and rail-through-terrain are named here so the
     /// numbering is right and modelled nowhere.
     /// </para>
     /// </remarks>
-    private static readonly IReadOnlyList<string> TechnologyTable =
+    private static readonly IReadOnlyList<LegacyTechnology> TechnologyTable =
     [
-        "High Pressure Steam Engine",
-        "Seed Drill",
-        "Cotton Gin",
-        "Streamlined Hulls",
-        "Square-Set Timbering",
-        "Iron Railroad Bridge",
-        "Feed Grasses",
-        "Spinning Jenny",
-        "Paddlewheels",
-        "Steel and Iron Plows",
-        "Bessemer Converter",
-        "Compound Steam Engine",
-        "Rifled Artillery",
-        "Breech-Loading Rifles",
-        "Advanced Iron Working",
-        "Power Loom",
-        "Mechanical Reaper",
-        "Commercial Fertiliser",
-        "Oil Drilling",
-        "Barbed Wire",
-        "Steel Armour Plate",
-        "Large Artillery",
-        "Dynamite",
-        "Marine Engineering",
-        "Machine Guns",
-        "Chemistry",
-        "Improved Range-Finding",
-        "Internal Combustion",
+        new(SteamEngine, null, 1815),
+        new(SeedDrill, null, 1815),
+        new(CottonGin, 1_000, 1816),
+        new(IronRailroadBridge, 1_500, 1821),
+        new(FeedGrasses, 1_500, 1821),
+        new(SquareSetTimbering, 1_500, 1821),
+        new("Streamlined Hulls", 1_500, 1821),
+        new(SpinningJenny, 3_000, 1826, CottonGin, FeedGrasses),
+        new("Paddlewheels", 3_000, 1826),
+        new(SteelAndIronPlows, 3_000, 1831, SeedDrill),
+        new(BessemerConverter, 6_000, 1836),
+        new(CompoundSteamEngine, 7_000, 1836, IronRailroadBridge),
+        new(BreechLoadingRifles, 12_000, 1841, BessemerConverter),
+        new(RifledArtillery, 10_000, 1841),
+        new(AdvancedIronWorking, 12_000, 1846),
+        new(PowerLoom, 12_000, 1846, SpinningJenny),
+        new(MechanicalReaper, 12_000, 1851, SteelAndIronPlows),
+        new(CommercialFertiliser, 12_000, 1856, SteelAndIronPlows),
+        new(OilDrilling, 25_000, 1856),
+        new(BarbedWire, 20_000, 1862, FeedGrasses),
+        new(SteelArmourPlate, 40_000, 1866, AdvancedIronWorking),
+        new("Large Artillery", 40_000, 1872, RifledArtillery),
+        new(Dynamite, 40_000, 1874, CompoundSteamEngine, SquareSetTimbering),
+        new(MarineEngineering, 40_000, 1873, SteelArmourPlate),
+        new("Machine Guns", 100_000, 1879, BreechLoadingRifles),
+        new(Chemistry, 120_000, 1875, OilDrilling, BarbedWire),
+        new("Improved Range-Finding", 150_000, 1881, MarineEngineering),
+        new(InternalCombustion, 150_000, 1884, Chemistry),
     ];
 
-    /// <summary>
-    /// Oil Drilling, which gates prospecting swamp, desert and tundra. Held as
-    /// its table position so the key and the gate cannot drift apart.
-    /// </summary>
-    private const int OilDrillingPosition = 19;
+    private const string SeedDrill = "Seed Drill";
+    private const string CottonGin = "Cotton Gin";
+    private const string FeedGrasses = "Feed Grasses";
+    private const string SquareSetTimbering = "Square-Set Timbering";
+    private const string SpinningJenny = "Spinning Jenny";
+    private const string SteelAndIronPlows = "Steel and Iron Plows";
+    private const string BessemerConverter = "Bessemer Converter";
+    private const string BreechLoadingRifles = "Breech-Loading Rifles";
+    private const string RifledArtillery = "Rifled Artillery";
+    private const string AdvancedIronWorking = "Advanced Iron Working";
+    private const string PowerLoom = "Power Loom";
+    private const string MechanicalReaper = "Mechanical Reaper";
+    private const string CommercialFertiliser = "Commercial Fertiliser";
+    private const string BarbedWire = "Barbed Wire";
+    private const string SteelArmourPlate = "Steel Armour Plate";
+    private const string MarineEngineering = "Marine Engineering";
+    private const string Chemistry = "Chemistry";
+    private const string InternalCombustion = "Internal Combustion";
 
     /// <summary>
     /// The two technologies every power starts with, whatever the scenario says:
@@ -182,14 +297,14 @@ public static class LegacyWorldConverter
     /// This is one of the seven engine defaults <c>docs/formulas/_index.md</c>
     /// calls unrecoverable from the corpus, and it is recovered — from the
     /// manual. A skirmish carries no <c>tech</c> record and its powers still
-    /// start able to farm.
+    /// start able to farm. They are also the two the price list gives no price,
+    /// which is the same fact from the other side.
     /// </remarks>
-    private static readonly int[] StartingTechnologyPositions = [1, 2];
+    private static readonly string[] StartingTechnologies = [SteamEngine, SeedDrill];
 
     /// <summary>
     /// The Benefits of Technology Table read as a ladder: what it takes to raise
-    /// each deposit to level 1, 2 and 3, as positions in
-    /// <see cref="TechnologyTable"/>. Zero means the rung is ungated, which is
+    /// each deposit to level 1, 2 and 3. Null means the rung is ungated, which is
     /// true only of a mine opening at Level I.
     /// </summary>
     /// <remarks>
@@ -197,24 +312,32 @@ public static class LegacyWorldConverter
     /// <c>docs/reference/manual-mechanics.md</c>; every one agrees. Fish and
     /// horses are absent because no civilian improves them at all.
     /// </remarks>
-    private static readonly IReadOnlyDictionary<byte, int[]> ResourceTechnologyLadders =
-        new Dictionary<byte, int[]>
+    private static readonly IReadOnlyDictionary<byte, string?[]> ResourceTechnologyLadders =
+        new Dictionary<byte, string?[]>
         {
-            [17] = [2, 10, 17],  // grain:     Seed Drill, Steel and Iron Plows, Mechanical Reaper
-            [18] = [2, 10, 18],  // fruit:     Seed Drill, Steel and Iron Plows, Commercial Fertiliser
-            [0] = [3, 8, 16],    // cotton:    Cotton Gin, Spinning Jenny, Power Loom
-            [1] = [7, 8, 16],    // wool:      Feed Grasses, Spinning Jenny, Power Loom
-            [20] = [7, 20, 26],  // livestock: Feed Grasses, Barbed Wire, Chemistry
-            [2] = [6, 12, 23],   // timber:    Iron RR Bridge, Compound Steam Engine, Dynamite
-            [3] = [0, 5, 23],    // coal:      none, Square-Set Timbering, Dynamite
-            [4] = [0, 5, 23],    // iron
-            [21] = [0, 5, 23],   // gems
-            [22] = [0, 5, 23],   // gold
-            [6] = [19, 26, 28],  // oil:       Oil Drilling, Chemistry, Internal Combustion
+            [17] = [SeedDrill, SteelAndIronPlows, MechanicalReaper],       // grain
+            [18] = [SeedDrill, SteelAndIronPlows, CommercialFertiliser],   // fruit
+            [0] = [CottonGin, SpinningJenny, PowerLoom],                   // cotton
+            [1] = [FeedGrasses, SpinningJenny, PowerLoom],                 // wool
+            [20] = [FeedGrasses, BarbedWire, Chemistry],                   // livestock
+            [2] = [IronRailroadBridge, CompoundSteamEngine, Dynamite],     // timber
+            [3] = [null, SquareSetTimbering, Dynamite],                    // coal
+            [4] = [null, SquareSetTimbering, Dynamite],                    // iron
+            [21] = [null, SquareSetTimbering, Dynamite],                   // gems
+            [22] = [null, SquareSetTimbering, Dynamite],                   // gold
+            [6] = [OilDrilling, Chemistry, InternalCombustion],            // oil
         };
 
-    private static string TechnologyKey(int position) =>
-        $"technology.{TechnologyTable[position - 1].ToLowerInvariant().Replace(' ', '-')}";
+    /// <summary>
+    /// The stable external key for a technology, derived from its name — which is
+    /// what makes every gate above survive a reordering of the table.
+    /// </summary>
+    private static string TechnologyKey(string name) =>
+        $"technology.{name.ToLowerInvariant().Replace(' ', '-')}";
+
+    /// <summary>Resolves a 1-based <c>tech</c> id against the table.</summary>
+    private static string TechnologyKeyAt(int position) =>
+        TechnologyKey(TechnologyTable[position - 1].Name);
 
     /// <summary>
     /// Deposits a Prospector must find first: "coal, iron, gold, gems, and oil
@@ -643,12 +766,16 @@ public static class LegacyWorldConverter
                 Work = type.Work,
             }).ToArray(),
 
-            // The manual's whole table, in printed order, because a tech record
-            // is a bare 1-based index into it.
-            Technologies = TechnologyTable.Select(static (name, offset) => new NamedContentDefinition
+            // The whole table in order, because a tech record is a bare 1-based
+            // index into it — now carrying what each entry costs, when it becomes
+            // available and what must be known first.
+            Technologies = TechnologyTable.Select(static entry => new TechnologyContentDefinition
             {
-                Key = TechnologyKey(offset + 1),
-                Name = name,
+                Key = TechnologyKey(entry.Name),
+                Name = entry.Name,
+                Cost = entry.Cost,
+                AvailableFrom = entry.AvailableFrom,
+                Prerequisites = [.. entry.Prerequisites.Select(TechnologyKey)],
             }).ToArray(),
             Commodities = CreateStandardCommodities(),
             ProductionFacilities = CreateStandardProductionFacilities(),
@@ -685,7 +812,7 @@ public static class LegacyWorldConverter
                 TechnologyByDevelopmentLevel = ResourceTechnologyLadders
                     .TryGetValue(code, out var ladder)
                     ? [null, .. ladder.Select(static step =>
-                        step == 0 ? null : TechnologyKey(step))]
+                        step is null ? null : TechnologyKey(step))]
                     : null,
             }).ToArray(),
             Feeding = CreateStandardFeeding(),
@@ -696,7 +823,7 @@ public static class LegacyWorldConverter
             // record ever states.
             StartingDefaults = new StartingDefaultsContent
             {
-                Technologies = [.. StartingTechnologyPositions.Select(TechnologyKey)],
+                Technologies = [.. StartingTechnologies.Select(TechnologyKey)],
                 TransportCapacity = DefaultTransportCapacity,
                 Inventory = CreateStandardStartingStock(),
                 Cash = DefaultStartingCash,
@@ -823,6 +950,40 @@ public static class LegacyWorldConverter
         return result;
     }
 
+    /// <summary>
+    /// The year a <c>year</c> record of zero would mean. **A <c>year</c> field is
+    /// an offset from 1815, not an absolute year**, and this importer used to pass
+    /// it through verbatim.
+    /// </summary>
+    /// <remarks>
+    /// The corpus's fields are 1, 5, 10, 11, 33 and 67, which are plainly not
+    /// years, and nothing read the value until technology gained an arrival date —
+    /// the same story as <c>tran</c> and <c>cash</c>, inert and then load-bearing.
+    /// <para>
+    /// <b>The epoch comes from the scenarios' own briefing text.</b> <c>s1.inf</c>
+    /// is titled "Naval Competition 1882" and says "the year 1882 finds Germany
+    /// with industrial and educational superiority"; its field is 67.
+    /// <c>s3.inf</c> is "Unification Movements 1848-1890" and says "in 1848 France
+    /// is still the leading power"; its field is 33. Both are 1815 + field exactly,
+    /// which is also the manual's own campaign start.
+    /// </para>
+    /// <para>
+    /// <b>A third check corroborates it and was not used to derive it.</b> Reading
+    /// the corpus's <c>tech</c> grants against the price list's arrival years, the
+    /// three latest scenarios grant nothing that has not yet arrived — <c>s1</c> in
+    /// 1882 holds 21 of 27 available, <c>s3</c> in 1848 holds 14 of 16, and
+    /// <c>s9</c> in 1826 holds 9 of exactly 9. That last one sits on the boundary:
+    /// Spinning Jenny and Paddlewheels both arrive in 1826 and <c>s9</c> holds both
+    /// and nothing later. An epoch off by even a few years would break it.
+    /// </para>
+    /// <para>
+    /// The three skirmishes carry field 1, so a skirmish starts in **1816** rather
+    /// than 1815. That is what the data says; it is not rounded to the manual's
+    /// campaign year.
+    /// </para>
+    /// </remarks>
+    private const int ScenarioYearEpoch = 1815;
+
     private static int? ReadYear(ScenarioDocument scenario, LegacyImportReport report)
     {
         var values = new List<uint>();
@@ -858,13 +1019,13 @@ public static class LegacyWorldConverter
             return null;
         }
 
-        if (values[0] > int.MaxValue)
+        if (values[0] > int.MaxValue - ScenarioYearEpoch)
         {
             report.Add(LegacyImportSeverity.Error, "scenario.year-out-of-range", "scenario.year", "The starting year exceeds the modern integer range.");
             return null;
         }
 
-        return (int)values[0];
+        return ScenarioYearEpoch + (int)values[0];
     }
 
     /// <summary>
@@ -1135,7 +1296,7 @@ public static class LegacyWorldConverter
                     LegacyImportSeverity.Warning,
                     "scenario.unknown-tech-id",
                     path,
-                    $"Technology {technology} is outside the manual's table of " +
+                    $"Technology {technology} is outside the table of " +
                     $"{TechnologyTable.Count}; no knowledge was granted.");
                 continue;
             }
@@ -1153,7 +1314,7 @@ public static class LegacyWorldConverter
             result.Add(new CountryTechnologyContent
             {
                 Country = countryKey,
-                Technology = TechnologyKey((int)technology),
+                Technology = TechnologyKeyAt((int)technology),
             });
         }
 
@@ -1863,19 +2024,21 @@ public static class LegacyWorldConverter
                     LegacyProspecting.Open => new ProspectingContent(),
                     LegacyProspecting.NeedsOilDrilling => new ProspectingContent
                     {
-                        RequiredTechnology = TechnologyKey(OilDrillingPosition),
+                        RequiredTechnology = TechnologyKey(OilDrilling),
                     },
                     _ => null,
                 },
 
-                // Zero is "rail may never be laid here", which is ocean's answer
+                // Null is "rail may never be laid here", which is ocean's answer
                 // and an unknown terrain's. Everything else names the technology
-                // the Benefits of Technology Table gives it.
-                Rail = terrain.Rail == 0
+                // the Benefits of Technology Table gives it, and the price the
+                // ground charges for a tile of track.
+                Rail = terrain.Rail is null
                     ? null
                     : new RailContent
                     {
                         RequiredTechnology = TechnologyKey(terrain.Rail),
+                        CashCost = terrain.RailCost,
                     },
             }
             : new TerrainContentDefinition
@@ -2004,28 +2167,20 @@ public static class LegacyWorldConverter
     /// follows — two inputs, two labour. See <c>docs/formulas/transport.md</c>.
     /// </remarks>
     /// <summary>
-    /// What an Engineer's constructions cost.
+    /// What an Engineer's two structures cost. Rail is not here any more: it is
+    /// priced per terrain, beside the gate, on <see cref="RailContent.CashCost"/>.
     /// </summary>
     /// <remarks>
-    /// <b>The three weakest numbers in this importer, and they are weak in two
-    /// different ways.</b>
-    /// <para>
-    /// The depot and the port come from <b>the owner's recollection of playing
-    /// the original</b> — around 1,500 and around 2,000 — which the scoreboard
-    /// rates "good for shape, poor for exact numbers". The manual prices neither
-    /// and states only the ordering: ports "cost more than depots". These two
-    /// satisfy it.
-    /// </para>
-    /// <para>
-    /// <b>Rail's price is not attested at all</b>, by the manual or by anyone's
-    /// memory. It is a placeholder, set below the depot's because a single tile
-    /// of track plainly buys less than the structure that gathers a whole
-    /// catchment. Do not cite it. See <c>docs/formulas/engineer.md</c>.
-    /// </para>
+    /// <b>These are now the two weakest numbers in this importer, and rail is no
+    /// longer one of them.</b> The depot and the port come from <b>the owner's
+    /// recollection of playing the original</b> — around 1,500 and around 2,000 —
+    /// which the scoreboard rates "good for shape, poor for exact numbers". The
+    /// manual prices neither and states only the ordering: ports "cost more than
+    /// depots". These two satisfy it, and the price list does not price either, so
+    /// they stand unchallenged. See <c>docs/formulas/engineer.md</c>.
     /// </remarks>
     private static ConstructionContentSettings CreateStandardConstruction() => new()
     {
-        RailCashCost = 500,
         DepotCashCost = 1500,
         PortCashCost = 2000,
     };

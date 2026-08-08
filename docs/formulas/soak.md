@@ -149,6 +149,47 @@ not** — workers fell from 84 to 77, refusals from 1,960 and 889 to 1,820 and
 749, and the first gated rung slid from turn 51 to 53. *Where* the ceiling sits
 is technology; *how fast* a country reaches it is duration.
 
+### And then the grant stopped being necessary
+
+**The soak no longer has to cheat to open a gate.** With the Investment screen
+built, a fourth group of runs has powers pay for the technology out of a gold mine,
+and the granting run above becomes the *control* rather than the only way in.
+
+The fixture now starts in **1840** rather than 1815, and only for this: a turn is a
+quarter, so a hundred turns from 1815 stop in 1839 and Mechanical Reaper's real 1851
+arrival would be permanently out of reach. Nothing else in the fixture reads the
+year, so moving it moved **no** published number in this document. The chain and the
+prices are the real ones: Steel and Iron Plows at 3,000 arrived in 1831 and are
+buyable on turn one, Mechanical Reaper at 12,000 wants the Plows and arrives on turn
+45.
+
+```
+                              grain/turn  workers  top rungs  first  bought  spent    treasuries
+funded and patient             21 → 63    49 → 105     21       59    14     105,000    21,000
+ordinary treasury, greedy      21 → 42    49 →  77      0     never    7      21,000    77,000
+granted free on turn 50        21 → 63    49 → 105     21       53     0           0    77,000
+```
+
+These three are a richer configuration than the pair above — improvement priced, a
+gold mine attached — so they are not a restatement of it.
+
+**Two walls, and the run separates them.** The funded run buys the Reaper on turn
+45, *the quarter it arrives*, having had the money ready for dozens of turns: the
+calendar is a wall no amount of cash moves, and the 308 refusals are it being hit
+over and over. The greedy run — ordinary treasury, improving whenever it can — buys
+the Plows and never the Reaper, because improvement is charged first and research
+takes the remainder.
+
+**The second finding is a knife edge and should not be leaned on hard.** The greedy
+run ends holding 11,000 a power against a 12,000 price: it misses by a *thousand*,
+so a slightly richer mine flips it. Same shape as the grain knife edge above. What
+is robust is the direction — twelve thousand is most of a century of one gold
+mine's income, and a power that spends as it earns does not get there.
+
+The first gated rung lands on turn 59, fourteen turns after the purchase rather
+than the bare three: the Farmer has to finish what it was already doing and walk.
+That gap is the difference between "the ceiling lifted" and "a tile reached it".
+
 ## What is asserted, and what deliberately is not
 
 **Asserted** — only what can never be true of a correct run: no negative stock,
@@ -265,6 +306,11 @@ The extra development does not land on grain — its top rung is gated behind
 Mechanical Reaper and none of these runs grants it — so cash and technology show
 up here as separate ceilings, and only one of them is lifted. See
 [development.md](development.md).
+
+**Those two ceilings are now connected**, which is what the Investment screen did to
+this run: the gold that buys development is also the gold that buys the technology
+raising the development's ceiling. The investing runs above are this run with both
+lifted, and they show the two competing for the same treasury.
 
 ### The Engineer reaches, and nothing pushes back
 

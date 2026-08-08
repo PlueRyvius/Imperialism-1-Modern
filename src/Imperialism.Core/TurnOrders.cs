@@ -12,6 +12,7 @@ public sealed class CountryTurnOrders
     private readonly IReadOnlyList<CivilianWorkOrder> _civilianWork;
     private readonly IReadOnlyList<EngineerOrder> _engineerWork;
     private readonly IReadOnlyList<TransportAllocationOrder> _transport;
+    private readonly IReadOnlyList<TechnologyId> _buyTechnology;
 
     public CountryTurnOrders(
         CountryId country,
@@ -22,7 +23,8 @@ public sealed class CountryTurnOrders
         IEnumerable<CivilianWorkOrder>? civilianWork = null,
         IEnumerable<TransportAllocationOrder>? transport = null,
         long buildTransportCapacity = 0,
-        IEnumerable<EngineerOrder>? engineerWork = null)
+        IEnumerable<EngineerOrder>? engineerWork = null,
+        IEnumerable<TechnologyId>? buyTechnology = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(recruitWorkers);
         ArgumentOutOfRangeException.ThrowIfNegative(buildTransportCapacity);
@@ -82,9 +84,22 @@ public sealed class CountryTurnOrders
                 nameof(transport));
         }
 
+        // A technology is bought once or not at all, so naming it twice is a
+        // malformed order rather than a refusal — the same standing as repeating
+        // a recipe. It cannot be a refusal because the second entry has no
+        // distinct meaning to refuse.
+        var buyArray = buyTechnology?.ToArray() ?? [];
+        if (buyArray.Distinct().Count() != buyArray.Length)
+        {
+            throw new ArgumentException(
+                "A technology cannot be bought twice in one turn.",
+                nameof(buyTechnology));
+        }
+
         Country = country;
         RecruitWorkers = recruitWorkers;
         BuildTransportCapacity = buildTransportCapacity;
+        _buyTechnology = Array.AsReadOnly(buyArray);
         _production = Array.AsReadOnly(productionArray);
         _expansions = Array.AsReadOnly(expansionArray);
         _deployments = Array.AsReadOnly(deployArray);
@@ -129,6 +144,24 @@ public sealed class CountryTurnOrders
     /// capacity every turn, these orders are not saved."
     /// </summary>
     public long BuildTransportCapacity { get; }
+
+    /// <summary>
+    /// Technologies to invest in this turn, in the order the treasury pays for
+    /// them. A list rather than one entry because the manual lets a player invest
+    /// in several before ending the turn.
+    /// </summary>
+    /// <remarks>
+    /// <b>The order matters only when the money runs out.</b> There is no pooling
+    /// and no preflight: entries are read in turn and the first one the treasury
+    /// cannot cover is refused, along with everything dearer after it. That is the
+    /// same bargain two Engineers of one country already make.
+    /// <para>
+    /// It does <em>not</em> matter for prerequisites. Buying a technology and the
+    /// thing built on it in one turn never works, whichever order they are listed
+    /// in, because the research finishes after the turn ends.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<TechnologyId> BuyTechnology => _buyTechnology;
 }
 
 /// <summary>
