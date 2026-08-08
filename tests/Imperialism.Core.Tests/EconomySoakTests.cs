@@ -152,6 +152,33 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     private const int MechanicalReaper = 2;
 
     /// <summary>
+    /// The one class of ship this fixture models. Cargo 2, and three a power, which is what
+    /// all three shipped skirmishes give — six holds each.
+    /// </summary>
+    private const int Trader = 0;
+
+    /// <summary>
+    /// Minor nations added when a run trades, so the market has a counterparty.
+    /// </summary>
+    /// <remarks>
+    /// <b>They are a fixture standing in for an economy, and the income figures they
+    /// produce are an upper bound rather than a measurement.</b> They own no land, no
+    /// industry and no ships; they simply hold a treasury and bid for whatever is offered,
+    /// which is the manual's role for them — "most goods go to the Minor Nations, not your
+    /// competition" — with none of the behaviour that would decide *how much* they want.
+    /// <para>
+    /// Without them a closed world of seven identical powers trades nothing worth counting:
+    /// every power holds the same surplus and wants the same things, so a sale is a swap and
+    /// the net cash across the world is zero. That is a property of the fixture rather than
+    /// of the model, and it is why they exist.
+    /// </para>
+    /// </remarks>
+    private const int MinorNations = 3;
+
+    /// <summary>What each minor nation has to spend over the century. A fixture number.</summary>
+    private const long MinorNationTreasury = 400_000;
+
+    /// <summary>
     /// The price list's own terms for the two that are for sale. **Not fixture
     /// numbers** — that is the point of the investing run: what a century buys has
     /// to be measured against real prices or it measures nothing.
@@ -840,6 +867,77 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// **Trade pays for the technology, and this is the run four documents were waiting
+    /// for.** The same fixture, with a world market and something to sell into it.
+    /// </summary>
+    /// <remarks>
+    /// <c>soak.md</c>, <c>money.md</c>, <c>development.md</c> and <c>technology.md</c> all
+    /// carry the same caveat in different words — *"an artefact of missing trade, not a
+    /// property of the model"* — and the technology slice added a fifth: a power that
+    /// improves as it earns cannot afford a $12,000 Mechanical Reaper in a century. Every
+    /// one of those was measured on an economy with no revenue but a gold mine.
+    /// <para>
+    /// The comparison is against <see cref="PowersThatInvestLiftTheCeilingThemselves"/>'s
+    /// greedy run: the same ordinary treasury, the same improve-whenever-you-can policy,
+    /// differing only in whether there is a market. If trade is worth anything, the run
+    /// with one buys what the run without could not.
+    /// </para>
+    /// <para>
+    /// <b>The minor nations are a fixture standing in for an economy</b>, so the income
+    /// figure is an upper bound rather than a measurement. What is not a fixture is the
+    /// constraint: six cargo holds a power a turn, and every sale to a minor nation spends
+    /// the seller's own.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void TradePaysForWhatAGoldMineCouldNot()
+    {
+        var trading = CreateWorld(
+            withImprovementCost: true, startingCash: 5000, withGoldMine: true, withTrade: true);
+        var tradingLog = Run(trading, orderPolicy: TradingGrowthPolicy, out var traded);
+
+        // The control: the same ordinary treasury and the same greed, with no market.
+        var closed = CreateWorld(
+            withImprovementCost: true, startingCash: 5000, withGoldMine: true);
+        var closedLog = Run(closed, orderPolicy: SpendingGrowthPolicy, out var isolated);
+
+        output.WriteLine("=== with a world market ===");
+        output.WriteLine(tradingLog);
+        output.WriteLine("=== no market, gold mine only ===");
+        output.WriteLine(closedLog);
+
+        // The market did something, and the powers were on the selling side of it.
+        Assert.True(traded.Sold > 0, "Nothing was ever sold.");
+        Assert.True(
+            traded.TradeIncome > 0,
+            $"Selling {traded.Sold} units earned nothing.");
+
+        // **The control could not afford the Reaper and the trading run can.** That is the
+        // whole point: the closed economy's ceiling never lifts.
+        Assert.Null(isolated.FirstReaperBought);
+        Assert.Equal(0, isolated.TopRungs);
+        Assert.NotNull(traded.FirstReaperBought);
+        Assert.True(
+            traded.TopRungs > 0,
+            "The ceiling never lifted even with trade income behind it.");
+
+        // Trade dwarfs the mine: a century of one gold tile is about 20,000 a power.
+        Assert.True(
+            traded.TradeIncome > Powers * 20_000,
+            $"Trade earned {traded.TradeIncome}, no better than the mine it sits beside.");
+
+        // **The merchant marine binds, which is what stops this being the railyard again.**
+        // Six holds a power a turn against a warehouse that fills faster than that, so
+        // there is always something left on the quay.
+        Assert.True(
+            traded.Unsold > 0,
+            "Everything offered sold, so capacity never bound — check the fixture.");
+        Assert.True(
+            traded.HoldRefusals > 0,
+            "No row was ever short of a hull, so merchant marine is unopposed.");
+    }
+
+    /// <summary>
     /// The control for the run above: the same world with the technology never
     /// granted. The ceiling holds for the whole hundred turns.
     /// </summary>
@@ -1011,7 +1109,8 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         long Carried, long Wasted, long CapacityBuilt, long FinalCapacity,
         long Constructed, long FinalCash,
         long Bought, long SpentOnResearch, long PurchaseRefusals,
-        int? FirstPlowsBought, int? FirstReaperBought);
+        int? FirstPlowsBought, int? FirstReaperBought,
+        long Sold, long TradeIncome, long Unsold, long HoldRefusals);
 
     /// <summary>
     /// Makes the comforts a recruit costs and then recruits. A fixture, not an
@@ -1246,6 +1345,64 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     private static CountryTurnOrders SpendingGrowthPolicy(WorldState state, CountryId country) =>
         Investing(state, country, saveForResearch: false);
 
+    /// <summary>
+    /// <see cref="InvestingGrowthPolicy"/> plus selling the surplus. A fixture, not an AI:
+    /// it offers everything the warehouse holds above what its workers will eat, and bids
+    /// for nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Selling only is deliberate, and it is the honest half of the mechanism.</b> This
+    /// fixture's seven powers are identical, so they hold identical surpluses and want
+    /// identical things; a policy that also bid would have every power bidding for what
+    /// every power was selling, and the run would measure the tie-break rather than the
+    /// trade. What it does measure is real: whether a country with goods can turn them into
+    /// the cash that buys technology.
+    /// <para>
+    /// It leaves the buyers to be the minor nations, which own no merchant marine — so
+    /// every deal spends the <em>seller's</em> holds, and six holds a turn is the ceiling
+    /// the whole run pushes against.
+    /// </para>
+    /// </remarks>
+    private static CountryTurnOrders TradingGrowthPolicy(WorldState state, CountryId country)
+    {
+        var investing = Investing(state, country, saveForResearch: true);
+        var offers = new List<TradeOrder>();
+        foreach (var commodity in state.Definition.Commodities)
+        {
+            if (!commodity.IsTradable)
+            {
+                continue;
+            }
+
+            var held = state.GetAvailableQuantity(country, commodity.Id);
+            if (held > 0)
+            {
+                offers.Add(new TradeOrder(commodity.Id, held));
+            }
+        }
+
+        return new CountryTurnOrders(
+            country,
+            investing.Production,
+            recruitWorkers: investing.RecruitWorkers,
+            civilianWork: investing.CivilianWork,
+            buyTechnology: investing.BuyTechnology,
+            tradeOffers: offers);
+    }
+
+    /// <summary>
+    /// A minor nation that buys whatever is going. It exists so the market has a
+    /// counterparty at all, and it is a fixture rather than an AI.
+    /// </summary>
+    private static CountryTurnOrders BuyingPolicy(WorldState state, CountryId country)
+    {
+        var bids = state.Definition.Commodities
+            .Where(static commodity => commodity.IsTradable)
+            .Select(static commodity => new TradeOrder(commodity.Id, 99))
+            .ToArray();
+        return new CountryTurnOrders(country, tradeBids: bids);
+    }
+
     private static CountryTurnOrders Investing(
         WorldState state,
         CountryId country,
@@ -1391,6 +1548,7 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         long carried = 0, wasted = 0, capacityBuilt = 0, constructed = 0;
         long bought = 0, spentOnResearch = 0, purchaseRefusals = 0;
         int? firstPlowsBought = null, firstReaperBought = null;
+        long sold = 0, tradeIncome = 0, unsold = 0, holdRefusals = 0;
         var hills = Enumerable.Range(0, state.Definition.Map.Dimensions.CellCount)
             .Select(static index => new CellIndex(index))
             .Where(cell => state.Definition.Map
@@ -1428,10 +1586,17 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             var workersBefore = Enumerable.Range(0, Powers)
                 .Select(index => state.GetTotalWorkers(new CountryId(index))).ToArray();
 
-            var orders = new TurnOrders(Enumerable.Range(0, Powers)
+            // Every country, not just the powers: a trading world carries minor nations
+            // beyond index Powers, and they are the ones who bid.
+            var orders = new TurnOrders(Enumerable.Range(0, state.Definition.Countries.Count)
                 .Select(index =>
                 {
                     var country = new CountryId(index);
+                    if (index >= Powers)
+                    {
+                        return BuyingPolicy(state, country);
+                    }
+
                     return orderPolicy is null
                         ? new CountryTurnOrders(country)
                         : orderPolicy(state, country);
@@ -1471,6 +1636,31 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             }
 
             purchaseRefusals += resolution.Events.OfType<TechnologyPurchaseRefusedEvent>().Count();
+
+            // Only the powers' side of the market is counted: a minor nation's spending is
+            // fixture money, not a measurement.
+            foreach (var deal in resolution.Events.OfType<CommodityTradedEvent>())
+            {
+                if (deal.Seller.Value < Powers)
+                {
+                    sold += deal.Quantity;
+                    tradeIncome += deal.Total;
+                }
+            }
+
+            foreach (var item in resolution.Events.OfType<TradeUnfilledEvent>())
+            {
+                if (item.Country.Value >= Powers)
+                {
+                    continue;
+                }
+
+                unsold += item.Requested - item.Settled;
+                if (item.Reason == TradeRefusal.NoMerchantCapacity)
+                {
+                    holdRefusals++;
+                }
+            }
             eaten += resolution.Events.OfType<WorkersFedEvent>()
                 .Sum(item => item.Eaten.Sum(q => q.Quantity));
             delivered += resolution.Events.OfType<CommodityDeliveredEvent>().Count();
@@ -1571,7 +1761,11 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             spentOnResearch,
             purchaseRefusals,
             firstPlowsBought,
-            firstReaperBought);
+            firstReaperBought,
+            sold,
+            tradeIncome,
+            unsold,
+            holdRefusals);
         report.AppendLine(
             $"gathered {gathered}, eaten {eaten}, delivered {delivered}, " +
             $"produced {produced} cycles, built {built} times, " +
@@ -1604,6 +1798,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             $"{bought} technologies bought for {spentOnResearch}, " +
             $"{purchaseRefusals} purchases refused; " +
             $"first Plows turn {Or(firstPlowsBought)}, first Reaper turn {Or(firstReaperBought)}");
+        report.AppendLine(
+            $"sold {sold} units for {tradeIncome}, {unsold} offered and unsold, " +
+            $"{holdRefusals} rows short of a cargo hold");
         return report.ToString();
 
         static string Or(int? turn) => turn?.ToString() ?? "never";
@@ -1716,6 +1913,27 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     /// actually looks like. A resource-rich fixture would come back healthy and
     /// prove nothing.
     /// </summary>
+    /// <summary>
+    /// A commodity the world market sees, at the price list's own figure and place in the
+    /// commodity order — or an untradable one when the run does not want a market.
+    /// </summary>
+    /// <remarks>
+    /// Gated so that every run published before trade existed keeps its numbers: a world
+    /// with no prices trades nothing, which is exactly how those runs behaved.
+    /// </remarks>
+    private static CommodityDefinition Tradable(
+        int id,
+        string name,
+        CommodityCategory category,
+        long price,
+        int order,
+        bool withTrade) =>
+        new(new CommodityId(id),
+            name,
+            category,
+            worldPrice: withTrade ? price : null,
+            tradeOrder: withTrade ? order : null);
+
     private static WorldState CreateWorld(
         bool withHiddenMinerals = false,
         bool withTransportLimit = false,
@@ -1724,7 +1942,8 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         bool withEngineer = false,
         bool withImprovementCost = false,
         long startingCash = 0,
-        bool withGoldMine = false)
+        bool withGoldMine = false,
+        bool withTrade = false)
     {
         // Each power gets a row of 22 cells: a capital at column 0, then a
         // repeating deposit / depot / deposit run. A depot reaches one step, so
@@ -1922,8 +2141,15 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             null,
             depots,
             null,
+
+            // Only the powers get the fair-start defaults. Minor nations own no land and
+            // no industry — the same reason the original equips its Great Powers and not
+            // its statelets.
             Enumerable.Range(0, Powers).Select(static index => new CountryId(index)),
-            civilians);
+            civilians,
+            initialCash: Enumerable.Range(0, withTrade ? MinorNations : 0)
+                .Select(static index => new InitialCash(
+                    new CountryId(Powers + index), MinorNationTreasury)));
 
         var facilities = new[]
         {
@@ -1953,26 +2179,38 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
 
         return new WorldState(new WorldDefinition(
             map,
+            // The seven powers, and — where a run trades — minor nations to trade with.
+            // The manual's economy runs on them: "most goods go to the Minor Nations, not
+            // your competition", and they own no merchant marine, so a Great Power selling
+            // to one carries the cargo itself.
             Enumerable.Range(0, Powers)
-                .Select(static index => new CountryDefinition(new CountryId(index), $"Power {index}")),
+                .Select(static index => new CountryDefinition(
+                    new CountryId(index), $"Power {index}", isGreatPower: true))
+                .Concat(Enumerable.Range(0, withTrade ? MinorNations : 0)
+                    .Select(static index => new CountryDefinition(
+                        new CountryId(Powers + index), $"Minor {index}"))),
             scenario,
             [
+                // Raw food is untradable — "food resources cannot be traded on the world
+                // market" — so grain, fruit and livestock carry no price whatever the
+                // run asks for.
                 new CommodityDefinition(new CommodityId(Grain), "Grain", CommodityCategory.Raw),
                 new CommodityDefinition(new CommodityId(Fruit), "Fruit", CommodityCategory.Raw),
                 new CommodityDefinition(new CommodityId(Livestock), "Livestock", CommodityCategory.Raw),
-                new CommodityDefinition(new CommodityId(Cotton), "Cotton", CommodityCategory.Raw),
-                new CommodityDefinition(new CommodityId(Timber), "Timber", CommodityCategory.Raw),
-                new CommodityDefinition(new CommodityId(Coal), "Coal", CommodityCategory.Raw),
-                new CommodityDefinition(new CommodityId(Iron), "Iron", CommodityCategory.Raw),
-                new CommodityDefinition(new CommodityId(Fabric), "Fabric", CommodityCategory.Material),
-                new CommodityDefinition(new CommodityId(Lumber), "Lumber", CommodityCategory.Material),
-                new CommodityDefinition(new CommodityId(Steel), "Steel", CommodityCategory.Material),
-                new CommodityDefinition(new CommodityId(CannedFood), "Canned Food", CommodityCategory.Material),
-                new CommodityDefinition(new CommodityId(Clothing), "Clothing", CommodityCategory.Goods),
-                new CommodityDefinition(new CommodityId(Furniture), "Furniture", CommodityCategory.Goods),
+                Tradable(Cotton, "Cotton", CommodityCategory.Raw, 100, 9, withTrade),
+                Tradable(Timber, "Timber", CommodityCategory.Raw, 100, 11, withTrade),
+                Tradable(Coal, "Coal", CommodityCategory.Raw, 100, 12, withTrade),
+                Tradable(Iron, "Iron", CommodityCategory.Raw, 100, 13, withTrade),
+                Tradable(Fabric, "Fabric", CommodityCategory.Material, 300, 5, withTrade),
+                Tradable(Lumber, "Lumber", CommodityCategory.Material, 300, 6, withTrade),
+                Tradable(Steel, "Steel", CommodityCategory.Material, 300, 8, withTrade),
+                Tradable(CannedFood, "Canned Food", CommodityCategory.Material, 100, 4, withTrade),
+                Tradable(Clothing, "Clothing", CommodityCategory.Goods, 900, 0, withTrade),
+                Tradable(Furniture, "Furniture", CommodityCategory.Goods, 900, 1, withTrade),
 
                 // The manual's own rate. Gold never reaches the warehouse, so
-                // every unit the network carries is cash instead.
+                // every unit the network carries is cash instead — and it "cannot be
+                // traded", so it is never on the roster.
                 new CommodityDefinition(
                     new CommodityId(Gold), "Gold", CommodityCategory.Raw, GoldCashPerUnit),
             ],
@@ -2019,6 +2257,11 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 // Plows' prerequisite — so the investing run's chain starts from
                 // where a real power starts rather than from nothing.
                 technologies: [new TechnologyId(SeedDrill)],
+
+                // Three Traders a power, six cargo holds, which all three shipped
+                // skirmishes agree on. Only given where a run trades, so nothing else
+                // acquires a fleet it never uses.
+                ships: withTrade ? [new ShipDefault(new ShipTypeId(Trader), 3)] : null,
                 transportCapacity: withTransportLimit ? startingTransportCapacity : null,
                 cash: withEngineer ? 6000 : startingCash == 0 ? null : startingCash,
 
@@ -2073,7 +2316,14 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             // needs and no more. Neither number is evidence; see
             // docs/formulas/engineer.md. Rail is priced on the terrain instead.
             construction: withEngineer ? new ConstructionSettings(1500, 2000) : null,
-            improvement: withImprovementCost ? new ImprovementSettings(ImprovementLadder) : null));
+            improvement: withImprovementCost ? new ImprovementSettings(ImprovementLadder) : null,
+
+            // One merchant class, because merchant marine is the only ship number trade
+            // reads and the warships would contribute nothing but noise.
+            shipTypes: withTrade
+                ? [new ShipTypeDefinition(new ShipTypeId(Trader), "Trader", cargo: 2)]
+                : null,
+            trade: withTrade ? new ProportionalTradeMarket() : null));
     }
 
     private static ProductionRecipeDefinition Recipe(

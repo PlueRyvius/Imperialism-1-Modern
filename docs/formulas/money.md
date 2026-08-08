@@ -109,15 +109,20 @@ and it now decides whether an imported skirmish can build anything at all.
 
 ## What competes for the treasury, and in what order
 
-There are four calls on a country's cash now, and they are settled by **where they
-sit in the turn** rather than by any pooling or preflight:
+Cash moves in and out at four points now, and they are settled by **where they sit in the
+turn** rather than by any pooling or preflight:
 
 | Charged in | What | Notes |
 |---|---|---|
+| **`Trade`** | **selling pays, buying costs** | **second in the turn, so the money is there to spend** |
 | `Development` | an improvement, per rung | 100 / 1,000 / 3,000 |
 | `Development` | an Engineer's rail, depot or port | rail per terrain |
 | `Migration` | a recruit at the Capitol | commodities, not cash |
 | **`Investment`** | **technology** | **last, so it takes the remainder** |
+
+**Trade sits first because it is income**, and being before `Development` is what lets a
+sale pay for an improvement in the same turn. That is not a chosen ordering — the phase was
+already second in the manual's fixed pipeline.
 
 **Research running last is a chosen rule**, not a finding. Construction and
 improvement are charged during `Development` and get first call; technology spends
@@ -132,18 +137,30 @@ stops its Farmers to bank for the purchase gets it the quarter it becomes
 available. The rule forces a real trade: improve now, or improve higher later. See
 [technology.md](technology.md#what-a-hundred-turns-looks-like).
 
-Worth naming what that does to the guessed starting treasury: it is now
-**load-bearing three times over** — the first depot, five Level II improvements, and
-whether a late technology is reachable inside a century at all.
+**Trade changes the size of that problem rather than its shape.** With a market the same
+greedy power buys the Plows on turn one and the Reaper the quarter it arrives, because
+income has stopped being the binding constraint. The rule still decides who gets paid
+first; it stops mattering when there is enough. **Keep the rule and stop citing the knife
+edge** — that was measured on an economy with no revenue.
+
+**It also demotes the guessed starting treasury, which is the first time a guess here has
+become *less* load-bearing.** While gold was the only income that figure decided three
+things — the first depot, five Level II improvements, and whether a late technology was
+reachable inside a century at all. A century of selling earns fifty times it, so what a
+power *starts* with now decides only its opening few turns.
 
 ## What the manual says that is *not* modelled
 
 Recorded so the next slice does not have to rediscover it.
 
-- **Trade is the real income.** "Every time you sell commodities to other
+- ~~**Trade is the real income.** "Every time you sell commodities to other
   countries you receive a cash payment for the sale", and it is the first entry
   on the manual's own list of three. Nothing here models it, so the only income
-  in this engine is the smallest of the three.
+  in this engine is the smallest of the three.~~ **Implemented, and the "real"
+  turned out to be an understatement.** In the soak, selling the surplus earns
+  **1.2 million** over a century against the gold mine's **20,000** — two orders of
+  magnitude, and it discharges the caveat this document and three others were
+  carrying. See [trade.md](trade.md).
 - **Overseas profits** are the third, and need embassies and Minor Nations.
 - ~~**Technology is bought with cash** on the Investment screen. A treasury makes
   that newly possible and it still wants the prerequisite graph and arrival

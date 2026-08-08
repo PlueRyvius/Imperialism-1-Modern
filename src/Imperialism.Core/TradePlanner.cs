@@ -210,12 +210,18 @@ internal static class TradePlanner
                         // last one skip the bidder outright: "the bidder is not permitted
                         // to accept the deal, and the items are offered to the next
                         // bidder on the list."
+                        //
+                        // **A hold shortage is reported against whoever ran out of hulls**,
+                        // which is not always the bidder: selling to a minor nation spends
+                        // the seller's holds, so it is the seller who cannot move the cargo
+                        // and the seller who needs to hear about it.
+                        var outOfHolds = holds[payer.Value] <= 0;
                         shortfalls.Add(new PlannedTradeShortfall(
-                            buyer,
+                            outOfHolds ? payer : buyer,
                             commodity.Id,
-                            bids[buyerIndex],
+                            outOfHolds ? remaining : bids[buyerIndex],
                             0,
-                            holds[payer.Value] <= 0
+                            outOfHolds
                                 ? TradeRefusal.NoMerchantCapacity
                                 : TradeRefusal.NotEnoughCash));
                         continue;

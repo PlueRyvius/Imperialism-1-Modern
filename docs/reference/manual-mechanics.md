@@ -221,3 +221,82 @@ labour is pooled per country, capacity is not.
 - Workers eat any food rather than starve.
 
 Canned food may also be traded, and is used to recruit more workers.
+
+## Trade
+
+The manual specifies the world market far more tightly than it specifies anything
+about prices, which it never gives at all. Quoted here because
+`../formulas/trade.md` builds on all of it.
+
+**The shape of a turn's trading.** Every Great Power and Minor Nation submits
+offers to sell and bids to buy on the Bid and Offers screen, naming quantities and
+never a price: "it is impossible to predict the final price for this turn, because
+the buy bids and sell offers which determine the price come from all the countries
+in the game, not just from your own Great Power."
+
+**Timing.** Goods bought "appear for your use in the Industry screen next turn";
+goods sold "are deducted from the warehouse of your Industry screen". The screen
+shows stock "after deduction of the commodities you have ordered for production on
+the Industry screen", because "you cannot sell items you do not own or that you
+have ordered industry to use this turn" — **industry gets first claim**.
+
+**Offers pass down a ranked list, a part at a time.** All of a seller's offer "first
+appears as an Offer Sheet to Great Britain, the most favoured trading partner of
+Belgium, which bid to buy coal this turn. If the ruler of Britain decides to buy
+only some (or none) of the offered coal, then the coal remaining… passes to the next
+coal-bidding country on the list of Belgium's favourite trading partners. This
+process continues until the bidders purchase all the offered coal or until there are
+no more coal bidders." A buyer "can accept any number up to the amount offered".
+
+**The ranking is relations and subsidies.** "Subsidised prices and improved
+diplomatic relations both affect the order in which countries receive offers to
+buy." A trade subsidy changes the price "by the percentage amount of the subsidy",
+favouring the other country at both ends.
+
+**Price direction, and no magnitude anywhere.** The figure shown is "the world
+market prices for the commodities traded during the previous turn. This price is a
+starting point for this turn's price, which may go higher or lower depending on
+supply and demand. If, during this turn, demand for a commodity is stronger than the
+supply, the price rises. If the reverse is true, the price falls. If supply and
+demand are closely matched, the price this turn remains much the same as last turn's
+price."
+
+**What cannot be traded.** "Even though food resources cannot be traded on the world
+market, you should consider transporting extra food whenever you can." Gold and gems
+"never reach the industry warehouse and they cannot be traded". Canned food can be:
+"of course, you may trade for canned food on the world market."
+
+**Merchant marine.** "The merchant marine number represents the total cargo holds
+available in all the merchant ships owned by your Great Power. Each cargo hold can
+carry one unit of any trading commodity." The binding rule is that "each cargo hold
+can be used only once per turn", and it limits buying as much as selling: "if your
+merchant marine number is four and you sell four units of clothing to a Minor
+Nation, none of the bids you entered this turn can be filled. **You can buy nothing
+if you have no merchant marine to move the cargo.**"
+
+**Who carries.** "No Minor Nation owns merchant marine. When you trade with a Minor
+Nation, as either buyer or seller, you can be sure that your merchant marine is
+required." Between Great Powers, "the buyer always picks up the commodities. If a
+bidder has no remaining cargo holds available, the bidder is not permitted to accept
+the deal, and the items are offered to the next bidder on the list."
+
+**Holds spend in a fixed commodity order.** "IMPERIALISM always uses an established
+order when expending the Great Powers' merchant marine for trade. This commodity
+order is shown on the Bid and Offers screen from top to bottom. Clothing deals, for
+example, are always considered prior to all other deals because clothing is the
+first item in commodity order. **Reserving some cargo holds for later deals becomes
+an important skill.**"
+
+**Ships.** Built at the shipyard for materials and never for cash, usable the turn
+after they are ordered, with no upkeep — unlike army units. Five merchant classes
+eventually become available (Trader, Indiaman, Steamship, Clipper, Freighter) and
+eight warships, four fast and four battleships. Merchant ships "do not appear on the
+terrain map"; each "adds its cargo capacity… to the total you have available each
+turn for trade", and "if you build faster ships, the average sailing speed of your
+merchant marine increases, making blockade and interception much more difficult for
+hostile navies."
+
+**The manual prices nothing in trade.** Its only cash figures anywhere are gold at
+$200 a unit, gems at $500, a consulate at $500, an embassy at $5,000, and foreign-aid
+grants at $1,000 and $10,000. Every commodity price in this project comes from a
+transcription of the game's own screen instead.

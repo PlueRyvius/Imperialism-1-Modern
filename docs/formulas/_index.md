@@ -164,8 +164,16 @@ bottom of this file.
 | What mountains' rail costs | `guess` — the one ground the list skips | [engineer](engineer.md) | LegacyImport | generated |
 | What a link crossing two grounds costs | **a chosen rule** — the dearer end | [engineer](engineer.md) | Core | generated |
 | Whether the whole economy holds up over time | — | [soak](soak.md) | — | 100-turn soak, 7 powers |
-| Trade clearing price | `guess` | _trade-pricing_ | — | — |
-| Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |
+| How trade clears: offers, bids, delivery, who pays | `inferred` — **the manual states nearly all of it** | [trade](trade.md) | Core, Content, LegacyImport | generated |
+| What the fifteen traded commodities are worth | `inferred` — **observed** from the game's own screen | [trade](trade.md) | Core, Content, LegacyImport | generated |
+| Which commodities are tradable at all | `inferred` — **observed, and it agrees with the manual three times** | [trade](trade.md) | Core, Content, LegacyImport | generated |
+| The commodity order holds are spent in | `inferred` — observed | [trade](trade.md) | Core, Content, LegacyImport | generated |
+| **Trade clearing price** — how far a price moves | `guess`, quarantined behind `ITradeMarket` | [trade](trade.md) | Core, Content | generated |
+| **Favoured-partner ranking** | **a placeholder**, not a rule — wants diplomacy | [trade](trade.md) | Core | generated |
+| Merchant marine, and what limits it | `inferred` — the manual states the rules, the owner the cargo | [trade](trade.md) | Core, Content, LegacyImport | generated |
+| The fleet a power opens with | `inferred` — **all three skirmishes agree** | [trade](trade.md) | Core, Content, LegacyImport | generated + local corpus |
+| What a `ship` type index means | `inferred` — **corpus-corroborated**, 1-based | [trade](trade.md) | — | local corpus |
+| The ship array's order, cargo beyond four hulls, build costs | `unknown` — **wants the binary** | [trade](trade.md) | — | — |
 | Diplomatic relation deltas | `guess` | _relations_ | — | — |
 | Council nomination + abstention curve | `guess` | _council_ | — | — |
 | Tactical initiative order | `guess` | _initiative_ | — | — |
@@ -322,6 +330,16 @@ Ordered by impact x uncertainty, not by ease:
    which depends on ranking, which depends on relations). Mitigated by an
    `ITradeMarket` interface so a fixed-price implementation ships first and
    never blocks the playable milestone.
+
+   **The mitigation worked and the plan held.** Trade shipped with the interface in
+   place, and the mechanism turned out to be the *documented* part — the manual states
+   offers, bids, delivery timing, hold accounting, who carries and the price
+   *direction*. What was left undocumented is exactly two things: how far a price
+   moves, which is behind `ITradeMarket`, and which bidder gets first refusal, which
+   is a labelled placeholder waiting on diplomacy. The prices themselves came from the
+   game's own screen and are not guesses at all. **This entry is smaller than it
+   looked**, and what remains of it now sits behind item 0's decompiler rather than
+   ahead of it. See [trade.md](trade.md).
 2. **Relation deltas** — diffuse, many small triggers, easy to get 80% right
    and never notice. Model as an enumerable event->delta table so the trigger
    set is auditable.

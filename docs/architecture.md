@@ -214,6 +214,24 @@ rather than when it finishes. Prospecting is free. The price is per *cell*, whic
 needs no new modelling because a cell already has one development level however
 many deposits sit on it. See `formulas/development.md`.
 
+**`Trade` sits second, and it is the first income in this engine worth the name.** A world
+market matches every country's offers against every country's bids at one price nobody
+names, passes each seller's offer down the bidder list a part at a time, and charges cargo
+holds to carry it. Goods sold leave the warehouse now; goods bought arrive next turn as
+`PendingDeliverySource.Trade` deliveries, which is the machinery extraction already used —
+so "buy now, use next turn" needed no new state.
+
+Being *before* `Production` is what the manual's screens imply: industry claims its inputs
+first and the market sells what is left. That is why `TurnResolver` builds a **claimed**
+figure counting only consumption — netting production's outputs in would let a country sell
+goods that do not reach the warehouse until `Production` commits.
+
+**Merchant marine is the constraint, and it is the transport-capacity pattern again**: a
+per-country pool spent in a fixed commodity order and refilled each turn, derived from the
+cargo of the ships a country owns rather than stored. `ITradeMarket` quarantines the one
+undocumented number — how far a price moves — while the prices themselves are transcribed
+from the original's own screen. See `formulas/trade.md`.
+
 **`Investment` sits after `Delivery`, second from last, and being last is the
 mechanism rather than a detail.** A country buys technology with cash there, and
 every rule that reads knowledge during a turn — `Development`'s three gates,

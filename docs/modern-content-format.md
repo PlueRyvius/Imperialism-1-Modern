@@ -132,6 +132,21 @@ package lays track for nothing. The figure was an invention the project had alre
 labelled unsupported, and a re-import supplies the real per-terrain prices. The
 field survives on the document only so a v18 file still deserializes; carrying it at
 version 19 is a validation error.
+Version 20 opens a world market. `commodities[]` gain `worldPrice` and `tradeOrder`, and
+**absence of a price is what makes a commodity untradable** — the same shape `technologies[]`
+uses for "not for sale". The order is held explicitly rather than taken from the array's
+position, because it decides which deals get cargo holds and a content author reordering the
+array for any other reason must not silently change that. `shipTypes[]` declares hull
+classes with cargo, an optional build bill, an optional technology gate and optional combat
+stats; `startingDefaults.ships` and `scenarios[].ships` place fleets, and a scenario that
+equips a country at all makes it ignore the default rather than adding to it. `countries[]`
+widen with `isGreatPower`, which needs no legacy carrier because a version 19 country is a
+key and a name and both survive. The optional `trade` block carries the price-movement
+parameters, and **absent `trade` does not stop trading** — a world with prices and no market
+trades at the opening price forever, which is what keeps the transcribed prices separable
+from the guessed curve. A version 19 package migrates to a world that trades nothing, which
+is how it behaved.
+
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the

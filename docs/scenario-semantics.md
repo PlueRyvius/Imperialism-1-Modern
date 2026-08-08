@@ -209,6 +209,15 @@ Rancher on wool hill or cattle ranch. **A civilian's owner is whoever owns the
 cell it stands on**, which means moving one across a border changes its side.
 
 `army` is `[province, type, count]` and `ship` is `[country, type, zone, count]`.
+
+**A `ship` record's type is a 1-based index into the game's ship array, verified.** Read as
+0-based it grants a Clipper — which needs Streamlined Hulls — to an 1816 skirmish power
+holding no technology at all, and five more in `s13` and `s14`. Read as 1-based, all **142
+records and 307 ships** in the corpus are hulls their owner could have built, with zero
+contradictions. The corpus uses types 1–9 of a thirteen-class array, and the *order* of that
+array is still unknown — which is why the importer converts `ship` records for nothing yet.
+The three skirmishes each give every power three of type 1, which is where the opening
+merchant marine comes from. See `formulas/trade.md`.
 The type tiers track the scenario's year, which is a useful cross-check on both:
 1820 fields Minutemen, Regulars, Hussars and Ship-of-the-Line; 1882 fields
 Militia through Siege Artillery, Paddlewheelers and Ironclads; 1848 spans the

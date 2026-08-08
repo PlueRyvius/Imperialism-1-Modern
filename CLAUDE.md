@@ -26,6 +26,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | Which technology opens which improvement level | `docs/formulas/technology.md` |
 | How much the network can carry, and what that costs | `docs/formulas/transport.md` |
 | Where a country's money comes from and goes | `docs/formulas/money.md` |
+| How the world market clears, and what carries the cargo | `docs/formulas/trade.md` |
 | How a player changes what the network reaches | `docs/formulas/engineer.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
@@ -199,7 +200,8 @@ see `docs/map-viewer.md`.
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an
 inert dense order bundle, unrestricted quarterly `TurnDate`, fixed fourteen-phase
-`TurnResolver`, and immutable event log. `.iworld` defines stable
+`TurnResolver` with only `Diplomacy`, `Conflict` and `TradeCancellation` still empty,
+and immutable event log. `.iworld` defines stable
 commodities, facilities, recipes, and sparse scenario capacity, with explicit
 v1→v2→v3 migration. Core stores checked dense Available inventory and
 identifiable pending extraction, transport or trade deliveries. Ordered production
@@ -538,9 +540,85 @@ first here that does not.** The flat rail price is dropped rather than carried, 
 migrated package builds free track. The number is *retracted*, not superseded, and
 keeping it would give an invention a longer life than it earned.
 
-Transient power, research *progress*, conflict, trade markets, diplomacy, sea routes
-between ports, blockade, moving regiments by rail, merchant marine capacity, the
-University, the newspaper and fortifications remain explicitly pending. So does
+`.iworld` **v20** opens a **world market**, and that discharges a caveat four documents
+were carrying. Trade is the manual's first income source and was the last one unmodelled;
+`soak.md`, `money.md`, `development.md` and `technology.md` all said some version of
+*"an artefact of missing trade, not a property of the model"*. **It earns 1.2 million a
+century against the gold mine's 20,000** — two orders of magnitude — so the power that
+could not afford a $12,000 Mechanical Reaper buys it the quarter it arrives.
+
+**Most of the mechanism is documented, and only two numbers are not.** The manual states
+offers and bids at one price nobody names, an offer passing down a ranked bidder list a part
+at a time, goods sold leaving now and goods bought arriving next turn, industry claiming its
+inputs first, one cargo hold per unit usable once a turn, holds spent in a fixed commodity
+order, and the buyer carrying between Great Powers. What it never states is **how far a
+price moves** — behind `ITradeMarket` — and **which bidder gets first refusal**, which is a
+labelled placeholder because the real rule wants relations and subsidies. `_index.md`'s
+priority-1 entry turned out smaller than it looked.
+
+**The prices are observed, not guessed.** Fifteen commodities from the original's own Bid
+and Offers screen, in three tiers — 100 raw, 300 material, 900 goods — where the 3× step is
+structural: two inputs plus 50% value added. Two entries break the tiers and are transcribed
+rather than fitted: canned food at 100 (its input is grain, which has no market price to
+mark up) and horses at 300.
+
+**What is absent from that roster corroborates the manual three times independently.** The
+eight unpriced commodities are exactly raw food, gold and gems — all three stated in prose —
+while canned food is present, which the manual also says. A screenshot agreeing with prose
+from a different source is why `IsTradable` is transcribed rather than inferred. **Absence
+of a price is what makes a commodity untradable**, the shape `TechnologyDefinition.Cost`
+already uses.
+
+**Merchant marine binds where the railyard did not.** Derived from the cargo of the ships a
+country owns rather than stored, spent in the fixed commodity order, refilled each turn. The
+soak sells 1,534 units and leaves **103,147 offered and unsold** — the constraint is real
+and visible from turn one. Who pays is asymmetric: the buyer carries between Great Powers,
+and a Great Power dealing with a minor nation always carries, because minor nations own
+none. **A hold shortage is reported against whoever ran out of hulls**, which is not always
+the bidder; getting that wrong was a live bug the soak caught by reporting zero refusals in
+a run where the pool was visibly binding.
+
+**The opening fleet is not an eighth engine default.** All three skirmishes give every power
+three ships of type 1, independently — and `ship` is *not* one of the seven records a
+skirmish omits. So six cargo holds is recoverable from the corpus where the transport pool
+beside it is not. The inference is only which class: both candidate ship orderings put the
+Trader first.
+
+**A `ship` type index is 1-based, and the corpus proves it.** Read as 0-based it puts a
+Clipper — which needs Streamlined Hulls — in an 1816 skirmish whose powers hold nothing, and
+five more in `s13`/`s14`. Under 1-based, **142 records and 307 ships produce zero
+contradictions** under either technology ordering. It pins which offsets are gated and says
+nothing about the order within each group.
+
+**It does not settle the technology table order, and that was the hope.** A Clipper held by a
+power with 4–6 technologies would have discriminated the two orderings; no such record
+exists, because the only six-technology scenarios field ungated hulls exclusively. **Third
+independent corpus check to come back silent.**
+
+**So `ship` records stay deferred, on purpose.** There are thirteen hull classes — five
+merchants and eight warships — and the array order is unresolved, so converting against a
+guess would hand powers fleets that were never there. Trade still works on imported worlds
+because the fair-start fleet comes from `startingDefaults` and needs no index: content refers
+to a hull by key, and only the legacy integer needs the order.
+
+**No ship build costs are transcribed, and that is a decision.** The owner's cost table had a
+misaligned column — what it labelled Speed was battle movement, and it carried no sailing
+speed at all — so every value after Hull is suspect, arms included. Arms later sets beachhead
+force size, so being out by one is a gameplay bug rather than a cosmetic one. That
+misalignment also explains the Clipper's flagged speed of 0: merchants have no battle
+movement because they never fight.
+
+**The ship stats are not in any file.** Four pattern searches came back empty — the
+executable at three widths, strided struct arrays to stride 64, order-independent windows,
+and clustered `mov` immediates across the 59 MB disassembly listing, where not one window of
+sixty held even six of the eight hull values. The values are assigned individually in code,
+so this is a Ghidra task on the ship constructor, not a byte hunt — and a far better target
+than the failed labour-cost hunt, since a constructor's immediates sit in the decompiled
+output where a formula was spread across arithmetic.
+
+Transient power, research *progress*, conflict, diplomacy, trade subsidies, sea routes
+between ports, blockade, moving regiments by rail, building ships, the University, the
+newspaper and fortifications remain explicitly pending. So does
 **whether a civilian's work costs cash generally** — the manual implies it does, and
 `docs/formulas/money.md` records the finding without acting on it, because pricing
 every civilian's work would move every number in the soak.

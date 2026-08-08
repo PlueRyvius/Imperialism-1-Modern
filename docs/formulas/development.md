@@ -335,6 +335,11 @@ warehouse that started empty. The original's main income is selling commodities
 and nothing here models it. Read the middle row as *development is now something
 a country has to afford*, never as *a country cannot afford development*.
 
+**Trade now exists and the caveat is discharged.** It earns 1.2 million a century against
+the mine's 20,000, and a power with a market improves 98 tiles where the same power without
+one manages 63. The sentence above was right, and right about the magnitude: missing income
+was not a rounding error. See [trade.md](trade.md).
+
 **With a mine the loop closes.** One gold tile a power at the manual's $200 a
 unit is 20,000 over the century, and it buys back nearly all the development the
 free run got for nothing — 63 tiles against 70 — with change to spare. This is
