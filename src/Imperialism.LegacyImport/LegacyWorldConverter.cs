@@ -264,11 +264,23 @@ public static class LegacyWorldConverter
     ];
 
     /// <summary>
-    /// How many turns a civilian's work takes. <b>This is a guess</b> — the one
-    /// number in this phase with nothing behind it. See
-    /// <c>docs/formulas/development.md</c>.
+    /// How many turns a civilian's work takes. <b>Three, from observed play</b>
+    /// — this used to be the one number in this phase with nothing at all behind
+    /// it, and it is the first thing here recovered from someone playing the
+    /// original rather than from a document.
     /// </summary>
-    private const int CivilianWorkTurns = 1;
+    /// <remarks>
+    /// The observation is of an iron mine: three turns to open it at Level I,
+    /// and three more for each later rung once the technology gating it arrives.
+    /// <b>Applying it to the Prospector and the Engineer is extrapolation</b>
+    /// from "three turns for everything" rather than something watched, and it
+    /// is a one-line edit per type if either turns out to differ.
+    /// <para>
+    /// Moving this from 1 to 3 moved every published soak table. See
+    /// <c>docs/formulas/development.md</c>.
+    /// </para>
+    /// </remarks>
+    private const int CivilianWorkTurns = 3;
 
     /// <summary>
     /// The manual's Resource Development Table read the other way: which
@@ -691,6 +703,7 @@ public static class LegacyWorldConverter
             },
             Transport = CreateStandardTransport(),
             Construction = CreateStandardConstruction(),
+            Improvement = CreateStandardImprovement(),
             Extraction = new ExtractionContentSettings
             {
                 CatchmentRadius = WorldContentCodec.DefaultCatchmentRadius,
@@ -2015,6 +2028,27 @@ public static class LegacyWorldConverter
         RailCashCost = 500,
         DepotCashCost = 1500,
         PortCashCost = 2000,
+    };
+
+    /// <summary>
+    /// What raising a tile costs, indexed by the level being reached. Index 0 is
+    /// never used — nothing is improved <em>to</em> level zero.
+    /// </summary>
+    /// <remarks>
+    /// <b>The owner's recollection from play</b>, and the manual corroborates
+    /// only that a cost exists at all: a player might tell a unit to do nothing
+    /// "when you lack the cash to pay for the civilian's improvements."
+    /// <para>
+    /// The climb is steep — a Level III tile costs thirty times what opening it
+    /// did — which is what makes a treasury a real constraint on development
+    /// rather than a formality. Flat across deposits, and per cell rather than
+    /// per deposit: a hex carrying two resources costs the same as one. See
+    /// <c>docs/formulas/development.md</c>.
+    /// </para>
+    /// </remarks>
+    private static ImprovementContentSettings CreateStandardImprovement() => new()
+    {
+        CashCostByDevelopmentLevel = [0, 100, 1000, 3000],
     };
 
     private static TransportContentSettings CreateStandardTransport() => new()

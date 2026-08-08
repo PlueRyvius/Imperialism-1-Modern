@@ -116,12 +116,14 @@ bottom of this file.
 | Industrial recipes and capacity | `inferred` | [production](production.md) | Core, Content, LegacyImport | generated + local corpus |
 | Labour cost per production cycle | `inferred` | [production](production.md) | Core, Content, LegacyImport | generated + local corpus |
 | Resource extraction and catchment | `inferred` | [extraction](extraction.md) | Core, Content, LegacyImport | generated + local corpus |
+| When a depot counts as connected | `inferred` | [extraction](extraction.md) | Core | generated + local corpus |
 | Worker feeding and labour supply | `inferred` | [feeding](feeding.md) | Core, Content, LegacyImport | generated + local corpus |
 | Which grade starves or falls ill | `guess` | [feeding](feeding.md) | Core | generated |
 | Migration cap and price | `inferred`, on one `guess` | [migration](migration.md) | Core, Content, LegacyImport | generated |
 | Which terrain a civilian may improve | `inferred` | [development](development.md) | Core, Content, LegacyImport | generated + local corpus |
 | Which civilian improves which deposit | `inferred` | [development](development.md) | Core, Content, LegacyImport | generated + local corpus |
-| How many turns a civilian's work takes | `guess` | [development](development.md) | Content | generated |
+| How many turns a civilian's work takes | `inferred`, from observed play | [development](development.md) | Content | generated |
+| What an improvement costs in cash | `inferred`, from observed play | [development](development.md) | Core, Content, LegacyImport | generated |
 | Which deposits must be found before use | `inferred` | [prospecting](prospecting.md) | Core, Content, LegacyImport | generated + local corpus |
 | Which ground a Prospector may search | `inferred` | [prospecting](prospecting.md) | Core, Content, LegacyImport | generated + local corpus |
 | Which technology opens which improvement level | `inferred` | [technology](technology.md) | Core, Content, LegacyImport | generated + local corpus |

@@ -250,16 +250,31 @@ no civilian however good the grain. The corpus corroborates: 481 `deve` records
 and not one on dry plains, horse ranch or scrub forest.
 
 **Migration was inert on a food-deficit economy, and civilian units unblocked
-it.** The soak's Farmers close the grain deficit by turn 2 and the Capitol
-recruits for the first time on turn 4 — then the population outgrows the
-improved farms and a fresh deficit opens on turn 14. That rebound is the
-manual's own warning about growing too fast, arrived at rather than written in,
-and it is reported rather than tuned away. See `docs/formulas/development.md`
-and `docs/formulas/migration.md`.
+it.** The soak's Farmers close the grain deficit by turn 4 and the Capitol
+recruits for the first time on turn 6, and the workforce settles at 77. See
+`docs/formulas/development.md` and `docs/formulas/migration.md`.
 
-**The one guess in that phase is how long a civilian's work takes.** One turn,
-in content as a per-type `workTurns` so changing it is an edit. Nothing in the
-manual, the corpus or the binary says.
+**That run used to overshoot and no longer does**, which is the measured work
+duration showing through: at one turn the farms improved fast enough for the
+population to reach 84 and outrun its own food, so a deficit reopened on turn 14
+— reported as the manual's warning about growing too fast, arrived at rather than
+written in. At three turns it settles at 77 and nobody is ever ill again. Both
+end on 42 grain and half the workforce wants grain, so 84 needs exactly 42 and 77
+needs 39: **a knife edge a measured number happened to fall the other side of.**
+
+**How long a civilian's work takes used to be the one guess in that phase and is
+not any more.** It is **3 turns**, from observed play — an iron mine takes three
+turns to open and three more for each later rung. It stays in content as a
+per-type `workTurns` so changing it is an edit, and applying it to the Prospector
+and the Engineer is extrapolation rather than something watched.
+
+**Moving it from 1 to 3 moved every published soak table**, and the moves are
+recorded in place rather than swapped in silently: the workforce fell from 84 to
+77, the first improvement slid from turn 2 to turn 4, the first gated rung from
+turn 51 to turn 53, and food-first transport went from producing exactly nothing
+to producing seven cycles in a century. **The grain columns did not move**, which
+separates two recoveries cleanly — *where* a ceiling sits is technology, *how
+fast* a country reaches it is duration.
 
 `.iworld` v14 hides five deposits. Coal, iron, gold, gems and oil are on the map
 and invisible until a Prospector of that Great Power has searched the tile —
@@ -375,6 +390,34 @@ gives 10–25, and `s12` gives a network to exactly one of its seven powers.
 coal one turn and on iron the next, or split it evenly. The soak's policies hold
 one fixed ordering for a century, which is a fixture simplification and not a
 property of the model.
+
+`.iworld` v18 charges a civilian for its work. **Every improvement costs cash** —
+100 to reach Level I, 1,000 for Level II, 3,000 for Level III, from observed play
+— charged per rung, so a worker opens a mine for 100 and comes back to pay ten
+times that when the technology for the next rung arrives. **Prospecting is free.**
+The manual implies the cost without printing a figure: a player might pass a turn
+"when you lack the cash to pay for the civilian's improvements". **The price is
+per cell and not per deposit** — a hex carrying two resources costs the same as
+one, which is already how a cell's development level works. Cash leaves the
+treasury when the order is given, like the Engineer's, and is not refunded.
+
+**That makes the guessed starting treasury load-bearing twice over**: 5,000 buys
+five Level II improvements, which the soak spends inside thirty-five turns. With
+no income a country then stands still for the rest of the century — **an artefact
+of missing trade, not a property of the model**, and the same trap the empty
+warehouse set. One gold tile a power closes the loop. See
+`docs/formulas/development.md`.
+
+**A depot has two ways to be connected and only one was implemented.** The manual
+gives rail to the capital *and* rail "to a tile with a port that also contains a
+depot", from which goods "travel to the capital by water". The port is the sea
+end and the co-located depot is the rail end; a port without one is connected for
+itself and **a dead end for every depot behind it**, which the manual spells out.
+This was a live bug rather than a missing subsystem — blockade is not modelled
+and "in general, a port is always connected" was already the simplification in
+place. Six of the ten shipped scenarios author such a hex, and `s9` and `s12`
+each gained a fifth more collecting ground when it landed. `engineer.md` claimed
+this needed the sea-route rules; that claim is retracted.
 
 `.iworld` v17 gives a country **money**, and an **Engineer** to spend it. A
 per-country treasury sits beside the transport pool; the one income modelled is

@@ -350,6 +350,34 @@ public sealed class ProspectingTests
         Assert.Equal(1, Collected(result, Grain));
     }
 
+    /// <summary>
+    /// **Searching is free and improving is not.** The owner is explicit about
+    /// it, and the manual prices no search either — the cost it does imply is
+    /// for "the civilian's improvements".
+    /// </summary>
+    /// <remarks>
+    /// The two civilians are set to work in the same turn on the same terms, so
+    /// the only thing separating them is what their type does.
+    /// </remarks>
+    [Fact]
+    public void ASearchIsFreeWhereAnImprovementIsNot()
+    {
+        var state = CreateState(improvementCost: [0, 100, 1000, 3000], cash: 10_000);
+
+        var searching = Assert.Single(
+            Resolve(state, Work(Unit(state, Prospector), CoalHill))
+                .Events.OfType<CivilianWorkBegunEvent>());
+        Assert.Equal(0, searching.Paid);
+        Assert.Equal(10_000, state.GetCash(new CountryId(0)));
+
+        // The Farmer on the capital's own farm pays the going rate.
+        var improving = Assert.Single(
+            Resolve(state, Work(Unit(state, Farmer), new CellIndex(0)))
+                .Events.OfType<CivilianWorkBegunEvent>());
+        Assert.Equal(100, improving.Paid);
+        Assert.Equal(9900, state.GetCash(new CountryId(0)));
+    }
+
     private static CivilianUnitId Unit(WorldState state, int type) => state
         .GetCivilians(new CountryId(0))
         .Single(item => item.Type == new CivilianTypeId(type))
@@ -374,7 +402,9 @@ public sealed class ProspectingTests
     private static WorldState CreateState(
         bool withProspecting = true,
         bool knowsOilDrilling = false,
-        (int Cell, int Level)[]? initialDevelopment = null)
+        (int Cell, int Level)[]? initialDevelopment = null,
+        long[]? improvementCost = null,
+        long cash = 0)
     {
         const int width = 6;
         var dimensions = new MapDimensions(width, 1);
@@ -453,7 +483,8 @@ public sealed class ProspectingTests
                 new InitialCivilian(new CountryId(0), new CivilianTypeId(Farmer), new CellIndex(0)),
                 new InitialCivilian(new CountryId(0), new CivilianTypeId(Prospector), new CellIndex(0)),
                 new InitialCivilian(new CountryId(0), new CivilianTypeId(Miner), new CellIndex(0)),
-            ]);
+            ],
+            initialCash: cash == 0 ? null : [new InitialCash(new CountryId(0), cash)]);
 
         return new WorldState(new WorldDefinition(
             map,
@@ -475,6 +506,7 @@ public sealed class ProspectingTests
                 new CivilianTypeDefinition(
                     new CivilianTypeId(Prospector), "Prospector", 1, CivilianWorkKind.Prospect),
                 new CivilianTypeDefinition(new CivilianTypeId(Miner), "Miner", 1),
-            ]));
+            ],
+            improvement: improvementCost is null ? null : new ImprovementSettings(improvementCost)));
     }
 }

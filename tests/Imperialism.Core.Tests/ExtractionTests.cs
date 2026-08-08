@@ -402,15 +402,87 @@ public sealed class ExtractionTests
         Assert.Equal(1, extraction.StrandedCellCount);
     }
 
+    /// <summary>
+    /// A depot at cell 3 sits on rail, but that rail never reaches the capital
+    /// and there is no port on it either, so its goods have no way home.
+    /// </summary>
+    /// <remarks>
+    /// Still true, and now only half the story: a line can also reach the
+    /// capital by sea. See
+    /// <see cref="ADepotRailedToAPortWithADepotIsConnectedBySea"/> for the other
+    /// half, and for the trap that separates them.
+    /// </remarks>
     [Fact]
     public void ADepotOffTheCapitalsNetworkGathersNothing()
     {
-        // A depot at cell 3 sits on rail, but that rail never reaches the
-        // capital, so its goods have no way home.
         var state = CreateState(
             depositCells: [(3, Grain)],
             extraRails: [(3, 4)],
             depots: [3]);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(0, extraction.CollectedCellCount);
+        Assert.Equal(1, extraction.StrandedCellCount);
+        Assert.Empty(extraction.Collected);
+    }
+
+    /// <summary>
+    /// **The manual's second way to connect a depot**, and the one this engine
+    /// used to be missing: rail "to a tile with a port that also contains a
+    /// depot", from which "the commodities must pass through the second depot to
+    /// reach the port and then travel to the capital by water."
+    /// </summary>
+    /// <remarks>
+    /// The line here never touches the capital's rail component. Cell 2 carries
+    /// both a port and a depot, cells 2–3–4 are railed together, and a second
+    /// depot sits at cell 4 with the deposit beside it.
+    /// <para>
+    /// The deposit is at cell 4 on purpose: the port at cell 2 seeds its own
+    /// catchment out to cell 3, so anything nearer would be gathered by the port
+    /// itself and prove nothing about the depot behind it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void ADepotRailedToAPortWithADepotIsConnectedBySea()
+    {
+        var state = CreateState(
+            depositCells: [(4, Grain)],
+            extraRails: [(2, 3), (3, 4)],
+            depots: [2, 4],
+            ports: [2]);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(1, extraction.CollectedCellCount);
+        Assert.Equal(0, extraction.StrandedCellCount);
+        Assert.Equal([new CommodityQuantity(new CommodityId(Grain), 2)], extraction.Collected);
+    }
+
+    /// <summary>
+    /// **The trap the manual spells out.** Take the depot out of the port's tile
+    /// and the port is still connected for itself, while everything down the
+    /// line behind it is stranded — "the future depots constructed along your
+    /// new railroad have no way to move their commodities to the port."
+    /// </summary>
+    /// <remarks>
+    /// The only difference from
+    /// <see cref="ADepotRailedToAPortWithADepotIsConnectedBySea"/> is the depot
+    /// at cell 2. The port is the sea end and the depot is the rail end; a port
+    /// alone cannot accept goods arriving down a line.
+    /// </remarks>
+    [Fact]
+    public void APortWithoutADepotIsADeadEndForTheLineBehindIt()
+    {
+        var state = CreateState(
+            depositCells: [(4, Grain)],
+            extraRails: [(2, 3), (3, 4)],
+            depots: [4],
+            ports: [2]);
 
         var extraction = Assert.Single(
             TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
@@ -571,7 +643,8 @@ public sealed class ExtractionTests
         (int Cell, int Level)[]? initialDevelopment = null,
         bool gateGrainBehindTechnology = false,
         bool startingTechnology = false,
-        int[]? depots = null)
+        int[]? depots = null,
+        int[]? ports = null)
     {
         const int width = 5;
         var dimensions = new MapDimensions(width, 1);
@@ -637,7 +710,7 @@ public sealed class ExtractionTests
             startingTechnology
                 ? [new InitialCountryTechnology(new CountryId(0), new TechnologyId(0))]
                 : null,
-            null,
+            (ports ?? []).Select(static cell => new CellIndex(cell)),
 
             // Cell 1 is railed to the capital, so a depot there is connected and
             // its catchment reaches cell 2. Track alone gathers nothing.

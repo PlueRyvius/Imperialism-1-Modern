@@ -192,18 +192,29 @@ is only ever tested closed.
 
 ```
                         grain/turn at  10 → 50 → 100   workers  top rungs  refusals
-never granted                    42     42     42        84         0       1,960
-granted on turn 50               42     42     63       105        21         889
+never granted                    42     42     42        77         0       1,820
+granted on turn 50               42     42     63       105        21         749
 ```
 
-First gated rung on **turn 51**, one turn after the grant, which is the work
+First gated rung on **turn 53**, three turns after the grant, which is the work
 duration showing through. The ceiling is visibly real for fifty turns and
 visibly lifts.
 
 That also moved the farming run's published numbers, and the move is the finding:
-grain now stops at 42 rather than 63, and the workforce settles at 84 rather than
+grain now stops at 42 rather than 63, and the workforce settles at 77 rather than
 119, because Steel and Iron Plows and Mechanical Reaper are not free. See
 [soak.md](soak.md).
+
+**Two of these columns have moved again since, for an unrelated reason.** The
+work duration was 1 when this table was first published and has since been
+measured at 3: the ungranted run's workforce fell from 84 to 77, its refusals
+from 1,960 to 1,820, the granted run's from 889 to 749, and the first gated rung
+slid from turn 51 to turn 53 — "one turn after the grant" became three.
+
+**The grain columns did not move at all**, and that is the useful part: *where*
+the ceiling sits is a technology fact and *how fast* a country climbs to it is a
+duration fact, and this table now separates them. See
+[development.md](development.md).
 
 ## Open questions
 

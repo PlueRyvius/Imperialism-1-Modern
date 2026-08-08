@@ -13,7 +13,8 @@ internal sealed record PlannedCivilianWorkStart(
     CountryId Country,
     CivilianUnitId Unit,
     CellIndex Cell,
-    int TurnsRequired) : PlannedCivilianOutcome(Country, Unit);
+    int TurnsRequired,
+    long Paid) : PlannedCivilianOutcome(Country, Unit);
 
 internal sealed record PlannedConstructionStart(
     CountryId Country,
@@ -108,11 +109,23 @@ internal static class DevelopmentPlanner
                 var civilian = state.GetCivilian(order.Unit)!;
                 var turns = state.Definition.CivilianTypes[civilian.Type.Value].WorkTurns;
 
+                // Improving is paid for and searching is not. The rung being
+                // bought is the next one up, which is the same expression the
+                // technology gate asks about.
+                var cost = PriceOfImprovement(state, civilian.Type, order.Cell);
+                if (cost > 0 && !state.TrySpendCash(country, cost))
+                {
+                    outcomes.Add(new PlannedCivilianRefusal(
+                        country, order.Unit, order.Cell, CivilianOrderRefusal.NotEnoughCash));
+                    continue;
+                }
+
                 // The move and the job are one command: the original's hammer
                 // cursor sends the worker and sets it going in a single click.
                 state.MoveCivilian(order.Unit, order.Cell);
                 state.SetCivilianWork(order.Unit, new CivilianWorkInProgress(order.Cell, turns));
-                outcomes.Add(new PlannedCivilianWorkStart(country, order.Unit, order.Cell, turns));
+                outcomes.Add(new PlannedCivilianWorkStart(
+                    country, order.Unit, order.Cell, turns, cost));
             }
 
             foreach (var order in countryOrders.EngineerWork)
@@ -248,6 +261,31 @@ internal static class DevelopmentPlanner
 
     private static CivilianWorkKind WorkOf(WorldState state, CivilianTypeId type) =>
         state.Definition.CivilianTypes[type.Value].Work;
+
+    /// <summary>
+    /// What this civilian's work costs the treasury, charged when the order is
+    /// given rather than when it finishes.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only improving is paid for.</b> A search costs nothing — the owner is
+    /// explicit and the manual prices none either — so this returns zero for
+    /// every other kind of work rather than needing a branch at the call site.
+    /// <para>
+    /// The price is per <em>cell</em> and not per deposit: a hex carrying two
+    /// resources costs the same as one, which falls out for free because a cell
+    /// has a single development level.
+    /// </para>
+    /// </remarks>
+    private static long PriceOfImprovement(WorldState state, CivilianTypeId type, CellIndex cell)
+    {
+        if (WorkOf(state, type) != CivilianWorkKind.Improve ||
+            state.Definition.Improvement is not { } settings)
+        {
+            return 0;
+        }
+
+        return settings.GetCashCost(state.GetCellDevelopment(cell) + 1);
+    }
 
     /// <summary>
     /// Deposits on a cell that a country cannot see until it has searched. The

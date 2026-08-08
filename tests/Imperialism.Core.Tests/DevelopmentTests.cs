@@ -291,6 +291,142 @@ public sealed class DevelopmentTests
             new CivilianTypeDefinition(new CivilianTypeId(0), "Farmer", 0));
     }
 
+    /// <summary>
+    /// Each rung is its own bill. The owner's figures climb steeply — 100 to
+    /// open, 1,000 for the next, 3,000 for the last — so a Level III tile costs
+    /// thirty times what starting it did.
+    /// </summary>
+    [Fact]
+    public void EachRungIsChargedItsOwnPrice()
+    {
+        foreach (var (level, price) in new[] { (0, 100L), (1, 1000L), (2, 3000L) })
+        {
+            var state = CreateState(
+                improvementCost: ImprovementLadder,
+                cash: 10_000,
+                initialDevelopment: level == 0 ? null : [(1, level)]);
+            var farmer = Assert.Single(state.GetCivilians()).Id;
+
+            var begun = Assert.Single(
+                Resolve(state, Work(farmer, 1)).Events.OfType<CivilianWorkBegunEvent>());
+            Assert.Equal(price, begun.Paid);
+            Assert.Equal(10_000 - price, state.GetCash(new CountryId(0)));
+        }
+    }
+
+    [Fact]
+    public void AnImprovementIsRefusedForWantOfCash()
+    {
+        var state = CreateState(improvementCost: ImprovementLadder, cash: 99);
+        var farmer = Assert.Single(state.GetCivilians()).Id;
+
+        var refusal = Assert.Single(
+            Resolve(state, Work(farmer, 1)).Events.OfType<CivilianOrderRefusedEvent>());
+
+        Assert.Equal(CivilianOrderRefusal.NotEnoughCash, refusal.Reason);
+        Assert.Equal(99, state.GetCash(new CountryId(0)));
+        Assert.False(state.GetCivilian(farmer)!.IsBusy);
+    }
+
+    /// <summary>
+    /// **The price is per cell, not per deposit.** A hex carrying two resources
+    /// costs the same as one, which falls out for free because a cell has a
+    /// single development level.
+    /// </summary>
+    [Fact]
+    public void ATileCarryingTwoDepositsCostsTheSameAsOne()
+    {
+        var state = CreateState(
+            improvementCost: ImprovementLadder, cash: 10_000, twoDepositsOnCellOne: true);
+        var farmer = Assert.Single(state.GetCivilians()).Id;
+
+        var begun = Assert.Single(
+            Resolve(state, Work(farmer, 1)).Events.OfType<CivilianWorkBegunEvent>());
+
+        Assert.Equal(100, begun.Paid);
+        Assert.Equal(9900, state.GetCash(new CountryId(0)));
+    }
+
+    /// <summary>
+    /// Cash leaves when the order is given, not when the work finishes — the
+    /// manual's Done command exists for "when you lack the cash to pay for the
+    /// civilian's improvements", which is a decision made before ordering.
+    /// </summary>
+    [Fact]
+    public void CashIsSpentWhenTheOrderIsGivenAndNotRefunded()
+    {
+        var state = CreateState(improvementCost: ImprovementLadder, cash: 10_000);
+        var farmer = Assert.Single(state.GetCivilians()).Id;
+
+        _ = Resolve(state, Work(farmer, 1));
+        Assert.Equal(9900, state.GetCash(new CountryId(0)));
+
+        // The province falls before the job finishes, so nothing is raised —
+        // and nothing comes back either.
+        state.SetProvinceOwner(new ProvinceId(1), new CountryId(1));
+        var second = Resolve(state, TurnOrders.Empty(2));
+
+        Assert.Equal(
+            CivilianOrderRefusal.TargetNotYourTerritory,
+            Assert.Single(second.Events.OfType<CivilianOrderRefusedEvent>()).Reason);
+        Assert.Equal(0, state.GetCellDevelopment(new CellIndex(1)));
+        Assert.Equal(9900, state.GetCash(new CountryId(0)));
+    }
+
+    /// <summary>
+    /// A world that prices no improvement improves for free, which is how every
+    /// world behaved before civilians were charged and what a package older than
+    /// version 18 still means.
+    /// </summary>
+    [Fact]
+    public void AWorldWithNoImprovementSettingsImprovesFree()
+    {
+        var state = CreateState();
+        var farmer = Assert.Single(state.GetCivilians()).Id;
+
+        var begun = Assert.Single(
+            Resolve(state, Work(farmer, 1)).Events.OfType<CivilianWorkBegunEvent>());
+
+        Assert.Equal(0, begun.Paid);
+        Assert.Equal(0, state.GetCash(new CountryId(0)));
+    }
+
+    /// <summary>
+    /// A rung past the end of the ladder is free, the same way a short
+    /// technology ladder leaves the rungs above it ungated.
+    /// </summary>
+    [Fact]
+    public void ARungPastTheEndOfTheLadderIsFree()
+    {
+        var state = CreateState(
+            improvementCost: [0, 100], cash: 10_000, initialDevelopment: [(1, 2)]);
+        var farmer = Assert.Single(state.GetCivilians()).Id;
+
+        var begun = Assert.Single(
+            Resolve(state, Work(farmer, 1)).Events.OfType<CivilianWorkBegunEvent>());
+
+        Assert.Equal(0, begun.Paid);
+        Assert.Equal(10_000, state.GetCash(new CountryId(0)));
+    }
+
+    /// <summary>
+    /// **The gate governs building and never authoring.** A scenario may start a
+    /// tile at a level no treasury could have paid for, exactly as it may author
+    /// one past the technology ladder.
+    /// </summary>
+    [Fact]
+    public void AScenarioMayAuthorALevelNobodyCouldHaveAfforded()
+    {
+        var state = CreateState(
+            improvementCost: ImprovementLadder, cash: 0, initialDevelopment: [(1, 3)]);
+
+        Assert.Equal(3, state.GetCellDevelopment(new CellIndex(1)));
+        Assert.Equal(0, state.GetCash(new CountryId(0)));
+    }
+
+    /// <summary>The owner's ladder: 100 to open, 1,000 for the next, 3,000 for the last.</summary>
+    private static readonly long[] ImprovementLadder = [0, 100, 1000, 3000];
+
     private static TurnOrders Work(CivilianUnitId unit, int cell) => new(
     [
         new CountryTurnOrders(
@@ -328,7 +464,10 @@ public sealed class DevelopmentTests
         int workTurns = 1,
         bool withTerrainAttributes = true,
         (int Cell, int Level)[]? initialDevelopment = null,
-        InitialCivilian[]? civilians = null)
+        InitialCivilian[]? civilians = null,
+        long[]? improvementCost = null,
+        long cash = 0,
+        bool twoDepositsOnCellOne = false)
     {
         const int width = 5;
         var dimensions = new MapDimensions(width, 1);
@@ -343,7 +482,11 @@ public sealed class DevelopmentTests
                 index == 4
                     ? CellRegion.ForSeaZone(new SeaZoneId(0))
                     : CellRegion.ForProvince(new ProvinceId(index)),
-                index == 4 ? null : [new ResourceId(index == 3 ? Timber : Grain)],
+                index == 4
+                    ? null
+                    : index == 1 && twoDepositsOnCellOne
+                        ? [new ResourceId(Grain), new ResourceId(Timber)]
+                        : [new ResourceId(index == 3 ? Timber : Grain)],
                 index == 0 ? SettlementSiteKind.Urban : SettlementSiteKind.None);
         }
 
@@ -386,7 +529,8 @@ public sealed class DevelopmentTests
             [
                 new InitialCivilian(
                     new CountryId(0), new CivilianTypeId(civilianType), new CellIndex(0)),
-            ]);
+            ],
+            initialCash: cash == 0 ? null : [new InitialCash(new CountryId(0), cash)]);
 
         var definition = new WorldDefinition(
             map,
@@ -404,7 +548,8 @@ public sealed class DevelopmentTests
             [
                 new CivilianTypeDefinition(new CivilianTypeId(Farmer), "Farmer", workTurns),
                 new CivilianTypeDefinition(new CivilianTypeId(Forester), "Forester", workTurns),
-            ]);
+            ],
+            improvement: improvementCost is null ? null : new ImprovementSettings(improvementCost));
         return new WorldState(definition);
     }
 }

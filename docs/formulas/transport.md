@@ -3,7 +3,7 @@
 ## Summary
 
 Everything this project had built between the land and the warehouse was free.
-`Extraction` gathered and `Delivery` committed the lot; the soak gathered 16,548
+`Extraction` gathered and `Delivery` committed the lot; the soak gathered 16,240
 units over a hundred turns and every one arrived. The original does not work that
 way, and this is the first constraint in the middle of the chain.
 
@@ -181,16 +181,22 @@ and seven eaten. **With an empty warehouse**, the slider order decides everythin
 
 ```
                         workers  sick  carried/gathered  produced  capacity built
-unlimited (before)           84     7     16,548/16,548     3,101              —
-food first                   49     7      7,000/16,548         0               0
-materials first              42     0     15,673/16,548     1,386             672
+unlimited (before)           77     0     16,240/16,240     3,038              —
+food first                   49     7      7,000/16,240         7               0
+materials first              42     0     15,673/16,240     1,386             672
 ```
 
 Food first fills the network with grain, fruit and livestock; coal is at the back
-of the queue and never arrives, so the steel mill has nothing, so no railyard is
-ever affordable, so the network never grows. A century of comfortable stagnation.
-Materials first starves seven workers immediately and runs sick for twenty turns,
-then the mills run and the railyard grows the network.
+of the queue and almost never arrives, so the steel mill has nothing, so no
+railyard is ever affordable, so the network never grows. A century of comfortable
+stagnation. Materials first starves seven workers immediately and runs sick for
+twenty turns, then the mills run and the railyard grows the network.
+
+**Food first used to produce exactly nothing and now produces seven cycles**, an
+artefact of the work duration moving from 1 to 3: slower improvement means less
+grain per turn, which leaves a sliver of the network free for coal. Seven against
+1,386 is the same conclusion arrived at less tidily. **The zero that matters is
+still zero** — food first never affords a railyard, so its network never grows.
 
 ### And then the stockpile changed the answer
 
@@ -200,8 +206,8 @@ Give the same world twenty of each:
 
 ```
                         workers  sick  carried/gathered  produced  capacity built
-food first, stocked          49     0     16,513/16,548     1,372             805
-materials first, stocked     42     0     16,513/16,548     1,386             812
+food first, stocked          49     0     16,212/16,240     1,372             805
+materials first, stocked     42     0     16,212/16,240     1,386             812
 ```
 
 They converge. With something to build from, either ordering buys an adequate
@@ -219,7 +225,7 @@ document made before the stockpile existed, and it is the true one.
 **Did not survive:** *"a network below subsistence never recovers."* At four
 points a power with an empty warehouse the country is stuck for the century — 28
 workers, 14 permanently ill, nothing ever produced. With the stockpile it buys its
-way out on turn one and ends carrying 16,387 of 16,548 with nobody ill and 784
+way out on turn one and ends carrying 16,142 of 16,240 with nobody ill and 798
 points built. **The trap was the empty warehouse, not the small network**, and the
 claim is retracted rather than quietly softened.
 

@@ -72,6 +72,13 @@ public sealed class WorldContentDocument
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ConstructionContentSettings? Construction { get; set; }
 
+    /// <summary>
+    /// What raising a cell's development level costs, or absent where a civilian
+    /// improves for free — which is how every world behaved before version 18.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ImprovementContentSettings? Improvement { get; set; }
+
     public NamedContentDefinition[] Technologies { get; set; } = [];
 
     public NamedContentDefinition[] Countries { get; set; } = [];
@@ -314,6 +321,21 @@ public sealed class ConstructionContentSettings
     public long DepotCashCost { get; set; }
 
     public long PortCashCost { get; set; }
+}
+
+/// <summary>
+/// What a civilian's improvement costs, indexed by the level being reached —
+/// index 0 unused, so the original's is <c>[0, 100, 1000, 3000]</c>.
+/// </summary>
+/// <remarks>
+/// **Observed play, and tentative.** The manual implies the cost exists and
+/// prints no figure. Flat across deposits and per cell rather than per deposit;
+/// a rung past the end of the list is free. See
+/// <c>docs/formulas/development.md</c>.
+/// </remarks>
+public sealed class ImprovementContentSettings
+{
+    public long[] CashCostByDevelopmentLevel { get; set; } = [];
 }
 
 /// <summary>

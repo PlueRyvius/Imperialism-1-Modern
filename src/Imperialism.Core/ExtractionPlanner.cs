@@ -184,12 +184,28 @@ internal static class ExtractionPlanner
     /// </summary>
     /// <remarks>
     /// The capital is always both a connected depot and a connected port, so it
-    /// seeds unconditionally. A depot gathers only when rail carries its goods
-    /// to the capital, which is what the component test is for. A port needs no
-    /// railroad at all — its goods leave by water — so an owned port always
-    /// seeds. The two ways a port can lose that (the province downstream of a
-    /// river port falling, and an undisputed enemy fleet) are not modelled, so
-    /// no port is ever disconnected here.
+    /// seeds unconditionally. A port needs no railroad at all — its goods leave
+    /// by water — so an owned port always seeds. The two ways a port can lose
+    /// that (the province downstream of a river port falling, and an undisputed
+    /// enemy fleet) are not modelled, so no port is ever disconnected here.
+    ///
+    /// <para>
+    /// <b>A depot has two ways to be connected and the manual gives both.</b>
+    /// The obvious one is rail to the capital. The other is rail "to a tile with
+    /// a port that also contains a depot", from which "the commodities must pass
+    /// through the second depot to reach the port and then travel to the capital
+    /// by water" — so any rail component holding a port-and-depot hex is a
+    /// gateway, whether or not that component also reaches the capital.
+    /// </para>
+    /// <para>
+    /// Both structures are needed at the gateway and they do different jobs: the
+    /// port is the sea end and the depot is the rail end, the thing that can
+    /// accept goods arriving down a line. A port without one is connected for
+    /// itself and a dead end for everything behind it, which is the trap the
+    /// manual spells out — "the port itself is connected, but the future depots
+    /// constructed along your new railroad have no way to move their commodities
+    /// to the port."
+    /// </para>
     ///
     /// Rail cells that are not depots gather nothing. Track alone moves goods
     /// past a tile; a structure is what lifts them off it.
@@ -201,8 +217,8 @@ internal static class ExtractionPlanner
         int[] stamp,
         List<int> frontier)
     {
-        // Connection means a line to the capital, so a country without one has
-        // nothing for anything to connect to — ports included.
+        // Everything ends at the capital, by rail or by water, so a country
+        // without one has nothing for anything to connect to — ports included.
         var capital = state.GetCountryCapital(country);
         if (!capital.HasValue)
         {
@@ -223,8 +239,25 @@ internal static class ExtractionPlanner
         }
 
         var rail = state.GetRailConnectivity(country);
-        var capitalComponent = rail.GetComponentId(capital.Value);
-        if (!capitalComponent.HasValue)
+        var gateways = new HashSet<int>();
+        if (rail.GetComponentId(capital.Value) is { } capitalComponent)
+        {
+            gateways.Add(capitalComponent);
+        }
+
+        // A port that also carries a depot hands the whole line it sits on a
+        // route to the capital by sea.
+        foreach (var port in state.GetPorts())
+        {
+            if (state.HasDepot(port) &&
+                Owns(state, map, port, country) &&
+                rail.GetComponentId(port) is { } seaward)
+            {
+                gateways.Add(seaward);
+            }
+        }
+
+        if (gateways.Count == 0)
         {
             return;
         }
@@ -233,7 +266,8 @@ internal static class ExtractionPlanner
         {
             if (stamp[depot.Value] == pass ||
                 !Owns(state, map, depot, country) ||
-                rail.GetComponentId(depot) != capitalComponent)
+                rail.GetComponentId(depot) is not { } component ||
+                !gateways.Contains(component))
             {
                 continue;
             }

@@ -91,6 +91,11 @@ internal static class WorldContentMigrator
             MigrateVersionSixteenToSeventeen(document);
         }
 
+        if (document.FormatVersion == 17)
+        {
+            MigrateVersionSeventeenToEighteen(document);
+        }
+
         return document;
     }
 
@@ -758,6 +763,28 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 17;
+    }
+
+    /// <summary>
+    /// Version 18 charges a civilian for the work it does.
+    /// </summary>
+    /// <remarks>
+    /// A version 17 package prices no improvement, so it migrates to a world
+    /// where raising a tile is free — which is exactly how it behaved. The
+    /// prices cannot be invented: they are a fact about the 1997 economy rather
+    /// than a sensible default for any world, and a world whose civilians work
+    /// for nothing is a coherent world rather than a broken one.
+    /// </remarks>
+    private static void MigrateVersionSeventeenToEighteen(WorldContentDocument document)
+    {
+        if (document.Improvement is not null)
+        {
+            throw new ContentValidationException(
+                "formatVersion",
+                "Version 17 cannot price improvement.");
+        }
+
+        document.FormatVersion = 18;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

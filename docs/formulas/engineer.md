@@ -177,8 +177,8 @@ depots.
 
 ```
                      gathered  carried  wasted  grain/turn at 100  structures  treasuries
-Engineer idle          15,841   15,806      35                 42           0      42,000
-Engineer building      23,814   23,779      35                126          14      21,000
+Engineer idle          15,512   15,484      28                 42           0      42,000
+Engineer building      23,037   23,009      28                126          14      21,000
 ```
 
 **The reach is large.** Half again as much harvest over the century, and grain a
@@ -192,7 +192,7 @@ This run was written to confirm an expectation carried over from
 push the waste figure up until a railyard caught up, and that reach and capacity
 would visibly oppose each other.
 
-**They do not. Waste is 35 either way — it does not move at all.**
+**They do not. Waste is 28 either way — it does not move at all.**
 
 The reason is one `transport.md` already reports from the other side: 805 points
 of capacity over a century is absurd, and it is absurd because **the railyard is
@@ -256,10 +256,15 @@ falsification check above.
 - **Whether a depot really follows the rail gate**, and whether fertile hills and
   towns really take the gates assigned here. All three are inferences the corpus
   cannot separate from their alternatives.
-- **The port-needs-a-depot case.** The manual is explicit that a port far from
-  the capital needs a depot in the same tile or the depots along the new line
-  have no route. `ExtractionPlanner` already models a port as always connected,
-  so nothing here can express it; it wants the sea-route rules.
+- ~~**The port-needs-a-depot case**, which "wants the sea-route rules".~~
+  **Wrong, and retracted.** It wanted no such thing: blockade is not modelled and
+  "in general, a port is always connected" was already the simplification in
+  place, so the rule needed only a wider gateway test. A depot is connected when
+  its rail component holds the capital **or** any tile carrying both a port and a
+  depot. It is implemented, and it turned out to be a live bug rather than a
+  missing subsystem — six of the ten shipped scenarios author such a hex, and
+  `s9` and `s12` each gained thirty collecting cells when it landed. See
+  [extraction.md](extraction.md).
 - **Losing a connection** — a province falling along the line, the province
   downstream of a river port, an undisputed enemy fleet. All want conflict.
 - **Whether a civilian's work costs cash generally.** The manual implies it does;

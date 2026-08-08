@@ -1159,6 +1159,85 @@ public sealed class LegacyWorldConverterTests
         .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>
+    /// **The port-and-depot rule on shipped data.** Six of the ten scenarios
+    /// author at least one hex carrying both, and every one of them is a gateway
+    /// that lets a rail line reach the capital by sea.
+    /// </summary>
+    /// <remarks>
+    /// This engine used to connect a depot only when its rail component reached
+    /// the capital, so every line hanging off a coastal port was stranded. The
+    /// correction is worth its own measurement because it is large — <c>s9</c>
+    /// and <c>s12</c> each gain thirty collecting cells, a fifth more than they
+    /// had — and because a rule this load-bearing should not be trusted to a
+    /// synthetic four-cell fixture alone.
+    ///
+    /// <code>
+    ///        port+depot  cells before  after
+    ///  s1            12           463    471
+    ///  s3             3           235    239
+    ///  s9             4           126    156
+    ///  s12            4           124    154
+    ///  s13, s14       1           105    109
+    /// </code>
+    ///
+    /// <c>s5</c>, <c>s10</c>, <c>s11</c> and <c>s15</c> author no such hex and
+    /// are unchanged, which is the control this measurement needs.
+    /// </remarks>
+    [Fact]
+    public void TheCorpusAuthorsPortAndDepotHexesAndTheyConnectTheLinesBehindThem()
+    {
+        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+
+        var expected = new Dictionary<string, (int Gateways, int CollectedCells)>(StringComparer.Ordinal)
+        {
+            ["s1"] = (12, 471),
+            ["s3"] = (3, 239),
+            ["s9"] = (4, 156),
+            ["s12"] = (4, 154),
+            ["s13"] = (1, 109),
+            ["s14"] = (1, 109),
+            ["s5"] = (0, 34),
+            ["s10"] = (0, 38),
+            ["s11"] = (0, 41),
+            ["s15"] = (0, 42),
+        };
+        var checkedScenarios = 0;
+
+        foreach (var mapPath in Directory.GetFiles(directory, "*.map").OrderBy(static path => path))
+        {
+            var key = Path.GetFileNameWithoutExtension(mapPath);
+            var scenarioPath = Path.Combine(directory, $"{key}.scn");
+            if (key == "s0" || !File.Exists(scenarioPath) || !expected.TryGetValue(key, out var want))
+            {
+                continue;
+            }
+
+            var document = LegacyWorldConverter.Convert(
+                LegacyMapCodec.Decode(File.ReadAllBytes(mapPath), MapFormatProfile.Imperialism1),
+                LegacyScenarioCodec.Decode(File.ReadAllBytes(scenarioPath)),
+                null,
+                $"port-depot-{key}").Document!;
+            var scenario = document.Scenarios[0];
+            var gateways = scenario.Ports.Intersect(scenario.Depots).Count();
+
+            var world = WorldContentCompiler.Compile(document).World;
+            var collectedCells = TurnResolver
+                .Resolve(new WorldState(world), TurnOrders.Empty(world.Countries.Count), 0)
+                .Events.OfType<ResourceExtractedEvent>()
+                .Sum(static item => item.CollectedCellCount);
+
+            Assert.Equal(want, (gateways, collectedCells));
+            checkedScenarios++;
+        }
+
+        Assert.Equal(10, checkedScenarios);
+    }
+
+    /// <summary>
     /// **The check the rail terrain gates rest on**, and the strongest
     /// corroboration in the project so far. Every end of every railed link the
     /// corpus authors is compared against what the owning power's technologies
@@ -1650,6 +1729,66 @@ public sealed class LegacyWorldConverterTests
             byKey.Where(static item =>
                 item.Key is not ("civilian.prospector" or "civilian.engineer")),
             item => Assert.Equal(CivilianWorkKind.Improve, item.Value));
+    }
+
+    /// <summary>
+    /// **Three turns, from observed play.** This used to be 1 and the one number
+    /// in the Development phase with nothing behind it; moving it moved every
+    /// table the soak publishes, so it is pinned here to make a change to it a
+    /// deliberate act.
+    /// </summary>
+    /// <remarks>
+    /// The observation is of an iron mine. Giving the Prospector and the
+    /// Engineer the same duration is extrapolation, and this test is where that
+    /// would be relaxed per type. See <c>docs/formulas/development.md</c>.
+    /// </remarks>
+    [Fact]
+    public void ACiviliansWorkTakesThreeTurns()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 1815),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "work-turns-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.All(
+            result.Document!.CivilianTypes,
+            static item => Assert.Equal(3, item.WorkTurns));
+    }
+
+    /// <summary>
+    /// What an improvement costs, indexed by the level being reached. Index 0 is
+    /// never used — nothing is improved *to* level zero — and the climb is steep
+    /// enough that a Level III tile costs thirty times what opening it did.
+    /// </summary>
+    /// <remarks>
+    /// The owner's recollection from play; the manual implies the cost exists
+    /// and prints no figure. Pinned so that changing it is a deliberate act.
+    /// </remarks>
+    [Fact]
+    public void ImprovementIsPricedPerRung()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 1815),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "improvement-price-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Equal(
+            [0, 100, 1000, 3000],
+            result.Document!.Improvement!.CashCostByDevelopmentLevel);
     }
 
     /// <summary>

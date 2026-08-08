@@ -96,6 +96,11 @@ corpus cannot separate from their alternatives; both are flagged in
 `formulas/engineer.md`. The Engineer's three construction prices are emitted too,
 and they are the weakest numbers this importer carries.
 
+A civilian's work is priced in both currencies. `workTurns` is **3**, from
+observed play, where it used to be 1 and a flagged guess; `improvement`
+charges 100, 1,000 and 3,000 for the three rungs, from the same source.
+Prospecting is free. See `formulas/development.md`.
+
 Oil remains unreachable in imported content: no scenario grants Oil Drilling and
 there is no research system, so swamp, desert and tundra can never be prospected.
 That is the manual's own rule rather than a gap. See `formulas/technology.md` and

@@ -52,3 +52,61 @@ public static class EngineerConstructions
 
     public static int Count => All.Count;
 }
+
+/// <summary>
+/// What raising a tile's development level costs its owner in cash.
+/// </summary>
+/// <remarks>
+/// The manual never prints a figure and implies the cost exists: a player might
+/// tell a unit to do nothing "when you lack the cash to pay for the civilian's
+/// improvements." <b>The numbers are the owner's recollection from play</b> —
+/// 100 to reach Level I, 1,000 for Level II, 3,000 for Level III — which the
+/// scoreboard rates good for shape and poor for exact values.
+/// <para>
+/// Indexed by the level being <em>reached</em>, so index 0 is unused and entry
+/// <c>n</c> prices rung <c>n</c>. That runs parallel to
+/// <see cref="ResourceDefinition.YieldByDevelopmentLevel"/> and
+/// <see cref="ResourceDefinition.TechnologyByDevelopmentLevel"/>, and all three
+/// then answer "what does rung <c>n</c> take?" in the same shape.
+/// </para>
+/// <para>
+/// <b>Flat across deposits, and per cell rather than per deposit.</b> A hex
+/// carrying two resources costs the same as one, which is exactly how
+/// <see cref="WorldState.GetCellDevelopment"/> already models it. A world that
+/// declares nothing improves for free, which is how every world behaved before
+/// this existed. See <c>docs/formulas/development.md</c>.
+/// </para>
+/// </remarks>
+public sealed record ImprovementSettings
+{
+    private readonly IReadOnlyList<long> _cashCostByDevelopmentLevel;
+
+    public ImprovementSettings(IEnumerable<long> cashCostByDevelopmentLevel)
+    {
+        ArgumentNullException.ThrowIfNull(cashCostByDevelopmentLevel);
+        var costs = cashCostByDevelopmentLevel.ToArray();
+        if (costs.Any(static cost => cost < 0))
+        {
+            throw new ArgumentException(
+                "An improvement cannot cost a negative amount.",
+                nameof(cashCostByDevelopmentLevel));
+        }
+
+        _cashCostByDevelopmentLevel = Array.AsReadOnly(costs);
+    }
+
+    /// <summary>
+    /// What it costs to raise a cell to <paramref name="level"/>. A rung past
+    /// the end of the list is free, the same way a short technology ladder
+    /// leaves the rungs above it ungated.
+    /// </summary>
+    public long GetCashCost(int level)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(level);
+        return level < _cashCostByDevelopmentLevel.Count
+            ? _cashCostByDevelopmentLevel[level]
+            : 0;
+    }
+
+    public IReadOnlyList<long> CashCostByDevelopmentLevel => _cashCostByDevelopmentLevel;
+}

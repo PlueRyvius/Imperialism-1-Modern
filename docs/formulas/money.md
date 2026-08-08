@@ -92,6 +92,13 @@ So a number is invented — **5,000**, in
 spread rather than derived from it, and sized so that a power can afford a couple
 of structures and not a network. **Do not cite it as evidence for anything.**
 
+**It is now load-bearing twice over.** It was already what decides whether an
+Engineer can build a first depot; with improvement priced it also decides how far
+a fresh start can develop before it has to earn something. 5,000 buys exactly
+five Level II improvements, which the soak spends inside thirty-five turns. A
+number labelled "do not cite" when nothing read it now sets the pace of the whole
+early game.
+
 Zero was the alternative and is worse in the familiar way: with no treasury, an
 Engineer can never build the first depot, so no new ground is ever reached, and
 the slice that motivated the treasury does nothing.
@@ -112,14 +119,12 @@ Recorded so the next slice does not have to rediscover it.
 - **Technology is bought with cash** on the Investment screen. A treasury makes
   that newly possible and it still wants the prerequisite graph and arrival
   dates; see [technology.md](technology.md).
-- **Civilian units cost cash, and so does their work.** The manual has an
-  explicit case: a player might use the Done command "when you lack the cash to
-  pay for the civilian's improvements." So a Farmer improving a tile is *also* a
-  cash cost, not just an Engineer building one. **That is a finding, and it is
-  deliberately not implemented here** — pricing every civilian's work would move
-  every number in [soak.md](soak.md) and belongs with the University and
-  recruitment rather than with construction. It is recorded so it is not later
-  mistaken for a gap nobody noticed.
+- ~~**Civilian units cost cash, and so does their work** — recorded and
+  deliberately not implemented.~~ **The work half is implemented now.** The
+  owner supplies the prices — 100, 1,000 and 3,000 for the three rungs — and
+  every civilian's improvement is charged for while prospecting stays free. See
+  [development.md](development.md). **Building the unit itself is still not
+  modelled**: that wants the University, and experts and paper as well as cash.
 - **The University and recruitment** price experts and civilians in cash and
   paper.
 

@@ -230,15 +230,22 @@ differ only in whether the Prospectors are ever told to look.
 
 ```
                     searched  found  mines  gathered  levels at 100
-Prospectors idle           0      0      0    19,138            196
-Prospectors working       28     14     14    20,468            210
+Prospectors idle           0      0      0    16,240            168
+Prospectors working       28     14     14    17,486            182
 ```
 
-First search on turn 2, first mine on turn 4. The workforce, the grain and the
-sickness are **identical** in both runs — 49 workers rising to 119, sickness
-returning on turn 14 — which is the point: the discovery chain is cleanly
-separable from the food chain, and the whole of its effect is 14 mines and 1,330
-coal that would otherwise have sat in the ground for a century.
+First search on turn 4, first mine on turn 8. The workforce, the grain and the
+sickness are **identical** in both runs — 49 workers rising to 77, and nobody
+ill after turn 4 — which is the point: the discovery chain is cleanly separable
+from the food chain, and the whole of its effect is 14 mines and 1,246 coal that
+would otherwise have sat in the ground for a century.
+
+**These figures were stale and are now re-run.** They were published against a
+119-worker baseline that the technology gates had already invalidated, and the
+work duration has since moved from 1 to 3 as well. Neither recovery touches
+anything this document argues: the searched, found and mines columns are
+unchanged at 28, 14 and 14, because how long a search takes and what it costs to
+mine afterwards do not change what is buried.
 
 The control's other number is the useful one: **700 refusals**, one per power per
 turn, every one a Miner turned back from hills its country could not see.

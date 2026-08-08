@@ -155,7 +155,12 @@ public static class TurnResolver
                         PlannedCellProspected entry => new CellProspectedEvent(
                             turnNumber, entry.Country, entry.Unit, entry.Cell, entry.Revealed),
                         PlannedCivilianWorkStart entry => new CivilianWorkBegunEvent(
-                            turnNumber, entry.Country, entry.Unit, entry.Cell, entry.TurnsRequired),
+                            turnNumber,
+                            entry.Country,
+                            entry.Unit,
+                            entry.Cell,
+                            entry.TurnsRequired,
+                            entry.Paid),
                         PlannedConstructionStart entry => new ConstructionBegunEvent(
                             turnNumber,
                             entry.Country,
