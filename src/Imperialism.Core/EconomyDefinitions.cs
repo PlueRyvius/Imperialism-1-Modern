@@ -9,7 +9,11 @@ public enum CommodityCategory : byte
 
 public sealed record CommodityDefinition
 {
-    public CommodityDefinition(CommodityId id, string name, CommodityCategory category)
+    public CommodityDefinition(
+        CommodityId id,
+        string name,
+        CommodityCategory category,
+        long? cashPerUnit = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (!Enum.IsDefined(category))
@@ -17,9 +21,17 @@ public sealed record CommodityDefinition
             throw new ArgumentOutOfRangeException(nameof(category));
         }
 
+        if (cashPerUnit <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(cashPerUnit),
+                "A commodity worth nothing in cash is one that reaches the warehouse instead.");
+        }
+
         Id = id;
         Name = name;
         Category = category;
+        CashPerUnit = cashPerUnit;
     }
 
     public CommodityId Id { get; }
@@ -27,6 +39,27 @@ public sealed record CommodityDefinition
     public string Name { get; }
 
     public CommodityCategory Category { get; }
+
+    /// <summary>
+    /// What one unit is worth when the network carries it, or null for the
+    /// ordinary case of a commodity that reaches the warehouse.
+    /// </summary>
+    /// <remarks>
+    /// Gold and gems are the manual's only two: "gold and gems never reach the
+    /// industry warehouse and they cannot be traded. Instead, all gems and gold
+    /// transported convert immediately into cash." It prices both outright —
+    /// gold at $200 a unit, gems at $500 — which makes this one of the few
+    /// numbers here that is transcribed rather than chosen.
+    /// <para>
+    /// The rate lives on the commodity rather than on the deposit because the
+    /// manual attaches it to the <em>transporting</em>, not to the mining: it is
+    /// a property of the goods on the cart. That is also why the conversion
+    /// happens in <see cref="TransportPlanner"/> and why gold still costs
+    /// capacity to move — which is what makes carrying it a real choice against
+    /// food and materials.
+    /// </para>
+    /// </remarks>
+    public long? CashPerUnit { get; }
 }
 
 /// <summary>A technology a country either knows or does not.</summary>

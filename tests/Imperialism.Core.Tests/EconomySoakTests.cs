@@ -67,6 +67,7 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     private const int Miner = 3;
 
     private const int Prospector = 4;
+    private const int Engineer = 5;
 
     /// <summary>Farmers seeded per power. The original builds them; this fixture cannot.</summary>
     private const int FarmersPerPower = 3;
@@ -86,6 +87,18 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     /// nothing, and a run in which every search succeeds would not be the game.
     /// </summary>
     private const int HiddenMineralColumns = 4;
+
+    /// <summary>
+    /// Columns appended when the Engineer variant is asked for: six grain tiles
+    /// on railed ground with <b>no depot anywhere near them</b>, so every one is
+    /// stranded until an Engineer builds one. They sit past the last base depot's
+    /// reach on purpose — the point of the run is what happens when the network
+    /// starts reaching further.
+    /// </summary>
+    private const int EngineerColumns = 6;
+
+    /// <summary>Where the Engineer builds, in order. Each depot reaches one step either side.</summary>
+    private static readonly int[] DepotSites = [23, 26];
 
     /// <summary>The guessed work duration, spelled out so the run's shape is traceable to it.</summary>
     private const int CivilianWorkTurns = 1;
@@ -391,6 +404,83 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// **What the Engineer costs the network.** Two runs of the same world, one
+    /// where the Engineer stands still and one where it walks out past the last
+    /// depot and builds two more.
+    /// </summary>
+    /// <remarks>
+    /// The fixture's last six columns are grain on railed ground with no depot
+    /// near them, so they are stranded until an Engineer builds one. Each depot
+    /// reaches one step either side, and the treasury covers exactly two of them.
+    /// <para>
+    /// <b>The reach is real and large.</b> Two depots a power take the harvest
+    /// from 15,841 to 23,814 over the century, and grain from 42 a turn to 126.
+    /// Nothing but an Engineer can do that: every other civilian raises what a
+    /// tile yields, and this raises how much of the map is a tile at all.
+    /// </para>
+    /// <para>
+    /// <b>The prediction this run was written to confirm is wrong, and is
+    /// retracted rather than softened.</b> The expectation — carried into this
+    /// slice from <c>docs/formulas/transport.md</c> — was that gathering more
+    /// without carrying more would push the waste figure up until a railyard
+    /// caught up. It does not move at all: 35 either way. The railyard outruns
+    /// the Engineer easily, which is the same "805 points of capacity is absurd"
+    /// that <c>transport.md</c> already reports, seen from the other side. <b>The
+    /// two halves of the Engineer's job do not in fact pull against each other
+    /// here</b>, and they will not until something else competes for lumber and
+    /// steel.
+    /// </para>
+    /// <para>
+    /// <b>Reported, not asserted into a target.</b> What is asserted is that the
+    /// two runs genuinely differ, that the new depots lit up ground that was
+    /// stranded, that reaching further cost the treasury, and that the waste
+    /// figure did <em>not</em> rise. See <c>docs/formulas/engineer.md</c>.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void AnEngineerReachesFurtherThanTheNetworkCanCarry()
+    {
+        var idle = CreateWorld(
+            withTransportLimit: true, startingTransportCapacity: 10, startingStock: 20,
+            withEngineer: true);
+        var idleLog = Run(idle, orderPolicy: FoodFirstTransportPolicy, out var standing);
+
+        var extending = CreateWorld(
+            withTransportLimit: true, startingTransportCapacity: 10, startingStock: 20,
+            withEngineer: true);
+        var extendingLog = Run(extending, orderPolicy: EngineeringTransportPolicy, out var building);
+
+        output.WriteLine("=== Engineer idle ===");
+        output.WriteLine(idleLog);
+        output.WriteLine("=== Engineer building ===");
+        output.WriteLine(extendingLog);
+
+        // The control has to be a control. An Engineer given no orders builds
+        // nothing and spends nothing.
+        Assert.Equal(0, standing.Constructed);
+        Assert.Equal(Powers * 6000, standing.FinalCash);
+
+        // Two depots a power, and the treasury paid for them.
+        Assert.Equal(Powers * 2, building.Constructed);
+        Assert.True(
+            building.FinalCash < standing.FinalCash,
+            $"Reaching further cost nothing: {building.FinalCash} against {standing.FinalCash}.");
+
+        // And the reach is real: ground nothing gathered is gathered now.
+        Assert.True(
+            building.Gathered > standing.Gathered,
+            $"Extending the network gathered no more: {building.Gathered} against {standing.Gathered}.");
+
+        // The retracted prediction. Half again as much harvest and not one more
+        // unit left on the ground, because the railyard is unopposed in this
+        // fixture and grows faster than the Engineer reaches. If something ever
+        // competes for lumber and steel, this is the assertion that will move.
+        Assert.True(
+            building.Wasted <= standing.Wasted,
+            $"Waste rose after all: {building.Wasted} against {standing.Wasted}.");
+    }
+
+    /// <summary>
     /// A network under what its workforce eats costs that workforce on the first
     /// turn, whatever is in the warehouse.
     /// </summary>
@@ -565,7 +655,8 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         long Prospected, long Revealed, long MinesOpened, long DiscoveryRefusals,
         int? FirstProspected, int? FirstMineOpened,
         long KnowledgeRefusals, long TopRungs, int? FirstTopRung,
-        long Carried, long Wasted, long CapacityBuilt, long FinalCapacity);
+        long Carried, long Wasted, long CapacityBuilt, long FinalCapacity,
+        long Constructed, long FinalCash);
 
     /// <summary>
     /// Makes the comforts a recruit costs and then recruits. A fixture, not an
@@ -769,6 +860,52 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         state.Definition.CivilianTypes[type.Value].Work == CivilianWorkKind.Prospect;
 
     /// <summary>
+    /// <see cref="FoodFirstTransportPolicy"/> plus an Engineer walking out past
+    /// the end of the depots and building more. A fixture, not an AI.
+    /// </summary>
+    /// <remarks>
+    /// It works one site at a time and in a fixed order — deploy, then build,
+    /// then move on — which is the simplest thing that extends a network. The
+    /// treasury runs out after the second depot, which is the point: the
+    /// Engineer stops and the run shows what the reach it bought is worth.
+    /// </remarks>
+    private static CountryTurnOrders EngineeringTransportPolicy(WorldState state, CountryId country)
+    {
+        var transporting = Transporting(state, country, materialsFirst: false);
+        var width = state.Definition.Map.Dimensions.Width;
+        var engineer = state.GetCivilians(country)
+            .FirstOrDefault(item =>
+                !item.IsBusy &&
+                state.Definition.CivilianTypes[item.Type.Value].Work == CivilianWorkKind.Construct);
+        var site = DepotSites
+            .Select(column => new CellIndex((country.Value * width) + column))
+            .Where(cell => !state.HasDepot(cell))
+            .Select(static cell => (CellIndex?)cell)
+            .FirstOrDefault();
+        if (engineer is null || site is not { } target)
+        {
+            return transporting;
+        }
+
+        return new CountryTurnOrders(
+            country,
+            transporting.Production,
+            recruitWorkers: transporting.RecruitWorkers,
+
+            // The Engineer builds from where it stands, so reaching the site and
+            // building on it are two turns rather than one.
+            deployments: engineer.Cell == target
+                ? null
+                : [new CivilianDeployOrder(engineer.Id, target)],
+            civilianWork: transporting.CivilianWork,
+            transport: transporting.Transport,
+            buildTransportCapacity: transporting.BuildTransportCapacity,
+            engineerWork: engineer.Cell == target
+                ? [new EngineerOrder(engineer.Id, target, EngineerConstruction.Depot)]
+                : null);
+    }
+
+    /// <summary>
     /// A stand-in for a player, and **not an AI and not a finding**. It exists
     /// so the soak exercises production and construction at all; every choice
     /// in it is arbitrary and nothing downstream should cite it.
@@ -828,7 +965,7 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         int? firstProspected = null, firstMineOpened = null;
         long knowledgeRefusals = 0, topRungs = 0;
         int? firstTopRung = null;
-        long carried = 0, wasted = 0, capacityBuilt = 0;
+        long carried = 0, wasted = 0, capacityBuilt = 0, constructed = 0;
         var hills = Enumerable.Range(0, state.Definition.Map.Dimensions.CellCount)
             .Select(static index => new CellIndex(index))
             .Where(cell => state.Definition.Map
@@ -893,6 +1030,7 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 .Sum(item => item.Wasted.Sum(q => q.Quantity));
             capacityBuilt += resolution.Events.OfType<TransportCapacityBuiltEvent>()
                 .Sum(item => item.ToCapacity - item.FromCapacity);
+            constructed += resolution.Events.OfType<ConstructionCompletedEvent>().Count();
             eaten += resolution.Events.OfType<WorkersFedEvent>()
                 .Sum(item => item.Eaten.Sum(q => q.Quantity));
             delivered += resolution.Events.OfType<CommodityDeliveredEvent>().Count();
@@ -986,7 +1124,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             firstProspected, firstMineOpened,
             knowledgeRefusals, topRungs, firstTopRung,
             carried, wasted, capacityBuilt,
-            Enumerable.Range(0, Powers).Sum(index => state.GetTransportCapacity(new CountryId(index))));
+            Enumerable.Range(0, Powers).Sum(index => state.GetTransportCapacity(new CountryId(index))),
+            constructed,
+            Enumerable.Range(0, Powers).Sum(index => state.GetCash(new CountryId(index))));
         report.AppendLine(
             $"gathered {gathered}, eaten {eaten}, delivered {delivered}, " +
             $"produced {produced} cycles, built {built} times, " +
@@ -1012,6 +1152,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         report.AppendLine(
             $"carried {carried} of {gathered} gathered, wasted {wasted}; " +
             $"built {capacityBuilt} points of capacity");
+        report.AppendLine(
+            $"{constructed} structures built by Engineers; " +
+            $"treasuries hold {Enumerable.Range(0, Powers).Sum(index => state.GetCash(new CountryId(index)))}");
         return report.ToString();
 
         static string Or(int? turn) => turn?.ToString() ?? "never";
@@ -1128,7 +1271,8 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         bool withHiddenMinerals = false,
         bool withTransportLimit = false,
         long startingTransportCapacity = 0,
-        long startingStock = 0)
+        long startingStock = 0,
+        bool withEngineer = false)
     {
         // Each power gets a row of 22 cells: a capital at column 0, then a
         // repeating deposit / depot / deposit run. A depot reaches one step, so
@@ -1139,7 +1283,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         // editing these, so the two published runs above are byte for byte the
         // world they were reported against.
         const int baseWidth = 22;
-        var width = withHiddenMinerals ? baseWidth + HiddenMineralColumns : baseWidth;
+        var width = baseWidth +
+            (withHiddenMinerals ? HiddenMineralColumns : 0) +
+            (withEngineer ? EngineerColumns : 0);
         var dimensions = new MapDimensions(width, Powers);
 
         // Two or three of each resource, which is what a normal start looks
@@ -1171,14 +1317,22 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 provinces.Add(new ProvinceDefinition(new ProvinceId(index), $"P{power}-{column}"));
                 owners.Add(new CountryId(power));
 
-                var hidden = column >= baseWidth;
+                var hidden = withHiddenMinerals && column >= baseWidth;
+                var beyondTheDepots = withEngineer && column >= baseWidth;
                 var isCapital = column == 0;
                 var isDepot = hidden
                     ? column == baseWidth + 1
-                    : !isCapital && column % 3 == 2;
+                    : !isCapital && !beyondTheDepots && column % 3 == 2;
 
                 ResourceId[] deposits = [];
-                if (hidden)
+                if (beyondTheDepots)
+                {
+                    // Grain on railed ground that nothing gathers. An Engineer
+                    // is the only thing in the engine that can change that.
+                    deposits = [new ResourceId(Grain)];
+                    development.Add(new InitialCellDevelopment(cell, 1));
+                }
+                else if (hidden)
                 {
                     // Undeveloped, so it yields nothing until a Miner opens it —
                     // and unsearched, so no Miner may go near it. The last
@@ -1234,6 +1388,12 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 civilians.Add(new InitialCivilian(
                     new CountryId(power), new CivilianTypeId(Miner), new CellIndex(power * width)));
             }
+
+            if (withEngineer)
+            {
+                civilians.Add(new InitialCivilian(
+                    new CountryId(power), new CivilianTypeId(Engineer), new CellIndex(power * width)));
+            }
         }
 
         var map = new MapDefinition(
@@ -1255,13 +1415,22 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             // being farmland. Hills are the only ground here that hides
             // anything, and they need no technology, matching the manual's
             // barren hills and mountains.
+            //
+            // Both carry rail with no technology behind it. The terrain gates
+            // are a rule of their own and EngineerTests covers them; making this
+            // fixture fight them too would only obscure what it is for.
             [
-                new TerrainDefinition(new TerrainId(Farmland), "Farmland", isImprovable: true),
+                new TerrainDefinition(
+                    new TerrainId(Farmland),
+                    "Farmland",
+                    isImprovable: true,
+                    rail: RailRule.Unrestricted),
                 new TerrainDefinition(
                     new TerrainId(BarrenHills),
                     "Barren Hills",
                     isImprovable: true,
-                    prospecting: ProspectingRule.Unrestricted),
+                    prospecting: ProspectingRule.Unrestricted,
+                    rail: RailRule.Unrestricted),
             ]);
 
         var scenario = new ScenarioDefinition(
@@ -1347,6 +1516,7 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 ],
                 new WorkforceDefault(untrained: 4, trained: 2, expert: 1),
                 transportCapacity: withTransportLimit ? startingTransportCapacity : null,
+                cash: withEngineer ? 6000 : null,
 
                 // The manual's initial stockpile of lumber and steel. Without
                 // one a starved network cannot buy the railyard that would
@@ -1380,6 +1550,11 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                     "Prospector",
                     CivilianWorkTurns,
                     CivilianWorkKind.Prospect),
+                new CivilianTypeDefinition(
+                    new CivilianTypeId(Engineer),
+                    "Engineer",
+                    CivilianWorkTurns,
+                    CivilianWorkKind.Construct),
             ],
             transport: withTransportLimit
                 ? new TransportSettings(
@@ -1388,7 +1563,12 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                         new CommodityQuantity(new CommodityId(Steel), 1),
                     ],
                     labourPerCapacityPoint: 2)
-                : null));
+                : null,
+
+            // Priced so that a treasury of 6,000 buys the two depots this run
+            // needs and no more. Neither number is evidence; see
+            // docs/formulas/engineer.md.
+            construction: withEngineer ? new ConstructionSettings(500, 1500, 2000) : null));
     }
 
     private static ProductionRecipeDefinition Recipe(

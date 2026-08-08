@@ -15,6 +15,7 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<InitialCivilian> _initialCivilians;
     private readonly IReadOnlyList<CountryId> _defaultStartCountries;
     private readonly IReadOnlyList<InitialTransportCapacity> _initialTransportCapacity;
+    private readonly IReadOnlyList<InitialCash> _initialCash;
 
     public ScenarioDefinition(
         string name,
@@ -31,7 +32,8 @@ public sealed class ScenarioDefinition
         IEnumerable<InitialWorkforce>? initialWorkforce = null,
         IEnumerable<CountryId>? defaultStartCountries = null,
         IEnumerable<InitialCivilian>? initialCivilians = null,
-        IEnumerable<InitialTransportCapacity>? initialTransportCapacity = null)
+        IEnumerable<InitialTransportCapacity>? initialTransportCapacity = null,
+        IEnumerable<InitialCash>? initialCash = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
@@ -74,6 +76,14 @@ public sealed class ScenarioDefinition
             throw new ArgumentException(
                 "Initial transport capacity cannot be negative.",
                 nameof(initialTransportCapacity));
+        }
+
+        var cashArray = initialCash?.ToArray() ?? [];
+        if (cashArray.Select(static item => item.Country).Distinct().Count() != cashArray.Length)
+        {
+            throw new ArgumentException(
+                "A country cannot have more than one initial treasury.",
+                nameof(initialCash));
         }
 
         if (developmentArray.Select(static item => item.Cell).Distinct().Count() != developmentArray.Length)
@@ -144,6 +154,7 @@ public sealed class ScenarioDefinition
         _initialDepots = Array.AsReadOnly(depotArray);
         _initialWorkforce = Array.AsReadOnly(workforceArray);
         _initialTransportCapacity = Array.AsReadOnly(transportArray);
+        _initialCash = Array.AsReadOnly(cashArray);
 
         // Civilians are deliberately not made unique by cell. The original
         // stacks them freely — `s1` gives one power two Miners — and nothing in
@@ -194,6 +205,13 @@ public sealed class ScenarioDefinition
     /// </summary>
     public IReadOnlyList<InitialTransportCapacity> InitialTransportCapacity =>
         _initialTransportCapacity;
+
+    /// <summary>
+    /// What each country's treasury holds at the start: the 1997 <c>cash</c>
+    /// record, which a mission authors per power and a skirmish leaves to the
+    /// engine.
+    /// </summary>
+    public IReadOnlyList<InitialCash> InitialCash => _initialCash;
 
     /// <summary>
     /// Civilians on the map at the start, in the order they will be issued ids.

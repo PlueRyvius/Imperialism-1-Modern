@@ -65,6 +65,13 @@ public sealed class WorldContentDocument
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public TransportContentSettings? Transport { get; set; }
 
+    /// <summary>
+    /// What an Engineer's constructions cost, or absent where the world has no
+    /// construction — which is how every world behaved before version 17.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ConstructionContentSettings? Construction { get; set; }
+
     public NamedContentDefinition[] Technologies { get; set; } = [];
 
     public NamedContentDefinition[] Countries { get; set; } = [];
@@ -121,6 +128,9 @@ public sealed class ScenarioContentDocument
     /// <summary>What each country's network can carry at the start: the 1997 `tran` record.</summary>
     public TransportCapacityContent[] TransportCapacity { get; set; } = [];
 
+    /// <summary>What each country's treasury holds at the start: the 1997 `cash` record.</summary>
+    public CountryCashContent[] Cash { get; set; } = [];
+
     /// <summary>Civilians on the map at the start, in the order they take ids.</summary>
     public CivilianContent[] Civilians { get; set; } = [];
 
@@ -173,6 +183,14 @@ public sealed class StartingDefaultsContent
     /// a power starts with stockpiles of lumber and steel; how much is a guess.
     /// </summary>
     public CommodityQuantityContent[] Inventory { get; set; } = [];
+
+    /// <summary>
+    /// What a listed country's treasury holds on turn one. **A guess** — the
+    /// manual attests the treasury and never its size, and the five scenarios
+    /// carrying a <c>cash</c> record author 1,500 to 15,000 apiece.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Cash { get; set; }
 }
 
 public sealed class FacilityCapacityDefaultContent
@@ -228,6 +246,13 @@ public sealed class TransportCapacityContent
     public long Capacity { get; set; }
 }
 
+public sealed class CountryCashContent
+{
+    public string Country { get; set; } = string.Empty;
+
+    public long Amount { get; set; }
+}
+
 /// <summary>
 /// A terrain type and what a civilian may do to it. Three of the original's —
 /// dry plains, horse ranch and scrub forest — yield a commodity and admit no
@@ -248,6 +273,47 @@ public sealed class TerrainContentDefinition
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ProspectingContent? Prospecting { get; set; }
+
+    /// <summary>
+    /// On what terms an Engineer may lay rail here and build a depot. Absent
+    /// means it never can, which is ocean's answer and every terrain's answer in
+    /// a world with no construction.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RailContent? Rail { get; set; }
+}
+
+/// <summary>
+/// Terms on which rail can cross a terrain. Present-but-empty is meaningful and
+/// is how a world writes ground that anyone may build on from turn one.
+/// </summary>
+public sealed class RailContent
+{
+    /// <summary>
+    /// Technology key a country needs before an Engineer may build here, or null
+    /// for none. The manual gates four groups: High Pressure Steam Engine for
+    /// farms, plains, deserts, forests and tundra; Iron Railroad Bridge for
+    /// swamp; Compound Steam Engine for hills; Dynamite for mountains.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequiredTechnology { get; set; }
+}
+
+/// <summary>
+/// What an Engineer's constructions cost the treasury. Absent means the world
+/// has no construction at all.
+/// </summary>
+/// <remarks>
+/// **All three are weak numbers.** The manual prices none of them and says only
+/// that ports "cost more than depots". See <c>docs/formulas/engineer.md</c>.
+/// </remarks>
+public sealed class ConstructionContentSettings
+{
+    public long RailCashCost { get; set; }
+
+    public long DepotCashCost { get; set; }
+
+    public long PortCashCost { get; set; }
 }
 
 /// <summary>
@@ -308,6 +374,14 @@ public sealed class CommodityContentDefinition
     public string Name { get; set; } = string.Empty;
 
     public CommodityCategory Category { get; set; }
+
+    /// <summary>
+    /// What a unit is worth in cash when the network carries it, instead of
+    /// reaching the warehouse. Absent for everything but gold and gems, which
+    /// the manual prices at $200 and $500 a unit.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? CashPerUnit { get; set; }
 }
 
 public sealed class ResourceContentDefinition

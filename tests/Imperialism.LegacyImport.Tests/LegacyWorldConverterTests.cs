@@ -749,6 +749,81 @@ public sealed class LegacyWorldConverterTests
     }
 
     /// <summary>
+    /// <c>cash</c> is <c>[country, amount]</c> — the same two-field shape as
+    /// <c>tran</c>, measured across the corpus before this was built.
+    /// </summary>
+    [Fact]
+    public void CashRecordsBecomeStartingTreasuries()
+    {
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+            Record("cash", 0, 2500),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()), scenario, null, "cash-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var treasury = Assert.Single(result.Document!.Scenarios[0].Cash);
+        Assert.Equal(2500, treasury.Amount);
+        Assert.DoesNotContain("scenario.tag.cash", result.Report.DeferredCounts.Keys);
+    }
+
+    /// <summary>
+    /// A scenario carrying no <c>cash</c> leaves its powers on the engine's
+    /// default, which is a guess — see <c>docs/formulas/money.md</c>. Pinned so
+    /// that changing it is a deliberate act.
+    /// </summary>
+    [Fact]
+    public void AScenarioWithNoCashLeavesEveryPowerOnTheDefault()
+    {
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+            Record("labo", 0, 4, 2, 1),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()), scenario, null, "no-cash-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Empty(result.Document!.Scenarios[0].Cash);
+        Assert.Equal(5000, result.Document.StartingDefaults!.Cash);
+    }
+
+    /// <summary>
+    /// **The manual prices both outright** — gold at $200 a unit and gems at
+    /// $500 — and prices nothing else, because nothing else bypasses the
+    /// warehouse.
+    /// </summary>
+    [Fact]
+    public void OnlyGoldAndGemsArePricedInCash()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 1815),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "cash-value-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Equal(
+            [("commodity.gold", 200L), ("commodity.gems", 500L)],
+            result.Document!.Commodities
+                .Where(static item => item.CashPerUnit is not null)
+                .Select(static item => (item.Key, item.CashPerUnit!.Value)));
+    }
+
+    /// <summary>
     /// A power's own <c>ware</c> records beat the default stockpile, the same way
     /// <c>labo</c> beats the default workforce.
     /// </summary>
@@ -927,6 +1002,23 @@ public sealed class LegacyWorldConverterTests
             ["s11"] = 0,
             ["s15"] = 0,
         };
+        // cash records per scenario, measured before anything was built on them.
+        // Five carry none at all; the five that do are authored situations, and
+        // s3 makes the point on its own by giving its seven powers 1,500 to
+        // 15,000 apiece. There is no constant in there to mine.
+        var expectedCash = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["s1"] = 7,
+            ["s3"] = 7,
+            ["s5"] = 7,
+            ["s13"] = 7,
+            ["s14"] = 7,
+            ["s9"] = 0,
+            ["s10"] = 0,
+            ["s11"] = 0,
+            ["s12"] = 0,
+            ["s15"] = 0,
+        };
         var converted = 0;
         var totalCivilians = 0;
         var totalOpenProspectable = 0;
@@ -1035,6 +1127,17 @@ public sealed class LegacyWorldConverterTests
                 Assert.Equal(networks, result.Document.Scenarios[0].TransportCapacity.Length);
             }
 
+            // cash is converted now too, and no longer deferred.
+            Assert.DoesNotContain("scenario.tag.cash", result.Report.DeferredCounts.Keys);
+            Assert.DoesNotContain(
+                result.Report.Diagnostics,
+                item => item.Code.StartsWith("scenario.invalid-cash", StringComparison.Ordinal) ||
+                    item.Code == "scenario.repeated-cash");
+            if (expectedCash.TryGetValue(key, out var treasuries))
+            {
+                Assert.Equal(treasuries, result.Document.Scenarios[0].Cash.Length);
+            }
+
             totalOpenProspectable += openCells;
             totalCivilians += civilians.Length;
             converted++;
@@ -1054,6 +1157,129 @@ public sealed class LegacyWorldConverterTests
         .Where(item => predicate(item.Prospecting))
         .Select(static item => item.Key)
         .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// **The check the rail terrain gates rest on**, and the strongest
+    /// corroboration in the project so far. Every end of every railed link the
+    /// corpus authors is compared against what the owning power's technologies
+    /// would have let an Engineer cross.
+    /// </summary>
+    /// <remarks>
+    /// **1,140 ends permitted, none not.** A wrong mapping would misfire, and
+    /// the check is not vacuous — the gated terrains are exercised, and the
+    /// pattern across scenarios is exactly what the gates predict:
+    /// <list type="bullet">
+    /// <item><c>s1</c>'s powers hold ids 1–21, which include Iron Railroad
+    /// Bridge and Compound Steam Engine, and it is the one scenario that rails
+    /// swamp (3 ends), barren hills (29) and fertile hills (13).</item>
+    /// <item><c>s9</c> and <c>s12</c>'s powers hold 1–9, which include Iron
+    /// Railroad Bridge and <em>not</em> Compound Steam Engine. Between them they
+    /// author 137 links and <b>not one hill end</b>, while <c>s9</c> does rail a
+    /// swamp.</item>
+    /// <item><c>s3</c>'s powers hold unequal sets of 9, 13 and 14; its two hill
+    /// ends both fall to powers holding at least thirteen.</item>
+    /// <item><b>Nobody in the corpus holds Dynamite</b> (position 23, against a
+    /// maximum of 21), and <b>no scenario rails a single mountain.</b></item>
+    /// </list>
+    /// That last pair is the striking one: the only terrain needing a technology
+    /// no shipped power has is the only terrain no shipped scenario builds on.
+    /// <para>
+    /// Like every other gate here, <b>this governs building and never
+    /// authoring</b> — a scenario may lay track wherever it likes and the
+    /// importer must take it. Nothing validates against this; the count is
+    /// measured so that a mistaken transcription would announce itself. Two of
+    /// the readings are inferences the corpus cannot separate from the
+    /// alternative — fertile hills (only <c>s1</c> rails them, and it holds the
+    /// gate anyway) and towns — and both are flagged in
+    /// <c>docs/formulas/engineer.md</c>.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EveryRailedCellInTheCorpusIsOneItsOwnerCouldHaveBuilt()
+    {
+        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+
+        var permitted = 0;
+        var beyond = new List<string>();
+        var byTerrain = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var mapPath in Directory.GetFiles(directory, "*.map").OrderBy(static path => path))
+        {
+            var key = Path.GetFileNameWithoutExtension(mapPath);
+            var scenarioPath = Path.Combine(directory, $"{key}.scn");
+            if (key == "s0" || !File.Exists(scenarioPath))
+            {
+                continue;
+            }
+
+            var document = LegacyWorldConverter.Convert(
+                LegacyMapCodec.Decode(File.ReadAllBytes(mapPath), MapFormatProfile.Imperialism1),
+                LegacyScenarioCodec.Decode(File.ReadAllBytes(scenarioPath)),
+                null,
+                $"rail-gate-{key}").Document!;
+            var scenario = document.Scenarios[0];
+            var gates = document.Terrains.ToDictionary(
+                static item => item.Key,
+                static item => item.Rail?.RequiredTechnology,
+                StringComparer.Ordinal);
+            var owners = scenario.ProvinceOwners.ToDictionary(
+                static item => item.Province, static item => item.Country, StringComparer.Ordinal);
+            var known = scenario.CountryTechnologies
+                .GroupBy(static item => item.Country, StringComparer.Ordinal)
+                .ToDictionary(
+                    static group => group.Key,
+                    static group => group.Select(static item => item.Technology)
+                        .ToHashSet(StringComparer.Ordinal),
+                    StringComparer.Ordinal);
+            var starting = document.StartingDefaults!.Technologies.ToHashSet(StringComparer.Ordinal);
+            var fairStart = scenario.DefaultStartCountries.ToHashSet(StringComparer.Ordinal);
+
+            foreach (var link in scenario.Rails)
+            {
+                foreach (var index in new[] { link.First, link.Second })
+                {
+                    var cell = document.Map.Cells[index];
+                    byTerrain[cell.Terrain] = byTerrain.GetValueOrDefault(cell.Terrain) + 1;
+                    if (cell.Region.Province is not { } province ||
+                        owners.GetValueOrDefault(province) is not { } owner)
+                    {
+                        continue;
+                    }
+
+                    if (gates.GetValueOrDefault(cell.Terrain) is not { } gate)
+                    {
+                        beyond.Add($"{key} cell {index} on {cell.Terrain} carries no rail at all");
+                        continue;
+                    }
+
+                    if ((fairStart.Contains(owner) && starting.Contains(gate)) ||
+                        (known.TryGetValue(owner, out var held) && held.Contains(gate)))
+                    {
+                        permitted++;
+                        continue;
+                    }
+
+                    beyond.Add($"{key} cell {index} on {cell.Terrain} needs {gate}, {owner} lacks it");
+                }
+            }
+        }
+
+        // Setting the variable is a declaration that the corpus is there, so
+        // finding nothing to check is a broken setup rather than a pass.
+        Assert.Equal(1140, permitted);
+        Assert.Empty(beyond);
+
+        // Not vacuous: the gated ground is genuinely built on, and the one
+        // terrain nobody could build on is the one nobody did.
+        Assert.Equal(31, byTerrain["terrain.hill"]);
+        Assert.Equal(13, byTerrain["terrain.wool-hill"]);
+        Assert.Equal(4, byTerrain["terrain.swamp"]);
+        Assert.False(byTerrain.ContainsKey("terrain.mountain"));
+    }
 
     /// <summary>
     /// **The check the technology ladder rests on.** A <c>tech</c> record is a
@@ -1398,12 +1624,12 @@ public sealed class LegacyWorldConverterTests
     }
 
     /// <summary>
-    /// A Prospector searches and nothing else does. The work kind is what lets
-    /// one order type mean two things, so it is pinned per civilian rather than
-    /// assumed from the name.
+    /// A Prospector searches, an Engineer builds, and the other five improve.
+    /// The work kind is what lets one order type mean several things, so it is
+    /// pinned per civilian rather than assumed from the name.
     /// </summary>
     [Fact]
-    public void OnlyTheProspectorProspects()
+    public void OnlyTheProspectorProspectsAndOnlyTheEngineerBuilds()
     {
         var scenario = new ScenarioDocument(
         [
@@ -1419,9 +1645,89 @@ public sealed class LegacyWorldConverterTests
         var byKey = result.Document!.CivilianTypes
             .ToDictionary(static item => item.Key, static item => item.Work);
         Assert.Equal(CivilianWorkKind.Prospect, byKey["civilian.prospector"]);
+        Assert.Equal(CivilianWorkKind.Construct, byKey["civilian.engineer"]);
         Assert.All(
-            byKey.Where(static item => item.Key != "civilian.prospector"),
+            byKey.Where(static item =>
+                item.Key is not ("civilian.prospector" or "civilian.engineer")),
             item => Assert.Equal(CivilianWorkKind.Improve, item.Value));
+    }
+
+    /// <summary>
+    /// The rail gate per terrain, from the manual's Benefits of Technology
+    /// Table. Ocean carries none ever; the rest divide four ways.
+    /// </summary>
+    /// <remarks>
+    /// Two of these are inferences rather than transcriptions and are flagged in
+    /// <c>docs/formulas/engineer.md</c>: Fertile Hills takes the hills gate, and
+    /// towns and capitals take the plains one.
+    /// </remarks>
+    [Fact]
+    public void EachTerrainCarriesRailOnTheManualsTerms()
+    {
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1815),
+            NameRecord("cnam", 0, "Country"),
+            NameRecord("pnam", 0, "Province"),
+        ]);
+
+        // Every terrain code on the map, because the importer emits definitions
+        // only for the ground a world actually contains.
+        var cells = Enumerable.Range(0, 17)
+            .Select(static code => code == 0
+                ? OceanCell()
+                : LandCell(0, 0) with { Terrain = (byte)code })
+            .ToArray();
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(17, 1, cells), scenario, null, "rail-gate-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var byKey = result.Document!.Terrains
+            .ToDictionary(static item => item.Key, static item => item.Rail?.RequiredTechnology);
+
+        Assert.Null(byKey["terrain.ocean"]);
+        foreach (var key in new[]
+        {
+            "terrain.clear", "terrain.cotton", "terrain.cattle-ranch", "terrain.horse-ranch",
+            "terrain.grain-farm", "terrain.orchard", "terrain.desert", "terrain.tundra",
+            "terrain.forest", "terrain.scrub-forest", "terrain.town", "terrain.capital",
+        })
+        {
+            Assert.Equal("technology.high-pressure-steam-engine", byKey[key]);
+        }
+
+        Assert.Equal("technology.iron-railroad-bridge", byKey["terrain.swamp"]);
+        Assert.Equal("technology.compound-steam-engine", byKey["terrain.wool-hill"]);
+        Assert.Equal("technology.compound-steam-engine", byKey["terrain.hill"]);
+        Assert.Equal("technology.dynamite", byKey["terrain.mountain"]);
+    }
+
+    /// <summary>
+    /// The three construction prices. Pinned so that changing them is a
+    /// deliberate act, because two are recollection and one is invention.
+    /// </summary>
+    [Fact]
+    public void ConstructionIsPricedInCashAndAPortCostsMoreThanADepot()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 1815),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "construction-price-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var construction = result.Document!.Construction!;
+        Assert.Equal((500L, 1500L, 2000L), (
+            construction.RailCashCost, construction.DepotCashCost, construction.PortCashCost));
+
+        // The manual's one statement about any of them.
+        Assert.True(construction.PortCashCost > construction.DepotCashCost);
     }
 
     /// <summary>

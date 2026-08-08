@@ -63,6 +63,45 @@ public sealed record ProspectingRule
 }
 
 /// <summary>
+/// Terms on which an Engineer may lay rail across this terrain — and, on the
+/// manual's own pairing, build a depot on it.
+/// </summary>
+/// <remarks>
+/// Shaped like <see cref="ProspectingRule"/> for the same reason: the presence
+/// of the rule is what makes the ground railable at all, so "rail may never be
+/// laid here" is a null rule rather than a flag beside a nullable technology.
+/// Unknown terrain and forbidden terrain then reach the same answer without
+/// inventing permission.
+/// <para>
+/// The manual's Benefits of Technology Table gates four groups: High Pressure
+/// Steam Engine for "farms, plains, deserts, forests, and tundra", Iron Railroad
+/// Bridge for swamps, Compound Steam Engine for hills, and Dynamite for
+/// mountains. Every power starts holding the first, so an 1815 start lays track
+/// across most of its land on turn one.
+/// </para>
+/// <para>
+/// <b>Depots reuse this gate, and that is an inference</b> — "more advanced
+/// construction technology increases the number of types terrain where rails may
+/// be laid and depots may be built", with no separate depot table given
+/// anywhere. See <c>docs/formulas/engineer.md</c>.
+/// </para>
+/// </remarks>
+public sealed record RailRule
+{
+    /// <summary>Railable by anyone, from the first turn.</summary>
+    public static readonly RailRule Unrestricted = new();
+
+    public RailRule(TechnologyId? requiredTechnology = null) =>
+        RequiredTechnology = requiredTechnology;
+
+    /// <summary>
+    /// Knowledge a country needs before an Engineer may build here. Null means
+    /// none.
+    /// </summary>
+    public TechnologyId? RequiredTechnology { get; }
+}
+
+/// <summary>
 /// A terrain type and what a civilian may do to it. Terrain used to be a bare
 /// id with a key string, which is why improvability could not depend on it.
 /// </summary>
@@ -87,13 +126,15 @@ public sealed record TerrainDefinition
         TerrainId id,
         string name,
         bool isImprovable = false,
-        ProspectingRule? prospecting = null)
+        ProspectingRule? prospecting = null,
+        RailRule? rail = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         Id = id;
         Name = name;
         IsImprovable = isImprovable;
         Prospecting = prospecting;
+        Rail = rail;
     }
 
     public TerrainId Id { get; }
@@ -111,6 +152,13 @@ public sealed record TerrainDefinition
     /// never be searched — which is every terrain but five.
     /// </summary>
     public ProspectingRule? Prospecting { get; }
+
+    /// <summary>
+    /// On what terms an Engineer may lay rail here and build a depot, or null
+    /// where it never can. Ocean is the one terrain the manual excludes
+    /// outright; a world that declares nothing has no construction at all.
+    /// </summary>
+    public RailRule? Rail { get; }
 }
 
 public sealed record CountryDefinition

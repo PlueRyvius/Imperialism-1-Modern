@@ -51,7 +51,7 @@ the engine's own value for each:
 | Record | What it defaults | Status |
 |---|---|---|
 | `ware` | starting warehouse stock | **exists, per the manual** — quantity unrecovered |
-| `cash` | starting treasury | unrecovered |
+| `cash` | starting treasury | **exists, per the manual** — quantity unrecovered, **and now load-bearing** |
 | `deve` | cell development levels | none developed — but see below |
 | `tech` | starting technologies | **recovered — from the manual** |
 | `tran` | transport capacity pool | unrecovered — **and now load-bearing** |
@@ -66,20 +66,26 @@ are absent. They are constants in the binary, which makes them one target class
 rather than seven scattered guesses, and the strongest argument for decompiling
 the engine rather than reading its disassembly.
 
-**Two of the six that remain are now load-bearing**, and the manual moved one of
-them further than expected. `ware` is no longer merely unrecovered: the manual
+**Three of the six that remain are now load-bearing**, and the manual moved two
+of them further than expected. `ware` is no longer merely unrecovered: the manual
 says outright that a power begins with "initial stockpiles of lumber and steel",
 so its *existence* is attested and only the quantity is missing. That mattered
 immediately — [transport.md](transport.md) concluded that a small network was an
 inescapable trap, and it was wrong: an *empty warehouse* is the trap, and a power
 that starts with something to build from buys its way out on the first turn.
 
-`tran` is the other. It used to be a number nothing read; it now sets a country's
+`cash` is the same story a slice later. "Each Great Power begins the game with a
+limited amount of cash which is totally inadequate to meet its needs" attests the
+treasury and never its size, and with construction priced in money the size now
+decides whether an imported skirmish can build its first depot. See
+[money.md](money.md).
+
+`tran` is the third. It used to be a number nothing read; it now sets a country's
 opening headcount, because capacity bought on turn one does not carry until turn
 two while the workers eat on turn one regardless.
 
-Both are guesses in content today, and both are better arguments for reading the
-binary than anything else on this list.
+All three are guesses in content today, and all three are better arguments for
+reading the binary than anything else on this list.
 
 **One of them has fallen, and not to a decompiler.** The manual states the
 `tech` default outright: "every player always starts with the first two
@@ -87,8 +93,9 @@ technologies listed below: High Pressure Steam Engine and Seed Drill." That is
 why the row above reads recovered while the other six do not, and it is worth
 drawing the lesson — the corpus could never have supplied it, and neither had
 anyone read the manual for it. Two of the six remaining (`ware`, `cash`) are
-plain numbers that the same source might yet state somewhere. Look there before
-reaching for Ghidra. See [technology.md](technology.md).
+plain numbers that the same source might yet state somewhere; it has now been
+searched for both and states neither, though it does price what fills them. Look
+there before reaching for Ghidra. See [technology.md](technology.md).
 
 `deve` gained a concrete instance of this while civilian units were being built.
 The manual says farms and orchards adjacent to the capital begin at Level I, and
@@ -125,6 +132,13 @@ bottom of this file.
 | Whether un-carried output keeps | `guess` | [transport](transport.md) | Core | generated |
 | What a network starts with | `guess` | [transport](transport.md) | Content, LegacyImport | generated |
 | What a warehouse starts with | `inferred` existence, `guess` quantity | [transport](transport.md) | Core, Content, LegacyImport | generated |
+| What gold and gems are worth in cash | `inferred` — **both rates stated outright** | [money](money.md) | Core, Content, LegacyImport | generated + local corpus |
+| Whether carrying them costs capacity | `inferred` | [money](money.md) | Core | generated |
+| What a treasury starts with | `inferred` existence, `guess` quantity | [money](money.md) | Core, Content, LegacyImport | generated + local corpus |
+| Which terrain admits rail, and which depots | `inferred` | [engineer](engineer.md) | Core, Content, LegacyImport | generated + local corpus |
+| Where an Engineer may build each structure | `inferred` | [engineer](engineer.md) | Core, Content, LegacyImport | generated |
+| What a depot and a port cost | `inferred`, from observed play | [engineer](engineer.md) | Content, LegacyImport | generated |
+| What rail costs | `guess` | [engineer](engineer.md) | Content, LegacyImport | generated |
 | Whether the whole economy holds up over time | — | [soak](soak.md) | — | 100-turn soak, 7 powers |
 | Trade clearing price | `guess` | _trade-pricing_ | — | — |
 | Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |
@@ -168,6 +182,19 @@ purpose. It carries **no new guess** — a search reuses the work duration alrea
 flagged there. What it does carry is a live consequence: **oil is unreachable in
 imported content** until research exists, because the gate is real and nothing
 can pass it. See [prospecting.md](prospecting.md).
+
+The Engineer's terrain gates are the **best-corroborated reading in the project**
+and it is worth saying why, because the technology ladder set the pattern and
+this beats it. Reading the Benefits of Technology Table's rail column against the
+corpus gives **1,140 rail ends permitted and none not**, and the check is not
+vacuous: `s9` and `s12`, whose powers lack Compound Steam Engine, author 137 rail
+links with not one hill among them, while `s1`, whose powers hold it, rails
+forty-two. And no shipped power holds Dynamite while no shipped scenario rails a
+single mountain. See [engineer](engineer.md).
+
+Against that, **the three construction prices are the weakest numbers here**: two
+are the owner's recollection from play and one is invention. The manual prices
+none of them and states only that a port costs more than a depot.
 
 Extraction carries its evidence at three different strengths at once, and its
 document tabulates them rather than averaging them: the development levels are

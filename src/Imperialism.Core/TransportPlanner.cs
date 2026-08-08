@@ -15,11 +15,33 @@ public readonly record struct InitialTransportCapacity
     public long Capacity { get; }
 }
 
+/// <summary>One country's starting treasury: the 1997 <c>cash</c> record.</summary>
+/// <remarks>
+/// The record is <c>[country, amount]</c>, the same shape as <c>tran</c>, and
+/// what a mission authors is authored design: <c>s3</c> gives one power ten
+/// times another's. See <c>docs/formulas/money.md</c>.
+/// </remarks>
+public readonly record struct InitialCash
+{
+    public InitialCash(CountryId country, long amount)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(amount);
+        Country = country;
+        Amount = amount;
+    }
+
+    public CountryId Country { get; }
+
+    public long Amount { get; }
+}
+
 internal sealed record PlannedTransport(
     CountryId Country,
     long CapacityUsed,
     long CapacityAvailable,
     IReadOnlyList<CommodityQuantity> Moved,
+    IReadOnlyList<CommodityQuantity> Converted,
+    long CashEarned,
     IReadOnlyList<CommodityQuantity> Wasted);
 
 internal sealed record PlannedRailyard(
@@ -125,14 +147,30 @@ internal static class TransportPlanner
             }
 
             var used = 0L;
+            var earned = 0L;
             var movedQuantities = new List<CommodityQuantity>();
+            var convertedQuantities = new List<CommodityQuantity>();
             var wastedQuantities = new List<CommodityQuantity>();
             for (var commodity = 0; commodity < commodityCount; commodity++)
             {
                 if (moved[commodity] > 0)
                 {
                     used = checked(used + moved[commodity]);
-                    movedQuantities.Add(new CommodityQuantity(new CommodityId(commodity), moved[commodity]));
+                    var quantity = new CommodityQuantity(new CommodityId(commodity), moved[commodity]);
+
+                    // Gold and gems "never reach the industry warehouse"; what
+                    // the network carries of them converts on arrival. They cost
+                    // capacity like anything else, which is the whole point —
+                    // carrying gold is carrying less food.
+                    if (definition.Commodities[commodity].CashPerUnit is { } rate)
+                    {
+                        earned = checked(earned + (moved[commodity] * rate));
+                        convertedQuantities.Add(quantity);
+                    }
+                    else
+                    {
+                        movedQuantities.Add(quantity);
+                    }
                 }
 
                 var left = pool[commodity] - moved[commodity];
@@ -147,6 +185,8 @@ internal static class TransportPlanner
                 used,
                 unlimited ? used : capacity,
                 Array.AsReadOnly(movedQuantities.ToArray()),
+                Array.AsReadOnly(convertedQuantities.ToArray()),
+                earned,
                 Array.AsReadOnly(wastedQuantities.ToArray())));
         }
 

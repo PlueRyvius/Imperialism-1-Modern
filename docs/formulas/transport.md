@@ -232,14 +232,27 @@ why the guessed starting capacity is still worth getting right.
 **Also worth naming:** 805 points of capacity over a century is absurd, and it is
 the same runaway [soak.md](soak.md) already reports for mills. It is a property
 of the fixture rather than of the model, and the distinction is worth drawing
-carefully:
+carefully.
+
+**That absurdity has since cost a prediction.** This document expected the
+Engineer to oppose capacity — extend the network, gather more without carrying
+more, and watch the waste figure rise until a railyard caught up. It does not:
+half again as much harvest and the waste figure does not move at all, because an
+unopposed railyard outruns anything an Engineer can reach. The tension is real in
+the original, where ships and trade and hardware want the same two commodities;
+it is not real here. Retracted rather than softened, in
+[engineer.md](engineer.md).
+
+The competing claims on lumber and steel:
 
 - **Already in the model, and simply not ordered by these policies:** furniture
   from lumber, which the Capitol needs to recruit anybody; hardware and armaments
   from steel.
 - **Genuinely absent:** ships, which the manual has consuming lumber early and
   steel later; trade, which turns hardware into money; and the upgrades the
-  original charges against every producing building.
+  original charges against every producing building. The Engineer is **not** on
+  this list: it spends cash rather than materials, which is exactly why it fails
+  to oppose the railyard.
 
 So the railyard is not cheap — it is unopposed. Do not price it against these
 numbers, and re-read them once anything above competes for the same two

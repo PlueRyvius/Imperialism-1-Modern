@@ -23,7 +23,8 @@ public sealed class WorldDefinition
         IEnumerable<CommodityQuantity>? expansionCostPerCapacityPoint = null,
         MigrationSettings? migration = null,
         IEnumerable<CivilianTypeDefinition>? civilianTypes = null,
-        TransportSettings? transport = null)
+        TransportSettings? transport = null,
+        ConstructionSettings? construction = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
@@ -304,6 +305,16 @@ public sealed class WorldDefinition
             ValidateDepotSite(map, depot, nameof(scenario));
         }
 
+        foreach (var treasury in scenario.InitialCash)
+        {
+            if ((uint)treasury.Country.Value >= (uint)countryArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Initial cash refers to missing country {treasury.Country.Value}.",
+                    nameof(scenario));
+            }
+        }
+
         foreach (var known in scenario.InitialCountryTechnologies)
         {
             if ((uint)known.Country.Value >= (uint)countryArray.Length)
@@ -406,6 +417,7 @@ public sealed class WorldDefinition
         ExpansionCostPerCapacityPoint = Array.AsReadOnly(expansionCostPerCapacityPoint?.ToArray() ?? []);
         Migration = migration;
         Transport = transport;
+        Construction = construction;
         _technologies = Array.AsReadOnly(technologyArray);
         _civilianTypes = Array.AsReadOnly(civilianTypeArray);
         _countries = Array.AsReadOnly(countryArray);
@@ -465,6 +477,13 @@ public sealed class WorldDefinition
     /// capacity existed.
     /// </summary>
     public TransportSettings? Transport { get; }
+
+    /// <summary>
+    /// What an Engineer's constructions cost, or null where the world has no
+    /// construction at all — which is how every world behaved before Engineers
+    /// could build.
+    /// </summary>
+    public ConstructionSettings? Construction { get; }
 
     /// <summary>
     /// A port stands on land. Verified against every <c>port</c> record in the
@@ -550,6 +569,7 @@ public sealed class WorldState
     private readonly long[] _workers;
     private readonly long[] _sickWorkers;
     private readonly long[] _transportCapacity;
+    private readonly long[] _cash;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private readonly Dictionary<CivilianUnitId, CivilianUnit> _civilians = [];
     private long _nextDeliveryId = 1;
@@ -651,6 +671,22 @@ public sealed class WorldState
         foreach (var capacity in definition.Scenario.InitialTransportCapacity)
         {
             _transportCapacity[capacity.Country.Value] = capacity.Capacity;
+        }
+
+        // Defaults first, so an explicit `cash` record still wins — the same
+        // order every other starting value uses.
+        _cash = new long[definition.Countries.Count];
+        if (definition.StartingDefaults?.Cash is { } defaultCash)
+        {
+            foreach (var country in definition.Scenario.DefaultStartCountries)
+            {
+                _cash[country.Value] = defaultCash;
+            }
+        }
+
+        foreach (var treasury in definition.Scenario.InitialCash)
+        {
+            _cash[treasury.Country.Value] = treasury.Amount;
         }
 
         // Everybody starts well. Illness is decided by what a workforce eats,
@@ -879,6 +915,53 @@ public sealed class WorldState
     }
 
     internal long[] CopyTransportCapacity() => _transportCapacity.ToArray();
+
+    /// <summary>
+    /// This country's treasury. "Each Great Power begins the game with a limited
+    /// amount of cash which is totally inadequate to meet its needs."
+    /// </summary>
+    /// <remarks>
+    /// The only income modelled is gold and gems converting as the network
+    /// carries them; trade, the real one, is a later slice. The only outgoing is
+    /// what an Engineer builds.
+    /// </remarks>
+    public long GetCash(CountryId country)
+    {
+        ValidateCountry(country);
+        return _cash[country.Value];
+    }
+
+    public void SetCash(CountryId country, long amount)
+    {
+        ValidateCountry(country);
+        ArgumentOutOfRangeException.ThrowIfNegative(amount);
+        _cash[country.Value] = amount;
+    }
+
+    public void AddCash(CountryId country, long amount)
+    {
+        ValidateCountry(country);
+        ValidatePositiveQuantity(amount);
+        _cash[country.Value] = checked(_cash[country.Value] + amount);
+    }
+
+    /// <summary>
+    /// Spends from the treasury, or refuses and changes nothing. The same
+    /// all-or-nothing shape <see cref="TryConsumeAvailable"/> uses: a structure
+    /// half paid for is not a structure.
+    /// </summary>
+    public bool TrySpendCash(CountryId country, long amount)
+    {
+        ValidateCountry(country);
+        ValidatePositiveQuantity(amount);
+        if (_cash[country.Value] < amount)
+        {
+            return false;
+        }
+
+        _cash[country.Value] -= amount;
+        return true;
+    }
 
     public bool HasPort(CellIndex cell) => _ports.Contains(cell);
 

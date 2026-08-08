@@ -156,6 +156,22 @@ public static class TurnResolver
                             turnNumber, entry.Country, entry.Unit, entry.Cell, entry.Revealed),
                         PlannedCivilianWorkStart entry => new CivilianWorkBegunEvent(
                             turnNumber, entry.Country, entry.Unit, entry.Cell, entry.TurnsRequired),
+                        PlannedConstructionStart entry => new ConstructionBegunEvent(
+                            turnNumber,
+                            entry.Country,
+                            entry.Unit,
+                            entry.Cell,
+                            entry.Structure,
+                            entry.Target,
+                            entry.TurnsRequired,
+                            entry.Paid),
+                        PlannedConstruction entry => new ConstructionCompletedEvent(
+                            turnNumber,
+                            entry.Country,
+                            entry.Unit,
+                            entry.Cell,
+                            entry.Structure,
+                            entry.Target),
                         PlannedCivilianDeployment entry => new CivilianDeployedEvent(
                             turnNumber, entry.Country, entry.Unit, entry.From, entry.To),
                         PlannedCivilianRefusal entry => new CivilianOrderRefusedEvent(
@@ -239,7 +255,16 @@ public static class TurnResolver
                             PendingDeliverySource.Extraction);
                     }
 
-                    if (entry.Moved.Count == 0 && entry.Wasted.Count == 0)
+                    // Gold and gems pay on arrival rather than being queued:
+                    // "all gems and gold transported convert immediately into
+                    // cash", and nothing about them ever enters the warehouse.
+                    if (entry.CashEarned > 0)
+                    {
+                        state.AddCash(entry.Country, entry.CashEarned);
+                    }
+
+                    if (entry.Moved.Count == 0 && entry.Converted.Count == 0 &&
+                        entry.Wasted.Count == 0)
                     {
                         continue;
                     }
@@ -250,7 +275,9 @@ public static class TurnResolver
                         entry.CapacityUsed,
                         entry.CapacityAvailable,
                         entry.Moved,
-                        entry.Wasted));
+                        entry.Wasted,
+                        entry.Converted,
+                        entry.CashEarned));
                 }
             }
             else if (phase == TurnPhase.Feeding)

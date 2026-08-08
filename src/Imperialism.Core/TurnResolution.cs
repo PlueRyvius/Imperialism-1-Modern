@@ -182,6 +182,68 @@ public enum CivilianOrderRefusal : byte
     /// finished.
     /// </summary>
     ImprovementTechnologyNotKnown,
+
+    /// <summary>
+    /// An <see cref="EngineerOrder"/> was given to a civilian that is not an
+    /// Engineer, or a <see cref="CivilianWorkOrder"/> to one that is. What a
+    /// civilian can be asked to do is still a property of its type; the Engineer
+    /// only chooses <em>within</em> construction.
+    /// </summary>
+    NotAnEngineer,
+
+    /// <summary>
+    /// The world prices no construction, so nothing can be built in it at all.
+    /// Every world behaved this way before Engineers could build.
+    /// </summary>
+    NothingCanBeBuiltInThisWorld,
+
+    /// <summary>
+    /// Rail was ordered to a tile that is not next to the Engineer. The original
+    /// shows the track cursor only "over tiles adjacent to the Engineer's current
+    /// location", so a distant tile is not an order it could have produced.
+    /// </summary>
+    RailNeedsAnAdjacentTile,
+
+    /// <summary>
+    /// A depot or port was ordered somewhere the Engineer is not standing. The
+    /// construction dialog opens only "when you click on the tile where the
+    /// Engineer is located".
+    /// </summary>
+    StructureNeedsTheEngineersOwnTile,
+
+    /// <summary>
+    /// Ocean, or ground this world never lets a line cross. Distinct from
+    /// <see cref="ConstructionTechnologyNotKnown"/> because no amount of
+    /// investment changes it.
+    /// </summary>
+    TerrainCannotCarryRail,
+
+    /// <summary>
+    /// The ground can carry rail and this country has not invested in what it
+    /// takes: Iron Railroad Bridge for swamp, Compound Steam Engine for hills,
+    /// Dynamite for mountains. Also refuses a depot, on the manual's pairing of
+    /// the two.
+    /// </summary>
+    ConstructionTechnologyNotKnown,
+
+    /// <summary>The line is already there; building it again would change nothing.</summary>
+    RailAlreadyBuilt,
+
+    DepotAlreadyBuilt,
+
+    PortAlreadyBuilt,
+
+    /// <summary>
+    /// "Ports may be built only on coasts and tiles containing a river", and this
+    /// tile is neither.
+    /// </summary>
+    PortNeedsWater,
+
+    /// <summary>
+    /// The treasury cannot cover it. Refused outright rather than half built,
+    /// which is the same all-or-nothing bargain the warehouse already makes.
+    /// </summary>
+    NotEnoughCash,
 }
 
 /// <summary>Records one civilian moving without being set to work.</summary>
@@ -324,6 +386,111 @@ public sealed record CellProspectedEvent : TurnEvent
     /// ground held nothing, which is the ordinary outcome.
     /// </summary>
     public IReadOnlyList<ResourceId> Revealed => _revealed;
+}
+
+/// <summary>
+/// Records one piece of transport network finished by an Engineer.
+/// </summary>
+/// <remarks>
+/// Emitted in the Development phase that puts it on the map, which sits before
+/// Extraction — so a depot finished this turn gathers its catchment this turn,
+/// and the map's own connectivity index rebuilds around it with nothing having
+/// to ask.
+/// </remarks>
+public sealed record ConstructionCompletedEvent : TurnEvent
+{
+    public ConstructionCompletedEvent(
+        int turnNumber,
+        CountryId country,
+        CivilianUnitId unit,
+        CellIndex cell,
+        EngineerConstruction structure,
+        CellIndex target)
+        : base(turnNumber, TurnPhase.Development)
+    {
+        if (!Enum.IsDefined(structure))
+        {
+            throw new ArgumentOutOfRangeException(nameof(structure));
+        }
+
+        Country = country;
+        Unit = unit;
+        Cell = cell;
+        Structure = structure;
+        Target = target;
+    }
+
+    public CountryId Country { get; }
+
+    /// <summary>The Engineer whose work finished. It is idle again from now.</summary>
+    public CivilianUnitId Unit { get; }
+
+    /// <summary>Where the Engineer stood, which is one end of a rail line.</summary>
+    public CellIndex Cell { get; }
+
+    public EngineerConstruction Structure { get; }
+
+    /// <summary>
+    /// The other end of a rail line, or the structure's own tile — which for
+    /// anything but rail is <see cref="Cell"/>.
+    /// </summary>
+    public CellIndex Target { get; }
+}
+
+/// <summary>Records one Engineer starting to build, and what the order cost.</summary>
+/// <remarks>
+/// The cash is spent now rather than on completion, which is what makes
+/// <see cref="CivilianOrderRefusal.NotEnoughCash"/> something a player learns on
+/// the turn they ordered it.
+/// </remarks>
+public sealed record ConstructionBegunEvent : TurnEvent
+{
+    public ConstructionBegunEvent(
+        int turnNumber,
+        CountryId country,
+        CivilianUnitId unit,
+        CellIndex cell,
+        EngineerConstruction structure,
+        CellIndex target,
+        int turnsRequired,
+        long paid)
+        : base(turnNumber, TurnPhase.Development)
+    {
+        if (!Enum.IsDefined(structure))
+        {
+            throw new ArgumentOutOfRangeException(nameof(structure));
+        }
+
+        if (turnsRequired <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(turnsRequired));
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegative(paid);
+        Country = country;
+        Unit = unit;
+        Cell = cell;
+        Structure = structure;
+        Target = target;
+        TurnsRequired = turnsRequired;
+        Paid = paid;
+    }
+
+    public CountryId Country { get; }
+
+    public CivilianUnitId Unit { get; }
+
+    /// <summary>Where the Engineer stands. Rail is built from here.</summary>
+    public CellIndex Cell { get; }
+
+    public EngineerConstruction Structure { get; }
+
+    public CellIndex Target { get; }
+
+    public int TurnsRequired { get; }
+
+    /// <summary>What left the treasury. Not refunded if the work is later abandoned.</summary>
+    public long Paid { get; }
 }
 
 /// <summary>Records an order a civilian could not carry out, and why.</summary>
@@ -528,6 +695,7 @@ public sealed record ResourceExtractedEvent : TurnEvent
 public sealed record CommoditiesTransportedEvent : TurnEvent
 {
     private readonly IReadOnlyList<CommodityQuantity> _moved;
+    private readonly IReadOnlyList<CommodityQuantity> _converted;
     private readonly IReadOnlyList<CommodityQuantity> _wasted;
 
     public CommoditiesTransportedEvent(
@@ -536,11 +704,14 @@ public sealed record CommoditiesTransportedEvent : TurnEvent
         long capacityUsed,
         long capacityAvailable,
         IEnumerable<CommodityQuantity> moved,
-        IEnumerable<CommodityQuantity> wasted)
+        IEnumerable<CommodityQuantity> wasted,
+        IEnumerable<CommodityQuantity>? converted = null,
+        long cashEarned = 0)
         : base(turnNumber, TurnPhase.Transport)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(capacityUsed);
         ArgumentOutOfRangeException.ThrowIfNegative(capacityAvailable);
+        ArgumentOutOfRangeException.ThrowIfNegative(cashEarned);
         if (capacityUsed > capacityAvailable)
         {
             throw new ArgumentOutOfRangeException(nameof(capacityUsed));
@@ -549,7 +720,9 @@ public sealed record CommoditiesTransportedEvent : TurnEvent
         Country = country;
         CapacityUsed = capacityUsed;
         CapacityAvailable = capacityAvailable;
+        CashEarned = cashEarned;
         _moved = Array.AsReadOnly(moved.ToArray());
+        _converted = Array.AsReadOnly(converted?.ToArray() ?? []);
         _wasted = Array.AsReadOnly(wasted.ToArray());
     }
 
@@ -562,6 +735,17 @@ public sealed record CommoditiesTransportedEvent : TurnEvent
 
     /// <summary>What reached the network, and so the warehouse next turn.</summary>
     public IReadOnlyList<CommodityQuantity> Moved => _moved;
+
+    /// <summary>
+    /// What the network carried that turned into money instead of stock — gold
+    /// and gems, which the manual says never reach the warehouse at all. Counted
+    /// against <see cref="CapacityUsed"/> alongside <see cref="Moved"/> and
+    /// disjoint from it.
+    /// </summary>
+    public IReadOnlyList<CommodityQuantity> Converted => _converted;
+
+    /// <summary>What <see cref="Converted"/> was worth: $200 a unit of gold, $500 of gems.</summary>
+    public long CashEarned { get; }
 
     /// <summary>Gathered, reachable, and left behind. It does not keep.</summary>
     public IReadOnlyList<CommodityQuantity> Wasted => _wasted;
