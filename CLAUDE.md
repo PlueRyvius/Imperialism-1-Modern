@@ -250,16 +250,31 @@ no civilian however good the grain. The corpus corroborates: 481 `deve` records
 and not one on dry plains, horse ranch or scrub forest.
 
 **Migration was inert on a food-deficit economy, and civilian units unblocked
-it.** The soak's Farmers close the grain deficit by turn 2 and the Capitol
-recruits for the first time on turn 4 — then the population outgrows the
-improved farms and a fresh deficit opens on turn 14. That rebound is the
-manual's own warning about growing too fast, arrived at rather than written in,
-and it is reported rather than tuned away. See `docs/formulas/development.md`
-and `docs/formulas/migration.md`.
+it.** The soak's Farmers close the grain deficit by turn 4 and the Capitol
+recruits for the first time on turn 6, and the workforce settles at 77. See
+`docs/formulas/development.md` and `docs/formulas/migration.md`.
 
-**The one guess in that phase is how long a civilian's work takes.** One turn,
-in content as a per-type `workTurns` so changing it is an edit. Nothing in the
-manual, the corpus or the binary says.
+**That run used to overshoot and no longer does**, which is the measured work
+duration showing through: at one turn the farms improved fast enough for the
+population to reach 84 and outrun its own food, so a deficit reopened on turn 14
+— reported as the manual's warning about growing too fast, arrived at rather than
+written in. At three turns it settles at 77 and nobody is ever ill again. Both
+end on 42 grain and half the workforce wants grain, so 84 needs exactly 42 and 77
+needs 39: **a knife edge a measured number happened to fall the other side of.**
+
+**How long a civilian's work takes used to be the one guess in that phase and is
+not any more.** It is **3 turns**, from observed play — an iron mine takes three
+turns to open and three more for each later rung. It stays in content as a
+per-type `workTurns` so changing it is an edit, and applying it to the Prospector
+and the Engineer is extrapolation rather than something watched.
+
+**Moving it from 1 to 3 moved every published soak table**, and the moves are
+recorded in place rather than swapped in silently: the workforce fell from 84 to
+77, the first improvement slid from turn 2 to turn 4, the first gated rung from
+turn 51 to turn 53, and food-first transport went from producing exactly nothing
+to producing seven cycles in a century. **The grain columns did not move**, which
+separates two recoveries cleanly — *where* a ceiling sits is technology, *how
+fast* a country reaches it is duration.
 
 `.iworld` v14 hides five deposits. Coal, iron, gold, gems and oil are on the map
 and invisible until a Prospector of that Great Power has searched the tile —

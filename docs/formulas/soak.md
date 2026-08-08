@@ -94,21 +94,25 @@ are ever told to work.
                        turn  workers  fed/sick  grain/turn  total levels
 idle Farmers            100       49    42/  7          21           98
 Farmers working           1       49    42/  7          21           98
-                          2       49    49/  0          35          119
-                         10       77    77/  0          42          168
-                         25       84    77/  7          42          168
-                        100       84    77/  7          42          168
+                          5       49    49/  0          35          119
+                         10       70    70/  0          42          140
+                         25       77    77/  0          42          168
+                        100       77    77/  0          42          168
 ```
 
-The chain the owner described runs end to end: farms improved on turn 2,
-sickness gone the same turn, **first recruit on turn 4** — the first time
+The chain the owner described runs end to end: farms improved on turn 4,
+sickness gone the same turn, **first recruit on turn 6** — the first time
 migration has done anything since it was built — and the workforce growing by
-seventy per cent.
+more than half.
 
-Then the deficit reopens. Grain stops at 42, the population keeps growing until
-it outruns the harvest, and the economy settles at 84 workers with 7 permanently
-ill. **That is the manual's own warning about growing faster than you can feed**,
-arrived at rather than written in, and it is reported rather than tuned away.
+**The deficit used to reopen and no longer does.** At a one-turn work duration
+the farms improved fast enough for the population to reach 84 and outrun its own
+food, so sickness returned on turn 14 — reported here as the manual's own
+warning about growing faster than you can feed. At the measured three turns the
+population settles at 77 and nobody is ever ill again. Both runs end on the same
+42 grain a turn and half the workforce wants grain, so 84 needs exactly 42 and
+77 needs 39: **a knife edge that a measured number happened to fall the other
+side of.** Reported rather than engineered back in.
 
 **Grain stops where it does because of technology.** These numbers were 63 and
 119 before the Benefits of Technology Table was transcribed, when a Farmer could
@@ -117,10 +121,11 @@ are not free, so the ceiling arrives sooner and lower. The move is the finding
 rather than a regression; see the run below and
 [technology.md](technology.md).
 
-Two caveats before reading anything into the turn numbers. The work duration is
-a guess (`development.md`), and this fixture's yield curve starts at 0 rather
-than the manual's 1, so both the speed and the ceiling are properties of the
-fixture.
+One caveat before reading anything into the turn numbers: this fixture's yield
+curve starts at 0 rather than the manual's 1, so the ceiling is a property of
+the fixture. The *speed* no longer is — the work duration was a guess when this
+was written and has since been measured at three turns
+(`development.md`).
 
 ### A gate opening, halfway through
 
@@ -131,13 +136,18 @@ is only ever tested closed.
 
 ```
                     grain/turn at  10 → 50 → 100   workers  top rungs  refusals
-never granted                42     42     42         84         0       1,960
-granted on turn 50           42     42     63        105        21         889
+never granted                42     42     42         77         0       1,820
+granted on turn 50           42     42     63        105        21         749
 ```
 
-First gated rung on turn 51, one turn after the grant, which is the work duration
-showing through. Twenty-one extra workers by turn 100 is what one technology is
-worth to this fixture.
+First gated rung on turn 53, three turns after the grant, which is the work
+duration showing through. Twenty-eight extra workers by turn 100 is what one
+technology is worth to this fixture.
+
+**The grain columns held when the duration was measured and the others did
+not** — workers fell from 84 to 77, refusals from 1,960 and 889 to 1,820 and
+749, and the first gated rung slid from turn 51 to 53. *Where* the ceiling sits
+is technology; *how fast* a country reaches it is duration.
 
 ## What is asserted, and what deliberately is not
 
@@ -169,13 +179,13 @@ Prospectors look.
 
 ```
                     searched  found  mines  gathered  levels at 100
-Prospectors idle           0      0      0    19,138            196
-Prospectors working       28     14     14    20,468            210
+Prospectors idle           0      0      0    16,240            168
+Prospectors working       28     14     14    17,486            182
 ```
 
-First search on turn 2, first mine on turn 4. **Workers, grain and sickness are
-identical in both** — 49 rising to 119, sickness back on turn 14 — so the whole
-observable effect of discovery is 14 mines and 1,330 coal. That separation is
+First search on turn 4, first mine on turn 8. **Workers, grain and sickness are
+identical in both** — 49 rising to 77, and nobody ill after turn 4 — so the whole
+observable effect of discovery is 14 mines and 1,246 coal. That separation is
 worth having: it means the food chain above can be read without wondering what
 the minerals were doing.
 
@@ -192,9 +202,9 @@ eaten.
 
 ```
                         workers  sick  carried/gathered  produced  capacity built
-unlimited                    84     7     16,548/16,548     3,101              —
-food first                   49     7      7,000/16,548         0               0
-materials first              42     0     15,673/16,548     1,386             672
+unlimited                    77     0     16,240/16,240     3,038              —
+food first                   49     7      7,000/16,240         7               0
+materials first              42     0     15,673/16,240     1,386             672
 ```
 
 **On an empty warehouse, which slider comes first decides what the country
@@ -206,14 +216,14 @@ almost everything.
 
 **But the empty warehouse was doing the work, and that is a correction.** The
 manual says a power starts with stockpiles of lumber and steel. Give the same
-world twenty of each and the two orderings converge — both reach 16,513 carried
+world twenty of each and the two orderings converge — both reach 16,212 carried
 and roughly 800 points of capacity built, and materials-first is simply worse,
 since it still costs seven workers on turn one for nothing.
 
 ```
                         workers  sick  carried/gathered  produced  capacity built
-food first, stocked          49     0     16,513/16,548     1,372             805
-materials first, stocked     42     0     16,513/16,548     1,386             812
+food first, stocked          49     0     16,212/16,240     1,372             805
+materials first, stocked     42     0     16,212/16,240     1,386             812
 ```
 
 So the slider order is worth as much as capacity is scarce, and a stockpile makes
@@ -236,8 +246,8 @@ exactly two depots.
 
 ```
                      gathered  carried  wasted  grain/turn at 100  structures  treasuries
-Engineer idle          15,841   15,806      35                 42           0      42,000
-Engineer building      23,814   23,779      35                126          14      21,000
+Engineer idle          15,512   15,484      28                 42           0      42,000
+Engineer building      23,037   23,009      28                126          14      21,000
 ```
 
 **The reach is large** — half again as much harvest over the century, and grain a
@@ -246,7 +256,7 @@ what a tile yields, and this raises how much of the map is a tile.
 
 **And the waste figure does not move.** This run was written to confirm the
 opposite: that gathering more without carrying more would push waste up until a
-railyard caught up. It is 35 either way. The reason is the runaway already
+railyard caught up. It is 28 either way. The reason is the runaway already
 reported above — **the railyard is unopposed**, so capacity outruns anything an
 Engineer can reach. That expectation is retracted in
 [engineer.md](engineer.md) and in [transport.md](transport.md) rather than

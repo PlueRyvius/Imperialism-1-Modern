@@ -1653,6 +1653,37 @@ public sealed class LegacyWorldConverterTests
     }
 
     /// <summary>
+    /// **Three turns, from observed play.** This used to be 1 and the one number
+    /// in the Development phase with nothing behind it; moving it moved every
+    /// table the soak publishes, so it is pinned here to make a change to it a
+    /// deliberate act.
+    /// </summary>
+    /// <remarks>
+    /// The observation is of an iron mine. Giving the Prospector and the
+    /// Engineer the same duration is extrapolation, and this test is where that
+    /// would be relaxed per type. See <c>docs/formulas/development.md</c>.
+    /// </remarks>
+    [Fact]
+    public void ACiviliansWorkTakesThreeTurns()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 1815),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "work-turns-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.All(
+            result.Document!.CivilianTypes,
+            static item => Assert.Equal(3, item.WorkTurns));
+    }
+
+    /// <summary>
     /// The rail gate per terrain, from the manual's Benefits of Technology
     /// Table. Ocean carries none ever; the rest divide four ways.
     /// </summary>

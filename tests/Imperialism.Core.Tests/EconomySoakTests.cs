@@ -100,8 +100,12 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     /// <summary>Where the Engineer builds, in order. Each depot reaches one step either side.</summary>
     private static readonly int[] DepotSites = [23, 26];
 
-    /// <summary>The guessed work duration, spelled out so the run's shape is traceable to it.</summary>
-    private const int CivilianWorkTurns = 1;
+    /// <summary>
+    /// The work duration, spelled out so the run's shape is traceable to it.
+    /// **Three, from observed play** — it used to be 1 and a flagged guess, and
+    /// moving it moved every table this file publishes.
+    /// </summary>
+    private const int CivilianWorkTurns = 3;
 
     /// <summary>The one technology this fixture models, gating grain at Level III.</summary>
     private const int MechanicalReaper = 0;
@@ -204,16 +208,24 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     /// it.
     /// <para>
     /// What is asserted is the chain itself, in order, and not any number in it.
-    /// The turn each stage lands on depends on the guessed work duration and on
-    /// this fixture's arbitrary yield curve, so those are reported.
+    /// The turn each stage lands on depends on the work duration and on this
+    /// fixture's arbitrary yield curve, so those are reported.
     /// </para>
     /// <para>
-    /// <b>The run does not end with the deficit closed, and that is the finding
-    /// rather than a failure.</b> Sickness clears on turn 2 and growth begins on
-    /// turn 4; the population then outgrows the improved farms and settles with
-    /// a fresh deficit at more than twice the headcount it started with. That is
-    /// the manual's own warning about growing faster than you can feed, arrived
-    /// at rather than written in, so it is reported and not asserted away.
+    /// <b>The overshoot this run used to report is gone, and the reason is worth
+    /// naming.</b> At a one-turn work duration the farms improved fast enough
+    /// (105 tiles) for the population to reach 84 and then outrun its own food,
+    /// so a fresh deficit opened on turn 14 — which was reported here as the
+    /// manual's warning about growing too fast, arrived at rather than written
+    /// in. At three turns the farms improve more slowly (70 tiles), the
+    /// population settles at 77, and sickness never returns.
+    /// </para>
+    /// <para>
+    /// <b>It is a knife edge rather than a reversal.</b> Both runs end on the
+    /// same 42 grain a turn, and half the workforce wants grain specifically, so
+    /// 84 workers need exactly 42 and 77 need 39. The overshoot was real and it
+    /// depended on a number that has since been measured. Reported rather than
+    /// engineered back in.
     /// </para>
     /// </remarks>
     [Fact]
@@ -287,8 +299,8 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     /// order.
     /// </summary>
     /// <remarks>
-    /// Food first keeps everybody fed and never makes a thing, because the coal
-    /// the steel mill wants is at the back of the queue and never arrives.
+    /// Food first keeps everybody fed and barely makes a thing, because the coal
+    /// the steel mill wants is at the back of the queue and hardly ever arrives.
     /// Materials first feeds the mills and lets the railyard grow the network —
     /// and the workers pay for it in the meantime.
     /// <para>
@@ -296,9 +308,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     /// country the manual's opening stockpile and both orderings buy an adequate
     /// network within a few turns, after which nothing is scarce and the choice
     /// stops mattering — see
-    /// <see cref="AStartingStockpileIsWhatMakesASmallNetworkSurvivable"/>. So
-    /// this is what the slider order is worth while capacity is genuinely tight,
-    /// not a standing property of the game.
+    /// <see cref="AStockpileMakesTheSliderOrderStopMattering"/>. So this is what
+    /// the slider order is worth while capacity is genuinely tight, not a
+    /// standing property of the game.
     /// </para>
     /// <para>
     /// <b>Reported, not asserted into a target.</b> Which is the better opening
@@ -321,16 +333,78 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         output.WriteLine("=== materials first ===");
         output.WriteLine(materialsLog);
 
-        // Food first cannot run a mill; materials first can.
-        Assert.Equal(0, food.Produced);
+        // Food first barely runs a mill; materials first runs them properly.
+        //
+        // **This used to be exactly zero and is now seven**, because three-turn
+        // work means less grain per turn, which leaves a sliver of the network
+        // free for coal. Seven cycles in a century against 1,386 is the same
+        // conclusion arrived at less tidily, so the assertion states the ratio
+        // rather than being weakened to "greater than".
+        Assert.True(
+            food.Produced * 100 < materials.Produced,
+            $"Food-first produced {food.Produced} against materials-first {materials.Produced}.");
         Assert.True(materials.Produced > 0, "Materials-first never produced anything either.");
 
-        // And only the one that fed its mills could ever build a railyard.
+        // And only the one that fed its mills could ever build a railyard. This
+        // one is still exactly zero, and it is the load-bearing half: a country
+        // that never affords a railyard never grows its network.
         Assert.Equal(0, food.CapacityBuilt);
         Assert.True(
             materials.CapacityBuilt > 0,
             "The railyard was never built even with materials at the front of the queue.");
         Assert.True(materials.FinalCapacity > food.FinalCapacity);
+    }
+
+    /// <summary>
+    /// **The stockpile is what makes the slider order stop mattering.** The same
+    /// tight network as
+    /// <see cref="WhichSliderComesFirstDecidesWhatAnUnstockedCountryBecomes"/>,
+    /// with the opening lumber and steel the manual says a power begins with.
+    /// </summary>
+    /// <remarks>
+    /// Both orderings converge: each buys an adequate network within a few turns,
+    /// after which nothing is scarce and the choice stops paying. Materials first
+    /// is then simply *worse*, because it still costs workers on turn one and
+    /// reaches nowhere the other ordering does not.
+    /// <para>
+    /// This run exists because <c>docs/formulas/transport.md</c> published its
+    /// numbers and nothing in the suite produced them — a table no test can
+    /// reproduce is a hypothesis, by this project's own rule. It is asserted
+    /// comparatively; the figures are reported.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void AStockpileMakesTheSliderOrderStopMattering()
+    {
+        var foodFirst = CreateWorld(
+            withTransportLimit: true, startingTransportCapacity: 10, startingStock: 20);
+        var foodLog = Run(foodFirst, orderPolicy: FoodFirstTransportPolicy, out var food);
+
+        var materialsFirst = CreateWorld(
+            withTransportLimit: true, startingTransportCapacity: 10, startingStock: 20);
+        var materialsLog = Run(
+            materialsFirst, orderPolicy: MaterialsFirstTransportPolicy, out var materials);
+
+        output.WriteLine("=== food first, stocked ===");
+        output.WriteLine(foodLog);
+        output.WriteLine("=== materials first, stocked ===");
+        output.WriteLine(materialsLog);
+
+        // Stocked, food first can now do everything materials first can — which
+        // is the whole point, and the opposite of the unstocked pair above.
+        Assert.True(food.Produced > 0, "Food-first still produced nothing even with a stockpile.");
+        Assert.True(food.CapacityBuilt > 0, "Food-first still never built a railyard.");
+
+        // And it costs no workers doing it, where materials first still does.
+        Assert.True(
+            food.LastTurnWorkers >= materials.LastTurnWorkers,
+            $"Food-first ended with {food.LastTurnWorkers} workers against " +
+            $"materials-first {materials.LastTurnWorkers}.");
+
+        // Converged: both carry nearly everything, so the ordering stops paying.
+        Assert.True(
+            food.Carried * 10 > materials.Carried * 9,
+            $"Carried {food.Carried} food-first against {materials.Carried} materials-first.");
     }
 
     /// <summary>

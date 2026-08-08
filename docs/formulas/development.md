@@ -18,7 +18,8 @@ on the first link.
 
 ## Confidence
 
-`inferred`, with **one `guess`** clearly separated below.
+`inferred` throughout. **The one guess this document used to carry has been
+recovered from observed play**, and the numbers it moved are re-published below.
 
 | Claim | Support |
 |---|---|
@@ -31,7 +32,7 @@ on the first link.
 | Which civilian improves which resource | **manual** — the Resource Development Table |
 | Dry plains, horse ranch and scrub forest cannot be improved | **manual**, stated outright, and **corroborated by the corpus** — see below |
 | Moving and working are alternatives, not a sequence | **manual** — the cursor table gives "deploy to tile, no work this turn" its own cursor |
-| **How many turns a civilian's work takes** | **nothing, anywhere. The one guess.** |
+| **A civilian's work takes three turns** | **observed play** — the owner, watching an iron mine. Was the one guess here and is not any more |
 
 ## The corpus check that came before the code
 
@@ -148,24 +149,71 @@ this phase still cannot accept an order written while it was busy.
 **A job whose tile is no longer legal finishes without raising anything.** If
 the province was lost mid-job, the worker is freed and the level is untouched.
 
-## The one guess: work takes one turn
+## Work takes three turns, and that used to be the one guess
 
-Nothing in the manual, the corpus or the binary says how long a civilian's work
-takes. One turn is what is shipped, and it lives in content as a per-civilian-
-type `workTurns` so changing it is an edit rather than a code change.
+This section used to be headed "The one guess: work takes one turn" and began
+"nothing in the manual, the corpus or the binary says how long a civilian's work
+takes." **The owner has now supplied it from play: three turns** — three to open
+an iron mine at Level I, and three more for each later rung once the technology
+gating it arrives.
 
-Two things argue it may be longer. The manual speaks of "when a Miner finishes
-opening a new mine", which reads like an event worth waiting for. And with
-unlimited movement, a one-turn rule makes a handful of Farmers very fast — the
-soak below improves every farm tile a power owns inside ten turns.
+It is worth noting what the old section got right. It argued the duration was
+probably *longer* than one, on two grounds: the manual speaks of "when a Miner
+finishes opening a new mine", which reads like an event worth waiting for; and a
+one-turn rule made a handful of Farmers absurdly fast, improving every farm tile
+a power owned inside ten turns. Both readings pointed the right way.
 
-Ordering it takes effect the following turn: a job ordered on turn *N* completes
-during turn *N+workTurns*'s Development phase. That is what makes the duration
-mean something; at zero a civilian would improve a tile every turn for free, and
-`CivilianTypeDefinition` refuses it.
+**The observation is of a mine.** Applying it to the Prospector and the Engineer
+is extrapolation from "three turns for everything" rather than something watched,
+and it is a one-line edit per type in content if either turns out to differ.
 
-Record this as a `guess`, not a finding. It is the only number here without
-evidence behind it.
+The mechanism is unchanged: a job ordered on turn *N* completes during turn
+*N+workTurns*'s Development phase. At zero a civilian would improve a tile every
+turn for free, and `CivilianTypeDefinition` still refuses it.
+
+Rate this `inferred`, from observed play — which the scoreboard calls "good for
+shape, poor for exact numbers". Three is the shape; it may not be exactly three
+for everything.
+
+## The other price: improvement costs cash
+
+**Every civilian's improvement is paid for**, and the manual implies it without
+ever printing a figure: a player might tell a unit to do nothing "when you lack
+the cash to pay for the civilian's improvements." The owner supplies the numbers,
+and they climb steeply:
+
+| Reaching | Costs |
+|---|---|
+| Level I | 100 |
+| Level II | 1,000 |
+| Level III | 3,000 |
+
+**Charged per rung, not once per tile.** A worker opens a mine for 100, leaves,
+and comes back to pay 1,000 when Square-Set Timbering arrives — three more turns
+and a bill ten times the first.
+
+**The price is per cell, not per deposit.** A hex carrying two resources costs
+the same as one, which is exactly how `WorldState` already models development:
+one level per cell. Nothing about the shape of the model had to change.
+
+**Prospecting is free.** The owner is explicit, and the manual prices no search
+either.
+
+Held flat across deposits in `improvement.cashCostByDevelopmentLevel`, indexed by
+the level being reached, running parallel to the yield curve and the technology
+ladder so all three answer "what does rung *n* take?" the same way. Per-deposit
+prices would be invention until something attests them.
+
+**Cash leaves the treasury when the work is ordered**, the same rule the Engineer
+follows — the manual's Done-command sentence frames it as a decision made
+*before* ordering, and it is the only ordering in which a refusal is useful.
+Nothing is refunded if the tile is lost mid-job, which is the bargain the engine
+already makes with a civilian's time.
+
+**This makes the guessed starting treasury load-bearing.** At these prices
+`startingDefaults.cash` of 5,000 buys one Level III improvement or five Level
+IIs, so a number labelled "do not cite" when nothing read it now decides how fast
+a fresh start can develop at all. See [money.md](money.md).
 
 ## Pseudocode
 
@@ -212,26 +260,40 @@ recruitment requests. Exactly as before this phase existed.
 | turn | workers | fed / sick | grain a turn | total levels |
 |---|---|---|---|---|
 | 1 | 49 | 42 / 7 | 21 | 98 |
-| 2 | 49 | 49 / 0 | 35 | 119 |
-| 5 | 56 | 56 / 0 | 42 | 140 |
-| 10 | 77 | 77 / 0 | 42 | 168 |
-| 25 | 84 | 77 / 7 | 42 | 168 |
-| 100 | 84 | 77 / 7 | 42 | 168 |
+| 2 | 49 | 42 / 7 | 21 | 98 |
+| 5 | 49 | 49 / 0 | 35 | 119 |
+| 10 | 70 | 70 / 0 | 42 | 140 |
+| 25 | 77 | 77 / 0 | 42 | 168 |
+| 100 | 77 | 77 / 0 | 42 | 168 |
 
-The chain completes, in order: first improvement on turn 2, sickness gone the
-same turn, **first recruit on turn 4** — migration doing something for the first
-time since it was built — and the workforce growing by seventy per cent.
+The chain completes, in order: first improvement on turn 4, sickness gone the
+same turn, **first recruit on turn 6** — migration doing something for the first
+time since it was built — and the workforce growing by more than half.
 
-**Then it reopens, and that is the finding rather than a failure.** Grain stops
-at 42 and the population keeps growing until it outruns the harvest. Sickness
-returns and the economy settles at 84 workers with 7 permanently ill. That is
-the manual's own warning about growing faster than you can feed, arrived at
-rather than written in.
+### The overshoot is gone, and that is the duration showing through
 
-**Where grain stops is now a technology question.** These figures were 63 and 119
-before the Benefits of Technology Table was transcribed, when a Farmer could walk
-a tile to Level 3 for free. Level II and Level III each cost an investment now.
-See [technology.md](technology.md).
+**This run used to end badly on purpose.** At a one-turn work duration the farms
+improved fast enough — 105 tiles rather than 70 — for the population to reach 84
+and then outrun its own food, so sickness returned on turn 14 and the economy
+settled with 7 permanently ill. That was reported here as the manual's own
+warning about growing faster than you can feed, arrived at rather than written
+in.
+
+**At three turns it does not happen.** The population settles at 77 and nobody
+is ever ill again.
+
+**It is a knife edge rather than a reversal**, and the arithmetic says so: both
+runs end on the same 42 grain a turn, half the workforce wants grain
+specifically, so 84 workers need exactly 42 and 77 need 39. The overshoot was
+real; it depended on a number that has since been measured, and it is reported
+rather than engineered back in. A fixture with any more farmland would show it
+again.
+
+**Where grain stops is a technology question, and where the workforce stops is
+now a duration one.** Grain was 63 and the workforce 119 before the Benefits of
+Technology Table was transcribed, when a Farmer could walk a tile to Level 3 for
+free; the workforce was 84 before the duration was measured. Two different
+recoveries, each visible in the same column. See [technology.md](technology.md).
 
 Both runs are reported rather than asserted into a target, which is the standing
 split in `soak.md`: the soak asserts integrity and *reports* behaviour.

@@ -177,8 +177,8 @@ depots.
 
 ```
                      gathered  carried  wasted  grain/turn at 100  structures  treasuries
-Engineer idle          15,841   15,806      35                 42           0      42,000
-Engineer building      23,814   23,779      35                126          14      21,000
+Engineer idle          15,512   15,484      28                 42           0      42,000
+Engineer building      23,037   23,009      28                126          14      21,000
 ```
 
 **The reach is large.** Half again as much harvest over the century, and grain a
@@ -192,7 +192,7 @@ This run was written to confirm an expectation carried over from
 push the waste figure up until a railyard caught up, and that reach and capacity
 would visibly oppose each other.
 
-**They do not. Waste is 35 either way — it does not move at all.**
+**They do not. Waste is 28 either way — it does not move at all.**
 
 The reason is one `transport.md` already reports from the other side: 805 points
 of capacity over a century is absurd, and it is absurd because **the railyard is
