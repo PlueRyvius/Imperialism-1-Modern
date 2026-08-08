@@ -147,8 +147,8 @@ public sealed class MapViewStateTests
         },
         Countries =
         [
-            new NamedContentDefinition { Key = "country.blue", Name = "Blue Republic" },
-            new NamedContentDefinition { Key = "country.red", Name = "Red Empire" },
+            new CountryContentDefinition { Key = "country.blue", Name = "Blue Republic" },
+            new CountryContentDefinition { Key = "country.red", Name = "Red Empire" },
         ],
         Scenarios =
         [

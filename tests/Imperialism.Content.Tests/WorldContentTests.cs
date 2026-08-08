@@ -226,7 +226,7 @@ public sealed class WorldContentTests
                     .ToArray(),
             },
             Countries = Enumerable.Range(0, countryCount)
-                .Select(static index => new NamedContentDefinition
+                .Select(static index => new CountryContentDefinition
                 {
                     Key = $"country.{index}",
                     Name = $"Country {index}",
@@ -271,7 +271,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(20)]
+    [InlineData(21)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1514,6 +1514,162 @@ public sealed class WorldContentTests
     }
 
     /// <summary>
+    /// Version 20 opens a world market. A version 19 package trades nothing, so it migrates
+    /// to a world where nothing is tradable, no hull exists and no price moves — which is
+    /// exactly how it behaved.
+    /// </summary>
+    [Fact]
+    public void VersionNineteenMigratesToAWorldThatTradesNothing()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 19);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.All(migrated.Commodities, commodity =>
+        {
+            Assert.Null(commodity.WorldPrice);
+            Assert.Null(commodity.TradeOrder);
+        });
+        Assert.Empty(migrated.ShipTypes);
+        Assert.Null(migrated.Trade);
+
+        var world = WorldContentCompiler.Compile(migrated).World;
+        Assert.Empty(world.ShipTypes);
+        Assert.Null(world.Trade);
+        Assert.All(world.Commodities, commodity => Assert.False(commodity.IsTradable));
+
+        // And a country is not a Great Power, which is the right answer for a world with
+        // no trade in it: the flag exists only to decide who carries a cargo.
+        Assert.All(world.Countries, country => Assert.False(country.IsGreatPower));
+    }
+
+    [Theory]
+    [InlineData("\"worldPrice\": 100", "a priced commodity")]
+    [InlineData("\"shipTypes\": [", "a ship")]
+    public void VersionNineteenMigrationRejectsVersionTwentyTrade(string marker, string _)
+    {
+        var document = CreateValidDocument();
+        document.Commodities[0].WorldPrice = 100;
+        document.Commodities[0].TradeOrder = 0;
+        document.ShipTypes = [new ShipTypeContentDefinition { Key = "ship.trader", Name = "Trader", Cargo = 2 }];
+        var contradictory = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 19);
+        Assert.Contains(marker, contradictory, StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(contradictory)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    /// <summary>
+    /// The roster, the fleet, the hulls and the market all survive a round trip — and an
+    /// untradable commodity writes nothing at all rather than a zero.
+    /// </summary>
+    [Fact]
+    public void TheTradeRosterAndShipsSurviveARoundTrip()
+    {
+        var document = CreateValidDocument();
+        document.Commodities[0].WorldPrice = 300;
+        document.Commodities[0].TradeOrder = 4;
+        document.ShipTypes =
+        [
+            new ShipTypeContentDefinition { Key = "ship.trader", Name = "Trader", Cargo = 2 },
+            new ShipTypeContentDefinition
+            {
+                Key = "ship.clipper",
+                Name = "Clipper",
+                Cargo = 4,
+                RequiredTechnology = document.Technologies[0].Key,
+                Combat = new ShipCombatContent { Firepower = 0, Range = 0, Armour = 0, Hull = 25, Speed = 7 },
+            },
+        ];
+        document.Trade = new TradeContentSettings
+        {
+            StepPercent = 10,
+            TolerancePercent = 10,
+            FloorPercent = 25,
+            CeilingPercent = 400,
+        };
+        document.StartingDefaults ??= new StartingDefaultsContent();
+        document.StartingDefaults.Ships =
+            [new ShipDefaultContent { Type = "ship.trader", Count = 3 }];
+        document.Countries[0].IsGreatPower = true;
+
+        var first = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(first);
+        Assert.Equal(first, WorldContentCodec.Encode(decoded));
+
+        var world = WorldContentCompiler.Compile(decoded).World;
+        var traded = world.Commodities[0];
+        Assert.Equal((300L, 4, true), (traded.WorldPrice!.Value, traded.TradeOrder!.Value, traded.IsTradable));
+
+        var clipper = world.ShipTypes[1];
+        Assert.Equal((4L, new TechnologyId(0)), (clipper.Cargo, clipper.RequiredTechnology!.Value));
+        Assert.Equal(25, clipper.Combat!.Hull);
+        Assert.NotNull(world.Trade);
+        Assert.True(world.Countries[0].IsGreatPower);
+
+        // An untradable commodity writes neither field, so absence stays the signal.
+        var json = Encoding.UTF8.GetString(first);
+        Assert.DoesNotContain("\"worldPrice\": 0", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ATradedCommodityMustNameItsPlaceInTheCommodityOrder()
+    {
+        var document = CreateValidDocument();
+        document.Commodities[0].WorldPrice = 100;
+
+        AssertPath("commodities[0]", document);
+    }
+
+    [Fact]
+    public void TwoCommoditiesCannotShareATradeOrder()
+    {
+        var document = CreateValidDocument();
+        Assert.True(document.Commodities.Length >= 2, "This test needs two commodities.");
+        foreach (var commodity in document.Commodities.Take(2))
+        {
+            commodity.WorldPrice = 100;
+            commodity.TradeOrder = 0;
+        }
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCompiler.Compile(document));
+        Assert.Contains("trade order", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AShipCannotNameATechnologyTheWorldDoesNotDeclare()
+    {
+        var document = CreateValidDocument();
+        document.ShipTypes =
+        [
+            new ShipTypeContentDefinition
+            {
+                Key = "ship.clipper",
+                Name = "Clipper",
+                RequiredTechnology = "technology.missing",
+            },
+        ];
+
+        AssertPath("shipTypes[0].requiredTechnology", document);
+    }
+
+    [Fact]
+    public void AStartingFleetCannotNameAHullTheWorldDoesNotDeclare()
+    {
+        var document = CreateValidDocument();
+        document.StartingDefaults ??= new StartingDefaultsContent();
+        document.StartingDefaults.Ships =
+            [new ShipDefaultContent { Type = "ship.missing", Count = 3 }];
+
+        AssertPath("startingDefaults.ships[0].type", document);
+    }
+
+    /// <summary>
     /// Indexed by the level being reached, so index 0 is unused and a rung past
     /// the end of the list is free.
     /// </summary>
@@ -1890,8 +2046,8 @@ public sealed class WorldContentTests
         },
         Countries =
         [
-            new NamedContentDefinition { Key = "empire.b", Name = "République 世界" },
-            new NamedContentDefinition { Key = "empire.a", Name = "Empire A" },
+            new CountryContentDefinition { Key = "empire.b", Name = "République 世界" },
+            new CountryContentDefinition { Key = "empire.a", Name = "Empire A" },
         ],
         Scenarios =
         [

@@ -61,20 +61,50 @@ public interface ITradeMarket
 /// </remarks>
 public sealed class ProportionalTradeMarket : ITradeMarket
 {
+    /// <summary>The defaults, kept here so content and tests cite one place.</summary>
+    public const long DefaultStepPercent = 10;
+
+    public const long DefaultTolerancePercent = 10;
+
+    public const long DefaultFloorPercent = 25;
+
+    public const long DefaultCeilingPercent = 400;
+
+    public ProportionalTradeMarket(
+        long stepPercent = DefaultStepPercent,
+        long tolerancePercent = DefaultTolerancePercent,
+        long floorPercent = DefaultFloorPercent,
+        long ceilingPercent = DefaultCeilingPercent)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(stepPercent);
+        ArgumentOutOfRangeException.ThrowIfNegative(tolerancePercent);
+        ArgumentOutOfRangeException.ThrowIfNegative(floorPercent);
+        if (ceilingPercent < floorPercent)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(ceilingPercent), "A price ceiling below its floor leaves nowhere to sit.");
+        }
+
+        StepPercent = stepPercent;
+        TolerancePercent = tolerancePercent;
+        FloorPercent = floorPercent;
+        CeilingPercent = ceilingPercent;
+    }
+
     /// <summary>How far a price moves in one turn when supply and demand disagree.</summary>
-    public const long StepPercent = 10;
+    public long StepPercent { get; }
 
     /// <summary>
     /// How close supply and demand must be to count as "closely matched", as a
     /// percentage of the larger of the two.
     /// </summary>
-    public const long TolerancePercent = 10;
+    public long TolerancePercent { get; }
 
     /// <summary>Bounds, as a percentage of the commodity's opening price.</summary>
-    public const long FloorPercent = 25;
+    public long FloorPercent { get; }
 
     /// <summary>Bounds, as a percentage of the commodity's opening price.</summary>
-    public const long CeilingPercent = 400;
+    public long CeilingPercent { get; }
 
     public long NextPrice(CommodityDefinition commodity, long currentPrice, long offered, long bid)
     {

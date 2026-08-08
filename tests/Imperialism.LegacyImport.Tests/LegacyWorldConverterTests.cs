@@ -780,6 +780,213 @@ public sealed class LegacyWorldConverterTests
     }
 
     /// <summary>
+    /// **The whole trade roster, pinned**: which commodities the market sees, in what
+    /// order, at what price — and, as informatively, the eight it never sees.
+    /// </summary>
+    /// <remarks>
+    /// The order is a rule rather than a listing: it decides which deals get cargo holds,
+    /// and "clothing deals are always considered prior to all other deals".
+    /// <para>
+    /// **The eight untradable commodities are the striking part.** They are exactly the
+    /// ones the manual says cannot be traded, and the roster comes from a screenshot rather
+    /// than from the prose — so two independent sources agree, three times over: raw food
+    /// ("food resources cannot be traded on the world market"), gold and gems ("they never
+    /// reach the industry warehouse and they cannot be traded"), and canned food being the
+    /// exception that *is* tradable.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void TheWholeTradeRosterIsPinned()
+    {
+        (string Key, long Price)[] expected =
+        [
+            ("commodity.clothing", 900),
+            ("commodity.furniture", 900),
+            ("commodity.hardware", 900),
+            ("commodity.armaments", 900),
+            ("commodity.canned-food", 100),
+            ("commodity.fabric", 300),
+            ("commodity.lumber", 300),
+            ("commodity.paper", 300),
+            ("commodity.steel", 300),
+            ("commodity.cotton", 100),
+            ("commodity.wool", 100),
+            ("commodity.timber", 100),
+            ("commodity.coal", 100),
+            ("commodity.iron", 100),
+            ("commodity.horses", 300),
+        ];
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "roster-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var traded = result.Document!.Commodities
+            .Where(static item => item.WorldPrice is not null)
+            .OrderBy(static item => item.TradeOrder!.Value)
+            .ToArray();
+
+        Assert.Equal(
+            expected.Select(static item => item.Key),
+            traded.Select(static item => item.Key));
+        Assert.Equal(
+            expected.Select(static item => (long?)item.Price),
+            traded.Select(static item => item.WorldPrice));
+
+        // The order is dense from zero, so nothing shares a slot and nothing is skipped.
+        Assert.Equal(Enumerable.Range(0, expected.Length), traded.Select(static i => i.TradeOrder!.Value));
+
+        // And the eight the market never sees.
+        Assert.Equal(
+            [
+                "commodity.grain", "commodity.livestock", "commodity.fruit", "commodity.fish",
+                "commodity.oil", "commodity.gold", "commodity.gems", "commodity.fuel",
+            ],
+            result.Document.Commodities
+                .Where(static item => item.WorldPrice is null)
+                .Select(static item => item.Key));
+
+        // Gold and gems convert on carriage instead, and the two are alternatives.
+        Assert.All(
+            result.Document.Commodities.Where(static item => item.CashPerUnit is not null),
+            item => Assert.Null(item.WorldPrice));
+    }
+
+    /// <summary>
+    /// The thirteen classes of ship: five merchants and eight warships. **Cargo is the only
+    /// column this engine reads**, and only merchants have any.
+    /// </summary>
+    /// <remarks>
+    /// **No build costs are pinned because none are transcribed.** The owner's cost table
+    /// had a misaligned column — what it labelled Speed was battle movement, and it carried
+    /// no sailing speed at all — so every value after Hull in it is suspect, arms included.
+    /// Arms later sets the force landable at a beachhead, so being out by one would be a
+    /// gameplay bug rather than a cosmetic one; nothing reads a bill until a shipyard
+    /// exists, so the honest move is to ship none.
+    /// </remarks>
+    [Fact]
+    public void TheShipTableIsPinned()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "ship-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var ships = result.Document!.ShipTypes;
+        Assert.Equal(13, ships.Length);
+
+        // Cargo: the five merchants, and nothing else. The Freighter's is unknown and is
+        // left at zero rather than invented.
+        Assert.Equal(
+            [
+                ("ship.trader", 2L), ("ship.indiaman", 4L), ("ship.steamship", 8L),
+                ("ship.clipper", 4L), ("ship.freighter", 0L),
+            ],
+            ships.Take(5).Select(static item => (item.Key, item.Cargo)));
+        Assert.All(ships.Skip(5), item => Assert.Equal(0, item.Cargo));
+
+        // Warships carry the manual's combat numbers and merchants carry none: they never
+        // fight, which is also why their sailing speed is not in that table.
+        Assert.All(ships.Take(5), item => Assert.Null(item.Combat));
+        var dreadnought = ships.Single(static item => item.Key == "ship.dreadnought");
+        Assert.Equal(
+            (20L, 13L, 70L, 115L, 5L),
+            (dreadnought.Combat!.Firepower, dreadnought.Combat.Range, dreadnought.Combat.Armour,
+                dreadnought.Combat.Hull, dreadnought.Combat.Speed));
+
+        // Two technology entries that gate nothing else in the engine gate a hull here.
+        Assert.Equal(
+            "technology.streamlined-hulls",
+            ships.Single(static item => item.Key == "ship.clipper").RequiredTechnology);
+        Assert.Equal(
+            "technology.paddlewheels",
+            ships.Single(static item => item.Key == "ship.steamship").RequiredTechnology);
+
+        // Nothing is priced in materials yet, deliberately.
+        Assert.All(ships, item => Assert.Empty(item.BuildCost));
+
+        // Every gate named must exist in the catalog.
+        var declared = result.Document.Technologies.Select(static item => item.Key).ToHashSet();
+        Assert.All(
+            ships.Where(static item => item.RequiredTechnology is not null),
+            item => Assert.Contains(item.RequiredTechnology!, declared));
+    }
+
+    /// <summary>
+    /// Every power starts with three Traders — six cargo holds — which all three skirmish
+    /// scenarios agree on independently. **Not a guess**, unlike the transport pool beside
+    /// it; <c>ship</c> is not one of the seven records a skirmish omits.
+    /// </summary>
+    [Fact]
+    public void EveryPowerStartsWithThreeTraders()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+                Record("labo", 0, 4, 2, 1),
+            ]),
+            null,
+            "fleet-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var fleet = Assert.Single(result.Document!.StartingDefaults!.Ships);
+        Assert.Equal(("ship.trader", 3L), (fleet.Type, fleet.Count));
+
+        // `labo` is also what makes this power a Great Power, which is what decides who
+        // carries a cargo.
+        Assert.True(result.Document.Countries[0].IsGreatPower);
+    }
+
+    /// <summary>
+    /// <c>ship</c> records are **still deferred**, and that is a decision rather than an
+    /// oversight: the record's type is a 1-based index into the game's own ship array, and
+    /// the array order needs the binary to settle. Converting them against a guessed order
+    /// would hand powers the wrong hulls.
+    /// </summary>
+    /// <remarks>
+    /// Trade still works on imported worlds, because the fair-start fleet comes from
+    /// <c>startingDefaults</c> and needs no index. See <c>docs/formulas/trade.md</c>.
+    /// </remarks>
+    [Fact]
+    public void ShipRecordsAreStillDeferred()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+                Record("ship", 0, 1, 14, 3),
+            ]),
+            null,
+            "deferred-ship-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Empty(result.Document!.Scenarios[0].Ships);
+        Assert.Contains("scenario.tag.ship", result.Report.DeferredCounts.Keys);
+    }
+
+    /// <summary>
     /// Every prerequisite points strictly earlier, so any contiguous prefix of the
     /// table is prerequisite-closed — which is the shape a <c>tech</c> record has,
     /// being a bare 1-based index into it.

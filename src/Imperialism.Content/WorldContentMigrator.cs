@@ -101,6 +101,11 @@ internal static class WorldContentMigrator
             MigrateVersionEighteenToNineteen(document);
         }
 
+        if (document.FormatVersion == 19)
+        {
+            MigrateVersionNineteenToTwenty(document);
+        }
+
         return document;
     }
 
@@ -845,6 +850,64 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 19;
+    }
+
+    /// <summary>
+    /// Version 20 opens a world market, and gives it ships to carry on.
+    /// </summary>
+    /// <remarks>
+    /// A version 19 package trades nothing, so it migrates to a world where nothing is
+    /// tradable, no hull exists and no price ever moves — which is exactly how it behaved.
+    /// None of it can be invented: what a commodity fetches is a fact about the 1897
+    /// economy rather than about worlds in general, and a world whose warehouses cannot be
+    /// sold from is a coherent world rather than a broken one.
+    /// <para>
+    /// Countries gain <c>isGreatPower</c>, which defaults to false. That is the right
+    /// migration for a world with no trade in it — the flag exists only to decide who
+    /// carries a cargo — and it is why the country schema could widen without a legacy
+    /// carrier: a version 19 country is a key and a name, and both survive.
+    /// </para>
+    /// </remarks>
+    private static void MigrateVersionNineteenToTwenty(WorldContentDocument document)
+    {
+        foreach (var commodity in document.Commodities ?? [])
+        {
+            if (commodity?.WorldPrice is not null || commodity?.TradeOrder is not null)
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 19 cannot put a commodity on the world market.");
+            }
+        }
+
+        if (document.ShipTypes is { Length: > 0 })
+        {
+            throw new ContentValidationException(
+                "formatVersion", "Version 19 has no ships.");
+        }
+
+        if (document.Trade is not null)
+        {
+            throw new ContentValidationException(
+                "formatVersion", "Version 19 has no world market.");
+        }
+
+        if (document.StartingDefaults?.Ships is { Length: > 0 })
+        {
+            throw new ContentValidationException(
+                "formatVersion", "Version 19 cannot start a country with a fleet.");
+        }
+
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.Ships is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion", "Version 19 cannot place a fleet.");
+            }
+        }
+
+        document.FormatVersion = 20;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

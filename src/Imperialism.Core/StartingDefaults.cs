@@ -32,6 +32,7 @@ public sealed class StartingDefaults
     private readonly IReadOnlyList<FacilityCapacityDefault> _productionCapacities;
     private readonly IReadOnlyList<TechnologyId> _technologies;
     private readonly IReadOnlyList<CommodityQuantity> _inventory;
+    private readonly IReadOnlyList<ShipDefault> _ships;
 
     public StartingDefaults(
         IEnumerable<FacilityCapacityDefault> productionCapacities,
@@ -39,7 +40,8 @@ public sealed class StartingDefaults
         IEnumerable<TechnologyId>? technologies = null,
         long? transportCapacity = null,
         IEnumerable<CommodityQuantity>? inventory = null,
-        long? cash = null)
+        long? cash = null,
+        IEnumerable<ShipDefault>? ships = null)
     {
         if (transportCapacity < 0)
         {
@@ -76,6 +78,14 @@ public sealed class StartingDefaults
                 nameof(inventory));
         }
 
+        var fleet = ships?.ToArray() ?? [];
+        if (fleet.Select(static item => item.Type).Distinct().Count() != fleet.Length)
+        {
+            throw new ArgumentException(
+                "Starting defaults cannot name a ship type twice.",
+                nameof(ships));
+        }
+
         if (stock.Any(static item => item.Quantity <= 0))
         {
             throw new ArgumentException(
@@ -86,10 +96,30 @@ public sealed class StartingDefaults
         _productionCapacities = Array.AsReadOnly(capacities);
         _technologies = Array.AsReadOnly(known);
         _inventory = Array.AsReadOnly(stock);
+        _ships = Array.AsReadOnly(fleet);
         Workforce = workforce;
         TransportCapacity = transportCapacity;
         Cash = cash;
     }
+
+    /// <summary>
+    /// The fleet a listed country starts with, and therefore its opening merchant
+    /// marine.
+    /// </summary>
+    /// <remarks>
+    /// <b>Unlike the transport pool beside it, this is not a guess.</b> All three
+    /// skirmish-shaped scenarios give every one of their seven powers three ships of the
+    /// same class — <c>s10</c>, <c>s11</c> and <c>s15</c>, independently — which is the
+    /// same agreement that settled the fair start's mills and workforce. <c>ship</c> is
+    /// not one of the seven records a skirmish omits.
+    /// <para>
+    /// <b>The one inference is which class.</b> The corpus says "three of type 1" and the
+    /// type index needs the binary to resolve; both candidate orderings of the ship array
+    /// put the Trader first, so three Traders is the reading. If the array turns out to
+    /// begin elsewhere, this figure moves with it. See <c>docs/formulas/trade.md</c>.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<ShipDefault> Ships => _ships;
 
     /// <summary>
     /// Capacity a listed country starts each facility at. A facility absent from
@@ -226,4 +256,26 @@ public readonly record struct WorkforceDefault
         WorkerGrade.Expert => Expert,
         _ => throw new ArgumentOutOfRangeException(nameof(grade)),
     };
+}
+
+/// <summary>
+/// A class of ship a listed country starts with, and how many.
+/// </summary>
+/// <remarks>
+/// No sea zone, unlike <see cref="InitialShip"/>. A default applies to whichever
+/// countries a scenario names, and those countries' capitals are all over the map, so
+/// there is no one zone to put a fleet in — and merchant ships are abstract anyway.
+/// </remarks>
+public readonly record struct ShipDefault
+{
+    public ShipDefault(ShipTypeId type, long count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        Type = type;
+        Count = count;
+    }
+
+    public ShipTypeId Type { get; }
+
+    public long Count { get; }
 }

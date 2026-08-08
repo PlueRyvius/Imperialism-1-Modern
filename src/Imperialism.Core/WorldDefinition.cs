@@ -484,6 +484,16 @@ public sealed class WorldDefinition
             // against. See docs/scenario-semantics.md.
         }
 
+        foreach (var ship in startingDefaults?.Ships ?? [])
+        {
+            if ((uint)ship.Type.Value >= (uint)shipTypeArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Starting defaults refer to missing ship type {ship.Type.Value}.",
+                    nameof(startingDefaults));
+            }
+        }
+
         Map = map;
         Scenario = scenario;
         Extraction = extractionSettings;
@@ -806,13 +816,41 @@ public sealed class WorldState
 
         // Ships per (country, type). A dense grid rather than a list because the only
         // question anything asks is "how much cargo can this country move", which is a
-        // sum over types. Records repeat a combination and simply add.
+        // sum over types.
         _ships = new long[
             checked(definition.Countries.Count * Math.Max(1, definition.ShipTypes.Count))];
+
+        // Ship records add to one another rather than replacing, because the corpus
+        // repeats a (country, type) combination freely — `s1` gives one power `8x2 8x1`
+        // — so a fleet is a bag of records rather than a table.
+        //
+        // But a country the scenario equips at all ignores the default outright. That is
+        // the same "an explicit record wins" rule the workforce, capacity, treasury and
+        // knowledge follow; the difference is only that it takes a whole fleet at a time,
+        // since adding a default Trader to an authored navy would invent a ship.
+        var equipped = new bool[definition.Countries.Count];
         foreach (var ship in definition.Scenario.InitialShips)
         {
+            equipped[ship.Country.Value] = true;
             var offset = (ship.Country.Value * definition.ShipTypes.Count) + ship.Type.Value;
             _ships[offset] = checked(_ships[offset] + ship.Count);
+        }
+
+        if (definition.StartingDefaults?.Ships is { Count: > 0 } fleet)
+        {
+            foreach (var country in definition.Scenario.DefaultStartCountries)
+            {
+                if (equipped[country.Value])
+                {
+                    continue;
+                }
+
+                foreach (var ship in fleet)
+                {
+                    _ships[(country.Value * definition.ShipTypes.Count) + ship.Type.Value] =
+                        ship.Count;
+                }
+            }
         }
 
         // Everybody starts well. Illness is decided by what a workforce eats,

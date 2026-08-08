@@ -41,6 +41,28 @@ internal enum LegacyProspecting : byte
     NeedsOilDrilling,
 }
 
+/// <summary>One class of ship: its key, cargo, technology gate and combat numbers.</summary>
+internal readonly record struct LegacyShipType(
+    string Key,
+    string Name,
+    long Cargo = 0,
+    LegacyShipCombat? Combat = null,
+    string? RequiredTechnology = null);
+
+/// <summary>A hull's fighting numbers, from the manual's Ship Type table.</summary>
+/// <remarks>
+/// Battle movement is deliberately absent. The manual's table carries it, and nothing here
+/// models fleet movement — recording a number no reader can interpret would invite it being
+/// mistaken for sailing speed, which is the error that produced a misaligned column in the
+/// first place.
+/// </remarks>
+internal readonly record struct LegacyShipCombat(
+    long Firepower,
+    long Range,
+    long Armour,
+    long Hull,
+    long Speed);
+
 public static class LegacyWorldConverter
 {
     /// <summary>
@@ -713,11 +735,8 @@ public static class LegacyWorldConverter
             };
         }
 
-        var countries = countryIds.Select(id => new NamedContentDefinition
-        {
-            Key = countryKeys[id],
-            Name = FindName(countryNames, id, "Country", report),
-        }).ToArray();
+        // Countries are built after the workforce is read, because `labo` is what says
+        // which of them are Great Powers. See below.
         var provinces = provinceIds.Select(id => new NamedContentDefinition
         {
             Key = provinceKeys[id],
@@ -752,6 +771,22 @@ public static class LegacyWorldConverter
         var transportCapacity = ReadTransportCapacity(scenario, countryKeys, report);
         var countryCash = ReadCountryCash(scenario, countryKeys, report);
         var civilians = ReadCivilians(scenario, map, countryKeys, report);
+
+        // `labo` names the Great Powers and only them — seven in every shipped scenario —
+        // so it is how the importer tells them from the minor nations without guessing.
+        // The same record already decides who gets the fair-start defaults; this puts the
+        // fact on the country itself, because trade needs it to know who carries a cargo:
+        // "no Minor Nation owns merchant marine."
+        var greatPowers = workers
+            .Select(static item => item.Country)
+            .ToHashSet(StringComparer.Ordinal);
+        var countries = countryIds.Select(id => new CountryContentDefinition
+        {
+            Key = countryKeys[id],
+            Name = FindName(countryNames, id, "Country", report),
+            IsGreatPower = greatPowers.Contains(countryKeys[id]),
+        }).ToArray();
+
         var title = string.IsNullOrWhiteSpace(info?.Title)
             ? $"Legacy {options.PackageKey}"
             : info.Title;
@@ -778,6 +813,8 @@ public static class LegacyWorldConverter
                 Prerequisites = [.. entry.Prerequisites.Select(TechnologyKey)],
             }).ToArray(),
             Commodities = CreateStandardCommodities(),
+            ShipTypes = CreateStandardShipTypes(),
+            Trade = CreateStandardTradeMarket(),
             ProductionFacilities = CreateStandardProductionFacilities(),
             ProductionRecipes = CreateStandardProductionRecipes(),
             ExpansionCostPerCapacityPoint = CreateStandardExpansionCost(),
@@ -827,6 +864,17 @@ public static class LegacyWorldConverter
                 TransportCapacity = DefaultTransportCapacity,
                 Inventory = CreateStandardStartingStock(),
                 Cash = DefaultStartingCash,
+
+                // Three Traders a power, which all three skirmishes agree on. Unlike the
+                // transport pool above this is not invented — see StartingFleet.
+                Ships =
+                [
+                    new ShipDefaultContent
+                    {
+                        Type = ShipTypeKey(StartingFleet.Type),
+                        Count = StartingFleet.Count,
+                    },
+                ],
             },
             Transport = CreateStandardTransport(),
             Construction = CreateStandardConstruction(),
@@ -2050,6 +2098,53 @@ public static class LegacyWorldConverter
 
     private static string ResourceKey(byte code) => $"resource.{ResourceNames[code]}";
 
+    /// <summary>
+    /// The fifteen commodities the world market trades, in the original's own commodity
+    /// order, with the prices from its Bid and Offers screen.
+    /// </summary>
+    /// <remarks>
+    /// <b>The order is a rule, not a presentation detail.</b> It decides which deals get
+    /// cargo holds: "IMPERIALISM always uses an established order when expending the Great
+    /// Powers' merchant marine for trade… Clothing deals, for example, are always
+    /// considered prior to all other deals because clothing is the first item in commodity
+    /// order. Reserving some cargo holds for later deals becomes an important skill."
+    /// <para>
+    /// The prices fall in three tiers — 100 raw, 300 material, 900 goods — and the 3x step
+    /// is structural: every recipe takes two input units per unit of output, so 2x inputs
+    /// plus 50% value added lands on the next tier. <b>Two entries break it and are
+    /// transcribed rather than derived</b>: canned food at 100, because its input is grain
+    /// and grain has no market price to mark up, and horses at 300 for no recoverable
+    /// reason.
+    /// </para>
+    /// <para>
+    /// <b>What is missing from this list is as informative as what is in it.</b> The eight
+    /// commodities with no entry are exactly the ones the manual says cannot be traded —
+    /// grain, fruit, livestock and fish ("food resources cannot be traded on the world
+    /// market"), gold and gems ("they never reach the industry warehouse and they cannot be
+    /// traded"), and oil and fuel. Three of those four groups are stated in prose, which
+    /// makes the screenshot and the manual agree independently. See
+    /// <c>docs/formulas/trade.md</c>.
+    /// </para>
+    /// </remarks>
+    private static readonly IReadOnlyList<(string Key, long Price)> TradeRoster =
+    [
+        ("clothing", 900),
+        ("furniture", 900),
+        ("hardware", 900),
+        ("armaments", 900),
+        ("canned-food", 100),
+        ("fabric", 300),
+        ("lumber", 300),
+        ("paper", 300),
+        ("steel", 300),
+        ("cotton", 100),
+        ("wool", 100),
+        ("timber", 100),
+        ("coal", 100),
+        ("iron", 100),
+        ("horses", 300),
+    ];
+
     private static CommodityContentDefinition[] CreateStandardCommodities() =>
     [
         Commodity("grain", "Grain", CommodityCategory.Raw),
@@ -2080,7 +2175,19 @@ public static class LegacyWorldConverter
     private static CommodityContentDefinition Commodity(
         string key,
         string name,
-        CommodityCategory category) => new()
+        CommodityCategory category)
+    {
+        var order = -1;
+        for (var index = 0; index < TradeRoster.Count; index++)
+        {
+            if (string.Equals(TradeRoster[index].Key, key, StringComparison.Ordinal))
+            {
+                order = index;
+                break;
+            }
+        }
+
+        return new CommodityContentDefinition
         {
             Key = $"commodity.{key}",
             Name = name,
@@ -2089,7 +2196,125 @@ public static class LegacyWorldConverter
             // Gold and gems are the manual's only two, and it prices both.
             // Everything else reaches the warehouse.
             CashPerUnit = CashPerUnit.TryGetValue(key, out var rate) ? rate : null,
+
+            // Absent for the eight the market never sees, which is what makes them
+            // untradable rather than free.
+            WorldPrice = order < 0 ? null : TradeRoster[order].Price,
+            TradeOrder = order < 0 ? null : order,
         };
+    }
+
+    /// <summary>
+    /// How this world's prices answer to supply and demand.
+    /// </summary>
+    /// <remarks>
+    /// <b>The direction is the manual's and every number is a guess.</b> It states the
+    /// direction outright and no magnitude anywhere, and the clearing price is the oldest
+    /// unknown on <c>docs/formulas/_index.md</c>. The defaults live in
+    /// <see cref="ProportionalTradeMarket"/> so content and code cite one place.
+    /// </remarks>
+    private static TradeContentSettings CreateStandardTradeMarket() => new()
+    {
+        StepPercent = ProportionalTradeMarket.DefaultStepPercent,
+        TolerancePercent = ProportionalTradeMarket.DefaultTolerancePercent,
+        FloorPercent = ProportionalTradeMarket.DefaultFloorPercent,
+        CeilingPercent = ProportionalTradeMarket.DefaultCeilingPercent,
+    };
+
+    /// <summary>
+    /// The thirteen classes of ship: five merchants and eight warships.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is not the game's array order, and nothing here depends on it being.</b>
+    /// Content refers to a hull by key, so the order below is only a listing. The order
+    /// <em>does</em> matter for one thing — a legacy <c>ship</c> record's type is a 1-based
+    /// index into the game's own array — and that is why <c>ship</c> records are still
+    /// deferred: the array order needs the binary to settle. See
+    /// <c>docs/formulas/trade.md</c>.
+    /// <para>
+    /// <b>Cargo is the only column this engine reads</b>, and only the merchants have any:
+    /// a country's merchant marine is the sum of the cargo it owns. The four merchant cargo
+    /// figures come from the owner; the Freighter's is unknown and is left at zero rather
+    /// than invented, which makes it a hull nobody would build until the number arrives.
+    /// </para>
+    /// <para>
+    /// <b>No build costs are transcribed, deliberately.</b> The owner's cost table proved to
+    /// have a misaligned column — what it labelled Speed was battle movement, and it
+    /// carried no sailing speed at all — so every value after Hull in it is suspect,
+    /// including arms. Shipping possibly-shifted numbers is worse than shipping none, and
+    /// nothing reads a build bill until a shipyard exists. The arms figure in particular
+    /// later sets the force landable at a beachhead, so being wrong by one would be a
+    /// gameplay bug rather than a cosmetic one.
+    /// </para>
+    /// <para>
+    /// The warship combat stats are from the manual's own Ship Type table and are
+    /// transcribed here and read by nothing, exactly as the technology table's
+    /// unmodellable entries are.
+    /// </para>
+    /// </remarks>
+    private static readonly IReadOnlyList<LegacyShipType> ShipTypes =
+    [
+        // The merchants. None appears in the manual's combat table, because they never
+        // fight; speed still matters to them, for outrunning a blockade, and is unknown.
+        new("trader", "Trader", Cargo: 2),
+        new("indiaman", "Indiaman", Cargo: 4),
+        new("steamship", "Steamship", Cargo: 8, RequiredTechnology: Paddlewheels),
+        new("clipper", "Clipper", Cargo: 4, RequiredTechnology: StreamlinedHulls),
+        new("freighter", "Freighter"),
+
+        // The eight warships, in the manual's printed order: four fast ships and four
+        // battleships, alternating by era.
+        new("frigate", "Frigate", Combat: new(3, 5, 10, 35, 3)),
+        new("ship-of-the-line", "Ship-of-the-Line", Combat: new(6, 6, 20, 65, 2)),
+        new("raider", "Raider", Combat: new(3, 7, 20, 30, 5), RequiredTechnology: Paddlewheels),
+        new("ironclad", "Ironclad", Combat: new(5, 8, 55, 50, 3)),
+        new("armoured-cruiser", "Armoured Cruiser", Combat: new(6, 9, 50, 40, 6)),
+        new("advanced-ironclad", "Advanced Ironclad", Combat: new(10, 10, 60, 70, 4)),
+        new("battle-cruiser", "Battle Cruiser", Combat: new(18, 13, 55, 90, 6)),
+        new("dreadnought", "Dreadnought", Combat: new(20, 13, 70, 115, 5)),
+    ];
+
+    private const string StreamlinedHulls = "Streamlined Hulls";
+    private const string Paddlewheels = "Paddlewheels";
+
+    /// <summary>
+    /// The fleet every power starts with, and therefore its opening merchant marine.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not a guess.</b> All three skirmish scenarios — `s10`, `s11` and `s15` — give
+    /// every one of their seven powers three ships of type 1, independently of each other.
+    /// That is the same agreement that settled the fair start's mills and workforce, and
+    /// <c>ship</c> is not one of the seven records a skirmish omits.
+    /// <para>
+    /// <b>The inference is which class type 1 is.</b> Both candidate orderings of the game's
+    /// ship array put the Trader first, so three Traders — six cargo holds — is the
+    /// reading. If the binary says the array begins elsewhere, this moves with it.
+    /// </para>
+    /// </remarks>
+    private static readonly (string Type, long Count) StartingFleet = ("trader", 3);
+
+    private static ShipTypeContentDefinition[] CreateStandardShipTypes() =>
+        ShipTypes.Select(static type => new ShipTypeContentDefinition
+        {
+            Key = ShipTypeKey(type.Key),
+            Name = type.Name,
+            Cargo = type.Cargo,
+            RequiredTechnology = type.RequiredTechnology is null
+                ? null
+                : TechnologyKey(type.RequiredTechnology),
+            Combat = type.Combat is not { } combat
+                ? null
+                : new ShipCombatContent
+                {
+                    Firepower = combat.Firepower,
+                    Range = combat.Range,
+                    Armour = combat.Armour,
+                    Hull = combat.Hull,
+                    Speed = combat.Speed,
+                },
+        }).ToArray();
+
+    private static string ShipTypeKey(string key) => $"ship.{key}";
 
     private static ProductionFacilityContentDefinition[] CreateStandardProductionFacilities() =>
     [
