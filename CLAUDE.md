@@ -32,6 +32,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | What's still unknown? | `docs/formulas/_index.md` |
 | Does the economy hold up over 100 turns? | `docs/formulas/soak.md` |
 | Navigating the original binary, and resolving a crash | `docs/disasm/README.md`, `docs/disasm/module-map.md` |
+| **What we want out of the binary, and how to check it** | `docs/disasm/wanted-values.md` |
 | Reading the binary's *behaviour* rather than its addresses | `docs/disasm/ghidra.md` |
 
 ## Hard rules
