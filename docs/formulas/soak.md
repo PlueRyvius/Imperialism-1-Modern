@@ -237,6 +237,35 @@ its workforce eats costs that workforce on the **first** turn whatever is in the
 warehouse, because capacity bought on turn one does not carry until turn two. See
 [transport.md](transport.md).
 
+### Paying for development, and the loop that funds it
+
+Three runs on the farming world, differing only in whether improvement is charged
+for and whether anything earns.
+
+```
+                              tiles improved  gathered  treasury at 100
+free                                      70    16,240                0
+priced, no income                         35    13,139                0
+priced, with a gold mine                  63    16,135           98,000
+```
+
+Priced with nothing coming in, 5,000 a power buys exactly five rungs at 1,000
+apiece and the last sixty-five turns are spent standing still. **That is an
+artefact of missing trade rather than a property of the model** — the same trap
+this file fell into over the empty warehouse — and the middle row reads
+*development is now something a country has to afford*, never *a country cannot
+afford development*.
+
+With one gold tile a power at the manual's $200 a unit the loop closes: 20,000
+over the century buys back nearly all the development the free run got for
+nothing, with change to spare. **This is the first run in this file where
+anything has ever needed an income.**
+
+The extra development does not land on grain — its top rung is gated behind
+Mechanical Reaper and none of these runs grants it — so cash and technology show
+up here as separate ceilings, and only one of them is lifted. See
+[development.md](development.md).
+
 ### The Engineer reaches, and nothing pushes back
 
 Two runs of the same world, the last six columns of each row being grain on

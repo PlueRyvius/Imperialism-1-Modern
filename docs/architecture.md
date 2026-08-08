@@ -207,6 +207,20 @@ credits cash instead of queueing a delivery as it carries them — at the manual
 own $200 for gold and $500 for gems. They still cost capacity, so carrying gold
 is carrying less food. See `formulas/money.md`.
 
+**A civilian's work is priced in turns and in cash.** `CivilianTypeDefinition.WorkTurns`
+is 3, measured from play rather than guessed, and `ImprovementSettings` charges
+the treasury per rung reached — 100, 1,000, 3,000 — when the order is given
+rather than when it finishes. Prospecting is free. The price is per *cell*, which
+needs no new modelling because a cell already has one development level however
+many deposits sit on it. See `formulas/development.md`.
+
+**A depot is connected two ways, not one.** `ExtractionPlanner.SeedCollectionPoints`
+treats a rail component as connected when it holds the capital **or** any owned
+tile carrying both a port and a depot — the manual's second route, where goods
+pass through the depot to the port and reach the capital by water. The port is
+the sea end and the depot the rail end; a port without one is a dead end for the
+line behind it. See `formulas/extraction.md`.
+
 **The Engineer works in the existing `Development` phase**, because it is a
 civilian taking a turn to do a job, which is what that phase is. It is also the
 one place where an order rather than a civilian's *type* decides what the work

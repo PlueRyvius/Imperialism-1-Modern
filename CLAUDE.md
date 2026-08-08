@@ -391,6 +391,34 @@ coal one turn and on iron the next, or split it evenly. The soak's policies hold
 one fixed ordering for a century, which is a fixture simplification and not a
 property of the model.
 
+`.iworld` v18 charges a civilian for its work. **Every improvement costs cash** —
+100 to reach Level I, 1,000 for Level II, 3,000 for Level III, from observed play
+— charged per rung, so a worker opens a mine for 100 and comes back to pay ten
+times that when the technology for the next rung arrives. **Prospecting is free.**
+The manual implies the cost without printing a figure: a player might pass a turn
+"when you lack the cash to pay for the civilian's improvements". **The price is
+per cell and not per deposit** — a hex carrying two resources costs the same as
+one, which is already how a cell's development level works. Cash leaves the
+treasury when the order is given, like the Engineer's, and is not refunded.
+
+**That makes the guessed starting treasury load-bearing twice over**: 5,000 buys
+five Level II improvements, which the soak spends inside thirty-five turns. With
+no income a country then stands still for the rest of the century — **an artefact
+of missing trade, not a property of the model**, and the same trap the empty
+warehouse set. One gold tile a power closes the loop. See
+`docs/formulas/development.md`.
+
+**A depot has two ways to be connected and only one was implemented.** The manual
+gives rail to the capital *and* rail "to a tile with a port that also contains a
+depot", from which goods "travel to the capital by water". The port is the sea
+end and the co-located depot is the rail end; a port without one is connected for
+itself and **a dead end for every depot behind it**, which the manual spells out.
+This was a live bug rather than a missing subsystem — blockade is not modelled
+and "in general, a port is always connected" was already the simplification in
+place. Six of the ten shipped scenarios author such a hex, and `s9` and `s12`
+each gained a fifth more collecting ground when it landed. `engineer.md` claimed
+this needed the sea-route rules; that claim is retracted.
+
 `.iworld` v17 gives a country **money**, and an **Engineer** to spend it. A
 per-country treasury sits beside the transport pool; the one income modelled is
 the one the manual pairs with it, because gold and gems "never reach the industry

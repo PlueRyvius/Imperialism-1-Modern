@@ -271,7 +271,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(18)]
+    [InlineData(19)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1277,6 +1277,79 @@ public sealed class WorldContentTests
         document.Commodities[0].CashPerUnit = 0;
 
         AssertPath("commodities[0].cashPerUnit", document);
+    }
+
+    /// <summary>
+    /// Version 18 charges a civilian for its work. A version 17 package prices
+    /// none, so it migrates to a world where improving is free — which is how it
+    /// behaved, and a coherent world rather than a broken one.
+    /// </summary>
+    [Fact]
+    public void VersionSeventeenMigratesToFreeImprovement()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 17);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.Null(migrated.Improvement);
+        Assert.Null(WorldContentCompiler.Compile(migrated).World.Improvement);
+    }
+
+    [Fact]
+    public void VersionSeventeenMigrationRejectsVersionEighteenImprovement()
+    {
+        var document = CreateValidDocument();
+        document.Improvement = new ImprovementContentSettings
+        {
+            CashCostByDevelopmentLevel = [0, 100],
+        };
+        var contradictory = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 17);
+        Assert.Contains("\"improvement\"", contradictory, StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(contradictory)));
+
+        Assert.Equal("formatVersion", exception.Path);
+    }
+
+    /// <summary>
+    /// Indexed by the level being reached, so index 0 is unused and a rung past
+    /// the end of the list is free.
+    /// </summary>
+    [Fact]
+    public void TheImprovementLadderSurvivesARoundTrip()
+    {
+        var document = CreateValidDocument();
+        document.Improvement = new ImprovementContentSettings
+        {
+            CashCostByDevelopmentLevel = [0, 100, 1000, 3000],
+        };
+
+        var first = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(first);
+        Assert.Equal(first, WorldContentCodec.Encode(decoded));
+
+        var improvement = WorldContentCompiler.Compile(decoded).World.Improvement!;
+        Assert.Equal((0L, 100L, 1000L, 3000L), (
+            improvement.GetCashCost(0),
+            improvement.GetCashCost(1),
+            improvement.GetCashCost(2),
+            improvement.GetCashCost(3)));
+        Assert.Equal(0, improvement.GetCashCost(4));
+    }
+
+    [Fact]
+    public void AnImprovementCannotCostANegativeAmount()
+    {
+        var document = CreateValidDocument();
+        document.Improvement = new ImprovementContentSettings
+        {
+            CashCostByDevelopmentLevel = [0, -1],
+        };
+
+        AssertPath("improvement.cashCostByDevelopmentLevel", document);
     }
 
     [Fact]

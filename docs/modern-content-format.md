@@ -111,6 +111,10 @@ takes — absent meaning never, the same shape `prospecting` uses — a world-le
 `construction` block prices rail, depots and ports, and `civilianTypes[].work`
 gains `construct`. A version 16 package can say none of it, and migrates to a
 world where nothing can be built.
+Version 18 charges a civilian for its work: a world-level `improvement` block
+whose `cashCostByDevelopmentLevel` is indexed by the level being reached, index 0
+unused and a rung past the end free. A version 17 package prices none and
+migrates to free improvement, which is how it behaved.
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the

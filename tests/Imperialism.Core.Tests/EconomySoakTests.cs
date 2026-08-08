@@ -47,7 +47,21 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
     private const int CannedFood = 10;
     private const int Clothing = 11;
     private const int Furniture = 12;
-    private const int CommodityCount = 13;
+
+    /// <summary>
+    /// The one commodity here that never reaches the warehouse. Only the gold
+    /// variant puts a deposit of it on the map, so every other run gathers none
+    /// and is untouched by its existence.
+    /// </summary>
+    private const int Gold = 13;
+    private const int CommodityCount = 14;
+
+    /// <summary>
+    /// Gold's deposit id. Every other deposit here reuses its commodity's id;
+    /// gold cannot, because resource ids must be dense and the commodities run
+    /// further than the deposits do.
+    /// </summary>
+    private const int GoldDeposit = 7;
 
     private const int TextileMill = 0;
     private const int LumberMill = 1;
@@ -99,6 +113,22 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
 
     /// <summary>Where the Engineer builds, in order. Each depot reaches one step either side.</summary>
     private static readonly int[] DepotSites = [23, 26];
+
+    /// <summary>
+    /// Columns appended when the gold variant is asked for: a depot and a gold
+    /// tile beside it, already open at Level I so no Prospector is needed. One
+    /// unit a turn a power, which the manual prices at $200.
+    /// </summary>
+    private const int GoldColumns = 2;
+
+    /// <summary>What the manual pays for a unit of gold, stated outright.</summary>
+    private const long GoldCashPerUnit = 200;
+
+    /// <summary>
+    /// What raising a tile costs, indexed by the level reached. The owner's
+    /// recollection from play; see <c>docs/formulas/development.md</c>.
+    /// </summary>
+    private static readonly long[] ImprovementLadder = [0, 100, 1000, 3000];
 
     /// <summary>
     /// The work duration, spelled out so the run's shape is traceable to it.
@@ -475,6 +505,114 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         Assert.True(
             with.Carried > without.Carried * 2,
             $"Carried {with.Carried} stocked against {without.Carried} bare.");
+    }
+
+    /// <summary>
+    /// **What it costs to develop land, and what happens when nobody can pay.**
+    /// The same farming world, priced, against the free control.
+    /// </summary>
+    /// <remarks>
+    /// The treasury is fixed and there is no income at all, so improvement runs
+    /// until the money is gone and then stops for the rest of the century.
+    /// <para>
+    /// <b>That is an artefact of missing trade, not a property of the model</b>,
+    /// and the distinction matters because this fixture has set exactly this
+    /// trap before: <c>transport.md</c> concluded that a small network could
+    /// never recover, which was true only of a warehouse that started empty. The
+    /// original's main income is selling commodities, and nothing here models
+    /// it. Read this run as "development is now something a country has to
+    /// afford", not as "a country cannot afford development".
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void PricingImprovementMakesDevelopmentSomethingACountryHasToAfford()
+    {
+        var free = CreateWorld();
+        var freeLog = Run(free, orderPolicy: FarmingGrowthPolicy, out var unpriced);
+
+        var priced = CreateWorld(withImprovementCost: true, startingCash: 5000);
+        var pricedLog = Run(priced, orderPolicy: FarmingGrowthPolicy, out var charged);
+
+        output.WriteLine("=== improvement free ===");
+        output.WriteLine(freeLog);
+        output.WriteLine("=== improvement priced, no income ===");
+        output.WriteLine(pricedLog);
+
+        // The control has to be a control: free improvement costs nothing.
+        Assert.Equal(0, unpriced.FinalCash);
+
+        // Priced, the treasury does the limiting rather than the Farmers.
+        Assert.True(
+            charged.Developed < unpriced.Developed,
+            $"Pricing improvement changed nothing: {charged.Developed} tiles against " +
+            $"{unpriced.Developed}.");
+        Assert.True(charged.Developed > 0, "Nothing was improved at all, so nothing was afforded.");
+        Assert.True(
+            charged.FinalCash < Powers * 5000,
+            "The treasury was never drawn on.");
+    }
+
+    /// <summary>
+    /// **The closed loop.** A gold mine is the only income this engine has, and
+    /// this is the first run in which anything needs one: the mine pays for the
+    /// Farmers, and the Farmers feed the workers.
+    /// </summary>
+    /// <remarks>
+    /// Both runs price improvement and start with the same treasury. The only
+    /// difference is two extra columns per power — a depot and a gold tile
+    /// already open at Level I — so one country has an income and the other does
+    /// not.
+    /// <para>
+    /// <b>The extra development does not land on grain</b>, which is worth
+    /// knowing before reading the numbers: grain's top rung is gated behind
+    /// Mechanical Reaper and this run never grants it, so grain sits at 42 in
+    /// both. The money buys fruit, cotton, timber and livestock instead. Cash
+    /// and technology are separate ceilings and this run only lifts one.
+    /// </para>
+    /// <para>
+    /// <b>What this run does not exercise is the carrying trade-off.</b> The
+    /// fixture's network is unlimited here, so gold costs nothing to move and
+    /// never competes with grain for the bar. In a capacity-limited world it
+    /// would, and that is the more interesting version of this run; it wants a
+    /// policy that allocates against a scarce network, which
+    /// <see cref="Transporting"/> has and this one deliberately does not.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void AGoldMinePaysForTheImprovementsThatReachIt()
+    {
+        var broke = CreateWorld(withImprovementCost: true, startingCash: 5000);
+        var brokeLog = Run(broke, orderPolicy: FarmingGrowthPolicy, out var without);
+
+        var earning = CreateWorld(
+            withImprovementCost: true, startingCash: 5000, withGoldMine: true);
+        var earningLog = Run(earning, orderPolicy: FarmingGrowthPolicy, out var with);
+
+        output.WriteLine("=== priced, no income ===");
+        output.WriteLine(brokeLog);
+        output.WriteLine("=== priced, with a gold mine ===");
+        output.WriteLine(earningLog);
+
+        // The control has to be a control: no mine, no income, so the treasury
+        // only ever falls.
+        Assert.True(
+            without.FinalCash < Powers * 5000,
+            "The unmined control somehow ended richer than it started.");
+
+        // The mine pays, and the money buys development the other run could not.
+        Assert.True(
+            with.Developed > without.Developed,
+            $"The gold bought no development: {with.Developed} tiles against {without.Developed}.");
+        Assert.True(
+            with.Gathered > without.Gathered,
+            $"The extra development gathered nothing: {with.Gathered} against {without.Gathered}.");
+
+        // And the mine outearns the spend: the treasury ends far above where it
+        // started, where the control's is empty.
+        Assert.Equal(0, without.FinalCash);
+        Assert.True(
+            with.FinalCash > Powers * 5000,
+            $"The mine ended with {with.FinalCash} against a {Powers * 5000} start.");
     }
 
     /// <summary>
@@ -1346,7 +1484,10 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         bool withTransportLimit = false,
         long startingTransportCapacity = 0,
         long startingStock = 0,
-        bool withEngineer = false)
+        bool withEngineer = false,
+        bool withImprovementCost = false,
+        long startingCash = 0,
+        bool withGoldMine = false)
     {
         // Each power gets a row of 22 cells: a capital at column 0, then a
         // repeating deposit / depot / deposit run. A depot reaches one step, so
@@ -1357,9 +1498,9 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
         // editing these, so the two published runs above are byte for byte the
         // world they were reported against.
         const int baseWidth = 22;
-        var width = baseWidth +
-            (withHiddenMinerals ? HiddenMineralColumns : 0) +
-            (withEngineer ? EngineerColumns : 0);
+        var engineerStart = baseWidth + (withHiddenMinerals ? HiddenMineralColumns : 0);
+        var goldStart = engineerStart + (withEngineer ? EngineerColumns : 0);
+        var width = goldStart + (withGoldMine ? GoldColumns : 0);
         var dimensions = new MapDimensions(width, Powers);
 
         // Two or three of each resource, which is what a normal start looks
@@ -1391,15 +1532,26 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 provinces.Add(new ProvinceDefinition(new ProvinceId(index), $"P{power}-{column}"));
                 owners.Add(new CountryId(power));
 
-                var hidden = withHiddenMinerals && column >= baseWidth;
-                var beyondTheDepots = withEngineer && column >= baseWidth;
+                var hidden = withHiddenMinerals && column >= baseWidth && column < engineerStart;
+                var beyondTheDepots = withEngineer && column >= engineerStart && column < goldStart;
+                var goldColumn = withGoldMine && column >= goldStart;
                 var isCapital = column == 0;
                 var isDepot = hidden
                     ? column == baseWidth + 1
-                    : !isCapital && !beyondTheDepots && column % 3 == 2;
+                    : goldColumn
+                        ? column == goldStart
+                        : !isCapital && !beyondTheDepots && column % 3 == 2;
 
                 ResourceId[] deposits = [];
-                if (beyondTheDepots)
+                if (goldColumn && !isDepot)
+                {
+                    // Open at Level I, so it pays from turn one and needs no
+                    // Prospector. The point of this run is the money, not the
+                    // discovery chain.
+                    deposits = [new ResourceId(GoldDeposit)];
+                    development.Add(new InitialCellDevelopment(cell, 1));
+                }
+                else if (beyondTheDepots)
                 {
                     // Grain on railed ground that nothing gathers. An Engineer
                     // is the only thing in the engine that can change that.
@@ -1428,7 +1580,7 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 cells.Add(new CellDefinition(
                     cell,
                     dimensions.GetCoordinate(cell),
-                    new TerrainId(hidden ? BarrenHills : Farmland),
+                    new TerrainId(hidden || goldColumn ? BarrenHills : Farmland),
                     CellRegion.ForProvince(new ProvinceId(index)),
                     deposits,
                     isCapital ? SettlementSiteKind.Urban : SettlementSiteKind.None));
@@ -1483,6 +1635,16 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 Deposit(Timber, Forester),
                 Deposit(Coal, Miner),
                 Deposit(Iron, Miner),
+
+                // The one deposit whose commodity id is not its own, and the
+                // only one that pays cash instead of filling a warehouse.
+                new ResourceDefinition(
+                    new ResourceId(GoldDeposit),
+                    new CommodityId(Gold),
+                    [0, 1, 2, 3],
+                    null,
+                    new CivilianTypeId(Miner),
+                    requiresDiscovery: true),
             ],
 
             // Farmland is worked but never searched — it announces its crops by
@@ -1568,6 +1730,11 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 new CommodityDefinition(new CommodityId(CannedFood), "Canned Food", CommodityCategory.Material),
                 new CommodityDefinition(new CommodityId(Clothing), "Clothing", CommodityCategory.Goods),
                 new CommodityDefinition(new CommodityId(Furniture), "Furniture", CommodityCategory.Goods),
+
+                // The manual's own rate. Gold never reaches the warehouse, so
+                // every unit the network carries is cash instead.
+                new CommodityDefinition(
+                    new CommodityId(Gold), "Gold", CommodityCategory.Raw, GoldCashPerUnit),
             ],
             facilities,
             recipes,
@@ -1590,7 +1757,7 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
                 ],
                 new WorkforceDefault(untrained: 4, trained: 2, expert: 1),
                 transportCapacity: withTransportLimit ? startingTransportCapacity : null,
-                cash: withEngineer ? 6000 : null,
+                cash: withEngineer ? 6000 : startingCash == 0 ? null : startingCash,
 
                 // The manual's initial stockpile of lumber and steel. Without
                 // one a starved network cannot buy the railyard that would
@@ -1642,7 +1809,8 @@ public sealed class EconomySoakTests(ITestOutputHelper output)
             // Priced so that a treasury of 6,000 buys the two depots this run
             // needs and no more. Neither number is evidence; see
             // docs/formulas/engineer.md.
-            construction: withEngineer ? new ConstructionSettings(500, 1500, 2000) : null));
+            construction: withEngineer ? new ConstructionSettings(500, 1500, 2000) : null,
+            improvement: withImprovementCost ? new ImprovementSettings(ImprovementLadder) : null));
     }
 
     private static ProductionRecipeDefinition Recipe(

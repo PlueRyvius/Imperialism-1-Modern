@@ -280,7 +280,8 @@ public sealed record CivilianWorkBegunEvent : TurnEvent
         CountryId country,
         CivilianUnitId unit,
         CellIndex cell,
-        int turnsRequired)
+        int turnsRequired,
+        long paid = 0)
         : base(turnNumber, TurnPhase.Development)
     {
         if (turnsRequired <= 0)
@@ -288,10 +289,12 @@ public sealed record CivilianWorkBegunEvent : TurnEvent
             throw new ArgumentOutOfRangeException(nameof(turnsRequired));
         }
 
+        ArgumentOutOfRangeException.ThrowIfNegative(paid);
         Country = country;
         Unit = unit;
         Cell = cell;
         TurnsRequired = turnsRequired;
+        Paid = paid;
     }
 
     public CountryId Country { get; }
@@ -300,8 +303,15 @@ public sealed record CivilianWorkBegunEvent : TurnEvent
 
     public CellIndex Cell { get; }
 
-    /// <summary>How many turns this civilian's type takes. The one guess here.</summary>
+    /// <summary>How many turns this civilian's type takes. Three, from observed play.</summary>
     public int TurnsRequired { get; }
+
+    /// <summary>
+    /// What the order cost the treasury. Zero for a search, which is free, and
+    /// for any world that prices no improvement. Not refunded if the job is
+    /// later abandoned.
+    /// </summary>
+    public long Paid { get; }
 }
 
 /// <summary>

@@ -289,6 +289,22 @@ public static class WorldContentCompiler
                 constructionContent.PortCashCost);
         }
 
+        ImprovementSettings? improvement = null;
+        if (document.Improvement is { } improvementContent)
+        {
+            var costs = RequireArray(
+                improvementContent.CashCostByDevelopmentLevel,
+                "improvement.cashCostByDevelopmentLevel");
+            if (costs.Any(static cost => cost < 0))
+            {
+                throw Error(
+                    "improvement.cashCostByDevelopmentLevel",
+                    "An improvement cannot cost a negative amount.");
+            }
+
+            improvement = new ImprovementSettings(costs);
+        }
+
         var recipes = CompileProductionRecipes(recipeContent, facilityIds, commodityIds);
 
         MapDimensions dimensions;
@@ -386,7 +402,8 @@ public static class WorldContentCompiler
                     civilianTypes,
                     civilianTypeIds,
                     transport,
-                    construction));
+                    construction,
+                    improvement));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -415,7 +432,8 @@ public static class WorldContentCompiler
         CivilianTypeDefinition[] civilianTypes,
         IReadOnlyDictionary<string, int> civilianTypeIds,
         TransportSettings? transport,
-        ConstructionSettings? construction)
+        ConstructionSettings? construction,
+        ImprovementSettings? improvement)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -561,7 +579,8 @@ public static class WorldContentCompiler
                 migration,
                 civilianTypes,
                 transport,
-                construction);
+                construction,
+                improvement);
         }
         catch (ArgumentException exception)
         {

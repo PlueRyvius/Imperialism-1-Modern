@@ -256,10 +256,15 @@ falsification check above.
 - **Whether a depot really follows the rail gate**, and whether fertile hills and
   towns really take the gates assigned here. All three are inferences the corpus
   cannot separate from their alternatives.
-- **The port-needs-a-depot case.** The manual is explicit that a port far from
-  the capital needs a depot in the same tile or the depots along the new line
-  have no route. `ExtractionPlanner` already models a port as always connected,
-  so nothing here can express it; it wants the sea-route rules.
+- ~~**The port-needs-a-depot case**, which "wants the sea-route rules".~~
+  **Wrong, and retracted.** It wanted no such thing: blockade is not modelled and
+  "in general, a port is always connected" was already the simplification in
+  place, so the rule needed only a wider gateway test. A depot is connected when
+  its rail component holds the capital **or** any tile carrying both a port and a
+  depot. It is implemented, and it turned out to be a live bug rather than a
+  missing subsystem — six of the ten shipped scenarios author such a hex, and
+  `s9` and `s12` each gained thirty collecting cells when it landed. See
+  [extraction.md](extraction.md).
 - **Losing a connection** — a province falling along the line, the province
   downstream of a river port, an undisputed enemy fleet. All want conflict.
 - **Whether a civilian's work costs cash generally.** The manual implies it does;

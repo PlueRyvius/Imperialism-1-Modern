@@ -24,7 +24,8 @@ public sealed class WorldDefinition
         MigrationSettings? migration = null,
         IEnumerable<CivilianTypeDefinition>? civilianTypes = null,
         TransportSettings? transport = null,
-        ConstructionSettings? construction = null)
+        ConstructionSettings? construction = null,
+        ImprovementSettings? improvement = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
@@ -418,6 +419,7 @@ public sealed class WorldDefinition
         Migration = migration;
         Transport = transport;
         Construction = construction;
+        Improvement = improvement;
         _technologies = Array.AsReadOnly(technologyArray);
         _civilianTypes = Array.AsReadOnly(civilianTypeArray);
         _countries = Array.AsReadOnly(countryArray);
@@ -484,6 +486,13 @@ public sealed class WorldDefinition
     /// could build.
     /// </summary>
     public ConstructionSettings? Construction { get; }
+
+    /// <summary>
+    /// What raising a cell's development level costs, or null where improvement
+    /// is free — which is how every world behaved before civilians were charged
+    /// for their work.
+    /// </summary>
+    public ImprovementSettings? Improvement { get; }
 
     /// <summary>
     /// A port stands on land. Verified against every <c>port</c> record in the

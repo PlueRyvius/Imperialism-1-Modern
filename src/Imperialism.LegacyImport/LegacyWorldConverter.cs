@@ -703,6 +703,7 @@ public static class LegacyWorldConverter
             },
             Transport = CreateStandardTransport(),
             Construction = CreateStandardConstruction(),
+            Improvement = CreateStandardImprovement(),
             Extraction = new ExtractionContentSettings
             {
                 CatchmentRadius = WorldContentCodec.DefaultCatchmentRadius,
@@ -2027,6 +2028,27 @@ public static class LegacyWorldConverter
         RailCashCost = 500,
         DepotCashCost = 1500,
         PortCashCost = 2000,
+    };
+
+    /// <summary>
+    /// What raising a tile costs, indexed by the level being reached. Index 0 is
+    /// never used — nothing is improved <em>to</em> level zero.
+    /// </summary>
+    /// <remarks>
+    /// <b>The owner's recollection from play</b>, and the manual corroborates
+    /// only that a cost exists at all: a player might tell a unit to do nothing
+    /// "when you lack the cash to pay for the civilian's improvements."
+    /// <para>
+    /// The climb is steep — a Level III tile costs thirty times what opening it
+    /// did — which is what makes a treasury a real constraint on development
+    /// rather than a formality. Flat across deposits, and per cell rather than
+    /// per deposit: a hex carrying two resources costs the same as one. See
+    /// <c>docs/formulas/development.md</c>.
+    /// </para>
+    /// </remarks>
+    private static ImprovementContentSettings CreateStandardImprovement() => new()
+    {
+        CashCostByDevelopmentLevel = [0, 100, 1000, 3000],
     };
 
     private static TransportContentSettings CreateStandardTransport() => new()

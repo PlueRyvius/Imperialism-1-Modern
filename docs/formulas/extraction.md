@@ -87,9 +87,11 @@ Ranch no civilian worker.
 ```text
 for each country by dense id:
     if the country has no capital: it gathers nothing
+    gateways = the capital's rail component
+             + the rail component of every owned tile holding a port AND a depot
     collection points = the capital (always a connected depot and port)
                       + every owned port      (needs no rail; goods go by water)
-                      + every owned depot in the capital's rail component
+                      + every owned depot whose rail component is a gateway
     catchment = collection points, widened by CatchmentRadius hex steps
     for each cell holding a deposit whose province this country owns:
         for each deposit on the cell:
@@ -142,11 +144,39 @@ placeholder, and a costly one: `s1` has 310 railed cells and 76 depots, and
 replacing the placeholder with the real model cut that scenario from 319
 collection points to 134.
 
-**What is still missing.** A depot may also reach the capital by rail to a tile
-holding both a port and a depot, from which goods travel by water; that route is
-not modelled, so such a depot reads as disconnected here. Nor are the two ways a
-port loses its connection — the province downstream of a river port falling, and
-an undisputed enemy fleet — so every owned port is connected.
+**A depot has two ways to be connected and the manual gives both.** The obvious
+one is rail to the capital. The other is rail "to a tile with a port that also
+contains a depot", from which "the commodities must pass through the second depot
+to reach the port and then travel to the capital by water" — so any rail
+component holding a port-and-depot hex is a gateway, whether or not that
+component also reaches the capital.
+
+Both structures are needed at the gateway and they do different jobs: **the port
+is the sea end and the depot is the rail end**, the thing that can accept goods
+arriving down a line. A port without one is connected for itself and a dead end
+for everything behind it, which is the trap the manual spells out — "the port
+itself is connected, but the future depots constructed along your new railroad
+have no way to move their commodities to the port."
+
+**The second route was missing and its absence was expensive.** Six of the ten
+shipped scenarios author at least one port-and-depot hex, and implementing the
+rule reconnected real ground in every one of them:
+
+| | port+depot hexes | collecting cells before | after |
+|---|---|---|---|
+| `s1` | 12 | 463 | 471 |
+| `s3` | 3 | 235 | 239 |
+| `s9` | 4 | 126 | **156** |
+| `s12` | 4 | 124 | **154** |
+| `s13`, `s14` | 1 | 105 | 109 |
+
+`s5`, `s10`, `s11` and `s15` author none and are unchanged, which is the control
+the measurement needs. `s9` and `s12` gained a fifth more collecting ground.
+
+**What is still missing** are the ways a connection is *lost*: a province taken
+along the line, the province downstream of a river port falling, and an
+undisputed enemy fleet. All three want conflict, so every owned port is connected
+here.
 
 **Where the missing east-west wrap costs output.** `Imperialism.Core`'s grid does
 not wrap; the 1997 one does. A port or deposit on the first or last column has

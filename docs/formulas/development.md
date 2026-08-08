@@ -298,6 +298,44 @@ recoveries, each visible in the same column. See [technology.md](technology.md).
 Both runs are reported rather than asserted into a target, which is the standing
 split in `soak.md`: the soak asserts integrity and *reports* behaviour.
 
+### What the price does, and the loop that pays it
+
+Three more runs, all on the same farming world. The first two differ only in
+whether improvement is charged for; the third adds an income.
+
+```
+                              tiles improved  gathered  treasury at 100
+free                                      70    16,240                0
+priced, no income                         35    13,139                0
+priced, with a gold mine                  63    16,135           98,000
+```
+
+**Priced with nothing coming in, a country improves until the money runs out and
+then stops.** 5,000 a power buys exactly five rungs at 1,000 apiece, and the
+remaining sixty-five turns of the century are spent standing still.
+
+**That is an artefact of missing trade, not a property of the model**, and the
+distinction is the same one [transport.md](transport.md) got wrong once before:
+it concluded a small network could never recover, which was true only of a
+warehouse that started empty. The original's main income is selling commodities
+and nothing here models it. Read the middle row as *development is now something
+a country has to afford*, never as *a country cannot afford development*.
+
+**With a mine the loop closes.** One gold tile a power at the manual's $200 a
+unit is 20,000 over the century, and it buys back nearly all the development the
+free run got for nothing — 63 tiles against 70 — with change to spare. This is
+the first run in this file where anything has ever needed an income.
+
+**The extra development does not land on grain.** Grain's top rung is gated
+behind Mechanical Reaper and none of these runs grants it, so grain sits at 42 in
+all three and the money goes into fruit, cotton, timber and livestock. **Cash and
+technology are separate ceilings**, and these runs lift only one of them.
+
+**What is not exercised is the carrying trade-off.** This world's network is
+unlimited, so gold costs nothing to move and never competes with grain for the
+bar. In a capacity-limited world it would, and that is the more interesting
+version of this run.
+
 ## Where implemented
 
 - `TerrainDefinition` (`Definitions.cs`) and `MapDefinition.Terrains` /
