@@ -915,6 +915,161 @@ public sealed record WorkersFedEvent : TurnEvent
     public IReadOnlyList<CommodityQuantity> Eaten => _eaten;
 }
 
+/// <summary>
+/// Why a country did not get what it put on the Bid and Offers screen.
+/// </summary>
+/// <remarks>
+/// Every one of these is a partial outcome rather than an error: the manual is explicit
+/// that "wanting a resource such as coal, for example, and bidding on it, does not
+/// guarantee that your Great Power receives coal that turn." Reported because the player
+/// needs to tell the reasons apart — wait for a seller, find money, or build a ship.
+/// </remarks>
+public enum TradeRefusal : byte
+{
+    /// <summary>
+    /// The warehouse could not part with what was offered — either it was never there or
+    /// industry had already claimed it this turn.
+    /// </summary>
+    NothingToSell,
+
+    /// <summary>Offered, and nobody bid for it, or the bidders were satisfied first.</summary>
+    NoBuyer,
+
+    /// <summary>The treasury would not cover the world price.</summary>
+    NotEnoughCash,
+
+    /// <summary>
+    /// No cargo hold left. "You can buy nothing if you have no merchant marine to move
+    /// the cargo", and a bidder without one is skipped rather than made to wait.
+    /// </summary>
+    NoMerchantCapacity,
+}
+
+/// <summary>Records one deal on the world market.</summary>
+/// <remarks>
+/// Both sides get one of these, because a trade is one event with two parties rather than
+/// a purchase and a sale. The commodities reach the buyer next turn, which is why nothing
+/// here credits stock: "the commodities you buy appear for your use in the Industry screen
+/// next turn."
+/// </remarks>
+public sealed record CommodityTradedEvent : TurnEvent
+{
+    public CommodityTradedEvent(
+        int turnNumber,
+        CountryId seller,
+        CountryId buyer,
+        CommodityId commodity,
+        long quantity,
+        long unitPrice,
+        CountryId holdsPaidBy)
+        : base(turnNumber, TurnPhase.Trade)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantity);
+        ArgumentOutOfRangeException.ThrowIfNegative(unitPrice);
+        Seller = seller;
+        Buyer = buyer;
+        Commodity = commodity;
+        Quantity = quantity;
+        UnitPrice = unitPrice;
+        HoldsPaidBy = holdsPaidBy;
+    }
+
+    public CountryId Seller { get; }
+
+    public CountryId Buyer { get; }
+
+    public CommodityId Commodity { get; }
+
+    public long Quantity { get; }
+
+    /// <summary>The world price this turn. One price for everybody, until subsidies exist.</summary>
+    public long UnitPrice { get; }
+
+    /// <summary>What the buyer paid and the seller received, in total.</summary>
+    public long Total => Quantity * UnitPrice;
+
+    /// <summary>
+    /// Whose cargo holds carried it — the buyer's, unless the buyer is a minor nation.
+    /// </summary>
+    public CountryId HoldsPaidBy { get; }
+}
+
+/// <summary>Records a row on the Bid and Offers screen that went unfilled.</summary>
+public sealed record TradeUnfilledEvent : TurnEvent
+{
+    public TradeUnfilledEvent(
+        int turnNumber,
+        CountryId country,
+        CommodityId commodity,
+        long requested,
+        long settled,
+        TradeRefusal reason)
+        : base(turnNumber, TurnPhase.Trade)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(requested);
+        ArgumentOutOfRangeException.ThrowIfNegative(settled);
+        Country = country;
+        Commodity = commodity;
+        Requested = requested;
+        Settled = settled;
+        Reason = reason;
+    }
+
+    public CountryId Country { get; }
+
+    public CommodityId Commodity { get; }
+
+    public long Requested { get; }
+
+    /// <summary>How much did clear, which may be none of it.</summary>
+    public long Settled { get; }
+
+    public TradeRefusal Reason { get; }
+}
+
+/// <summary>
+/// Records a commodity's world price moving, and the supply and demand that moved it.
+/// </summary>
+/// <remarks>
+/// World-wide rather than per country, and it persists: next turn's Bid and Offers screen
+/// opens at <see cref="ToPrice"/>, because the figure shown is "the world market prices
+/// for the commodities traded during the previous turn".
+/// </remarks>
+public sealed record WorldPriceChangedEvent : TurnEvent
+{
+    public WorldPriceChangedEvent(
+        int turnNumber,
+        CommodityId commodity,
+        long fromPrice,
+        long toPrice,
+        long offered,
+        long bid)
+        : base(turnNumber, TurnPhase.Trade)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(fromPrice);
+        ArgumentOutOfRangeException.ThrowIfNegative(toPrice);
+        ArgumentOutOfRangeException.ThrowIfNegative(offered);
+        ArgumentOutOfRangeException.ThrowIfNegative(bid);
+        Commodity = commodity;
+        FromPrice = fromPrice;
+        ToPrice = toPrice;
+        Offered = offered;
+        Bid = bid;
+    }
+
+    public CommodityId Commodity { get; }
+
+    public long FromPrice { get; }
+
+    public long ToPrice { get; }
+
+    /// <summary>What the world offered, not what it sold.</summary>
+    public long Offered { get; }
+
+    /// <summary>What the world bid, not what it bought.</summary>
+    public long Bid { get; }
+}
+
 /// <summary>Records one country buying one technology.</summary>
 /// <remarks>
 /// The knowledge is granted here and nothing reads it again this turn, so the

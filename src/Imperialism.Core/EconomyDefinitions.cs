@@ -13,7 +13,9 @@ public sealed record CommodityDefinition
         CommodityId id,
         string name,
         CommodityCategory category,
-        long? cashPerUnit = null)
+        long? cashPerUnit = null,
+        long? worldPrice = null,
+        int? tradeOrder = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (!Enum.IsDefined(category))
@@ -28,10 +30,45 @@ public sealed record CommodityDefinition
                 "A commodity worth nothing in cash is one that reaches the warehouse instead.");
         }
 
+        if (worldPrice <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(worldPrice),
+                "A commodity worth nothing on the market is one that is not traded; leave the price absent.");
+        }
+
+        // The two are alternatives, not a pair. Gold and gems convert as they are
+        // carried and "cannot be traded"; everything on the market reaches the
+        // warehouse instead. A commodity claiming both would have to be sold twice.
+        if (cashPerUnit is not null && worldPrice is not null)
+        {
+            throw new ArgumentException(
+                "A commodity that converts to cash on carriage cannot also be traded.",
+                nameof(worldPrice));
+        }
+
+        if (worldPrice is null && tradeOrder is not null)
+        {
+            throw new ArgumentException(
+                "A commodity that is not traded has no place in the trade order.",
+                nameof(tradeOrder));
+        }
+
+        if (worldPrice is not null && tradeOrder is null)
+        {
+            throw new ArgumentException(
+                "A traded commodity needs a trade order; it decides which deals get cargo holds first.",
+                nameof(tradeOrder));
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegative(tradeOrder ?? 0);
+
         Id = id;
         Name = name;
         Category = category;
         CashPerUnit = cashPerUnit;
+        WorldPrice = worldPrice;
+        TradeOrder = tradeOrder;
     }
 
     public CommodityId Id { get; }
@@ -39,6 +76,57 @@ public sealed record CommodityDefinition
     public string Name { get; }
 
     public CommodityCategory Category { get; }
+
+    /// <summary>
+    /// What one unit fetches on the world market at the start of the game, or null
+    /// where it is never traded. <b>Absence is what makes a commodity untradable</b>,
+    /// the same shape <see cref="TechnologyDefinition.Cost"/> uses for "not for sale".
+    /// </summary>
+    /// <remarks>
+    /// Transcribed from the original's Bid and Offers screen, and it agrees with the
+    /// manual three times independently: the eight commodities with no price here are
+    /// exactly raw food ("food resources cannot be traded on the world market"),
+    /// canned food is priced ("you may trade for canned food"), and gold and gems are
+    /// not ("they never reach the industry warehouse and they cannot be traded").
+    /// <para>
+    /// The prices fall in three tiers — 100 raw, 300 material, 900 goods — and the 3x
+    /// step is structural rather than arbitrary: every recipe consumes two input units
+    /// per unit of output, so 2x inputs plus 50% value added lands exactly on the next
+    /// tier. <b>Two entries do not follow it and are transcribed rather than
+    /// derived</b>: canned food is 100 because its input is grain, which has no market
+    /// price for the ladder to mark up, and horses are 300 for no recoverable reason.
+    /// That is why this is a per-commodity value and not a function of
+    /// <see cref="Category"/>. See <c>docs/formulas/trade.md</c>.
+    /// </para>
+    /// <para>
+    /// This is only the <em>opening</em> price. The live price is per-world mutable
+    /// state on <see cref="WorldState"/>, because the manual carries it across turns:
+    /// the figure on the screen is "the world market prices for the commodities traded
+    /// during the previous turn".
+    /// </para>
+    /// </remarks>
+    public long? WorldPrice { get; }
+
+    /// <summary>
+    /// Where this commodity sits in the fixed order the merchant marine spends cargo
+    /// holds against, or null where it is not traded.
+    /// </summary>
+    /// <remarks>
+    /// "IMPERIALISM always uses an established order when expending the Great Powers'
+    /// merchant marine for trade… Clothing deals, for example, are always considered
+    /// prior to all other deals because clothing is the first item in commodity order."
+    /// <para>
+    /// Held explicitly rather than taken from the position of a commodity in the
+    /// world's list, so that reordering <c>commodities[]</c> for any other reason
+    /// cannot silently change which deals get holds first. Reserving holds for later
+    /// deals is a real skill in the original, which makes this order a rule rather
+    /// than a presentation detail.
+    /// </para>
+    /// </remarks>
+    public int? TradeOrder { get; }
+
+    /// <summary>Whether this commodity can be bought and sold at all.</summary>
+    public bool IsTradable => WorldPrice is not null;
 
     /// <summary>
     /// What one unit is worth when the network carries it, or null for the

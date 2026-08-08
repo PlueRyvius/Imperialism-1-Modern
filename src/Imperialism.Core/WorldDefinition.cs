@@ -8,6 +8,7 @@ public sealed class WorldDefinition
     private readonly IReadOnlyList<ProductionRecipeDefinition> _productionRecipes;
     private readonly IReadOnlyList<TechnologyDefinition> _technologies;
     private readonly IReadOnlyList<CivilianTypeDefinition> _civilianTypes;
+    private readonly IReadOnlyList<ShipTypeDefinition> _shipTypes;
 
     public WorldDefinition(
         MapDefinition map,
@@ -25,7 +26,9 @@ public sealed class WorldDefinition
         IEnumerable<CivilianTypeDefinition>? civilianTypes = null,
         TransportSettings? transport = null,
         ConstructionSettings? construction = null,
-        ImprovementSettings? improvement = null)
+        ImprovementSettings? improvement = null,
+        IEnumerable<ShipTypeDefinition>? shipTypes = null,
+        ITradeMarket? trade = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
@@ -44,6 +47,23 @@ public sealed class WorldDefinition
                     $"Modern civilian type IDs must be dense and ordered; expected {index}, " +
                     $"got {civilianTypeArray[index].Id.Value}.",
                     nameof(civilianTypes));
+            }
+        }
+
+        var shipTypeArray = shipTypes?.ToArray() ?? [];
+        if (shipTypeArray.Any(static type => type is null))
+        {
+            throw new ArgumentException("Ship types cannot contain null entries.", nameof(shipTypes));
+        }
+
+        for (var index = 0; index < shipTypeArray.Length; index++)
+        {
+            if (shipTypeArray[index].Id.Value != index)
+            {
+                throw new ArgumentException(
+                    $"Modern ship type IDs must be dense and ordered; expected {index}, " +
+                    $"got {shipTypeArray[index].Id.Value}.",
+                    nameof(shipTypes));
             }
         }
 
@@ -90,6 +110,22 @@ public sealed class WorldDefinition
         if (commodityArray.Any(static commodity => commodity is null))
         {
             throw new ArgumentException("Commodities cannot contain null entries.", nameof(commodities));
+        }
+
+        // The trade order decides which deals get cargo holds first, so two
+        // commodities claiming the same slot would make the spending order depend on
+        // the array's order after all -- which is the thing holding it explicitly is
+        // meant to prevent.
+        var tradeOrders = commodityArray
+            .Where(static commodity => commodity?.TradeOrder is not null)
+            .Select(static commodity => commodity!.TradeOrder!.Value)
+            .ToArray();
+        if (tradeOrders.Distinct().Count() != tradeOrders.Length)
+        {
+            throw new ArgumentException(
+                "Two commodities cannot share a trade order; it decides which deals get " +
+                "cargo holds first.",
+                nameof(commodities));
         }
 
         if (facilityArray.Any(static facility => facility is null))
@@ -424,6 +460,30 @@ public sealed class WorldDefinition
             ValidateCivilianSite(map, civilian.Cell, nameof(scenario));
         }
 
+        foreach (var ship in scenario.InitialShips)
+        {
+            if ((uint)ship.Country.Value >= (uint)countryArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Initial ship refers to missing country {ship.Country.Value}.",
+                    nameof(scenario));
+            }
+
+            if ((uint)ship.Type.Value >= (uint)shipTypeArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Initial ship refers to missing ship type {ship.Type.Value}.",
+                    nameof(scenario));
+            }
+
+            ArgumentOutOfRangeException.ThrowIfNegative(ship.Count);
+
+            // The sea zone is deliberately not validated against the map. A ship's
+            // zone is not the map's ocean zone byte -- the numberings are unrelated
+            // and nothing maps one onto the other, so there is nothing to check it
+            // against. See docs/scenario-semantics.md.
+        }
+
         Map = map;
         Scenario = scenario;
         Extraction = extractionSettings;
@@ -434,8 +494,10 @@ public sealed class WorldDefinition
         Transport = transport;
         Construction = construction;
         Improvement = improvement;
+        Trade = trade;
         _technologies = Array.AsReadOnly(technologyArray);
         _civilianTypes = Array.AsReadOnly(civilianTypeArray);
+        _shipTypes = Array.AsReadOnly(shipTypeArray);
         _countries = Array.AsReadOnly(countryArray);
         _commodities = Array.AsReadOnly(commodityArray);
         _productionFacilities = Array.AsReadOnly(facilityArray);
@@ -463,6 +525,24 @@ public sealed class WorldDefinition
     /// nothing can be improved.
     /// </summary>
     public IReadOnlyList<CivilianTypeDefinition> CivilianTypes => _civilianTypes;
+
+    /// <summary>
+    /// The classes of ship this world has. Empty means it has no navy and no merchant
+    /// marine, so nothing can be carried to market — which is how every world behaved
+    /// before version 20.
+    /// </summary>
+    public IReadOnlyList<ShipTypeDefinition> ShipTypes => _shipTypes;
+
+    /// <summary>
+    /// How this world's prices answer to supply and demand, or null where prices never
+    /// move — which is how every world behaved before version 20.
+    /// </summary>
+    /// <remarks>
+    /// Null does not stop trading: a world with prices and no market still buys and sells
+    /// at the opening price forever. That separation is deliberate, because the price
+    /// <em>curve</em> is the guess and the prices themselves are transcribed.
+    /// </remarks>
+    public ITradeMarket? Trade { get; }
 
     /// <summary>Null in a world whose workers never eat.</summary>
     public FeedingSettings? Feeding { get; }
@@ -593,6 +673,8 @@ public sealed class WorldState
     private readonly long[] _sickWorkers;
     private readonly long[] _transportCapacity;
     private readonly long[] _cash;
+    private readonly long[] _worldPrice;
+    private readonly long[] _ships;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private readonly Dictionary<CivilianUnitId, CivilianUnit> _civilians = [];
     private long _nextDeliveryId = 1;
@@ -710,6 +792,27 @@ public sealed class WorldState
         foreach (var treasury in definition.Scenario.InitialCash)
         {
             _cash[treasury.Country.Value] = treasury.Amount;
+        }
+
+        // One live price per commodity, seeded from the opening price and carried
+        // across turns thereafter, because the manual makes the figure on the Bid and
+        // Offers screen "the world market prices … during the previous turn". An
+        // untraded commodity keeps a zero nothing ever reads.
+        _worldPrice = new long[definition.Commodities.Count];
+        for (var index = 0; index < _worldPrice.Length; index++)
+        {
+            _worldPrice[index] = definition.Commodities[index].WorldPrice ?? 0;
+        }
+
+        // Ships per (country, type). A dense grid rather than a list because the only
+        // question anything asks is "how much cargo can this country move", which is a
+        // sum over types. Records repeat a combination and simply add.
+        _ships = new long[
+            checked(definition.Countries.Count * Math.Max(1, definition.ShipTypes.Count))];
+        foreach (var ship in definition.Scenario.InitialShips)
+        {
+            var offset = (ship.Country.Value * definition.ShipTypes.Count) + ship.Type.Value;
+            _ships[offset] = checked(_ships[offset] + ship.Count);
         }
 
         // Everybody starts well. Illness is decided by what a workforce eats,
@@ -940,13 +1043,91 @@ public sealed class WorldState
     internal long[] CopyTransportCapacity() => _transportCapacity.ToArray();
 
     /// <summary>
+    /// What one unit of this commodity fetches on the world market right now, or zero
+    /// for a commodity that is never traded.
+    /// </summary>
+    /// <remarks>
+    /// This is <em>world</em> state rather than per-country: "advances become available
+    /// on a world-wide basis" is technology's rule, and the market's is the same shape —
+    /// one price everybody sees. Per-country pricing arrives only with trade subsidies,
+    /// which want diplomacy.
+    /// <para>
+    /// It persists across turns, which is the point: the manual makes this turn's
+    /// starting figure "the world market prices for the commodities traded during the
+    /// previous turn", so the market has a memory and a country can wait for a better
+    /// one.
+    /// </para>
+    /// </remarks>
+    public long GetWorldPrice(CommodityId commodity)
+    {
+        ValidateCommodity(commodity);
+        return _worldPrice[commodity.Value];
+    }
+
+    public void SetWorldPrice(CommodityId commodity, long price)
+    {
+        ValidateCommodity(commodity);
+        ArgumentOutOfRangeException.ThrowIfNegative(price);
+        _worldPrice[commodity.Value] = price;
+    }
+
+    /// <summary>How many ships of this class this country owns.</summary>
+    public long GetShipCount(CountryId country, ShipTypeId type)
+    {
+        ValidateCountry(country);
+        ValidateShipType(type);
+        return _ships[(country.Value * Definition.ShipTypes.Count) + type.Value];
+    }
+
+    public void SetShipCount(CountryId country, ShipTypeId type, long count)
+    {
+        ValidateCountry(country);
+        ValidateShipType(type);
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        _ships[(country.Value * Definition.ShipTypes.Count) + type.Value] = count;
+    }
+
+    /// <summary>
+    /// This country's merchant marine: the total cargo holds across every ship it owns.
+    /// </summary>
+    /// <remarks>
+    /// "The merchant marine number represents the total cargo holds available in all the
+    /// merchant ships owned by your Great Power. Each cargo hold can carry one unit of
+    /// any trading commodity."
+    /// <para>
+    /// <b>Derived rather than stored</b>, so it cannot drift from the fleet. Warships
+    /// contribute zero, which is what makes a navy and a merchant marine two different
+    /// numbers built at the same shipyard. Minor nations own none, and the manual says
+    /// so outright — nothing enforces that here, because it falls out of a scenario not
+    /// giving them any.
+    /// </para>
+    /// <para>
+    /// It is a <em>capacity</em>, not a stock: the pool spent during a turn is separate,
+    /// because "each cargo hold can be used only once per turn" and refills next turn.
+    /// </para>
+    /// </remarks>
+    public long GetMerchantMarine(CountryId country)
+    {
+        ValidateCountry(country);
+        var total = 0L;
+        var types = Definition.ShipTypes;
+        for (var index = 0; index < types.Count; index++)
+        {
+            total = checked(total + (_ships[(country.Value * types.Count) + index] * types[index].Cargo));
+        }
+
+        return total;
+    }
+
+    /// <summary>
     /// This country's treasury. "Each Great Power begins the game with a limited
     /// amount of cash which is totally inadequate to meet its needs."
     /// </summary>
     /// <remarks>
-    /// The only income modelled is gold and gems converting as the network
-    /// carries them; trade, the real one, is a later slice. The only outgoing is
-    /// what an Engineer builds.
+    /// Income is gold and gems converting as the network carries them, and trade —
+    /// which the manual calls the first of three and which is the larger of the two by
+    /// far. Overseas profits, the third, want colonies. Outgoings are what an Engineer
+    /// builds, what a civilian's improvement costs, and what technology is bought for.
     /// </remarks>
     public long GetCash(CountryId country)
     {
@@ -1398,6 +1579,22 @@ public sealed class WorldState
         if ((uint)country.Value >= (uint)_countryCapitals.Length)
         {
             throw new ArgumentOutOfRangeException(nameof(country));
+        }
+    }
+
+    private void ValidateCommodity(CommodityId commodity)
+    {
+        if ((uint)commodity.Value >= (uint)_worldPrice.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(commodity));
+        }
+    }
+
+    private void ValidateShipType(ShipTypeId type)
+    {
+        if ((uint)type.Value >= (uint)Definition.ShipTypes.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(type));
         }
     }
 
