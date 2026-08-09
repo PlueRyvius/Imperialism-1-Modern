@@ -686,6 +686,7 @@ public sealed class WorldState
     private readonly long[] _worldPrice;
     private readonly long[] _ships;
     private readonly IReadOnlyList<FleetState> _fleets;
+    private readonly List<TaskForceState> _taskForces = [];
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private readonly Dictionary<CivilianUnitId, CivilianUnit> _civilians = [];
     private long _nextDeliveryId = 1;
@@ -1152,6 +1153,70 @@ public sealed class WorldState
             ? _fleets[(int)index]
             : throw new ArgumentOutOfRangeException(nameof(fleet));
     }
+
+    /// <summary>
+    /// Assembles whole, co-located fleet records into a task force. The original
+    /// keeps ship attachment separate from its patrol, blockade, landing, and
+    /// sailing state, so assembly has no mission side effect.
+    /// </summary>
+    public TaskForceState AssembleTaskForce(CountryId country, IEnumerable<FleetId> fleets)
+    {
+        ValidateCountry(country);
+        ArgumentNullException.ThrowIfNull(fleets);
+        var members = fleets.OrderBy(static fleet => fleet.Value).ToArray();
+        if (members.Length == 0)
+        {
+            throw new ArgumentException("A task force needs at least one fleet.", nameof(fleets));
+        }
+
+        if (members.Distinct().Count() != members.Length)
+        {
+            throw new ArgumentException("A fleet can be selected only once.", nameof(fleets));
+        }
+
+        SeaZoneId? seaZone = null;
+        foreach (var id in members)
+        {
+            var fleet = GetFleet(id);
+            if (fleet.Country != country)
+            {
+                throw new InvalidOperationException("A task force cannot include a foreign fleet.");
+            }
+
+            if (fleet.SeaZone is not { } position)
+            {
+                throw new InvalidOperationException("An unpositioned fleet cannot join a task force.");
+            }
+
+            if (fleet.TaskForce is not null)
+            {
+                throw new InvalidOperationException("A fleet already belongs to a task force.");
+            }
+
+            if (seaZone is { } known && known != position)
+            {
+                throw new InvalidOperationException("Task-force fleets must occupy the same sea zone.");
+            }
+
+            seaZone = position;
+        }
+
+        var taskForce = new TaskForceState(
+            new TaskForceId(checked(_taskForces.Count + 1L)),
+            country,
+            seaZone!.Value,
+            members);
+        foreach (var id in members)
+        {
+            GetFleet(id).TaskForce = taskForce.Id;
+        }
+
+        _taskForces.Add(taskForce);
+        return taskForce;
+    }
+
+    /// <summary>Task forces in deterministic assembly order.</summary>
+    public IReadOnlyList<TaskForceState> TaskForces => _taskForces;
 
     /// <summary>
     /// This country's merchant marine: the total cargo holds across every ship it owns.

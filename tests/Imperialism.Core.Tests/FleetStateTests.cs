@@ -41,8 +41,40 @@ public sealed class FleetStateTests
         Assert.Empty(state.Fleets);
     }
 
+    [Fact]
+    public void TaskForceAssemblyRequiresOwnedCoLocatedUnattachedFleets()
+    {
+        var state = CreateState(
+        [
+            new InitialShip(new CountryId(0), new ShipTypeId(0), 1, 3),
+            new InitialShip(new CountryId(0), new ShipTypeId(0), 1, 2),
+            new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1),
+            new InitialShip(new CountryId(0), new ShipTypeId(0), 7, 1),
+            new InitialShip(new CountryId(1), new ShipTypeId(0), 1, 1),
+        ]);
+
+        var taskForce = state.AssembleTaskForce(new CountryId(0), [new FleetId(2), new FleetId(1)]);
+
+        Assert.Equal(new TaskForceId(1), taskForce.Id);
+        Assert.Equal(new SeaZoneId(1), taskForce.SeaZone);
+        Assert.Equal([new FleetId(1), new FleetId(2)], taskForce.Fleets);
+        Assert.Equal(taskForce.Id, state.GetFleet(new FleetId(1)).TaskForce);
+        Assert.Equal(taskForce.Id, state.GetFleet(new FleetId(2)).TaskForce);
+        Assert.Throws<InvalidOperationException>(() =>
+            state.AssembleTaskForce(new CountryId(0), [new FleetId(1)]));
+        Assert.Throws<InvalidOperationException>(() =>
+            state.AssembleTaskForce(new CountryId(0), [new FleetId(2), new FleetId(3)]));
+        Assert.Throws<InvalidOperationException>(() =>
+            state.AssembleTaskForce(new CountryId(0), [new FleetId(4)]));
+        Assert.Throws<ArgumentException>(() =>
+            state.AssembleTaskForce(new CountryId(0), [new FleetId(3), new FleetId(3)]));
+        Assert.Throws<InvalidOperationException>(() =>
+            state.AssembleTaskForce(new CountryId(0), [new FleetId(5)]));
+    }
+
     private static WorldState CreateState(IEnumerable<InitialShip> ships)
     {
+        var initialShips = ships.ToArray();
         var dimensions = new MapDimensions(2, 1);
         var map = new MapDefinition(
             dimensions,
@@ -61,7 +93,7 @@ public sealed class FleetStateTests
             "Fleets",
             1815,
             [],
-            initialShips: ships,
+            initialShips: initialShips,
             defaultStartCountries: [new CountryId(0)]);
         var defaults = new StartingDefaults(
             [],
@@ -73,7 +105,8 @@ public sealed class FleetStateTests
             [new ShipDefault(new ShipTypeId(0), 3)]);
         return new WorldState(new WorldDefinition(
             map,
-            [new CountryDefinition(new CountryId(0), "Power")],
+            Enumerable.Range(0, Math.Max(1, initialShips.Select(static ship => ship.Country.Value).DefaultIfEmpty(-1).Max() + 1))
+                .Select(static id => new CountryDefinition(new CountryId(id), $"Power {id}")),
             scenario,
             startingDefaults: defaults,
             shipTypes: [new ShipTypeDefinition(new ShipTypeId(0), "Trader", cargo: 2)]));

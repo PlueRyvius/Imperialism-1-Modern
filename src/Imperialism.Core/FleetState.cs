@@ -43,4 +43,7 @@ public sealed class FleetState
     /// cannot receive a positional naval command.
     /// </summary>
     public SeaZoneId? SeaZone { get; internal set; }
+
+    /// <summary>The task force this fleet record belongs to, if assembled.</summary>
+    public TaskForceId? TaskForce { get; internal set; }
 }
