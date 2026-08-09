@@ -5,10 +5,11 @@ namespace Imperialism.Core.Tests;
 
 /// <summary>
 /// Labour is the workforce's output and production's third constraint, after
-/// the warehouse and facility capacity. The manual prices exactly one recipe —
-/// a unit of clothing costs two fabric and two labour — and every recipe the
-/// original ships spends two input units per unit of output, so that single
-/// quote fixes the rate for all of them. See <c>docs/formulas/production.md</c>.
+/// the warehouse and facility capacity. <b>The rate is two per cycle, flat</b>: the
+/// manual prices one recipe — a unit of clothing costs two fabric and two labour — and
+/// the original's own recipe help resources charge the same two for all nine of theirs,
+/// including the four-input food-processing cycle. See
+/// <c>docs/formulas/production.md</c>.
 /// </summary>
 public sealed class LabourTests
 {

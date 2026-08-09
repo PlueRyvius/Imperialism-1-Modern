@@ -85,7 +85,21 @@ public sealed class WorldContentDocument
     /// </summary>
     public TechnologyContentDefinition[] Technologies { get; set; } = [];
 
-    public NamedContentDefinition[] Countries { get; set; } = [];
+    /// <summary>
+    /// The classes of ship this world has. Empty means no navy and no merchant marine, so
+    /// nothing can be carried to market — which is how every world behaved before v20.
+    /// </summary>
+    public ShipTypeContentDefinition[] ShipTypes { get; set; } = [];
+
+    /// <summary>
+    /// How prices answer to supply and demand, or absent where they never move. Absent
+    /// does not stop trading: a world with prices and no market trades at the opening
+    /// price forever, which keeps the transcribed prices separable from the guessed curve.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TradeContentSettings? Trade { get; set; }
+
+    public CountryContentDefinition[] Countries { get; set; } = [];
 
     public ScenarioContentDocument[] Scenarios { get; set; } = [];
 }
@@ -145,6 +159,12 @@ public sealed class ScenarioContentDocument
     /// <summary>Civilians on the map at the start, in the order they take ids.</summary>
     public CivilianContent[] Civilians { get; set; } = [];
 
+    /// <summary>
+    /// Fleets each country starts with: the 1997 <c>ship</c> record. A country listed here
+    /// ignores <c>startingDefaults.ships</c> entirely, rather than adding to it.
+    /// </summary>
+    public ShipContent[] Ships { get; set; } = [];
+
     public CountryTechnologyContent[] CountryTechnologies { get; set; } = [];
 
     /// <summary>
@@ -202,6 +222,24 @@ public sealed class StartingDefaultsContent
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? Cash { get; set; }
+
+    /// <summary>
+    /// The fleet a listed country starts with, and therefore its opening merchant marine.
+    /// </summary>
+    /// <remarks>
+    /// **Not a guess, unlike the transport pool above.** All three skirmish scenarios give
+    /// every power three ships of the same class, independently — the same agreement that
+    /// settled the mills and the workforce. Which class is the inference; see
+    /// <c>docs/formulas/trade.md</c>.
+    /// </remarks>
+    public ShipDefaultContent[] Ships { get; set; } = [];
+}
+
+public sealed class ShipDefaultContent
+{
+    public string Type { get; set; } = string.Empty;
+
+    public long Count { get; set; }
 }
 
 public sealed class FacilityCapacityDefaultContent
@@ -262,6 +300,24 @@ public sealed class CountryCashContent
     public string Country { get; set; } = string.Empty;
 
     public long Amount { get; set; }
+}
+
+/// <summary>One fleet: a country, a class of ship, a sea zone and a count.</summary>
+/// <remarks>
+/// <b><see cref="SeaZone"/> is carried and never interpreted.</b> A ship's zone is not the
+/// map's ocean zone byte — the numberings are unrelated, no offset fits, and 23 of the zone
+/// ids appear on no ocean cell at all. So a fleet can be named but not located, and nothing
+/// here places one. See <c>docs/scenario-semantics.md</c>.
+/// </remarks>
+public sealed class ShipContent
+{
+    public string Country { get; set; } = string.Empty;
+
+    public string Type { get; set; } = string.Empty;
+
+    public int SeaZone { get; set; }
+
+    public long Count { get; set; }
 }
 
 /// <summary>
@@ -431,6 +487,101 @@ public sealed class CommodityContentDefinition
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? CashPerUnit { get; set; }
+
+    /// <summary>
+    /// What a unit fetches on the world market at the start of the game, or absent where
+    /// this commodity is never traded. **Absence is what makes it untradable.**
+    /// </summary>
+    /// <remarks>
+    /// Transcribed from the original's Bid and Offers screen: 100 for raw, 300 for
+    /// materials, 900 for goods, with canned food at 100 and horses at 300 breaking the
+    /// tiers. The eight commodities with no price are exactly the ones the manual says
+    /// cannot be traded. See <c>docs/formulas/trade.md</c>.
+    /// </remarks>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? WorldPrice { get; set; }
+
+    /// <summary>
+    /// Where this commodity sits in the order the merchant marine spends cargo holds,
+    /// or absent where it is not traded. Clothing is first.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? TradeOrder { get; set; }
+}
+
+/// <summary>
+/// A class of ship: its cargo holds, what it costs to build, what must be known first,
+/// and its combat numbers.
+/// </summary>
+/// <remarks>
+/// **Only <c>cargo</c> is modelled.** A country's merchant marine is the sum of the cargo
+/// of the ships it owns, and that is what limits trade. The rest is transcribed for the
+/// slices that will read it — a shipyard for the bill, the battle engine for the stats.
+/// </remarks>
+public sealed class ShipTypeContentDefinition
+{
+    public string Key { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Cargo holds; zero for a warship, which is every ship that fights.</summary>
+    public long Cargo { get; set; }
+
+    /// <summary>
+    /// Sea zones crossed in a turn: one for every merchant, two to six for a warship.
+    /// This is the column the manual prints as "Speed".
+    /// </summary>
+    public long SeaZones { get; set; }
+
+    /// <summary>
+    /// What the shipyard consumes to build one — materials only, never cash. Empty where
+    /// nothing reliable has been transcribed.
+    /// </summary>
+    public CommodityQuantityContent[] BuildCost { get; set; } = [];
+
+    /// <summary>
+    /// Technology key the shipyard needs first, or absent for the classes available from
+    /// the start.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequiredTechnology { get; set; }
+
+    /// <summary>Fighting numbers, recorded and read by nothing.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ShipCombatContent? Combat { get; set; }
+}
+
+/// <summary>
+/// A hull's fighting numbers, for all thirteen classes. Transcribed for the battle
+/// engine.
+/// </summary>
+public sealed class ShipCombatContent
+{
+    public long Firepower { get; set; }
+
+    public long Range { get; set; }
+
+    /// <summary>Armour, 0 to 70. The executable stores its complement against 100.</summary>
+    public long Armour { get; set; }
+
+    /// <summary>
+    /// The executable's internal hull scale, 600 to 2,800 — the divisor its battle report
+    /// normalises damage by, not a count of hull points.
+    /// </summary>
+    public long HullScale { get; set; }
+
+    /// <summary>
+    /// Movement inside a tactical battle, 0 to 9. Zero for a merchant. Distinct from
+    /// <see cref="ShipTypeContentDefinition.SeaZones"/>, which is movement on the map.
+    /// </summary>
+    public long BattleSpeed { get; set; }
+
+    /// <summary>
+    /// The hull rating the manual prints, or absent for the five merchants its combat
+    /// table omits. Kept beside <see cref="HullScale"/>; neither derives the other.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Hull { get; set; }
 }
 
 public sealed class ResourceContentDefinition
@@ -579,6 +730,52 @@ public sealed class NamedContentDefinition
     public string Key { get; set; } = string.Empty;
 
     public string Name { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// A country, and whether it is one of the world's Great Powers.
+/// </summary>
+/// <remarks>
+/// Countries used to be plain <see cref="NamedContentDefinition"/> entries. Great Power
+/// status decides who pays the cargo holds on a trade: "no Minor Nation owns merchant
+/// marine", and between two Great Powers "the buyer always picks up the commodities".
+/// The importer reads it from <c>labo</c>, the one record naming the Great Powers and only
+/// them.
+/// </remarks>
+public sealed class CountryContentDefinition
+{
+    public string Key { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    public bool IsGreatPower { get; set; }
+}
+
+/// <summary>
+/// How a world's prices answer to supply and demand.
+/// </summary>
+/// <remarks>
+/// **The direction is the manual's and every number here is a guess.** "If demand for a
+/// commodity is stronger than the supply, the price rises. If the reverse is true, the
+/// price falls. If supply and demand are closely matched, the price this turn remains much
+/// the same." It states no magnitude, and the clearing price is the project's most-wanted
+/// unknown. These live in content so recalibration is an edit.
+/// </remarks>
+public sealed class TradeContentSettings
+{
+    /// <summary>How far a price moves in a turn when supply and demand disagree.</summary>
+    public long StepPercent { get; set; }
+
+    /// <summary>How close counts as "closely matched", against the larger of the two.</summary>
+    public long TolerancePercent { get; set; }
+
+    /// <summary>
+    /// Floor and ceiling as a percentage of the opening price. **A modelling safeguard
+    /// rather than a rule about 1897**: at zero a commodity would trade for nothing.
+    /// </summary>
+    public long FloorPercent { get; set; }
+
+    public long CeilingPercent { get; set; }
 }
 
 /// <summary>

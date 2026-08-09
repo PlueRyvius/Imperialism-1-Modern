@@ -77,6 +77,39 @@ public static class TurnResolver
             combined[index] = spentSoFar[index] + migration.InventoryDeltas[index];
         }
 
+        // What a country may sell is what it holds less what is already spoken for:
+        // "you cannot sell items you do not own or that you have ordered industry to use
+        // this turn." So this has to be a pure *consumption* figure and deliberately not
+        // a net one — netting would let a country sell output that does not reach the
+        // warehouse until Production commits, which is after Trade.
+        //
+        // Every plan's delta is `outputs - consumption`, and only production has
+        // outputs, so consumption is `outputs - delta` commodity by commodity. Doing it
+        // that way rather than clamping the net is what keeps a commodity both consumed
+        // and produced honest: 2 lumber in and 3 out nets +1, and 2 is still claimed.
+        var produced = new long[combined.Length];
+        var commodityCount = state.Definition.Commodities.Count;
+        foreach (var entry in production.Entries)
+        {
+            foreach (var quantity in entry.Produced)
+            {
+                produced[(entry.Country.Value * commodityCount) + quantity.Commodity.Value] +=
+                    quantity.Quantity;
+            }
+        }
+
+        var claimed = new long[combined.Length];
+        for (var index = 0; index < claimed.Length; index++)
+        {
+            claimed[index] = Math.Max(0, produced[index] - combined[index]);
+        }
+
+        var trade = TradePlanner.Create(state, orders, claimed);
+        for (var index = 0; index < combined.Length; index++)
+        {
+            combined[index] += trade.InventoryDeltas[index];
+        }
+
         state.PreflightInventoryChanges(combined);
 
         // Capacity bought this turn carries next turn, "as with other industrial
@@ -87,7 +120,58 @@ public static class TurnResolver
         var events = new List<TurnEvent>(Pipeline.Length + production.Entries.Count);
         foreach (var phase in Pipeline)
         {
-            if (phase == TurnPhase.Production)
+            if (phase == TurnPhase.Trade)
+            {
+                // Before Production, which is the order the manual's screens imply:
+                // industry claims its inputs first and the market sells what is left.
+                // The money moves now, so it is available to Development later in the
+                // same turn — which is what makes trade able to pay for an improvement.
+                state.CommitProduction(trade.InventoryDeltas);
+                foreach (var entry in trade.Trades)
+                {
+                    _ = state.TrySpendCash(entry.Buyer, entry.Quantity * entry.UnitPrice);
+                    state.AddCash(entry.Seller, entry.Quantity * entry.UnitPrice);
+
+                    // The buyer's goods arrive next turn: "the commodities you buy appear
+                    // for your use in the Industry screen next turn." That is the same
+                    // machinery extraction already uses, and the reason this needed no
+                    // new state.
+                    _ = state.QueuePendingDelivery(
+                        entry.Buyer, entry.Commodity, entry.Quantity, PendingDeliverySource.Trade);
+                    events.Add(new CommodityTradedEvent(
+                        turnNumber,
+                        entry.Seller,
+                        entry.Buyer,
+                        entry.Commodity,
+                        entry.Quantity,
+                        entry.UnitPrice,
+                        entry.HoldsPaidBy));
+                }
+
+                foreach (var entry in trade.Shortfalls)
+                {
+                    events.Add(new TradeUnfilledEvent(
+                        turnNumber,
+                        entry.Country,
+                        entry.Commodity,
+                        entry.Requested,
+                        entry.Settled,
+                        entry.Reason));
+                }
+
+                foreach (var move in trade.PriceMoves)
+                {
+                    state.SetWorldPrice(move.Commodity, move.ToPrice);
+                    events.Add(new WorldPriceChangedEvent(
+                        turnNumber,
+                        move.Commodity,
+                        move.FromPrice,
+                        move.ToPrice,
+                        move.Offered,
+                        move.Bid));
+                }
+            }
+            else if (phase == TurnPhase.Production)
             {
                 state.CommitProduction(production.InventoryDeltas);
                 foreach (var entry in production.Entries)

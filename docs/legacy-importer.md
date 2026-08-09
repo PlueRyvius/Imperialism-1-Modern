@@ -111,6 +111,21 @@ hills gate, and towns and capitals taking the plains one, are inferences the
 corpus cannot separate from their alternatives; both are flagged in
 `formulas/engineer.md`.
 
+**The importer declares the world market**: fifteen commodities with prices and a place in
+the commodity order, from the original's own Bid and Offers screen, and eight left unpriced
+because the manual says they cannot be traded. Absence of a price is what makes a commodity
+untradable. `labo` now also sets `countries[].isGreatPower`, because trade needs to know who
+carries a cargo — the same record already decided who gets the fair-start defaults.
+
+**Thirteen ship classes are declared by key, and `ship` records convert.** The record is
+`[country, type, zone, count]` and the type is a 1-based index into the game's own array —
+verified against the corpus, since 0-based puts a Clipper in an 1816 skirmish holding no
+technology. That array's order was the reason these records were deferred and it is now
+recovered from the executable, along with cargo, sea zones, the six-commodity build bills
+and the combat numbers, so **all of that is emitted**. The zone is carried and never
+interpreted; it is not the map's ocean zone byte. A country the scenario equips takes its
+authored fleet instead of the fair-start three Traders. See `formulas/trade.md`.
+
 **Rail is priced per terrain and the price sits beside the gate**, on
 `terrains[].rail.cashCost`: 100 for plains, farm and desert, 150 for tundra and
 either forest, 200 for hills, 300 for swamp. That replaced a flat 500 this document

@@ -101,6 +101,11 @@ internal static class WorldContentMigrator
             MigrateVersionEighteenToNineteen(document);
         }
 
+        if (document.FormatVersion == 19)
+        {
+            MigrateVersionNineteenToTwenty(document);
+        }
+
         return document;
     }
 
@@ -389,12 +394,16 @@ internal static class WorldContentMigrator
     }
 
     /// <summary>
-    /// Version 9 prices a recipe's labour. A version 8 package cannot state one,
-    /// so the migration derives it as the recipe's total input units — the rate
-    /// the manual gives for the one recipe it prices outright, and the same
-    /// number as "two labour per unit of output" for every recipe the original
-    /// ships. See <c>docs/formulas/production.md</c>.
+    /// Version 9 prices a recipe's labour. A version 8 package cannot state one, so the
+    /// migration derives it as the recipe's total input units.
     /// </summary>
+    /// <remarks>
+    /// <b>That derivation is kept even though the rule behind it is retracted.</b> The
+    /// original charges two labour per cycle flat, so the importer emits two — but a
+    /// version 8 package may hold any recipes at all, and the input total is the only
+    /// thing derivable from one of them. Reading a modded package's economy as the
+    /// original's would be a worse guess than the arithmetic it already implies.
+    /// </remarks>
     /// <remarks>
     /// **This changes behaviour** for any version 8 package that also defines
     /// feeding: its production is now capped by the workforce, where before the
@@ -845,6 +854,64 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 19;
+    }
+
+    /// <summary>
+    /// Version 20 opens a world market, and gives it ships to carry on.
+    /// </summary>
+    /// <remarks>
+    /// A version 19 package trades nothing, so it migrates to a world where nothing is
+    /// tradable, no hull exists and no price ever moves — which is exactly how it behaved.
+    /// None of it can be invented: what a commodity fetches is a fact about the 1897
+    /// economy rather than about worlds in general, and a world whose warehouses cannot be
+    /// sold from is a coherent world rather than a broken one.
+    /// <para>
+    /// Countries gain <c>isGreatPower</c>, which defaults to false. That is the right
+    /// migration for a world with no trade in it — the flag exists only to decide who
+    /// carries a cargo — and it is why the country schema could widen without a legacy
+    /// carrier: a version 19 country is a key and a name, and both survive.
+    /// </para>
+    /// </remarks>
+    private static void MigrateVersionNineteenToTwenty(WorldContentDocument document)
+    {
+        foreach (var commodity in document.Commodities ?? [])
+        {
+            if (commodity?.WorldPrice is not null || commodity?.TradeOrder is not null)
+            {
+                throw new ContentValidationException(
+                    "formatVersion",
+                    "Version 19 cannot put a commodity on the world market.");
+            }
+        }
+
+        if (document.ShipTypes is { Length: > 0 })
+        {
+            throw new ContentValidationException(
+                "formatVersion", "Version 19 has no ships.");
+        }
+
+        if (document.Trade is not null)
+        {
+            throw new ContentValidationException(
+                "formatVersion", "Version 19 has no world market.");
+        }
+
+        if (document.StartingDefaults?.Ships is { Length: > 0 })
+        {
+            throw new ContentValidationException(
+                "formatVersion", "Version 19 cannot start a country with a fleet.");
+        }
+
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.Ships is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion", "Version 19 cannot place a fleet.");
+            }
+        }
+
+        document.FormatVersion = 20;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

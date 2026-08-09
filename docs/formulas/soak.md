@@ -297,6 +297,12 @@ this file fell into over the empty warehouse — and the middle row reads
 *development is now something a country has to afford*, never *a country cannot
 afford development*.
 
+**That caveat is now discharged rather than merely flagged.** Trade exists, and it earns
+1.2 million a century against the gold mine's 20,000 — see
+[the trading run below](#and-then-trade-made-the-money-question-small). The prediction in
+that sentence was right, and it was right about the size too: the missing income was not a
+detail.
+
 With one gold tile a power at the manual's $200 a unit the loop closes: 20,000
 over the century buys back nearly all the development the free run got for
 nothing, with change to spare. **This is the first run in this file where
@@ -306,6 +312,37 @@ The extra development does not land on grain — its top rung is gated behind
 Mechanical Reaper and none of these runs grants it — so cash and technology show
 up here as separate ceilings, and only one of them is lifted. See
 [development.md](development.md).
+
+### And then trade made the money question small
+
+The same fixture with a world market, against the ordinary-treasury greedy run from
+[technology.md](technology.md) — same policy, same money, differing only in whether there
+is anywhere to sell.
+
+```
+                        grain/turn  workers  top rungs  first  bought  spent    sold   income
+with a world market      21 → 63    49 → 119     21      49     14    105,000  1,534  1,199,999
+no market, gold only     21 → 42    49 →  77      0    never     7     21,000      0          0
+```
+
+**Trade is worth two orders of magnitude more than the mine it sits beside.** The closed
+run buys the Plows on turn 30 and never affords the Reaper; the trading run buys the Plows
+on **turn 1** and the Reaper on **turn 45, the quarter it becomes available**, then reaches
+the gated rung on 49. Every "cannot afford" finding on this page was measured on an economy
+missing its main revenue stream.
+
+**The merchant marine binds, hard — and that is the railyard failure mode not recurring.**
+1,534 units sold against **103,147 offered and unsold**, and 532 rows short of a hull. Six
+cargo holds a power a turn against a warehouse that fills faster than that, so there is
+always something left on the quay. Unlike transport capacity, this constraint is real and
+visible from the first turn.
+
+**Two things to be careful of.** The minor nations buying all this are a fixture standing in
+for an economy — no land, no industry, no ships, just a treasury and a bid — so **the income
+figure is an upper bound, not a measurement.** And the population outgrows its food again:
+workers reach 165 by turn 75 and fall back to 119 with 21 sick, which is the manual's
+warning about growing too fast, arrived at rather than written in. Trade buys improvement
+faster than the food supply follows.
 
 **Those two ceilings are now connected**, which is what the Investment screen did to
 this run: the gold that buys development is also the gold that buys the technology

@@ -146,6 +146,25 @@ public readonly record struct CivilianTypeId
 }
 
 /// <summary>
+/// Identifies a class of ship. A legacy <c>ship</c> record's type field is a
+/// <b>1-based</b> index into the world's ship table, verified against the corpus: read
+/// as 0-based it puts a Clipper in an 1816 skirmish whose powers hold no technology at
+/// all, and five more in <c>s13</c> and <c>s14</c>. See <c>docs/formulas/trade.md</c>.
+/// </summary>
+public readonly record struct ShipTypeId
+{
+    public ShipTypeId(int value)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(value);
+        Value = value;
+    }
+
+    public int Value { get; }
+
+    public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
+}
+
+/// <summary>
 /// Identifies one civilian on the map. Unlike every other id here this is not
 /// dense: civilians are created and destroyed during play, so an id is issued
 /// once and never reused.

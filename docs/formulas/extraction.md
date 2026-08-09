@@ -22,7 +22,7 @@ trusting any number below.
 | Gathered only within one tile of a connected collection point | **manual**, Terrain Map section |
 | Route must reach the capital; overlapping catchments waste coverage | **manual** |
 | Output lands in the warehouse for next turn | **manual** |
-| Every per-level yield in the table below | **manual**, Resource Development Table |
+| Every per-level yield in the table below | **manual**, Resource Development Table — and **the executable's own table agrees row for row** |
 | Ports fish 1 per adjacent coast or river tile | **manual** |
 | Development levels run 1–3 | **corpus-verified** — `deve` records across all shipped scenarios |
 | Ports stand on land touching water | **corpus-verified** — 124 of 124 records |
@@ -34,6 +34,19 @@ Everything load-bearing here is now transcribed from the manual rather than
 guessed. An earlier version of this file shipped a doubling curve described as
 "a deliberate design choice, not a measurement"; the manual says the progression
 is linear, and the code was corrected. See `docs/reference/manual-mechanics.md`.
+
+**The executable's yield table now confirms all of it.** A 23-row table at
+`0x00696D98` gives the same curves this page ships: cultivated deposits 1/2/3/4,
+coal, iron and oil 0/2/4/6, gold and gems 0/1/2/3, horses flat 1. Nothing changed,
+which is the strongest thing a cross-check can report.
+
+**Fish is the one row that looks different and is not a contradiction.** The table
+gives fish 1/2/3/4 where this page gives it a flat 1 on the manual's authority that
+fish is not improvable. The recovered reader settles it: coal, iron, oil, gems and
+gold read the high nibble of the resource record and fish reads the low one, so the
+fish row is a source quantity — the manual's "one per adjacent water" — rather than
+a development level. See
+[`../disasm/definitive-original-data.md`](../disasm/definitive-original-data.md).
 
 Two things keep this below `verified`. The manual is documentation, not observed
 behaviour — the confidence ladder puts manual-derived rules at `inferred` — and

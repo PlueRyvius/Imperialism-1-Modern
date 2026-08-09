@@ -22,7 +22,8 @@ Labour carries its own evidence, tabulated rather than averaged:
 | Production consumes labour at all | **manual** — "without some labour you cannot produce fabric" |
 | One unit of clothing costs two fabric **and two labour** | **manual**, quoted below — the only recipe it prices |
 | Every shipped recipe spends two input units per unit of output | **corpus-verified** against the recipe table |
-| Therefore labour per cycle = total input units | follows from the two above, for the shipped set only |
+| **Labour per cycle is two, flat, for every recipe** | **resource-backed** — all nine of the original's recipe help strings say "2 labor", including the four-input food cycle |
+| ~~Therefore labour per cycle = total input units~~ | **retracted.** Held on the shipped set only, and food processing was miscounted as agreeing |
 | Labour is one pool per country, not per facility | **manual** — one arm icon on the border, drawn down by every dialog |
 | Power is spent before human labour | **manual** — not modelled yet |
 
@@ -132,19 +133,20 @@ except once, in the tutorial walk-through, where it prices it exactly:
 
 Clothing is `2 fabric → 1 clothing`, so that single sentence admits three
 readings: two labour per cycle, one per input unit, or two per unit of output.
-**They are the same number for every recipe the original ships.** Check the list
-above: each one consumes exactly two input units for each unit it produces —
-including canned food, whose cycle takes four inputs and makes two. There is no
-shipped recipe on which the readings disagree, so the rate is determined for all
-of them without choosing between the readings.
 
-We implement it as **the recipe's total input units**, carried as an explicit
-`labourCost` per recipe rather than derived at runtime, so a recipe that is not
-2:1 — a modded one — must state its own price instead of silently inheriting a
-rule that was only ever verified on 2:1 recipes.
+**The original's own help resources settle it, and the answer is two per cycle.**
+Every one of the nine recipes they state costs "2 labor" — including the
+food-processing cycle, which takes **four** input units and makes **two** units of
+canned food. One input unit per labour would price it at four; two per unit of
+output would also price it at four. Both are retracted; the flat rate is what
+survives.
 
-**The railyard was expected to be that recipe, and it is not.** See the
-retraction below.
+It is carried as an explicit `labourCost` per recipe rather than derived at
+runtime, which is unchanged and is what let this correction be one number in one
+place.
+
+**Canned food is the recipe this document said did not exist**, and it was on the
+list the whole time. See the two retractions below.
 
 The pool is **per country and shared across every facility**: the manual shows a
 single arm icon on the screen border that every production dialog draws down,
@@ -161,10 +163,15 @@ labour pool on the turn it is generated and is spent before any human labour;
 the Trade School takes a worker out of the pool for the turn it trains; and
 building a civilian in the University permanently removes an expert worker.
 
-### What the disassembly could not settle
+### What the disassembly could not settle — and where it was found instead
 
-The labour rate was looked for in the original binary first and not found.
-Recorded so the next attempt starts further along:
+The labour rate was looked for in the original binary first and not found. **It
+was in the resource archive, not the code**: `STR#ENU.GOB`'s help strings state
+each recipe's inputs outright, labour included. The searches below were looking
+for an arithmetic pattern in a build that simply prints the number.
+
+Recorded so the next attempt starts further along — and with the lesson at the
+top, which is to read the strings before disassembling anything:
 
 - `UCity.cpp` (`004B3080`–`004B427F`) is the economy module by assert anchor, but
   reading it for a specific constant is a project, not a lookup.
@@ -180,8 +187,8 @@ Recorded so the next attempt starts further along:
 - `README.TXT` / `README11.TXT` mention labour once, about power, with no rate.
 
 Whether the original stores a per-recipe labour cost in a table or derives it is
-still unknown. Finding that table would confirm or refute the input-total
-reading on recipes we have no other evidence for.
+still unknown, and it now matters less: the nine stated recipes all cost two, so
+whatever the storage, the value is settled for everything the original ships.
 
 ## Pseudocode
 
@@ -245,10 +252,10 @@ the workforce does not, which is how a starting position should read.
 
 - Exact interaction between persisted factory orders and player edits after a
   shortage. Modern turn orders are currently explicit per-turn submissions.
-- Whether the original stores a per-recipe labour cost or derives one. Every
-  shipped recipe is 2:1, so no evidence we have distinguishes them; a recipe
-  that is not 2:1 would, and **none exists — including the railyard, which this
-  document expected to be the first. See the retraction below.**
+- Whether the original stores a per-recipe labour cost or derives one. Its nine
+  stated recipes all cost two, so the value is settled either way; only the
+  mechanism is open, and it decides nothing this engine ships. **Closed as a
+  gameplay question. See the two retractions below.**
 - Transient power, which the manual says joins the pool on the turn it is
   generated and is spent before any human labour.
 - The Trade School and the University, which take labour and workers out of the
@@ -273,6 +280,30 @@ expectation that has failed is worse than none. **No candidate is currently in
 view.** The reading remains undetermined and undeterminable from anything shipped;
 the binary is the only place left to look.
 
-What the railyard did establish is a real difference from facility expansion,
-which the manual prices at one lumber and one steel and for which it names no
-labour at all. See `transport.md`.
+The railyard's own numbers held up: the original's resource text prices transport
+capacity at 2 labour, 1 steel and 1 lumber, which is exactly what `transport.md`
+shipped. What the railyard did establish is a real difference from facility
+expansion, which the manual prices at one lumber and one steel and for which it
+names no labour at all. See `transport.md`.
+
+## Retracted: the input-total reading, and the claim that no test case existed
+
+The section above ends "no candidate is currently in view", and **there was one in
+the recipe list on this page the whole time.** Food processing takes 2 grain, 1
+fruit and 1 meat and makes **2** canned food: four input units, two outputs. The
+three readings of the manual's clothing sentence price that at two, four and four.
+
+This document said they agreed, on the strength of the recipe being 2:1 — which it
+is, as a *ratio*. The error was treating "two input units per unit of output" as
+though it settled a per-cycle rate. It does not, when the cycle makes two units.
+
+The original's help resources price it at **2 labor**, along with all eight of its
+other recipes. So the flat per-cycle reading is the right one and the input-total
+implementation is retracted; canned food's labour cost moves from four to two.
+
+**Nothing published moves with it.** The soak's fixture recipes are all
+one-input-pair-to-one-output and were already costing two, so every soak table on
+this site and in `soak.md` stands unchanged. The correction is confined to imported
+worlds, where it makes canned food half as expensive in labour as it was — and that
+is a real change to any imported economy that processes food, just not one any
+published run measured.

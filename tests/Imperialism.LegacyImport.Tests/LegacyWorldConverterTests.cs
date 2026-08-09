@@ -348,21 +348,22 @@ public sealed class LegacyWorldConverterTests
             result.Document.ExpansionCostPerCapacityPoint
                 .Select(static item => (item.Commodity, item.Quantity)));
 
-        // The manual prices one recipe outright — a unit of clothing costs two
-        // fabric and two labour — and every recipe above spends exactly two
-        // input units per unit of output, so that one quote fixes them all.
-        // Canned food is the only one that differs, and only because its cycle
-        // makes two units at once. See docs/formulas/production.md.
+        // **Labour is two per cycle, flat**, and the original's own recipe help strings
+        // say so for all nine of them. The manual's single priced example — two fabric and
+        // two labour for a unit of clothing — admitted three readings; food processing is
+        // the recipe that separates them, taking four inputs and making two for the same
+        // two labour. The input-total reading this used to assert is retracted. See
+        // docs/formulas/production.md.
+        Assert.All(result.Document.ProductionRecipes, static recipe =>
+            Assert.Equal(2, recipe.LabourCost));
+
+        var cannedFood = result.Document.ProductionRecipes
+            .Single(static recipe => recipe.Key == "recipe.canned-food-from-fish");
         Assert.Equal(
-            2,
-            result.Document.ProductionRecipes
-                .Single(static recipe => recipe.Key == "recipe.clothing-from-fabric").LabourCost);
-        Assert.All(result.Document.ProductionRecipes, static recipe => Assert.Equal(
-            2 * recipe.Outputs.Sum(static item => item.Quantity),
-            recipe.LabourCost));
-        Assert.All(result.Document.ProductionRecipes, static recipe => Assert.Equal(
-            recipe.Inputs.Sum(static item => item.Quantity),
-            recipe.LabourCost));
+            (4L, 2L, 2L),
+            (cannedFood.Inputs.Sum(static item => item.Quantity),
+                cannedFood.Outputs.Sum(static item => item.Quantity),
+                cannedFood.LabourCost));
     }
 
     [Fact]
@@ -694,17 +695,24 @@ public sealed class LegacyWorldConverterTests
     /// Investment screen reads.
     /// </summary>
     /// <remarks>
-    /// This is the wiki's order rather than the manual's printed order — the two
-    /// differ at positions 4–7 and 13–14, which is exactly where the manual's
-    /// two-column layout is worst. **The corpus cannot choose between them**, and
-    /// the reason is worth stating precisely rather than as agreement: a power
-    /// holding *five* technologies genuinely holds different gates under each, and
-    /// the corpus has no such power (its counts are 0, 6, 9, 13, 14 and 21). Both
-    /// falsification counts come out identical under either ordering. See
-    /// <c>docs/formulas/technology.md</c>.
+    /// **Order and cost are the executable's**, from the name blocks in `STR#ENU.GOB`
+    /// and the 28-entry cash table the technology store reads at the same position.
+    /// The recovered order turns out to be the manual's printed one, so the wiki
+    /// ordering this used to pin — differing at positions 4–7 and 13–14 — is
+    /// retracted. Twelve of the twenty-six prices moved with it, because the wiki's
+    /// price column was **off by one from Streamlined Hulls onwards**: each entry
+    /// carried the next one's price.
     /// <para>
-    /// Names stay the manual's where the two sources disagree: "Steel and Iron
-    /// Plows" over the wiki's "Steel Plows", "Fertiliser" over "Fertilizer".
+    /// **The years are derived and the prerequisites are not recovered.** The
+    /// executable stores an inclusive pseudo-random turn-offset window per
+    /// technology, not a year; the year here is <c>1815 + window minimum</c>, which
+    /// puts 25 of the wiki's 26 observed years inside their window and 19 exactly on
+    /// it. Prerequisites are still the wiki's and are now the weakest column. See
+    /// <c>docs/formulas/technology.md</c>.
+    /// </para>
+    /// <para>
+    /// Names stay the manual's where the sources disagree: "Steel and Iron Plows"
+    /// over "Steel Plows", "Fertiliser" over "Fertilizer", "Armour" over "Armor".
     /// </para>
     /// </remarks>
     [Fact]
@@ -715,31 +723,31 @@ public sealed class LegacyWorldConverterTests
             ("High Pressure Steam Engine", null, 1815, []),
             ("Seed Drill", null, 1815, []),
             ("Cotton Gin", 1_000, 1816, []),
+            ("Streamlined Hulls", 1_000, 1821, []),
+            ("Square-Set Timbering", 1_500, 1821, []),
             ("Iron Railroad Bridge", 1_500, 1821, []),
             ("Feed Grasses", 1_500, 1821, []),
-            ("Square-Set Timbering", 1_500, 1821, []),
-            ("Streamlined Hulls", 1_500, 1821, []),
-            ("Spinning Jenny", 3_000, 1826, ["Cotton Gin", "Feed Grasses"]),
+            ("Spinning Jenny", 1_500, 1826, ["Cotton Gin", "Feed Grasses"]),
             ("Paddlewheels", 3_000, 1826, []),
             ("Steel and Iron Plows", 3_000, 1831, ["Seed Drill"]),
-            ("Bessemer Converter", 6_000, 1836, []),
-            ("Compound Steam Engine", 7_000, 1836, ["Iron Railroad Bridge"]),
-            ("Breech-Loading Rifles", 12_000, 1841, ["Bessemer Converter"]),
-            ("Rifled Artillery", 10_000, 1841, []),
+            ("Bessemer Converter", 3_000, 1836, []),
+            ("Compound Steam Engine", 6_000, 1836, ["Iron Railroad Bridge"]),
+            ("Rifled Artillery", 7_000, 1841, []),
+            ("Breech-Loading Rifles", 10_000, 1841, ["Bessemer Converter"]),
             ("Advanced Iron Working", 12_000, 1846, []),
             ("Power Loom", 12_000, 1846, ["Spinning Jenny"]),
             ("Mechanical Reaper", 12_000, 1851, ["Steel and Iron Plows"]),
             ("Commercial Fertiliser", 12_000, 1856, ["Steel and Iron Plows"]),
-            ("Oil Drilling", 25_000, 1856, []),
-            ("Barbed Wire", 20_000, 1862, ["Feed Grasses"]),
-            ("Steel Armour Plate", 40_000, 1866, ["Advanced Iron Working"]),
-            ("Large Artillery", 40_000, 1872, ["Rifled Artillery"]),
-            ("Dynamite", 40_000, 1874, ["Compound Steam Engine", "Square-Set Timbering"]),
-            ("Marine Engineering", 40_000, 1873, ["Steel Armour Plate"]),
-            ("Machine Guns", 100_000, 1879, ["Breech-Loading Rifles"]),
-            ("Chemistry", 120_000, 1875, ["Oil Drilling", "Barbed Wire"]),
-            ("Improved Range-Finding", 150_000, 1881, ["Marine Engineering"]),
-            ("Internal Combustion", 150_000, 1884, ["Chemistry"]),
+            ("Oil Drilling", 12_000, 1856, []),
+            ("Barbed Wire", 25_000, 1861, ["Feed Grasses"]),
+            ("Steel Armour Plate", 20_000, 1866, ["Advanced Iron Working"]),
+            ("Large Artillery", 40_000, 1871, ["Rifled Artillery"]),
+            ("Dynamite", 40_000, 1871, ["Compound Steam Engine", "Square-Set Timbering"]),
+            ("Marine Engineering", 40_000, 1871, ["Steel Armour Plate"]),
+            ("Machine Guns", 40_000, 1876, ["Breech-Loading Rifles"]),
+            ("Chemistry", 100_000, 1876, ["Oil Drilling", "Barbed Wire"]),
+            ("Improved Range-Finding", 120_000, 1881, ["Marine Engineering"]),
+            ("Internal Combustion", 150_000, 1881, ["Chemistry"]),
         ];
 
         var result = LegacyWorldConverter.Convert(
@@ -777,6 +785,285 @@ public sealed class LegacyWorldConverterTests
         Assert.Null(table[0].Cost);
         Assert.Null(table[1].Cost);
         Assert.All(table.Skip(2), item => Assert.NotNull(item.Cost));
+    }
+
+    /// <summary>
+    /// **The whole trade roster, pinned**: which commodities the market sees, in what
+    /// order, at what price — and, as informatively, the eight it never sees.
+    /// </summary>
+    /// <remarks>
+    /// The order is a rule rather than a listing: it decides which deals get cargo holds,
+    /// and "clothing deals are always considered prior to all other deals".
+    /// <para>
+    /// **The eight untradable commodities are the striking part.** They are exactly the
+    /// ones the manual says cannot be traded, and the roster comes from a screenshot rather
+    /// than from the prose — so two independent sources agree, three times over: raw food
+    /// ("food resources cannot be traded on the world market"), gold and gems ("they never
+    /// reach the industry warehouse and they cannot be traded"), and canned food being the
+    /// exception that *is* tradable.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void TheWholeTradeRosterIsPinned()
+    {
+        (string Key, long Price)[] expected =
+        [
+            ("commodity.clothing", 900),
+            ("commodity.furniture", 900),
+            ("commodity.hardware", 900),
+            ("commodity.armaments", 900),
+            ("commodity.canned-food", 100),
+            ("commodity.fabric", 300),
+            ("commodity.lumber", 300),
+            ("commodity.paper", 300),
+            ("commodity.steel", 300),
+            ("commodity.cotton", 100),
+            ("commodity.wool", 100),
+            ("commodity.timber", 100),
+            ("commodity.coal", 100),
+            ("commodity.iron", 100),
+            ("commodity.horses", 300),
+        ];
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "roster-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var traded = result.Document!.Commodities
+            .Where(static item => item.WorldPrice is not null)
+            .OrderBy(static item => item.TradeOrder!.Value)
+            .ToArray();
+
+        Assert.Equal(
+            expected.Select(static item => item.Key),
+            traded.Select(static item => item.Key));
+        Assert.Equal(
+            expected.Select(static item => (long?)item.Price),
+            traded.Select(static item => item.WorldPrice));
+
+        // The order is dense from zero, so nothing shares a slot and nothing is skipped.
+        Assert.Equal(Enumerable.Range(0, expected.Length), traded.Select(static i => i.TradeOrder!.Value));
+
+        // And the eight the market never sees.
+        Assert.Equal(
+            [
+                "commodity.grain", "commodity.livestock", "commodity.fruit", "commodity.fish",
+                "commodity.oil", "commodity.gold", "commodity.gems", "commodity.fuel",
+            ],
+            result.Document.Commodities
+                .Where(static item => item.WorldPrice is null)
+                .Select(static item => item.Key));
+
+        // Gold and gems convert on carriage instead, and the two are alternatives.
+        Assert.All(
+            result.Document.Commodities.Where(static item => item.CashPerUnit is not null),
+            item => Assert.Null(item.WorldPrice));
+    }
+
+    /// <summary>
+    /// The thirteen classes of ship, **in the executable's own array order** — which is
+    /// what a legacy <c>ship</c> record's 1-based type indexes into, and what used to be
+    /// the blocking unknown.
+    /// </summary>
+    /// <remarks>
+    /// The whole table is pinned now rather than cargo alone: order, cargo, sea zones, the
+    /// six-commodity build bill and the combat numbers all come from
+    /// <c>docs/disasm/definitive-original-data.md</c>. If any of it moves, the
+    /// transcription moved.
+    /// </remarks>
+    [Fact]
+    public void TheShipTableIsPinned()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "ship-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var ships = result.Document!.ShipTypes;
+        Assert.Equal(13, ships.Length);
+
+        // **The order is the executable's**, and it is what a `ship` record indexes into.
+        Assert.Equal(
+            [
+                "ship.trader", "ship.indiaman", "ship.frigate", "ship.ship-of-the-line",
+                "ship.paddlewheeler", "ship.clipper", "ship.raider", "ship.ironclad",
+                "ship.advanced-ironclad", "ship.freighter", "ship.armoured-cruiser",
+                "ship.dreadnought", "ship.battle-cruiser",
+            ],
+            ships.Select(static item => item.Key));
+
+        // Cargo: the five merchants, and nothing else. **The Freighter's 16 was the last
+        // unknown cargo figure** and is four Traders' worth.
+        Assert.Equal(
+            [
+                ("ship.trader", 2L), ("ship.indiaman", 4L), ("ship.paddlewheeler", 8L),
+                ("ship.clipper", 4L), ("ship.freighter", 16L),
+            ],
+            ships.Where(static item => item.Cargo > 0).Select(static item => (item.Key, item.Cargo)));
+
+        // Sea zones is the column the manual prints as Speed: one for every merchant, two
+        // to six for a warship.
+        Assert.Equal(
+            [1L, 1L, 3L, 2L, 1L, 1L, 5L, 3L, 4L, 1L, 6L, 5L, 6L],
+            ships.Select(static item => item.SeaZones));
+
+        // **Every hull has combat numbers, merchants included** — the manual's table
+        // printed warships only, and the Freighter is the toughest thing afloat that
+        // cannot shoot back.
+        Assert.All(ships, item => Assert.NotNull(item.Combat));
+        var freighter = ships.Single(static item => item.Key == "ship.freighter");
+        Assert.Equal(
+            (0L, 0L, 25L, 1200L, 0L, (long?)null),
+            (freighter.Combat!.Firepower, freighter.Combat.Range, freighter.Combat.Armour,
+                freighter.Combat.HullScale, freighter.Combat.BattleSpeed, freighter.Combat.Hull));
+
+        var dreadnought = ships.Single(static item => item.Key == "ship.dreadnought");
+        Assert.Equal(
+            (20L, 13L, 70L, 2800L, 7L, (long?)115L),
+            (dreadnought.Combat!.Firepower, dreadnought.Combat.Range, dreadnought.Combat.Armour,
+                dreadnought.Combat.HullScale, dreadnought.Combat.BattleSpeed,
+                dreadnought.Combat.Hull));
+
+        // Two technology entries that gate nothing else in the engine gate a hull here.
+        Assert.Equal(
+            "technology.streamlined-hulls",
+            ships.Single(static item => item.Key == "ship.clipper").RequiredTechnology);
+        Assert.Equal(
+            "technology.paddlewheels",
+            ships.Single(static item => item.Key == "ship.paddlewheeler").RequiredTechnology);
+
+        // **Every hull is priced, and none of them in cash.** The Frigate's arms figure
+        // settles the 2-versus-3 discrepancy the old cost table left open.
+        Assert.All(ships, item => Assert.NotEmpty(item.BuildCost));
+        Assert.Equal(
+            [("commodity.lumber", 5L), ("commodity.fabric", 2L), ("commodity.armaments", 2L)],
+            ships.Single(static item => item.Key == "ship.frigate").BuildCost
+                .Select(static item => (item.Commodity, item.Quantity)));
+        Assert.Equal(
+            [("commodity.armaments", 24L), ("commodity.steel", 30L), ("commodity.fuel", 20L)],
+            dreadnought.BuildCost.Select(static item => (item.Commodity, item.Quantity)));
+
+        // Every commodity a bill names must exist in the roster.
+        var commodities = result.Document.Commodities.Select(static item => item.Key).ToHashSet();
+        Assert.All(
+            ships.SelectMany(static item => item.BuildCost),
+            item => Assert.Contains(item.Commodity, commodities));
+
+        // Every gate named must exist in the catalog.
+        var declared = result.Document.Technologies.Select(static item => item.Key).ToHashSet();
+        Assert.All(
+            ships.Where(static item => item.RequiredTechnology is not null),
+            item => Assert.Contains(item.RequiredTechnology!, declared));
+    }
+
+    /// <summary>
+    /// Every power starts with three Traders — six cargo holds — which all three skirmish
+    /// scenarios agree on independently. **Not a guess**, unlike the transport pool beside
+    /// it; <c>ship</c> is not one of the seven records a skirmish omits.
+    /// </summary>
+    [Fact]
+    public void EveryPowerStartsWithThreeTraders()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+                Record("labo", 0, 4, 2, 1),
+            ]),
+            null,
+            "fleet-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var fleet = Assert.Single(result.Document!.StartingDefaults!.Ships);
+        Assert.Equal(("ship.trader", 3L), (fleet.Type, fleet.Count));
+
+        // `labo` is also what makes this power a Great Power, which is what decides who
+        // carries a cargo.
+        Assert.True(result.Document.Countries[0].IsGreatPower);
+    }
+
+    /// <summary>
+    /// <c>ship</c> records convert. The record is <c>[country, type, zone, count]</c> and
+    /// the type is a 1-based index into the executable's naval table.
+    /// </summary>
+    /// <remarks>
+    /// **They were deferred for want of that order and are not any more.** The zone is
+    /// carried and never interpreted — it is not the map's ocean zone byte — and a
+    /// repeated class is a second record rather than an error, which is why `s1` can give
+    /// one power `8x2` and `8x1` separately. See <c>docs/formulas/trade.md</c>.
+    /// </remarks>
+    [Fact]
+    public void ShipRecordsBecomeFleets()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+                Record("labo", 0, 4, 2, 1),
+                Record("ship", 0, 1, 14, 3),
+
+                // The same class again, in another zone: a bag, not a table.
+                Record("ship", 0, 1, 9, 2),
+
+                // Type 5 is the Paddlewheeler, which is where a guessed order would have
+                // put something else.
+                Record("ship", 0, 5, 9, 1),
+
+                // Dropped: no such hull, and no ships at all.
+                Record("ship", 0, 14, 9, 1),
+                Record("ship", 0, 2, 9, 0),
+            ]),
+            null,
+            "ship-record-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Equal(
+            [
+                ("country.legacy.000", "ship.trader", 14, 3L),
+                ("country.legacy.000", "ship.trader", 9, 2L),
+                ("country.legacy.000", "ship.paddlewheeler", 9, 1L),
+            ],
+            result.Document!.Scenarios[0].Ships
+                .Select(static item => (item.Country, item.Type, item.SeaZone, item.Count)));
+
+        // A hull the table cannot name is reported and dropped, never clamped — that is
+        // the one mistake the whole deferral existed to avoid.
+        Assert.Contains(
+            result.Report.Diagnostics,
+            static item => item.Code == "scenario.unknown-ship-type");
+        Assert.DoesNotContain("scenario.tag.ship", result.Report.DeferredCounts.Keys);
+
+        // An equipped country takes its authored fleet and not the default three Traders,
+        // even though `labo` makes it a default-start country.
+        var compiled = WorldContentCompiler.Compile(result.Document);
+        var state = new WorldState(compiled.World);
+        var country = new CountryId(0);
+        var trader = compiled.World.ShipTypes.Single(static item => item.Name == "Trader").Id;
+        Assert.Equal(5, state.GetShipCount(country, trader));
+
+        // 5 Traders at 2 holds, plus a Paddlewheeler at 8.
+        Assert.Equal(18, state.GetMerchantMarine(country));
     }
 
     /// <summary>
@@ -1009,10 +1296,11 @@ public sealed class LegacyWorldConverterTests
     /// check behind that reading.
     /// </summary>
     /// <remarks>
-    /// **Id 5 is one of the six positions the reordering moved**, and this is the
-    /// assertion that would have caught it: it used to resolve to Square-Set
-    /// Timbering under the manual's printed order and resolves to Feed Grasses
-    /// under the wiki's. Id 23 is Dynamite under both.
+    /// **Id 5 is one of the six positions the orderings disagree about**, which is
+    /// what makes it the id worth pinning: Feed Grasses under the wiki's order,
+    /// Square-Set Timbering under the executable's. It reads Square-Set Timbering
+    /// now, and the wiki order it used to hold is retracted. Id 23 is Dynamite under
+    /// both.
     /// </remarks>
     [Fact]
     public void TechRecordsBecomeStartingKnowledge()
@@ -1032,7 +1320,7 @@ public sealed class LegacyWorldConverterTests
 
         Assert.True(result.Success, result.Report.ToHumanReadable());
         Assert.Equal(
-            ["technology.feed-grasses", "technology.dynamite"],
+            ["technology.square-set-timbering", "technology.dynamite"],
             result.Document!.Scenarios[0].CountryTechnologies
                 .Select(static item => item.Technology));
 
@@ -1637,6 +1925,133 @@ public sealed class LegacyWorldConverterTests
         // moves, the transcription moved with it.
         Assert.Equal(4, beyond.Count);
         Assert.All(beyond, entry => Assert.Contains("resource.forest L3", entry, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// **Every ship in the corpus is a hull its owner could have built.** 142 records,
+    /// 307 ships, zero contradictions — the same falsification method that validated the
+    /// <c>tech</c> ids, and the check `wanted-values.md` promised before the ship array
+    /// order was known.
+    /// </summary>
+    /// <remarks>
+    /// **This is the check that pinned 1-based indexing**, back when the order was not
+    /// known: read as 0-based it puts a Clipper — which needs Streamlined Hulls — in an
+    /// 1816 skirmish whose powers hold nothing, plus five more in <c>s13</c> and
+    /// <c>s14</c>. Nine contradictions against zero.
+    /// <para>
+    /// It is worth keeping now that the order is recovered, because the two agree without
+    /// either having been fitted to the other: the check requires types 1–4 to be ungated,
+    /// and the executable's first four are Trader, Indiaman, Frigate and Ship-of-the-Line.
+    /// <b>If this count moves, either the array or the technology table moved.</b>
+    /// </para>
+    /// <para>
+    /// Unlike the development ladder there are **no exceptions at all**, which is a
+    /// stronger result than 380/4: a scenario may author a development level past what its
+    /// owner could build, and no scenario authors a hull past it.
+    /// </para>
+    /// <para>
+    /// <b>Provenance of the numbers, because they are not all the same kind.</b> The
+    /// per-scenario row for <c>s1</c> was measured against the file; the 142/307 totals are
+    /// the corpus figures <c>docs/formulas/trade.md</c> recorded when the 1-based reading
+    /// was established, and they are transcribed here rather than re-measured — this
+    /// environment holds only <c>s1</c>. If a full corpus disagrees with them, believe the
+    /// corpus.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EveryShipInTheCorpusIsAHullItsOwnerCouldHaveBuilt()
+    {
+        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+
+        // Measured. s1 is the only scenario fielding a gated hull at all — the
+        // Paddlewheeler and the Raider both need Paddlewheels — which is what stops this
+        // check being vacuous, and it is 1882 holding 21 technologies, so it passes.
+        var expected = new Dictionary<string, (int Records, long Hulls)>(StringComparer.Ordinal)
+        {
+            ["s1"] = (29, 59),
+        };
+
+        var records = 0;
+        var hulls = 0L;
+        var beyond = new List<string>();
+        var byType = new SortedDictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var mapPath in Directory.GetFiles(directory, "*.map").OrderBy(static path => path))
+        {
+            var key = Path.GetFileNameWithoutExtension(mapPath);
+            var scenarioPath = Path.Combine(directory, $"{key}.scn");
+            if (key == "s0" || !File.Exists(scenarioPath))
+            {
+                continue;
+            }
+
+            var result = LegacyWorldConverter.Convert(
+                LegacyMapCodec.Decode(File.ReadAllBytes(mapPath), MapFormatProfile.Imperialism1),
+                LegacyScenarioCodec.Decode(File.ReadAllBytes(scenarioPath)),
+                null,
+                $"fleet-{key}");
+            Assert.True(result.Success);
+
+            var document = result.Document!;
+            var gates = document.ShipTypes.ToDictionary(
+                static item => item.Key,
+                static item => item.RequiredTechnology,
+                StringComparer.Ordinal);
+            var held = document.Scenarios[0].CountryTechnologies
+                .GroupBy(static item => item.Country, StringComparer.Ordinal)
+                .ToDictionary(
+                    static group => group.Key,
+                    static group => group.Select(static item => item.Technology)
+                        .ToHashSet(StringComparer.Ordinal),
+                    StringComparer.Ordinal);
+            var starting = document.StartingDefaults!.Technologies;
+
+            foreach (var ship in document.Scenarios[0].Ships)
+            {
+                records++;
+                hulls += ship.Count;
+                byType[ship.Type] = byType.GetValueOrDefault(ship.Type) + 1;
+
+                var gate = gates[ship.Type];
+                if (gate is null ||
+                    starting.Contains(gate) ||
+                    (held.TryGetValue(ship.Country, out var known) && known.Contains(gate)))
+                {
+                    continue;
+                }
+
+                beyond.Add($"{key} {ship.Country} holds {ship.Type}, which needs {gate}");
+            }
+
+            if (expected.TryGetValue(key, out var counts))
+            {
+                Assert.Equal(
+                    counts,
+                    (document.Scenarios[0].Ships.Length,
+                        document.Scenarios[0].Ships.Sum(static item => item.Count)));
+            }
+        }
+
+        // The finding itself first, so a partial corpus still reports it rather than
+        // failing on the completeness guard below and saying nothing.
+        Assert.Empty(beyond);
+
+        // Not vacuous: gated hulls are genuinely present, so the check has something to
+        // catch. The Paddlewheeler and the Raider are the two that need Paddlewheels, and
+        // only s1 — in 1882, holding 21 technologies — fields either.
+        Assert.True(
+            byType.GetValueOrDefault("ship.paddlewheeler") + byType.GetValueOrDefault("ship.raider") > 0,
+            $"No gated hull in the corpus, so this check proves nothing: {string.Join(", ", byType)}");
+
+        // Setting the variable is a declaration that the whole corpus is there, so a
+        // partial one is a broken setup rather than a pass — the same guard the other
+        // corpus checks in this file use, and it fires for the same reason they do.
+        Assert.Equal(142, records);
+        Assert.Equal(307, hulls);
     }
 
     /// <summary>

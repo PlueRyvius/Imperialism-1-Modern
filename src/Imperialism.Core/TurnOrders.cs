@@ -13,6 +13,8 @@ public sealed class CountryTurnOrders
     private readonly IReadOnlyList<EngineerOrder> _engineerWork;
     private readonly IReadOnlyList<TransportAllocationOrder> _transport;
     private readonly IReadOnlyList<TechnologyId> _buyTechnology;
+    private readonly IReadOnlyList<TradeOrder> _tradeOffers;
+    private readonly IReadOnlyList<TradeOrder> _tradeBids;
 
     public CountryTurnOrders(
         CountryId country,
@@ -24,7 +26,9 @@ public sealed class CountryTurnOrders
         IEnumerable<TransportAllocationOrder>? transport = null,
         long buildTransportCapacity = 0,
         IEnumerable<EngineerOrder>? engineerWork = null,
-        IEnumerable<TechnologyId>? buyTechnology = null)
+        IEnumerable<TechnologyId>? buyTechnology = null,
+        IEnumerable<TradeOrder>? tradeOffers = null,
+        IEnumerable<TradeOrder>? tradeBids = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(recruitWorkers);
         ArgumentOutOfRangeException.ThrowIfNegative(buildTransportCapacity);
@@ -96,10 +100,33 @@ public sealed class CountryTurnOrders
                 nameof(buyTechnology));
         }
 
+        // One row per commodity on the Bid and Offers screen, so a commodity cannot
+        // be offered or bid twice — the same standing as repeating a recipe. Offering
+        // and bidding the same commodity in one turn is allowed and deliberately so:
+        // the manual's screen has both boxes on every row, and a country arbitraging
+        // its own warehouse is its own business.
+        var offerArray = tradeOffers?.ToArray() ?? [];
+        if (offerArray.Select(static item => item.Commodity).Distinct().Count() != offerArray.Length)
+        {
+            throw new ArgumentException(
+                "A commodity has one offer box, so it cannot be offered twice.",
+                nameof(tradeOffers));
+        }
+
+        var bidArray = tradeBids?.ToArray() ?? [];
+        if (bidArray.Select(static item => item.Commodity).Distinct().Count() != bidArray.Length)
+        {
+            throw new ArgumentException(
+                "A commodity has one bid box, so it cannot be bid twice.",
+                nameof(tradeBids));
+        }
+
         Country = country;
         RecruitWorkers = recruitWorkers;
         BuildTransportCapacity = buildTransportCapacity;
         _buyTechnology = Array.AsReadOnly(buyArray);
+        _tradeOffers = Array.AsReadOnly(offerArray);
+        _tradeBids = Array.AsReadOnly(bidArray);
         _production = Array.AsReadOnly(productionArray);
         _expansions = Array.AsReadOnly(expansionArray);
         _deployments = Array.AsReadOnly(deployArray);
@@ -162,6 +189,55 @@ public sealed class CountryTurnOrders
     /// </para>
     /// </remarks>
     public IReadOnlyList<TechnologyId> BuyTechnology => _buyTechnology;
+
+    /// <summary>
+    /// Commodities offered for sale this turn, from the Bid and Offers screen.
+    /// </summary>
+    /// <remarks>
+    /// A ceiling rather than a promise, the same way a transport slider is: "you cannot
+    /// sell items you do not own or that you have ordered industry to use this turn", so
+    /// the planner trims an offer to what the warehouse actually has left after
+    /// production has claimed its inputs. What no buyer takes stays where it is.
+    /// </remarks>
+    public IReadOnlyList<TradeOrder> TradeOffers => _tradeOffers;
+
+    /// <summary>
+    /// Commodities bid for this turn. Also a ceiling: "wanting a resource such as coal,
+    /// for example, and bidding on it, does not guarantee that your Great Power receives
+    /// coal that turn."
+    /// </summary>
+    public IReadOnlyList<TradeOrder> TradeBids => _tradeBids;
+}
+
+/// <summary>
+/// One row of the Bid and Offers screen: how much of a commodity to sell, or to try to
+/// buy.
+/// </summary>
+/// <remarks>
+/// There is no price on it. The world market sets one price per commodity per turn and
+/// a country cannot name its own — "it is impossible to predict the final price for this
+/// turn, because the buy bids and sell offers which determine the price come from all
+/// the countries in the game, not just from your own Great Power." Per-pair pricing
+/// arrives with trade subsidies, which want diplomacy.
+/// </remarks>
+public readonly record struct TradeOrder
+{
+    public TradeOrder(CommodityId commodity, long quantity)
+    {
+        if (quantity <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(quantity),
+                "A quantity of zero is a row left blank; leave the commodity off instead.");
+        }
+
+        Commodity = commodity;
+        Quantity = quantity;
+    }
+
+    public CommodityId Commodity { get; }
+
+    public long Quantity { get; }
 }
 
 /// <summary>

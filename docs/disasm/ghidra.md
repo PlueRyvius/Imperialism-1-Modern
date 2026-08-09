@@ -9,6 +9,10 @@ cannot come from anywhere else.
 This is a report on what a decompiler actually produces here, written before
 building any workflow on it.
 
+**For what to actually go and find, see [`wanted-values.md`](wanted-values.md)** — a
+prioritised list with fingerprints for locating each value and the test that will reject a
+wrong answer. The ship type array is the one blocking work today.
+
 **Nothing here ships game data.** The Ghidra project is a derived work of a
 copyrighted executable, exactly like the `.alf` index, and lives outside the
 repository at `F:/ghidra-projects`. So do the decompiled samples quoted below.

@@ -35,8 +35,14 @@ gold. It needed [money.md](money.md) first, for the same reason the Engineer did
 
 Three things came out of it beyond the buying itself, and each is recorded in its
 own section below: a **price list** the owner supplied, a **reordering** of the
-table that the corpus turns out to be unable to judge, and a **live bug** — a
+table that the corpus turned out to be unable to judge, and a **live bug** — a
 scenario's `year` field is an offset from 1815 and this importer read it as a year.
+
+**Two of those three have since been overturned by the executable itself.** The
+reordering is retracted — the recovered order is the manual's printed one — and
+twelve of the price list's twenty-six prices were wrong, all in the same direction
+and for the same reason. Both sections below now record what happened rather than
+what was believed; nothing here is quietly swapped.
 
 ## Confidence
 
@@ -50,79 +56,124 @@ against the corpus rather than assumed.
 | A mine opens at Level I ungated | **manual** — no technology is named for it, and the Miner is one of the four civilians buildable from the start |
 | `tech` is `[country, id]`, id a 1-based index into the table | **corpus-corroborated** — see below |
 | Technology is bought with cash, and cannot be kept secret | **manual**, and now modelled |
-| What each one costs | **the price list** — a community transcription of the original's own Investment screen |
-| Prerequisites | **the price list**, and internally consistent: every one points earlier |
-| Arrival dates | **the price list**, as ranges; **corpus-corroborated** — see below |
-| **One fixed year per technology** | **a simplification** of the price list's ranges |
-| **The table's order at positions 4–7 and 13–14** | **the price list**, chosen on source quality; **the corpus cannot decide it** |
+| What each one costs | **the executable** — a 28-entry cash table the technology store reads |
+| **The table's order** | **the executable**, and it is the manual's printed order |
+| Arrival dates | **derived** from the executable's turn-offset windows; the price list corroborates 25 of 26 |
+| **One fixed year per technology** | **a simplification** of the executable's pseudo-random window |
+| Prerequisites | **the price list**, and internally consistent: every one points earlier. **The weakest column here** |
 | **A scenario `year` field is an offset from 1815** | **the scenarios' own briefing text**, and corpus-corroborated |
 | Research runs last, after construction and improvement | **a chosen rule** |
 | A prerequisite chain cannot be bought in one turn | **the original's behaviour**, from the owner |
 
-## The price list
+## The table
 
-The owner supplied a transcription of
-`imperialism.fandom.com/wiki/Technology_(Imp1)`, which is a community
-transcription of the original's own Investment screen. The host 402s from this
-environment, so **the table below is the source of record.**
+**Order and cost are the executable's.** `STR#ENU.GOB` blocks #1073–#1075 hold all
+twenty-eight names in progression order, and the technology store reads a 28-entry
+cash table at `0x0066AAE8` indexed by that same position. Both are recorded in
+[`../disasm/definitive-original-data.md`](../disasm/definitive-original-data.md).
+Prerequisites are still the price list's — the executable's prerequisite graph has
+not been recovered.
 
-It sits between the manual and observed play on the
-[evidence scale](_index.md#what-counts-as-evidence-for-gameplay): data-derived
-rather than remembered, but second-hand and unverifiable from here. It is worth
-more than its prices — it carries prerequisites and arrival dates in a clean form
-where the manual's two-column layout interleaves them, which is exactly where
-the manual's OCR is worst.
-
-Order is the price list's. Cost in cash; a dash is no prerequisite. Years are the
-**earliest** of each of its ranges.
+Cost in cash; a dash is no prerequisite. Years are derived; see below.
 
 | # | Technology | Cost | Available | Prerequisites |
 |---|---|---|---|---|
 | 1 | High Pressure Steam Engine | — | 1815 | — |
 | 2 | Seed Drill | — | 1815 | — |
 | 3 | Cotton Gin | 1,000 | 1816 | — |
-| 4 | Iron Railroad Bridge | 1,500 | 1821 | — |
-| 5 | Feed Grasses | 1,500 | 1821 | — |
-| 6 | Square-Set Timbering | 1,500 | 1821 | — |
-| 7 | Streamlined Hulls | 1,500 | 1821 | — |
-| 8 | Spinning Jenny | 3,000 | 1826 | Cotton Gin, Feed Grasses |
+| 4 | Streamlined Hulls | 1,000 | 1821 | — |
+| 5 | Square-Set Timbering | 1,500 | 1821 | — |
+| 6 | Iron Railroad Bridge | 1,500 | 1821 | — |
+| 7 | Feed Grasses | 1,500 | 1821 | — |
+| 8 | Spinning Jenny | 1,500 | 1826 | Cotton Gin, Feed Grasses |
 | 9 | Paddlewheels | 3,000 | 1826 | — |
 | 10 | Steel and Iron Plows | 3,000 | 1831 | Seed Drill |
-| 11 | Bessemer Converter | 6,000 | 1836 | — |
-| 12 | Compound Steam Engine | 7,000 | 1836 | Iron Railroad Bridge |
-| 13 | Breech-Loading Rifles | 12,000 | 1841 | Bessemer Converter |
-| 14 | Rifled Artillery | 10,000 | 1841 | — |
+| 11 | Bessemer Converter | 3,000 | 1836 | — |
+| 12 | Compound Steam Engine | 6,000 | 1836 | Iron Railroad Bridge |
+| 13 | Rifled Artillery | 7,000 | 1841 | — |
+| 14 | Breech-Loading Rifles | 10,000 | 1841 | Bessemer Converter |
 | 15 | Advanced Iron Working | 12,000 | 1846 | — |
 | 16 | Power Loom | 12,000 | 1846 | Spinning Jenny |
 | 17 | Mechanical Reaper | 12,000 | 1851 | Steel and Iron Plows |
 | 18 | Commercial Fertiliser | 12,000 | 1856 | Steel and Iron Plows |
-| 19 | Oil Drilling | 25,000 | 1856 | — |
-| 20 | Barbed Wire | 20,000 | 1862 | Feed Grasses |
-| 21 | Steel Armour Plate | 40,000 | 1866 | Advanced Iron Working |
-| 22 | Large Artillery | 40,000 | 1872 | Rifled Artillery |
-| 23 | Dynamite | 40,000 | 1874 | Compound Steam Engine, Square-Set Timbering |
-| 24 | Marine Engineering | 40,000 | 1873 | Steel Armour Plate |
-| 25 | Machine Guns | 100,000 | 1879 | Breech-Loading Rifles |
-| 26 | Chemistry | 120,000 | 1875 | Oil Drilling, Barbed Wire |
-| 27 | Improved Range-Finding | 150,000 | 1881 | Marine Engineering |
-| 28 | Internal Combustion | 150,000 | 1884 | Chemistry |
+| 19 | Oil Drilling | 12,000 | 1856 | — |
+| 20 | Barbed Wire | 25,000 | 1861 | Feed Grasses |
+| 21 | Steel Armour Plate | 20,000 | 1866 | Advanced Iron Working |
+| 22 | Large Artillery | 40,000 | 1871 | Rifled Artillery |
+| 23 | Dynamite | 40,000 | 1871 | Compound Steam Engine, Square-Set Timbering |
+| 24 | Marine Engineering | 40,000 | 1871 | Steel Armour Plate |
+| 25 | Machine Guns | 40,000 | 1876 | Breech-Loading Rifles |
+| 26 | Chemistry | 100,000 | 1876 | Oil Drilling, Barbed Wire |
+| 27 | Improved Range-Finding | 120,000 | 1881 | Marine Engineering |
+| 28 | Internal Combustion | 150,000 | 1881 | Chemistry |
 
-Three things to note about how this is used.
+**Names stay the manual's** where the sources disagree: "Steel and Iron Plows" over
+"Steel Plows", "Fertiliser" over "Fertilizer", "Armour" over "Armor". The keys are
+name-derived and already shipped, so renaming would break content for nothing.
 
-**Names stay the manual's** where the two sources disagree: "Steel and Iron
-Plows" over the list's "Steel Plows", "Fertiliser" over "Fertilizer". The keys
-are name-derived and already shipped, so renaming would break content for
-nothing.
-
-**One fixed year per entry, and that is a simplification.** The list gives ranges
-and the manual calls its dates "approximate"; the ranges are not even strictly
-monotonic — 24 arrives before 23, and 26 before 25. The engine takes the earliest
-year of each range and this table records it.
-
-**The first two are not purchasable rather than free.** The list writes "0?" and
-every power starts holding them. `Cost == null` says "never on the screen", which
-is a different fact from a price of zero, and it is also what makes a package
+**The first two are not purchasable rather than free.** The cash table gives both a
+zero and every power starts holding them. `Cost == null` says "never on the screen",
+which is a different fact from a price of zero, and it is also what makes a package
 older than v19 behave exactly as it did.
+
+### The price list was off by one, and the binary shows exactly where
+
+The owner supplied a transcription of
+`imperialism.fandom.com/wiki/Technology_(Imp1)` — a community transcription of the
+original's own Investment screen — and v19 shipped its order, prices and dates. The
+host 402s from this environment, so this document was the record of it. **Twelve of
+the twenty-six prices have moved.**
+
+They did not move at random. From Streamlined Hulls onwards, **each price the list
+carried is the price of the next technology in the recovered order**:
+
+| Technology | Price list | Executable | Where the list's number belongs |
+|---|---|---|---|
+| Streamlined Hulls | 1,500 | **1,000** | Square-Set Timbering's |
+| Spinning Jenny | 3,000 | **1,500** | Paddlewheels' |
+| Bessemer Converter | 6,000 | **3,000** | Compound Steam Engine's |
+| Compound Steam Engine | 7,000 | **6,000** | Rifled Artillery's |
+| Rifled Artillery | 10,000 | **7,000** | Breech-Loading Rifles' |
+| Breech-Loading Rifles | 12,000 | **10,000** | Advanced Iron Working's |
+| Oil Drilling | 25,000 | **12,000** | Barbed Wire's |
+| Barbed Wire | 20,000 | **25,000** | Steel Armour Plate's |
+| Steel Armour Plate | 40,000 | **20,000** | Large Artillery's |
+| Machine Guns | 100,000 | **40,000** | Chemistry's |
+| Chemistry | 120,000 | **100,000** | Improved Range-Finding's |
+| Improved Range-Finding | 150,000 | **120,000** | Internal Combustion's |
+
+Internal Combustion, the last entry, has nothing after it to borrow from and is the
+one late price that was already right. A slip that reproduces itself for
+twenty-four consecutive rows is not two sources disagreeing about a game; **it is
+one source wrong in a legible way** — a column read one row down, most likely
+against the header.
+
+That is a reason to trust the list's remaining column less rather than more. **The
+prerequisites are still its**, because nothing else has them, and they are now the
+weakest thing on this page.
+
+### The years are derived, and 25 of 26 corroborate the derivation
+
+**The executable stores no year.** It generates each of the twenty-six non-starting
+technologies an inclusive pseudo-random *turn-offset* window, from 26 two-word
+entries at `0x0066ABA4`. Cotton Gin's is 1–5, Internal Combustion's is 66–70.
+
+Read as one offset per year from the 1815 epoch the corpus already established, the
+price list's observed years line up with those windows almost exactly:
+
+- **19 of 26 sit on the window's minimum**, to the year.
+- **25 of 26 fall inside their window.** Chemistry is the single miss, one year
+  early — and it is also one of the two rows the list itself had out of order.
+
+That is two independent sources agreeing on a mapping neither states. It also
+explains the list's scattered later dates, which this document previously recorded
+as ranges the manual called "approximate": 1871, 1873 and 1874 for three
+technologies sharing the window 1871–1875 are **three draws from one range**, not
+three dates.
+
+So the year above is `1815 + window minimum` — the earliest anybody may buy, which
+is what `AvailableFrom` means. Seven of the twenty-six moved, all later than 1856
+and all by one to three years.
 
 ### Two things it settles for free
 
@@ -193,57 +244,60 @@ much stronger evidence than the uniform scenarios could ever give, and it is why
 suite with both numbers pinned. If the transcription is ever wrong, that count
 moves.
 
-## The reorder, and why the corpus cannot decide it
+## The order is settled, and it is the manual's
 
-The price list's order differs from the manual's printed order at six positions —
-and they are exactly the rows where the manual's two-column layout is worst:
+For v19 and v20 this section argued that the corpus could not choose between the
+manual's printed order and the price list's, and that the list shipped "on source
+quality and not on evidence". **The executable's name blocks settle it: the order
+is the manual's printed order.** The reorder is retracted, not superseded, and the
+six positions that moved are back where the manual printed them:
 
-| Position | Manual's printed order | Price list |
+| Position | Executable (= manual) | Price list, retracted |
 |---|---|---|
-| 4 | Streamlined Hulls | **Iron Railroad Bridge** |
-| 5 | Square-Set Timbering | **Feed Grasses** |
-| 6 | Iron Railroad Bridge | **Square-Set Timbering** |
-| 7 | Feed Grasses | **Streamlined Hulls** |
-| 13 | Rifled Artillery | **Breech-Loading Rifles** |
-| 14 | Breech-Loading Rifles | **Rifled Artillery** |
+| 4 | **Streamlined Hulls** | Iron Railroad Bridge |
+| 5 | **Square-Set Timbering** | Feed Grasses |
+| 6 | **Iron Railroad Bridge** | Square-Set Timbering |
+| 7 | **Feed Grasses** | Streamlined Hulls |
+| 13 | **Rifled Artillery** | Breech-Loading Rifles |
+| 14 | **Breech-Loading Rifles** | Rifled Artillery |
 
-Because a `tech` record is a bare index, this decides which technologies every
-shipped power holds. So it was settled against the corpus before anything was
-built on it — and **the corpus cannot decide it.** All three available checks were
-run under both orderings and none discriminates. The numbers, measured rather
-than argued:
+**Nothing measured should move with it — and that is a prediction, not yet a
+measurement.** All three corpus checks were run under both orderings when the question was
+open and none discriminated, so the reversion ought to leave every count where it was:
 
-| Check | Manual's order | Price list's order |
+| Check | Under either ordering | Re-measured after the reversion? |
 |---|---|---|
-| Authored levels permitted / not | **380 / 4** | **380 / 4** |
-| Rail ends permitted / not | **1,140 / 0** | **1,140 / 0** |
-| Grants ahead of their arrival year | 56 of 491 | 56 of 491 |
+| Authored levels permitted / not | **380 / 4** | **no** |
+| Rail ends permitted / not | **1,140 / 0** | **no** |
+| Grants ahead of their arrival year | 56 of 491 | **no** |
 
-### Why not, exactly — because "they agree" would be the wrong answer
+**Why not: the tests holding those numbers return silently without a corpus.** Each reads
+`IMPERIALISM_SCENARIO_DIR` and returns when it is unset, and the machine the reversion was
+done on holds only `s1` of the ten. So a suite that passes says nothing here — it is the
+C# form of the "skip visibly, never iterate an empty corpus" rule in `CLAUDE.md`, and it
+caught this document out. **Anyone with the full corpus should run these three before the
+row above is read as confirmation.**
 
-The two orderings **do** genuinely disagree, at exactly one place, and it is worth
-being precise about it rather than reporting a tie:
+The reason the corpus was silent is worth keeping, because it is the shape of a
+question the corpus will be silent about again:
 
-- **A power holding five technologies holds different gates under each.** Under
-  the manual's order it holds Square-Set Timbering, which opens mines to Level II.
-  Under the price list's it holds Iron Railroad Bridge and Feed Grasses instead —
-  timber, wool and livestock to Level I — and *not* Square-Set Timbering. Neither
-  set contains the other. That is a real discriminating case.
-- **The corpus does not contain it.** Its powers hold 0, 6, 9, 13, 14 or 21
-  technologies. Never 5.
-- From **six** upwards the price list's prefix is a superset of the manual's, so no
-  contradiction the manual's order avoids can appear. From **seven** upwards the two
-  prefixes are the same *set* — positions 4–7 are a permutation inside it — so
-  nothing above five could tell them apart even in principle.
-- Positions 13 and 14 gate nothing this engine models at all.
-- **The arrival dates cannot help either**, because positions 4–7 all arrive in
-  1821. Permuting them among themselves changes no scenario's count.
+- **A power holding five technologies holds different gates under each ordering.**
+  Under the executable's it holds Square-Set Timbering, which opens mines to Level
+  II. Under the price list's it held Iron Railroad Bridge and Feed Grasses instead
+  — timber, wool and livestock to Level I — and *not* Square-Set Timbering. Neither
+  set contains the other.
+- **The corpus does not contain such a power.** Its counts are 0, 6, 9, 13, 14 and
+  21. Never 5.
+- From **six** upwards the price list's prefix was a superset of the manual's, and
+  from **seven** upwards the two prefixes were the same *set*. Positions 13 and 14
+  gate nothing this engine models. Positions 4–7 all arrive in 1821, so the dates
+  could not separate them either.
 
-So the price list's order ships **on source quality and not on evidence**: it is
-data-derived, internally consistent on prerequisites, and legible where the
-manual's columns are garbled. That is a weaker basis than the ladder itself has,
-and it should be read that way. A decompiler reading the technology array would
-settle it outright.
+**One assertion did move, and it is the one written to catch this.**
+`TechRecordsBecomeStartingKnowledge` pins id 5, chosen because it is one of the six
+disputed positions: it resolved to Feed Grasses and resolves to Square-Set
+Timbering now. Everything else in the suite was blind to the change, which is the
+same fact the table above states.
 
 ### Prefix closure is a vacuous control, and is kept anyway
 
@@ -278,7 +332,13 @@ data says, not rounded to 1815 to look tidier.
 
 ### The arrival dates corroborate it, and were not used to derive it
 
-Reading each scenario's grants against the price list's arrival years:
+Reading each scenario's grants against the arrival years. **These are the counts from
+before the reorder and the seven years that moved with it**, and they have not been
+re-measured since, for the reason given above — `HowMuchTheCorpusGrantsAheadOfItsArrivalDates`
+needs the full corpus and returns silently without it. Working through the changed years
+by hand leaves every row below unchanged, because the years that moved are all later than
+any grant a corpus scenario makes early. **Confirm it against the files rather than
+against this paragraph.**
 
 | Scenario | Year | Grants | Available then | Ahead of their date |
 |---|---|---|---|---|
@@ -560,25 +620,27 @@ are a richer configuration and not a restatement of it.
 
 ## Open questions
 
-Four of these closed with this slice and are recorded above rather than deleted:
+Four of these closed with v19 and are recorded above rather than deleted:
 **buying it**, **prerequisites**, **arrival dates**, and **whether Dynamite sits at
-position 23** (it does — the price list agrees, so the four `s1` timber exceptions
-are authoring liberty).
+position 23** (it does — both the price list and the executable put it there, so
+the four `s1` timber exceptions are authoring liberty).
 
-- **The table's order at positions 4–7 and 13–14.** Taken from the price list on
-  source quality, because the corpus provably cannot decide it. A decompiler
-  reading the technology array would settle it outright, and it is the single
-  weakest link in an otherwise well-corroborated chain.
-- **Whether the price list is right at all.** It is second-hand and unverifiable
-  from here; the host 402s, so this document is the record. Its arrival dates now
-  have independent corpus support, which is the only column with any.
-- **Mountains' rail price**, the one ground the list does not price. See
+**Two more closed with the executable.** The table's order was the single weakest
+link in this chain and is now the strongest: recovered outright, and it is the
+manual's. The prices are recovered too, and twelve of them were wrong. Both are
+recorded above.
+
+- **The prerequisite graph.** Still the price list's, and now the only column of
+  that source still standing — which the price slip is a reason to weigh less, not
+  more. The executable has one and it has not been read; that is the next thing to
+  want from the binary.
+- **Mountains' rail price**, the one ground the price list does not price. See
   [engineer.md](engineer.md).
 - **Civilian buildability.** Feed Grasses gates the Rancher, Iron Railroad Bridge
   the Forester, Oil Drilling the Driller. Blocked on the University, not on money
   any more — and every civilian in play still comes from a scenario.
 - **Rail through terrain** is done, and **oil is now reachable**: an imported world
-  can buy Oil Drilling for 25,000 from 1856, so the prospecting gate
+  can buy Oil Drilling for 12,000 from 1856, so the prospecting gate
   `prospecting.md` called permanently shut is open. Nothing has run a soak on it.
 - **The Refinery and the Power Plant**, both behind Oil Drilling.
 - **Research progress.** The manual has purchase as instant and this models it that

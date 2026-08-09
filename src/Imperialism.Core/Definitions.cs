@@ -181,16 +181,36 @@ public sealed record TerrainDefinition
 
 public sealed record CountryDefinition
 {
-    public CountryDefinition(CountryId id, string name)
+    public CountryDefinition(CountryId id, string name, bool isGreatPower = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         Id = id;
         Name = name;
+        IsGreatPower = isGreatPower;
     }
 
     public CountryId Id { get; }
 
     public string Name { get; }
+
+    /// <summary>
+    /// Whether this is one of the world's Great Powers rather than a minor nation.
+    /// </summary>
+    /// <remarks>
+    /// It decides who pays the cargo holds on a trade. "No Minor Nation owns merchant
+    /// marine. When you trade with a Minor Nation, as either buyer or seller, you can be
+    /// sure that your merchant marine is required." Between two Great Powers, "the buyer
+    /// always picks up the commodities".
+    /// <para>
+    /// The importer reads it from <c>labo</c>, which is the one record naming the Great
+    /// Powers and only them — seven in every shipped scenario. It was already used that
+    /// way to decide who gets the fair-start defaults; this makes the fact explicit on
+    /// the country rather than re-deriving it from a scenario's
+    /// <see cref="ScenarioDefinition.DefaultStartCountries"/>, which is a different
+    /// question that happens to have the same answer today.
+    /// </para>
+    /// </remarks>
+    public bool IsGreatPower { get; }
 }
 
 public readonly record struct CountryCapital(CountryId Country, CellIndex Cell);

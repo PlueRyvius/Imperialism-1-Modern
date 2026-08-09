@@ -34,18 +34,27 @@ picture of how a game plays.
 | A mission scenario (`s1`, `s3`, `s9`, `s12`–`s14`) | **weak** — it shows what one designer authored for one mission |
 | Observed play | **good** for shape, poor for exact numbers |
 
-The fifth row is new, and it is worth being careful about. The technology price
-list is a fan-wiki transcription of the original's own Investment screen: it is
-**data-derived rather than remembered**, which puts it above observed play for exact
-values, and it is **second-hand and unreachable from this environment**, which puts
-it below the manual. It cannot be re-checked — the host 402s, so
-[technology.md](technology.md) is the record of it.
+**The first row stopped being hypothetical.** Values recovered directly from
+`Imperialism.exe` and `Data/STR#ENU.GOB` are recorded in
+[`../disasm/definitive-original-data.md`](../disasm/definitive-original-data.md), and
+they are now the source for the technology table, the thirteen ship classes, the
+production recipes and the raw-resource yield curves. Where the binary and any other
+source disagree, the binary wins and the other is **retracted rather than balanced
+against it**.
 
-What raises its standing considerably is that one of its three columns turned out to
-have **independent corpus support**: its arrival years agree with the corpus's `tech`
-grants far more tightly than a designer's authoring liberty would predict. Nothing
-corroborates its prices except two of them matching the owner's recollection, and
-nothing at all corroborates its ordering.
+The fifth row needs re-reading in that light. The technology price list is a fan-wiki
+transcription of the original's own Investment screen: data-derived rather than
+remembered, which put it above observed play, and second-hand and unreachable from
+here, which put it below the manual. **Its price column turned out to be off by one
+for twenty-four consecutive rows**, and its ordering turned out to be wrong. Its
+arrival years, the one column with independent corpus support at the time, are the
+one column that survived — 25 of 26 land inside the executable's own availability
+windows.
+
+The lesson is not that the row's weight was set too high. It is that **the
+corroborated column was the good one and the uncorroborated ones were not**, which is
+exactly what the scale was for. A transcription is worth what its cross-checks are
+worth, column by column, and not as a single verdict on the source.
 
 The trap in practice: `capa`, `labo` and `tran` all look like gameplay
 constants, and in the missions they are nothing of the kind. `s1` gives one
@@ -130,7 +139,7 @@ bottom of this file.
 | Mechanic | Confidence | Doc | Implemented in | Tests |
 |---|---|---|---|---|
 | Industrial recipes and capacity | `inferred` | [production](production.md) | Core, Content, LegacyImport | generated + local corpus |
-| Labour cost per production cycle | `inferred` | [production](production.md) | Core, Content, LegacyImport | generated + local corpus |
+| Labour cost per production cycle | **`verified`** — the original's own recipe help strings | [production](production.md) | Core, Content, LegacyImport | generated + local corpus |
 | Resource extraction and catchment | `inferred` | [extraction](extraction.md) | Core, Content, LegacyImport | generated + local corpus |
 | When a depot counts as connected | `inferred` | [extraction](extraction.md) | Core | generated + local corpus |
 | Worker feeding and labour supply | `inferred` | [feeding](feeding.md) | Core, Content, LegacyImport | generated + local corpus |
@@ -145,9 +154,10 @@ bottom of this file.
 | Which technology opens which improvement level | `inferred` | [technology](technology.md) | Core, Content, LegacyImport | generated + local corpus |
 | What a `tech` id names | `inferred` | [technology](technology.md) | LegacyImport | local corpus |
 | The technologies every power starts with | `inferred` | [technology](technology.md) | Core, Content, LegacyImport | generated |
-| What technology costs, and its prerequisites | `inferred` — from the price list | [technology](technology.md) | Core, Content, LegacyImport | generated |
-| When a technology becomes available | `inferred` — **corpus-corroborated** | [technology](technology.md) | Core, Content, LegacyImport | generated + local corpus |
-| **The order of the technology table** | `inferred`, and **the corpus provably cannot decide it** | [technology](technology.md) | LegacyImport | local corpus |
+| What technology costs | **`verified`** — the executable's cash table. **Twelve of 26 moved** | [technology](technology.md) | Core, Content, LegacyImport | generated |
+| A technology's prerequisites | `inferred` — from the price list, and now its weakest column | [technology](technology.md) | Core, Content, LegacyImport | generated |
+| When a technology becomes available | `inferred` — derived from the executable's windows, **corroborated 25 of 26** | [technology](technology.md) | Core, Content, LegacyImport | generated + local corpus |
+| **The order of the technology table** | **`verified`** — the executable's, and it is the manual's printed order | [technology](technology.md) | LegacyImport | local corpus |
 | What a scenario's `year` field means | `inferred` — **the briefings state two of them outright** | [technology](technology.md) | LegacyImport | local corpus |
 | When research is charged against the treasury | **a chosen rule** — last, after building | [technology](technology.md) | Core | generated |
 | How much a network can carry, and what raises it | `inferred` | [transport](transport.md) | Core, Content, LegacyImport | generated + local corpus |
@@ -164,8 +174,18 @@ bottom of this file.
 | What mountains' rail costs | `guess` — the one ground the list skips | [engineer](engineer.md) | LegacyImport | generated |
 | What a link crossing two grounds costs | **a chosen rule** — the dearer end | [engineer](engineer.md) | Core | generated |
 | Whether the whole economy holds up over time | — | [soak](soak.md) | — | 100-turn soak, 7 powers |
-| Trade clearing price | `guess` | _trade-pricing_ | — | — |
-| Favoured-partner ranking | `guess` | _trade-pricing_ | — | — |
+| How trade clears: offers, bids, delivery, who pays | `inferred` — **the manual states nearly all of it** | [trade](trade.md) | Core, Content, LegacyImport | generated |
+| What the fifteen traded commodities are worth | `inferred` — **observed** from the game's own screen | [trade](trade.md) | Core, Content, LegacyImport | generated |
+| Which commodities are tradable at all | `inferred` — **observed, and it agrees with the manual three times** | [trade](trade.md) | Core, Content, LegacyImport | generated |
+| The commodity order holds are spent in | `inferred` — observed | [trade](trade.md) | Core, Content, LegacyImport | generated |
+| **Trade clearing price** — how far a price moves | `guess`, quarantined behind `ITradeMarket` | [trade](trade.md) | Core, Content | generated |
+| **Favoured-partner ranking** | **a placeholder**, not a rule — wants diplomacy | [trade](trade.md) | Core | generated |
+| Merchant marine, and what limits it | `inferred` — the manual states the rules, the executable the cargo | [trade](trade.md) | Core, Content, LegacyImport | generated |
+| The fleet a power opens with | `inferred` — **all three skirmishes agree**, and the class is the executable's | [trade](trade.md) | Core, Content, LegacyImport | generated + local corpus |
+| What a `ship` type index means | `inferred` — **corpus-corroborated**, 1-based | [trade](trade.md) | — | local corpus |
+| **The ship array's order, cargo, sea zones, build costs and combat stats** | **`verified`** — the executable's naval and cost tables | [trade](trade.md) | Core, Content, LegacyImport | generated |
+| The raw-resource yield curves | **`verified`** — the executable's table agrees with the manual row for row | [extraction](extraction.md) | Core, Content, LegacyImport | generated + local corpus |
+| What the Capitol charges per recruit | **`verified`** — the worker-conversion help string | [migration](migration.md) | Core, Content, LegacyImport | generated |
 | Diplomatic relation deltas | `guess` | _relations_ | — | — |
 | Council nomination + abstention curve | `guess` | _council_ | — | — |
 | Tactical initiative order | `guess` | _initiative_ | — | — |
@@ -177,15 +197,24 @@ Industrial production is the first evidence-backed entry, but remains
 `inferred` until controlled original-behaviour traces verify the resolver's
 shortage and persistence semantics.
 
-Labour per production cycle was the blocking unknown and is now priced from the
-manual's tutorial, which costs one unit of clothing at two fabric and two
-labour. It is worth being precise about how far that goes: it prices *one*
-recipe, and it settles the rest only because every recipe the original ships
-consumes two input units per unit of output, which makes the competing readings
-of that sentence numerically identical. A recipe that broke 2:1 would separate
-them, and none exists yet — the railyard, when it lands, is the first candidate.
-`production.md` records the disassembly search that failed to find the rate, so
-the next attempt does not repeat it.
+Labour per production cycle was the blocking unknown and is **resource-backed
+now**: the original's own help strings price all nine of its recipes at two
+labour. That closes an argument this page carried for several slices. The manual
+prices exactly one recipe — two fabric and two labour for a unit of clothing —
+which admits two labour per cycle, one per input unit, or two per unit of output,
+and this page said no shipped recipe separated them.
+
+**One did, and it was on the list.** Food processing takes four input units and
+makes two units of canned food, so the flat reading prices it at two and the other
+two at four. It was miscounted as agreeing because the recipe is 2:1 as a *ratio*.
+The flat rate is the original's; the input-total rule this engine shipped is
+retracted, and canned food's labour cost halves. **The prediction that the railyard
+would be the first test was retracted separately, and correctly** — its recovered
+recipe is 2 labour, 1 steel, 1 lumber, exactly what `transport.md` shipped.
+
+The lesson is not about labour. It is that **"no case distinguishes them" is a claim
+to re-derive, not to inherit** — this one was written once, restated three times,
+and false the whole way.
 
 Technology is the largest single recovery here and the one that most changed
 what was already built: the manual's Benefits of Technology Table gates **every**
@@ -210,8 +239,23 @@ document, because each is a lesson about evidence:
   available corpus checks were run under both orderings and **none discriminates** —
   not because the orderings agree, but because the one case where they genuinely
   disagree (a power holding exactly five technologies) does not occur in the corpus.
-  The order therefore ships on source quality, which is a weaker footing than
-  anything else in the chain, and it says so.
+  The order therefore shipped on source quality, which is a weaker footing than
+  anything else in the chain, and it said so.
+
+  **The executable has since settled it, and the reorder was wrong.** The recovered
+  order is the manual's printed one. Worth keeping the whole bullet rather than
+  rewriting it, because the negative result was *correct* and did its job: it said the
+  order rested on nothing measurable, which is why the reversion cost exactly one
+  assertion. **Labelling a weak link is what makes it cheap to replace.**
+
+  **A second lesson landed on top of it, less flattering.** The two falsification counts
+  have *not* been re-measured against the reversion: their tests read
+  `IMPERIALISM_SCENARIO_DIR`, return silently when it is unset, and the machine this was
+  done on holds one scenario of ten. A green suite proved nothing about them. That is the
+  `CLAUDE.md` convention — "skip visibly, never iterate an empty corpus" — failing in its
+  C# form, where the gate is a bare `return`. **A corpus check that can pass without a
+  corpus is a check you have to remember to run**, and remembering is exactly what the
+  convention exists to avoid.
 - **A number nothing reads is a bug waiting to be load-bearing.** A scenario's
   `year` field is an offset from 1815 and the importer read it as an absolute year.
   Nothing noticed for four slices because nothing read the year. This is now the
@@ -221,6 +265,13 @@ document, because each is a lesson about evidence:
   years were transcribed for the Investment screen and turned out to confirm the
   year epoch: three of the four dated missions grant nothing that has not yet
   arrived, and `s9` sits exactly on a boundary year. Neither fact was sought.
+
+  **That column is the only one of the three that survived contact with the binary**,
+  and its corroboration is why. The executable stores availability as a pseudo-random
+  turn-offset window rather than a year, and 25 of those 26 transcribed years fall
+  inside their window. The uncorroborated columns beside it — order and price — were
+  both wrong. Corroboration is not decoration on a source; **it is the part of the
+  source you are allowed to keep.**
 
 Prospecting is the closest this table comes to a mechanic recovered without any
 invention. The manual states the hidden five, the searchable terrain, the one
@@ -276,10 +327,12 @@ hold the formulas above:
 
 Query them with `python -m tools.alf.query func --name UCity`.
 
-**One documented dead end.** The labour rate was hunted here first and not
-found; `production.md` lists exactly what was searched, including why the
-obvious pattern for `untrained*1 + trained*2 + expert*4` finds nothing in this
-build. Read it before repeating that search.
+**One documented dead end, and it had an open door beside it.** The labour rate was
+hunted here first and not found; `production.md` lists exactly what was searched.
+It was in `Data/STR#ENU.GOB` the whole time, written in English in the help text for
+every recipe. **Read the resource archive before disassembling anything** — it also
+states the power conversion and the worker training costs, none of which anyone had
+tried to find in code.
 
 **Prefer the decompiler for a formula**, but do not expect the module map to
 lead you to one. `tools/alf/` answers "where" and "who calls this"; Ghidra
@@ -322,6 +375,16 @@ Ordered by impact x uncertainty, not by ease:
    which depends on ranking, which depends on relations). Mitigated by an
    `ITradeMarket` interface so a fixed-price implementation ships first and
    never blocks the playable milestone.
+
+   **The mitigation worked and the plan held.** Trade shipped with the interface in
+   place, and the mechanism turned out to be the *documented* part — the manual states
+   offers, bids, delivery timing, hold accounting, who carries and the price
+   *direction*. What was left undocumented is exactly two things: how far a price
+   moves, which is behind `ITradeMarket`, and which bidder gets first refusal, which
+   is a labelled placeholder waiting on diplomacy. The prices themselves came from the
+   game's own screen and are not guesses at all. **This entry is smaller than it
+   looked**, and what remains of it now sits behind item 0's decompiler rather than
+   ahead of it. See [trade.md](trade.md).
 2. **Relation deltas** — diffuse, many small triggers, easy to get 80% right
    and never notice. Model as an enumerable event->delta table so the trigger
    set is auditable.

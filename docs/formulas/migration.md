@@ -9,7 +9,7 @@ civilian units that do not exist yet.
 
 ## Confidence
 
-`inferred`, and it rests on one `guess`.
+`inferred`, and **the one `guess` it used to rest on is recovered.**
 
 | Claim | Support |
 |---|---|
@@ -17,7 +17,7 @@ civilian units that do not exist yet.
 | The price is **canned food, clothing and furniture** | **manual** — "the comforts of a developing economy" |
 | The cap is **floor(provinces owned / 4)** | **manual**, stated outright |
 | It may be done every turn the commodities are there | **manual** |
-| **How much of each commodity per worker** | **a guess** — one of each |
+| **How much of each commodity per worker** | **resource-backed** — one of each, and the guess was right |
 | Recruits eat on the turn they arrive | follows from the phase order; see below |
 
 ## Evidence
@@ -37,10 +37,25 @@ civilian units that do not exist yet.
 > turn.
 
 The manual names the three commodities and the divisor and **never says how much
-of any commodity a worker costs**. One of each is a placeholder chosen because
-nothing better is available. It is a real economic constant nobody has measured
-— not a symmetric default in the `CLAUDE.md` sense — so it carries a warning
-label and nothing downstream should cite it.
+of any commodity a worker costs**. One of each shipped as a placeholder chosen
+because nothing better was available, under a warning label saying nothing
+downstream should cite it.
+
+**The original's own help text states it, and the placeholder was right:** one food
+plus one furniture plus one clothing makes one untrained worker. See
+[`../disasm/definitive-original-data.md`](../disasm/definitive-original-data.md).
+
+Worth recording precisely *because* it came out right. A guess that survives
+verification is not evidence that guessing works — the same block prices two things
+this project had no number for at all, and there was no way to know in advance which
+of the three the manual's silence was hiding. The warning label was correct while it
+stood, and removing it now is the point of having had one.
+
+**The same block prices worker training, and nothing models it.** An untrained worker
+plus one paper and $100 becomes trained; a trained worker plus two paper and $1,000
+becomes expert. The Capitol recruits untrained workers and nothing promotes them, so
+these two numbers are recorded and unused — waiting on the Trade School and the
+University.
 
 **The Capitol upgrade to one-third is not implemented.** There is no upgrade
 mechanic and the manual gives no trigger beyond "successful foreign policies",
@@ -146,7 +161,9 @@ faster than you can feed, and it is reported rather than tuned away. See
 
 ## Open questions
 
-- What a worker actually costs. The one thing here that is guessed.
+- ~~What a worker actually costs.~~ **Recovered**, and the placeholder was right.
+- **Worker training**, priced above and unmodelled: the Trade School and the
+  University are what would spend it.
 - The Capitol upgrade to one-third, and what triggers it.
 - Whether recruits should eat on their arrival turn. The phase order forces it
   and the manual's warning agrees, but nothing observed confirms it.

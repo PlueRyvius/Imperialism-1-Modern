@@ -271,7 +271,11 @@ commodities.
 - **Whether unmoved output really evaporates.** The chosen rule.
 - **Moving regiments**, which the manual prices at five capacity per armaments
   point and which needs military units to exist.
-- **Merchant marine capacity**, which is trade's separate pool.
+- ~~**Merchant marine capacity**, which is trade's separate pool.~~ **Built**, and it is
+  genuinely separate: derived from the cargo of a country's ships, spent in the world's
+  commodity order, and refilled each turn. **Unlike the pool on this page it binds** — the
+  soak leaves 103,147 units offered and unsold — so the two are worth comparing rather than
+  conflating. See [trade.md](trade.md).
 - **Demand lines** — the red and green marks under each slider. Presentation over
   numbers this phase now exposes, and a good early test of the event log as a
   presentation contract.

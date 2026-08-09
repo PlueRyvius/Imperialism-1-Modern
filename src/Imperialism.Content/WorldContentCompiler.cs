@@ -97,7 +97,7 @@ public static class WorldContentCompiler
         var seaZoneContent = RequireArray(mapContent.SeaZones, "map.seaZones");
         var provinceIds = BuildNamedKeyMap(provinceContent, "map.provinces");
         var seaZoneIds = BuildNamedKeyMap(seaZoneContent, "map.seaZones");
-        var countryIds = BuildNamedKeyMap(countriesContent, "countries");
+        var countryIds = BuildCountryKeyMap(countriesContent);
         var commodities = commodityContent.Select((definition, index) =>
         {
             if (definition.CashPerUnit <= 0)
@@ -107,8 +107,20 @@ public static class WorldContentCompiler
                     "A commodity worth nothing in cash is one that reaches the warehouse instead.");
             }
 
-            return new CommodityDefinition(
-                new CommodityId(index), definition.Name, definition.Category, definition.CashPerUnit);
+            try
+            {
+                return new CommodityDefinition(
+                    new CommodityId(index),
+                    definition.Name,
+                    definition.Category,
+                    definition.CashPerUnit,
+                    definition.WorldPrice,
+                    definition.TradeOrder);
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error($"commodities[{index}]", exception.Message, exception);
+            }
         }).ToArray();
         var technologyContent = RequireArray(document.Technologies, "technologies");
         var technologyIds = BuildTechnologyKeyMap(technologyContent);
@@ -131,6 +143,64 @@ public static class WorldContentCompiler
                 throw Error($"technologies[{index}]", exception.Message, exception);
             }
         }).ToArray();
+
+        // After the technology map, because a hull may name the knowledge its shipyard
+        // needs: Streamlined Hulls opens the Clipper and Paddlewheels the Paddlewheeler.
+        var shipTypeContent = RequireArray(document.ShipTypes, "shipTypes");
+        var shipTypeIds = BuildShipTypeKeyMap(shipTypeContent);
+        var shipTypes = shipTypeContent.Select((definition, index) =>
+        {
+            var bill = RequireArray(definition!.BuildCost, $"shipTypes[{index}].buildCost")
+                .Select((item, offset) => new CommodityQuantity(
+                    new CommodityId(FindKey(
+                        commodityIds, item.Commodity, $"shipTypes[{index}].buildCost[{offset}]")),
+                    item.Quantity));
+            try
+            {
+                return new ShipTypeDefinition(
+                    new ShipTypeId(index),
+                    definition.Name,
+                    definition.Cargo,
+                    definition.SeaZones,
+                    bill,
+                    definition.RequiredTechnology is null
+                        ? null
+                        : new TechnologyId(FindKey(
+                            technologyIds,
+                            definition.RequiredTechnology,
+                            $"shipTypes[{index}].requiredTechnology")),
+                    definition.Combat is not { } combat
+                        ? null
+                        : new ShipCombatStats(
+                            combat.Firepower,
+                            combat.Range,
+                            combat.Armour,
+                            combat.HullScale,
+                            combat.BattleSpeed,
+                            combat.Hull));
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error($"shipTypes[{index}]", exception.Message, exception);
+            }
+        }).ToArray();
+
+        ITradeMarket? tradeMarket = null;
+        if (document.Trade is { } tradeContent)
+        {
+            try
+            {
+                tradeMarket = new ProportionalTradeMarket(
+                    tradeContent.StepPercent,
+                    tradeContent.TolerancePercent,
+                    tradeContent.FloorPercent,
+                    tradeContent.CeilingPercent);
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error("trade", exception.Message, exception);
+            }
+        }
 
         // After the technology map, because prospectable ground may name the
         // knowledge it takes to search: swamp, desert and tundra are open only
@@ -231,7 +301,7 @@ public static class WorldContentCompiler
         var extraction = CompileExtractionSettings(document.Extraction, commodityIds);
         var feeding = CompileFeedingSettings(document.Feeding, commodityIds);
         var startingDefaults = CompileStartingDefaults(
-            document.StartingDefaults, facilityIds, technologyIds, commodityIds);
+            document.StartingDefaults, facilityIds, technologyIds, commodityIds, shipTypeIds);
         var facilities = facilityContent.Select((definition, index) =>
         {
             var path = $"productionFacilities[{index}]";
@@ -385,7 +455,8 @@ public static class WorldContentCompiler
         }
 
         var countries = countriesContent.Select((definition, index) =>
-            new CountryDefinition(new CountryId(index), definition.Name)).ToArray();
+            new CountryDefinition(
+                new CountryId(index), definition.Name, definition.IsGreatPower)).ToArray();
         var catalog = new WorldContentCatalog(
             terrainContent.Select(static item => item!.Key),
             resourceContent.Select(static item => item.Key),
@@ -434,7 +505,10 @@ public static class WorldContentCompiler
                     civilianTypeIds,
                     transport,
                     construction,
-                    improvement));
+                    improvement,
+                    shipTypes,
+                    shipTypeIds,
+                    tradeMarket));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -464,7 +538,10 @@ public static class WorldContentCompiler
         IReadOnlyDictionary<string, int> civilianTypeIds,
         TransportSettings? transport,
         ConstructionSettings? construction,
-        ImprovementSettings? improvement)
+        ImprovementSettings? improvement,
+        ShipTypeDefinition[] shipTypes,
+        IReadOnlyDictionary<string, int> shipTypeIds,
+        ITradeMarket? tradeMarket)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -571,6 +648,31 @@ public static class WorldContentCompiler
                 "The world defines no startingDefaults for these countries to start from.");
         }
 
+        var ships = new List<InitialShip>();
+        var shipEntries = RequireArray(scenarioContent.Ships, $"{path}.ships");
+        for (var index = 0; index < shipEntries.Length; index++)
+        {
+            var entryPath = $"{path}.ships[{index}]";
+            var entry = shipEntries[index] ?? throw Error(entryPath, "Value is required.");
+            if (entry.Count <= 0)
+            {
+                throw Error($"{entryPath}.count", "A fleet of nothing is the absence of a record.");
+            }
+
+            if (entry.SeaZone < 0)
+            {
+                throw Error($"{entryPath}.seaZone", "A sea zone cannot be negative.");
+            }
+
+            // The zone is carried and never resolved: a ship's zone is not the map's
+            // ocean zone byte. See docs/scenario-semantics.md.
+            ships.Add(new InitialShip(
+                new CountryId(FindKey(countryIds, entry.Country, $"{entryPath}.country")),
+                new ShipTypeId(FindKey(shipTypeIds, entry.Type, $"{entryPath}.type")),
+                entry.SeaZone,
+                entry.Count));
+        }
+
         if (string.IsNullOrWhiteSpace(scenarioContent.Name))
         {
             throw Error($"{path}.name", "Value cannot be blank.");
@@ -594,7 +696,8 @@ public static class WorldContentCompiler
                 defaultStartCountries,
                 civilians,
                 transportCapacity,
-                cash);
+                cash,
+                ships);
             return new WorldDefinition(
                 map,
                 countries,
@@ -611,7 +714,9 @@ public static class WorldContentCompiler
                 civilianTypes,
                 transport,
                 construction,
-                improvement);
+                improvement,
+                shipTypes,
+                tradeMarket);
         }
         catch (ArgumentException exception)
         {
@@ -751,7 +856,8 @@ public static class WorldContentCompiler
         StartingDefaultsContent? content,
         IReadOnlyDictionary<string, int> facilityIds,
         IReadOnlyDictionary<string, int> technologyIds,
-        IReadOnlyDictionary<string, int> commodityIds)
+        IReadOnlyDictionary<string, int> commodityIds,
+        IReadOnlyDictionary<string, int> shipTypeIds)
     {
         if (content is null)
         {
@@ -821,14 +927,35 @@ public static class WorldContentCompiler
             commodityIds,
             "startingDefaults.inventory");
 
+        var fleet = new List<ShipDefault>();
+        var hulls = RequireArray(content.Ships, "startingDefaults.ships");
+        for (var index = 0; index < hulls.Length; index++)
+        {
+            var path = $"startingDefaults.ships[{index}]";
+            var entry = hulls[index] ?? throw Error(path, "Value is required.");
+            if (entry.Count <= 0)
+            {
+                throw Error($"{path}.count", "A default fleet of nothing is the absence of an entry.");
+            }
+
+            fleet.Add(new ShipDefault(
+                new ShipTypeId(FindKey(shipTypeIds, entry.Type, $"{path}.type")), entry.Count));
+        }
+
         try
         {
             return new StartingDefaults(
-                capacities, workforce, technologies, content.TransportCapacity, inventory, content.Cash);
+                capacities,
+                workforce,
+                technologies,
+                content.TransportCapacity,
+                inventory,
+                content.Cash,
+                fleet);
         }
         catch (ArgumentException exception)
         {
-            throw Error("startingDefaults.inventory", exception.Message, exception);
+            throw Error("startingDefaults", exception.Message, exception);
         }
     }
 
@@ -1373,6 +1500,44 @@ public static class WorldContentCompiler
         }
 
         return BuildKeyMap(keys, path);
+    }
+
+    private static Dictionary<string, int> BuildCountryKeyMap(
+        CountryContentDefinition?[] definitions)
+    {
+        var keys = new string[definitions.Length];
+        for (var index = 0; index < definitions.Length; index++)
+        {
+            var definition = definitions[index] ??
+                throw Error($"countries[{index}]", "Value is required.");
+            if (string.IsNullOrWhiteSpace(definition.Name))
+            {
+                throw Error($"countries[{index}].name", "Value cannot be blank.");
+            }
+
+            keys[index] = definition.Key;
+        }
+
+        return BuildKeyMap(keys, "countries");
+    }
+
+    private static Dictionary<string, int> BuildShipTypeKeyMap(
+        ShipTypeContentDefinition?[] definitions)
+    {
+        var keys = new string[definitions.Length];
+        for (var index = 0; index < definitions.Length; index++)
+        {
+            var definition = definitions[index] ??
+                throw Error($"shipTypes[{index}]", "Value is required.");
+            if (string.IsNullOrWhiteSpace(definition.Name))
+            {
+                throw Error($"shipTypes[{index}].name", "Value cannot be blank.");
+            }
+
+            keys[index] = definition.Key;
+        }
+
+        return BuildKeyMap(keys, "shipTypes");
     }
 
     private static Dictionary<string, int> BuildTechnologyKeyMap(

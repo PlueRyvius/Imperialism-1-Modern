@@ -16,6 +16,7 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<CountryId> _defaultStartCountries;
     private readonly IReadOnlyList<InitialTransportCapacity> _initialTransportCapacity;
     private readonly IReadOnlyList<InitialCash> _initialCash;
+    private readonly IReadOnlyList<InitialShip> _initialShips;
 
     public ScenarioDefinition(
         string name,
@@ -33,7 +34,8 @@ public sealed class ScenarioDefinition
         IEnumerable<CountryId>? defaultStartCountries = null,
         IEnumerable<InitialCivilian>? initialCivilians = null,
         IEnumerable<InitialTransportCapacity>? initialTransportCapacity = null,
-        IEnumerable<InitialCash>? initialCash = null)
+        IEnumerable<InitialCash>? initialCash = null,
+        IEnumerable<InitialShip>? initialShips = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
@@ -156,6 +158,12 @@ public sealed class ScenarioDefinition
         _initialTransportCapacity = Array.AsReadOnly(transportArray);
         _initialCash = Array.AsReadOnly(cashArray);
 
+        // Not made unique by (country, type, zone). The corpus repeats the
+        // combination freely -- s1 gives one power `8x2 8x1` and s13 gives another
+        // `3x2 3x1 3x1` -- so a fleet is a bag of records rather than a table, and
+        // erroring on a repeat would reject shipped data. They sum.
+        _initialShips = Array.AsReadOnly(initialShips?.ToArray() ?? []);
+
         // Civilians are deliberately not made unique by cell. The original
         // stacks them freely — `s1` gives one power two Miners — and nothing in
         // the manual says a tile holds only one.
@@ -212,6 +220,18 @@ public sealed class ScenarioDefinition
     /// engine.
     /// </summary>
     public IReadOnlyList<InitialCash> InitialCash => _initialCash;
+
+    /// <summary>
+    /// The fleets each country starts with: the 1997 <c>ship</c> record.
+    /// </summary>
+    /// <remarks>
+    /// <b>Unlike the seven engine defaults, a skirmish authors these</b> — `s10`, `s11`
+    /// and `s15` carry no <c>ware</c>, <c>cash</c>, <c>tech</c> or <c>tran</c> and all
+    /// three give every power three ships apiece. So the opening merchant marine is
+    /// recoverable from the corpus rather than being another unrecoverable constant,
+    /// on the same skirmish-agreement argument that settled the workforce and the mills.
+    /// </remarks>
+    public IReadOnlyList<InitialShip> InitialShips => _initialShips;
 
     /// <summary>
     /// Civilians on the map at the start, in the order they will be issued ids.

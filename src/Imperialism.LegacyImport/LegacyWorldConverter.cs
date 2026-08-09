@@ -41,6 +41,38 @@ internal enum LegacyProspecting : byte
     NeedsOilDrilling,
 }
 
+/// <summary>
+/// One class of ship: its key, cargo, sea zones, build bill, technology gate and combat
+/// numbers — one row of the executable's naval table.
+/// </summary>
+internal readonly record struct LegacyShipType(
+    string Key,
+    string Name,
+    long Cargo = 0,
+    long SeaZones = 0,
+    LegacyShipCombat? Combat = null,
+    string? RequiredTechnology = null,
+    long Lumber = 0,
+    long Fabric = 0,
+    long Arms = 0,
+    long Steel = 0,
+    long Coal = 0,
+    long Fuel = 0);
+
+/// <summary>A hull's fighting numbers, from the executable's naval table.</summary>
+/// <remarks>
+/// <see cref="Hull"/> is the manual's printed rating and is absent for the five merchants
+/// its combat table leaves out; <see cref="HullScale"/> is the executable's own internal
+/// scale and every hull has one. Neither derives the other.
+/// </remarks>
+internal readonly record struct LegacyShipCombat(
+    long Firepower,
+    long Range,
+    long Armour,
+    long HullScale,
+    long BattleSpeed,
+    long? Hull = null);
+
 public static class LegacyWorldConverter
 {
     /// <summary>
@@ -193,43 +225,49 @@ public static class LegacyWorldConverter
     /// list is what an id is resolved against.
     /// </summary>
     /// <remarks>
-    /// <b>This is the wiki's order, not the manual's printed order</b>, and the
-    /// two differ at positions 4–7 and 13–14 — exactly the rows where the
-    /// manual's two-column layout is worst. The costs, years and prerequisites
-    /// come from the same source, which is a community transcription of the
-    /// original's own Investment screen
-    /// (<c>imperialism.fandom.com/wiki/Technology_(Imp1)</c>).
+    /// <b>The order and the prices are the executable's now</b>, and the recovered
+    /// order turns out to be the manual's printed one. `STR#ENU.GOB` blocks
+    /// #1073–#1075 hold all 28 names in progression order and the technology store
+    /// reads a 28-entry cash table at <c>0x0066AAE8</c> indexed by that same
+    /// position; both are recorded in
+    /// <c>docs/disasm/definitive-original-data.md</c>. The wiki ordering this table
+    /// used to carry — differing at positions 4–7 and 13–14 — is **retracted, not
+    /// superseded**. The corpus never could choose between the two, and in the end
+    /// did not have to.
     /// <para>
-    /// <b>The corpus cannot choose between the two orderings, and the reason is
-    /// not that they agree.</b> They genuinely disagree at exactly one place: a
-    /// power holding **five** technologies holds Square-Set Timbering under the
-    /// manual's order — mines to Level II — and holds Iron Railroad Bridge and Feed
-    /// Grasses instead under the wiki's. That is a real discriminating case and
-    /// **the corpus does not contain it**: its powers hold 0, 6, 9, 13, 14 or 21,
-    /// never 5. From six upwards the wiki prefix is a superset of the manual's, and
-    /// from seven upwards the two prefixes are the same *set* — positions 4–7 are a
-    /// permutation within it — so nothing above five can tell them apart either.
-    /// Positions 13/14 gate nothing at all.
-    /// <para>
-    /// Measured rather than argued: 380 authored levels permitted and 4 not, and
-    /// 1,140 rail ends permitted and 0 not, **identical under both orderings**. The
-    /// arrival dates cannot separate them either, because positions 4–7 all arrive
-    /// in 1821. So the wiki order ships on source quality — data-derived, internally
-    /// consistent on prerequisites, and legible where the manual's two-column OCR
-    /// is worst in exactly these rows — and **not on evidence.** See
-    /// <c>docs/formulas/technology.md</c>.
+    /// <b>The wiki's price column was off by one, and the binary shows exactly
+    /// where.</b> From Streamlined Hulls onwards each wiki price is the price of the
+    /// *next* technology in the recovered order — Bessemer Converter carried Compound
+    /// Steam Engine's 6,000, Oil Drilling carried Barbed Wire's 25,000, Machine Guns
+    /// carried Chemistry's 100,000 — which is why twelve of the twenty-six moved here
+    /// and why the last entry did not have to. A slip that reproduces itself for
+    /// twenty-four consecutive rows is not two sources disagreeing; it is one source
+    /// wrong in a legible way.
     /// </para>
     /// <para>
-    /// Names stay the manual's where the two disagree: "Steel and Iron Plows"
-    /// over the wiki's "Steel Plows", "Fertiliser" over "Fertilizer". The keys
-    /// are name-derived and already shipped, so a rename would be a content
-    /// break for no gain.
+    /// <b>The arrival years are derived, and the derivation is corroborated
+    /// twenty-five times.</b> The executable stores no year: it generates each
+    /// non-starting technology an inclusive pseudo-random <em>turn-offset</em> window
+    /// from 26 two-word entries at <c>0x0066ABA4</c>. Read as one offset per year
+    /// from the 1815 epoch the corpus already established, **25 of the wiki's 26
+    /// years fall inside their window and 19 sit exactly on its minimum**. Chemistry
+    /// is the single miss, by one year, and is also one of the two rows the wiki had
+    /// out of order. So the year below is <c>1815 + window minimum</c> — the earliest
+    /// anybody may buy, which is what the field means — and the wiki's scattered
+    /// later dates read as single draws from a range rather than as a table.
     /// </para>
     /// <para>
-    /// The arrival years are the *earliest* of each of the wiki's ranges. The
-    /// manual calls its dates "approximate" and the wiki's are not strictly
-    /// monotonic — 24 arrives before 23, 26 before 25 — so one fixed year per
-    /// technology is a simplification of a range, recorded in the doc.
+    /// <b>The prerequisites are still the wiki's, and are now the weakest column
+    /// here.</b> The executable's prerequisite graph has not been recovered, and the
+    /// price column's slip is a reason to trust the rest of that source less rather
+    /// than more. Every edge still points backwards under the recovered order, which
+    /// is the only check available. See <c>docs/formulas/technology.md</c>.
+    /// </para>
+    /// <para>
+    /// Names stay the manual's where the sources disagree: "Steel and Iron Plows"
+    /// over "Steel Plows", "Fertiliser" over "Fertilizer", "Armour" over "Armor".
+    /// The keys are name-derived and already shipped, so a rename would be a
+    /// content break for no gain.
     /// </para>
     /// <para>
     /// Only the entries this engine can act on are given a gate below. Regiments,
@@ -242,31 +280,31 @@ public static class LegacyWorldConverter
         new(SteamEngine, null, 1815),
         new(SeedDrill, null, 1815),
         new(CottonGin, 1_000, 1816),
+        new(StreamlinedHulls, 1_000, 1821),
+        new(SquareSetTimbering, 1_500, 1821),
         new(IronRailroadBridge, 1_500, 1821),
         new(FeedGrasses, 1_500, 1821),
-        new(SquareSetTimbering, 1_500, 1821),
-        new("Streamlined Hulls", 1_500, 1821),
-        new(SpinningJenny, 3_000, 1826, CottonGin, FeedGrasses),
-        new("Paddlewheels", 3_000, 1826),
+        new(SpinningJenny, 1_500, 1826, CottonGin, FeedGrasses),
+        new(Paddlewheels, 3_000, 1826),
         new(SteelAndIronPlows, 3_000, 1831, SeedDrill),
-        new(BessemerConverter, 6_000, 1836),
-        new(CompoundSteamEngine, 7_000, 1836, IronRailroadBridge),
-        new(BreechLoadingRifles, 12_000, 1841, BessemerConverter),
-        new(RifledArtillery, 10_000, 1841),
+        new(BessemerConverter, 3_000, 1836),
+        new(CompoundSteamEngine, 6_000, 1836, IronRailroadBridge),
+        new(RifledArtillery, 7_000, 1841),
+        new(BreechLoadingRifles, 10_000, 1841, BessemerConverter),
         new(AdvancedIronWorking, 12_000, 1846),
         new(PowerLoom, 12_000, 1846, SpinningJenny),
         new(MechanicalReaper, 12_000, 1851, SteelAndIronPlows),
         new(CommercialFertiliser, 12_000, 1856, SteelAndIronPlows),
-        new(OilDrilling, 25_000, 1856),
-        new(BarbedWire, 20_000, 1862, FeedGrasses),
-        new(SteelArmourPlate, 40_000, 1866, AdvancedIronWorking),
-        new("Large Artillery", 40_000, 1872, RifledArtillery),
-        new(Dynamite, 40_000, 1874, CompoundSteamEngine, SquareSetTimbering),
-        new(MarineEngineering, 40_000, 1873, SteelArmourPlate),
-        new("Machine Guns", 100_000, 1879, BreechLoadingRifles),
-        new(Chemistry, 120_000, 1875, OilDrilling, BarbedWire),
-        new("Improved Range-Finding", 150_000, 1881, MarineEngineering),
-        new(InternalCombustion, 150_000, 1884, Chemistry),
+        new(OilDrilling, 12_000, 1856),
+        new(BarbedWire, 25_000, 1861, FeedGrasses),
+        new(SteelArmourPlate, 20_000, 1866, AdvancedIronWorking),
+        new("Large Artillery", 40_000, 1871, RifledArtillery),
+        new(Dynamite, 40_000, 1871, CompoundSteamEngine, SquareSetTimbering),
+        new(MarineEngineering, 40_000, 1871, SteelArmourPlate),
+        new("Machine Guns", 40_000, 1876, BreechLoadingRifles),
+        new(Chemistry, 100_000, 1876, OilDrilling, BarbedWire),
+        new("Improved Range-Finding", 120_000, 1881, MarineEngineering),
+        new(InternalCombustion, 150_000, 1881, Chemistry),
     ];
 
     private const string SeedDrill = "Seed Drill";
@@ -529,7 +567,7 @@ public static class LegacyWorldConverter
         new(
             [
                 "cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port", "rail", "labo",
-                "civi", "tech", "tran", "cash",
+                "civi", "tech", "tran", "cash", "ship",
             ],
             StringComparer.Ordinal);
 
@@ -713,11 +751,8 @@ public static class LegacyWorldConverter
             };
         }
 
-        var countries = countryIds.Select(id => new NamedContentDefinition
-        {
-            Key = countryKeys[id],
-            Name = FindName(countryNames, id, "Country", report),
-        }).ToArray();
+        // Countries are built after the workforce is read, because `labo` is what says
+        // which of them are Great Powers. See below.
         var provinces = provinceIds.Select(id => new NamedContentDefinition
         {
             Key = provinceKeys[id],
@@ -752,6 +787,23 @@ public static class LegacyWorldConverter
         var transportCapacity = ReadTransportCapacity(scenario, countryKeys, report);
         var countryCash = ReadCountryCash(scenario, countryKeys, report);
         var civilians = ReadCivilians(scenario, map, countryKeys, report);
+        var ships = ReadShips(scenario, countryKeys, report);
+
+        // `labo` names the Great Powers and only them — seven in every shipped scenario —
+        // so it is how the importer tells them from the minor nations without guessing.
+        // The same record already decides who gets the fair-start defaults; this puts the
+        // fact on the country itself, because trade needs it to know who carries a cargo:
+        // "no Minor Nation owns merchant marine."
+        var greatPowers = workers
+            .Select(static item => item.Country)
+            .ToHashSet(StringComparer.Ordinal);
+        var countries = countryIds.Select(id => new CountryContentDefinition
+        {
+            Key = countryKeys[id],
+            Name = FindName(countryNames, id, "Country", report),
+            IsGreatPower = greatPowers.Contains(countryKeys[id]),
+        }).ToArray();
+
         var title = string.IsNullOrWhiteSpace(info?.Title)
             ? $"Legacy {options.PackageKey}"
             : info.Title;
@@ -778,6 +830,8 @@ public static class LegacyWorldConverter
                 Prerequisites = [.. entry.Prerequisites.Select(TechnologyKey)],
             }).ToArray(),
             Commodities = CreateStandardCommodities(),
+            ShipTypes = CreateStandardShipTypes(),
+            Trade = CreateStandardTradeMarket(),
             ProductionFacilities = CreateStandardProductionFacilities(),
             ProductionRecipes = CreateStandardProductionRecipes(),
             ExpansionCostPerCapacityPoint = CreateStandardExpansionCost(),
@@ -827,6 +881,17 @@ public static class LegacyWorldConverter
                 TransportCapacity = DefaultTransportCapacity,
                 Inventory = CreateStandardStartingStock(),
                 Cash = DefaultStartingCash,
+
+                // Three Traders a power, which all three skirmishes agree on. Unlike the
+                // transport pool above this is not invented — see StartingFleet.
+                Ships =
+                [
+                    new ShipDefaultContent
+                    {
+                        Type = ShipTypeKey(StartingFleet.Type),
+                        Count = StartingFleet.Count,
+                    },
+                ],
             },
             Transport = CreateStandardTransport(),
             Construction = CreateStandardConstruction(),
@@ -872,6 +937,7 @@ public static class LegacyWorldConverter
                     Depots = depots,
                     Workers = workers,
                     Civilians = civilians,
+                    Ships = ships,
                     CountryTechnologies = countryTechnologies,
                     TransportCapacity = transportCapacity,
                     Cash = countryCash,
@@ -1315,6 +1381,105 @@ public static class LegacyWorldConverter
             {
                 Country = countryKey,
                 Technology = TechnologyKeyAt((int)technology),
+            });
+        }
+
+        return result.ToArray();
+    }
+
+    /// <summary>
+    /// Converts <c>ship</c> records into a scenario's fleets. The record is
+    /// <c>[country, type, zone, count]</c>, where the type is a **1-based index into the
+    /// executable's naval table** — see <see cref="ShipTypes"/>, which is that table in
+    /// its own order.
+    /// </summary>
+    /// <remarks>
+    /// <b>These were deferred until the array order was recovered</b>, on the grounds that
+    /// converting against a guess would hand powers fleets that were never there. It is
+    /// recovered, so they convert.
+    /// <para>
+    /// <b>The zone is carried and never interpreted.</b> A ship's zone is not the map's
+    /// ocean zone byte — <c>docs/scenario-semantics.md</c> establishes that the two
+    /// numberings are unrelated and that 23 zone ids appear on no ocean cell at all — so a
+    /// fleet can be named and not located. It is kept rather than dropped because losing
+    /// it would make the information unrecoverable from a round trip, and because merchant
+    /// marine capacity does not care where the ships are.
+    /// </para>
+    /// <para>
+    /// <b>A repeated (country, type) is not an error</b>, unlike a repeated <c>tech</c>.
+    /// `s1` gives one power `8x2` and `8x1` as separate records, and two records can name
+    /// the same class in different zones, so a fleet is a bag rather than a table. Core
+    /// sums them.
+    /// </para>
+    /// <para>
+    /// <b>An out-of-range type is dropped with a warning rather than clamped.</b> Only
+    /// types 1–9 appear in the corpus, so nothing shipped exercises it; inventing a hull
+    /// for an id the table cannot name would be the one mistake this whole deferral
+    /// existed to avoid.
+    /// </para>
+    /// </remarks>
+    private static ShipContent[] ReadShips(
+        ScenarioDocument scenario,
+        IReadOnlyDictionary<uint, string> countryKeys,
+        LegacyImportReport report)
+    {
+        var result = new List<ShipContent>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "ship")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 4)
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-ship",
+                    path,
+                    "A ship record must contain a country, a type, a sea zone and a count.");
+                continue;
+            }
+
+            var country = record.Fields[0];
+            var type = record.Fields[1];
+            var zone = record.Fields[2];
+            var count = record.Fields[3];
+            if (!countryKeys.TryGetValue(country, out var countryKey))
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-ship-country",
+                    path,
+                    $"Ship refers to unknown country {country}.");
+                continue;
+            }
+
+            if (type == 0 || type > (uint)ShipTypes.Count)
+            {
+                report.Add(
+                    LegacyImportSeverity.Warning,
+                    "scenario.unknown-ship-type",
+                    path,
+                    $"Ship type {type} is outside the table of {ShipTypes.Count}; " +
+                    "no ships were placed.");
+                continue;
+            }
+
+            // A record of no ships is authoring noise, not a fleet. Dropped quietly:
+            // nothing is lost and an empty entry would only widen the content.
+            if (count == 0)
+            {
+                continue;
+            }
+
+            result.Add(new ShipContent
+            {
+                Country = countryKey,
+                Type = ShipTypeKey(ShipTypes[(int)type - 1].Key),
+                SeaZone = (int)zone,
+                Count = count,
             });
         }
 
@@ -2050,6 +2215,53 @@ public static class LegacyWorldConverter
 
     private static string ResourceKey(byte code) => $"resource.{ResourceNames[code]}";
 
+    /// <summary>
+    /// The fifteen commodities the world market trades, in the original's own commodity
+    /// order, with the prices from its Bid and Offers screen.
+    /// </summary>
+    /// <remarks>
+    /// <b>The order is a rule, not a presentation detail.</b> It decides which deals get
+    /// cargo holds: "IMPERIALISM always uses an established order when expending the Great
+    /// Powers' merchant marine for trade… Clothing deals, for example, are always
+    /// considered prior to all other deals because clothing is the first item in commodity
+    /// order. Reserving some cargo holds for later deals becomes an important skill."
+    /// <para>
+    /// The prices fall in three tiers — 100 raw, 300 material, 900 goods — and the 3x step
+    /// is structural: every recipe takes two input units per unit of output, so 2x inputs
+    /// plus 50% value added lands on the next tier. <b>Two entries break it and are
+    /// transcribed rather than derived</b>: canned food at 100, because its input is grain
+    /// and grain has no market price to mark up, and horses at 300 for no recoverable
+    /// reason.
+    /// </para>
+    /// <para>
+    /// <b>What is missing from this list is as informative as what is in it.</b> The eight
+    /// commodities with no entry are exactly the ones the manual says cannot be traded —
+    /// grain, fruit, livestock and fish ("food resources cannot be traded on the world
+    /// market"), gold and gems ("they never reach the industry warehouse and they cannot be
+    /// traded"), and oil and fuel. Three of those four groups are stated in prose, which
+    /// makes the screenshot and the manual agree independently. See
+    /// <c>docs/formulas/trade.md</c>.
+    /// </para>
+    /// </remarks>
+    private static readonly IReadOnlyList<(string Key, long Price)> TradeRoster =
+    [
+        ("clothing", 900),
+        ("furniture", 900),
+        ("hardware", 900),
+        ("armaments", 900),
+        ("canned-food", 100),
+        ("fabric", 300),
+        ("lumber", 300),
+        ("paper", 300),
+        ("steel", 300),
+        ("cotton", 100),
+        ("wool", 100),
+        ("timber", 100),
+        ("coal", 100),
+        ("iron", 100),
+        ("horses", 300),
+    ];
+
     private static CommodityContentDefinition[] CreateStandardCommodities() =>
     [
         Commodity("grain", "Grain", CommodityCategory.Raw),
@@ -2080,7 +2292,19 @@ public static class LegacyWorldConverter
     private static CommodityContentDefinition Commodity(
         string key,
         string name,
-        CommodityCategory category) => new()
+        CommodityCategory category)
+    {
+        var order = -1;
+        for (var index = 0; index < TradeRoster.Count; index++)
+        {
+            if (string.Equals(TradeRoster[index].Key, key, StringComparison.Ordinal))
+            {
+                order = index;
+                break;
+            }
+        }
+
+        return new CommodityContentDefinition
         {
             Key = $"commodity.{key}",
             Name = name,
@@ -2089,7 +2313,170 @@ public static class LegacyWorldConverter
             // Gold and gems are the manual's only two, and it prices both.
             // Everything else reaches the warehouse.
             CashPerUnit = CashPerUnit.TryGetValue(key, out var rate) ? rate : null,
+
+            // Absent for the eight the market never sees, which is what makes them
+            // untradable rather than free.
+            WorldPrice = order < 0 ? null : TradeRoster[order].Price,
+            TradeOrder = order < 0 ? null : order,
         };
+    }
+
+    /// <summary>
+    /// How this world's prices answer to supply and demand.
+    /// </summary>
+    /// <remarks>
+    /// <b>The direction is the manual's and every number is a guess.</b> It states the
+    /// direction outright and no magnitude anywhere, and the clearing price is the oldest
+    /// unknown on <c>docs/formulas/_index.md</c>. The defaults live in
+    /// <see cref="ProportionalTradeMarket"/> so content and code cite one place.
+    /// </remarks>
+    private static TradeContentSettings CreateStandardTradeMarket() => new()
+    {
+        StepPercent = ProportionalTradeMarket.DefaultStepPercent,
+        TolerancePercent = ProportionalTradeMarket.DefaultTolerancePercent,
+        FloorPercent = ProportionalTradeMarket.DefaultFloorPercent,
+        CeilingPercent = ProportionalTradeMarket.DefaultCeilingPercent,
+    };
+
+    /// <summary>
+    /// The thirteen classes of ship: five merchants and eight warships.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the game's array order.</b> The executable holds fourteen 36-byte rows at
+    /// <c>0x00698108</c> — an unused row 0 and the thirteen classes — and a legacy
+    /// <c>ship</c> record's 1-based type indexes straight into it, which is exactly the
+    /// order below. That was the blocking unknown in
+    /// <c>docs/disasm/wanted-values.md</c> and it is settled; the list used to be an
+    /// arbitrary listing and is now load-bearing, so **do not reorder it.**
+    /// <para>
+    /// <b>The Freighter carries 16, and that was the last unknown cargo figure.</b> Leaving
+    /// it at zero made it a hull nobody would build; at 16 it is worth four Traders, which
+    /// is what an industrial-age merchant marine is built out of. Sea zones are new here
+    /// and are one for every merchant, so the manual's Speed column never distinguished
+    /// them either.
+    /// </para>
+    /// <para>
+    /// <b>The build bills are the executable's six commodity arrays</b> at
+    /// <c>0x00695B50</c> and the five words after it, read by the availability,
+    /// maximum-quantity, deduction, order-cost and cost-list paths alike. The refusal to
+    /// ship the owner's cost table was right and is now moot: the recovered Frigate row is
+    /// 2 fabric, 5 lumber, **2 arms** — settling the 2-versus-3 discrepancy that mattered
+    /// because arms later set the force landable at a beachhead — and the merchant recipes
+    /// the old document omitted are here too.
+    /// </para>
+    /// <para>
+    /// <b>The manual's "Speed" column is sea zones, and reading it as a sailing rate was
+    /// wrong.</b> Field 7 of the naval table carries exactly those eight numbers, and
+    /// field 4 carries the battle movement the manual prints separately. So the misaligned
+    /// column that discredited the owner's table was real, and the correction is not that
+    /// a sailing speed is missing — there is no sailing speed. The claim that armour and
+    /// speed decide whether a merchant runs a blockade was inferred from the label and is
+    /// retracted; what a merchant does have is armour and a hull scale, which is the part
+    /// blockade will want.
+    /// </para>
+    /// </remarks>
+    private static readonly IReadOnlyList<LegacyShipType> ShipTypes =
+    [
+        // 1-5. Trader, Indiaman, Frigate, Ship-of-the-Line, Paddlewheeler: the four hulls
+        // an 1815 power starts able to build, plus the first steamer.
+        new("trader", "Trader", Cargo: 2, SeaZones: 1,
+            Combat: new(0, 0, 0, 600, 0), Lumber: 4, Fabric: 2),
+        new("indiaman", "Indiaman", Cargo: 4, SeaZones: 1,
+            Combat: new(0, 0, 5, 1000, 0), Lumber: 7, Fabric: 3),
+        new("frigate", "Frigate", SeaZones: 3,
+            Combat: new(3, 5, 10, 900, 4, Hull: 35), Lumber: 5, Fabric: 2, Arms: 2),
+        new("ship-of-the-line", "Ship-of-the-Line", SeaZones: 2,
+            Combat: new(6, 6, 20, 1700, 3, Hull: 65), Lumber: 8, Fabric: 3, Arms: 5),
+        new("paddlewheeler", "Paddlewheeler", Cargo: 8, SeaZones: 1, RequiredTechnology: Paddlewheels,
+            Combat: new(0, 0, 5, 900, 0), Lumber: 6, Steel: 2, Coal: 10),
+
+        // 6-13. The Clipper, then the seven hulls the industrial technologies open.
+        new("clipper", "Clipper", Cargo: 4, SeaZones: 1, RequiredTechnology: StreamlinedHulls,
+            Combat: new(0, 0, 0, 600, 0), Lumber: 6, Fabric: 2),
+        new("raider", "Raider", SeaZones: 5, RequiredTechnology: Paddlewheels,
+            Combat: new(3, 7, 20, 700, 7, Hull: 30), Lumber: 6, Arms: 3, Coal: 10),
+        new("ironclad", "Ironclad", SeaZones: 3,
+            Combat: new(5, 8, 55, 1200, 5, Hull: 50), Lumber: 4, Arms: 6, Steel: 4, Coal: 10),
+        new("advanced-ironclad", "Advanced Ironclad", SeaZones: 4,
+            Combat: new(10, 10, 60, 1800, 6, Hull: 70), Lumber: 8, Arms: 15, Steel: 10, Coal: 20),
+        new("freighter", "Freighter", Cargo: 16, SeaZones: 1,
+            Combat: new(0, 0, 25, 1200, 0), Steel: 8, Coal: 20),
+        new("armoured-cruiser", "Armoured Cruiser", SeaZones: 6,
+            Combat: new(6, 9, 50, 1000, 8, Hull: 40), Lumber: 2, Arms: 8, Steel: 6, Coal: 20),
+        new("dreadnought", "Dreadnought", SeaZones: 5,
+            Combat: new(20, 13, 70, 2800, 7, Hull: 115), Arms: 24, Steel: 30, Fuel: 20),
+        new("battle-cruiser", "Battle Cruiser", SeaZones: 6,
+            Combat: new(18, 13, 55, 2200, 9, Hull: 90), Arms: 18, Steel: 22, Fuel: 20),
+    ];
+
+    /// <summary>
+    /// The two technologies that gate a hull, named here rather than beside the rest of
+    /// the technology table because gating a hull is the only thing either of them does in
+    /// this engine. <see cref="TechnologyTable"/> refers to them too.
+    /// </summary>
+    private const string StreamlinedHulls = "Streamlined Hulls";
+    private const string Paddlewheels = "Paddlewheels";
+
+    /// <summary>
+    /// The fleet every power starts with, and therefore its opening merchant marine.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not a guess.</b> All three skirmish scenarios — `s10`, `s11` and `s15` — give
+    /// every one of their seven powers three ships of type 1, independently of each other.
+    /// That is the same agreement that settled the fair start's mills and workforce, and
+    /// <c>ship</c> is not one of the seven records a skirmish omits.
+    /// <para>
+    /// <b>The inference is which class type 1 is.</b> Both candidate orderings of the game's
+    /// ship array put the Trader first, so three Traders — six cargo holds — is the
+    /// reading. If the binary says the array begins elsewhere, this moves with it.
+    /// </para>
+    /// </remarks>
+    private static readonly (string Type, long Count) StartingFleet = ("trader", 3);
+
+    private static ShipTypeContentDefinition[] CreateStandardShipTypes() =>
+        ShipTypes.Select(static type => new ShipTypeContentDefinition
+        {
+            Key = ShipTypeKey(type.Key),
+            Name = type.Name,
+            Cargo = type.Cargo,
+            SeaZones = type.SeaZones,
+            BuildCost = ShipBuildCost(type),
+            RequiredTechnology = type.RequiredTechnology is null
+                ? null
+                : TechnologyKey(type.RequiredTechnology),
+            Combat = type.Combat is not { } combat
+                ? null
+                : new ShipCombatContent
+                {
+                    Firepower = combat.Firepower,
+                    Range = combat.Range,
+                    Armour = combat.Armour,
+                    HullScale = combat.HullScale,
+                    BattleSpeed = combat.BattleSpeed,
+                    Hull = combat.Hull,
+                },
+        }).ToArray();
+
+    /// <summary>
+    /// One hull's bill, in the order the executable's six arrays sit in memory. A
+    /// commodity the hull does not want is left off rather than written as zero, which is
+    /// what <see cref="ShipTypeDefinition"/> requires of a bill.
+    /// </summary>
+    private static CommodityQuantityContent[] ShipBuildCost(LegacyShipType type) =>
+        new (string Commodity, long Quantity)[]
+        {
+            ("lumber", type.Lumber),
+            ("fabric", type.Fabric),
+            ("armaments", type.Arms),
+            ("steel", type.Steel),
+            ("coal", type.Coal),
+            ("fuel", type.Fuel),
+        }
+        .Where(static item => item.Quantity > 0)
+        .Select(static item => Quantity(item.Commodity, item.Quantity))
+        .ToArray();
+
+    private static string ShipTypeKey(string key) => $"ship.{key}";
 
     private static ProductionFacilityContentDefinition[] CreateStandardProductionFacilities() =>
     [
@@ -2129,10 +2516,19 @@ public static class LegacyWorldConverter
     /// provinces you own, rounded down".
     /// </summary>
     /// <remarks>
-    /// **One of each per worker is a guess.** The manual names the three
-    /// commodities and never says how much of any of them, so this is a real
-    /// economic constant nobody has measured. See
-    /// <c>docs/formulas/migration.md</c>; do not cite it as evidence.
+    /// **One of each per worker was a guess and is now the original's own text.** The
+    /// manual names the three commodities and no quantity; the executable's help
+    /// resources state the conversion outright — one food, one furniture and one clothing
+    /// make one untrained worker. The guess was right, which is worth recording precisely
+    /// because it so easily might not have been. See <c>docs/formulas/migration.md</c>.
+    /// <para>
+    /// The same resource block prices the two conversions above this one — an untrained
+    /// worker plus one paper and $100 becomes trained, a trained worker plus two paper and
+    /// $1,000 becomes expert — and **neither is modelled**. The Capitol recruits untrained
+    /// workers and nothing promotes them, so the numbers sit in
+    /// <c>docs/disasm/definitive-original-data.md</c> waiting for the Trade School and the
+    /// University.
+    /// </para>
     /// </remarks>
     private static MigrationContent CreateStandardMigration() => new()
     {
@@ -2287,6 +2683,12 @@ public static class LegacyWorldConverter
         Quantity("steel", 20),
     ];
 
+    /// <summary>
+    /// Two units of labour per production cycle, whatever the cycle makes. Stated
+    /// outright by all nine of the original's own recipe help strings.
+    /// </summary>
+    private const long LabourPerCycle = 2;
+
     private static ProductionRecipeContentDefinition[] CreateStandardProductionRecipes() =>
     [
         Recipe("fabric-from-cotton", "Fabric from Cotton", "textile-mill", [("cotton", 2)], [("fabric", 1)]),
@@ -2316,12 +2718,23 @@ public static class LegacyWorldConverter
         };
 
     /// <summary>
-    /// Labour is not passed in because no original recipe needs it to be: the
-    /// manual prices clothing at two fabric and two labour, and every recipe the
-    /// original ships spends exactly two input units per unit of output, so the
-    /// input total reproduces that rate throughout. See
-    /// <c>docs/formulas/production.md</c>.
+    /// One recipe. <b>Labour is two, flat, for every one of them.</b>
     /// </summary>
+    /// <remarks>
+    /// The manual priced labour exactly once — two fabric and two labour for a unit of
+    /// clothing — which admitted three readings: two per cycle, one per input unit, or
+    /// two per unit of output. <c>production.md</c> recorded them as undetermined and
+    /// implemented the input-total reading. <b>The original's own help resources settle
+    /// it: all nine of its recipes cost "2 labor", including the food-processing cycle
+    /// that takes four inputs and makes two.</b> So the rate is per cycle and neither of
+    /// the other two readings survives.
+    /// <para>
+    /// This is the recipe that was said not to exist. <c>production.md</c> predicted the
+    /// railyard would be the first non-2:1 case and retracted that when it was not, and
+    /// concluded no candidate was in view — canned food was in the list the whole time and
+    /// was miscounted as agreeing. Its labour cost moves from four to two here.
+    /// </para>
+    /// </remarks>
     private static ProductionRecipeContentDefinition Recipe(
         string key,
         string name,
@@ -2336,7 +2749,7 @@ public static class LegacyWorldConverter
             Name = name,
             Facility = $"facility.{facility}",
             CapacityCost = 1,
-            LabourCost = inputArray.Sum(static item => item.Quantity),
+            LabourCost = LabourPerCycle,
             Inputs = inputArray.Select(static item => Quantity(item.Commodity, item.Quantity)).ToArray(),
             Outputs = outputs.Select(static item => Quantity(item.Commodity, item.Quantity)).ToArray(),
         };
