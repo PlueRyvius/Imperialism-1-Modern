@@ -165,6 +165,27 @@ public readonly record struct ShipTypeId
 }
 
 /// <summary>
+/// Identifies one positioned scenario fleet. IDs are issued in scenario-record
+/// order and are never reused during a world state.
+/// </summary>
+public readonly record struct FleetId
+{
+    public FleetId(long value)
+    {
+        if (value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), "Fleet IDs must be positive.");
+        }
+
+        Value = value;
+    }
+
+    public long Value { get; }
+
+    public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
+}
+
+/// <summary>
 /// Identifies one civilian on the map. Unlike every other id here this is not
 /// dense: civilians are created and destroyed during play, so an id is issued
 /// once and never reused.

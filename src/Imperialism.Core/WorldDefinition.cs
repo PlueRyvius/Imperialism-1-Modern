@@ -685,6 +685,7 @@ public sealed class WorldState
     private readonly long[] _cash;
     private readonly long[] _worldPrice;
     private readonly long[] _ships;
+    private readonly IReadOnlyList<FleetState> _fleets;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private readonly Dictionary<CivilianUnitId, CivilianUnit> _civilians = [];
     private long _nextDeliveryId = 1;
@@ -829,12 +830,25 @@ public sealed class WorldState
         // knowledge follow; the difference is only that it takes a whole fleet at a time,
         // since adding a default Trader to an authored navy would invent a ship.
         var equipped = new bool[definition.Countries.Count];
+        var fleets = new List<FleetState>();
+        var nextFleetId = 1L;
         foreach (var ship in definition.Scenario.InitialShips)
         {
             equipped[ship.Country.Value] = true;
             var offset = (ship.Country.Value * definition.ShipTypes.Count) + ship.Type.Value;
             _ships[offset] = checked(_ships[offset] + ship.Count);
+            SeaZoneId? seaZone = (uint)ship.SeaZone < (uint)definition.Map.SeaZones.Count
+                ? new SeaZoneId(ship.SeaZone)
+                : null;
+            fleets.Add(new FleetState(
+                new FleetId(nextFleetId++),
+                ship.Country,
+                ship.Type,
+                ship.Count,
+                seaZone));
         }
+
+        _fleets = Array.AsReadOnly(fleets.ToArray());
 
         if (definition.StartingDefaults?.Ships is { Count: > 0 } fleet)
         {
@@ -1123,6 +1137,20 @@ public sealed class WorldState
         ValidateShipType(type);
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         _ships[(country.Value * Definition.ShipTypes.Count) + type.Value] = count;
+    }
+
+    /// <summary>
+    /// Scenario-authored fleets in deterministic record order. Default merchant
+    /// ships remain abstract cargo capacity until their placement rule is known.
+    /// </summary>
+    public IReadOnlyList<FleetState> Fleets => _fleets;
+
+    public FleetState GetFleet(FleetId fleet)
+    {
+        var index = fleet.Value - 1;
+        return (ulong)index < (ulong)_fleets.Count
+            ? _fleets[(int)index]
+            : throw new ArgumentOutOfRangeException(nameof(fleet));
     }
 
     /// <summary>

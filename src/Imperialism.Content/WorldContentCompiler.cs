@@ -671,8 +671,9 @@ public static class WorldContentCompiler
                 throw Error($"{entryPath}.seaZone", "A sea zone cannot be negative.");
             }
 
-            // The zone is carried and never resolved: a ship's zone is not the map's
-            // ocean zone byte. See docs/scenario-semantics.md.
+            // The world state resolves this legacy index when its map has the
+            // corresponding base sea-zone entry. Keeping unmapped values accepts
+            // partial/diagnostic legacy content without inventing a location.
             ships.Add(new InitialShip(
                 new CountryId(FindKey(countryIds, entry.Country, $"{entryPath}.country")),
                 new ShipTypeId(FindKey(shipTypeIds, entry.Type, $"{entryPath}.type")),
