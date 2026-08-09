@@ -6,7 +6,8 @@
       "The original binary, resource archive, disassembly listing, and audit database are not committed.",
       "Records whose status is candidate retain unresolved semantic labels and must not be treated as confirmed meanings."
     ]
-  },  "schema": "imperialism.basegame.semantic.v1",
+  },
+  "schema": "imperialism.basegame.semantic.v1",
   "source": {
     "executable": "Imperialism.exe",
     "size": 3133440,
@@ -2486,7 +2487,7 @@
   },
   "production": {
     "status": "resource_backed",
-    "source_archive": "Data/STR#ENU.GOB",
+    "source_archive": "STR#ENU.GOB",
     "resource_blocks": [
       469,
       475,
@@ -2639,9 +2640,103 @@
     ],
     "evidence": "The original help strings state the recipe inputs/outputs, power conversion, fuel limit, and worker conversion costs. These are not inferred from the modern project's current catalog."
   },
+  "map_geometry": {
+    "status": "verified",
+    "cell_dimensions": {
+      "width": 108,
+      "height": 60,
+      "cell_count": 6480
+    },
+    "coordinate_representation": {
+      "horizontal_subcoordinate_count": 216,
+      "horizontal_subcoordinate_decode": "cell_x = floor(horizontal_subcoordinate / 2)",
+      "cell_index_formula": "floor(horizontal_subcoordinate / 2) + 108 * y",
+      "vertical_range": [
+        0,
+        59
+      ]
+    },
+    "direction_offsets": [
+      {
+        "direction_index": 0,
+        "horizontal_subcoordinate_delta": 1,
+        "vertical_delta": -1
+      },
+      {
+        "direction_index": 1,
+        "horizontal_subcoordinate_delta": 2,
+        "vertical_delta": 0
+      },
+      {
+        "direction_index": 2,
+        "horizontal_subcoordinate_delta": 1,
+        "vertical_delta": 1
+      },
+      {
+        "direction_index": 3,
+        "horizontal_subcoordinate_delta": -1,
+        "vertical_delta": 1
+      },
+      {
+        "direction_index": 4,
+        "horizontal_subcoordinate_delta": -2,
+        "vertical_delta": 0
+      },
+      {
+        "direction_index": 5,
+        "horizontal_subcoordinate_delta": -1,
+        "vertical_delta": -1
+      }
+    ],
+    "tables": [
+      {
+        "address": "0x00696E70",
+        "field": "horizontal_subcoordinate_delta",
+        "raw_signed_int16": [
+          1,
+          2,
+          1,
+          -1,
+          -2,
+          -1
+        ]
+      },
+      {
+        "address": "0x00696E80",
+        "field": "vertical_delta",
+        "raw_signed_int16": [
+          -1,
+          0,
+          1,
+          1,
+          0,
+          -1
+        ]
+      }
+    ],
+    "readers": [
+      {
+        "address": "0x00512850",
+        "role": "converts doubled horizontal coordinate and row to row-major cell index"
+      },
+      {
+        "address": "0x005128B0",
+        "role": "normalizes a direction index and reads horizontal neighbor offset"
+      },
+      {
+        "address": "0x005128F0",
+        "role": "normalizes a direction index and reads vertical neighbor offset"
+      },
+      {
+        "address": "0x00512D13",
+        "role": "applies horizontal seam normalization and clamps vertical coordinate"
+      }
+    ],
+    "evidence": "UMap.cpp routines use 0x6C (108) in the row-major index calculation and 0x3B as the inclusive maximum vertical cell coordinate. The two six-entry signed tables are consumed by the neighbor-coordinate routines; the executable therefore establishes the legacy 108x60 grid and its six-direction geometry directly."
+  },
   "technology": {
     "status": "resource_backed",
-    "source_archive": "Data/STR#ENU.GOB",
+    "source_archive": "C:\\Users\\Ryvius\\Desktop\\Imperialism\\Data\\STR#ENU.GOB",
     "source_archive_sha256": "d754e503d144086051b70be53a085ae428e151908992530b8463c2e040c2d97f",
     "name_resource_blocks": [
       1073,
@@ -2666,7 +2761,22 @@
         "resource_text": "High Pressure Steam Engine",
         "description_source_block": 144,
         "description_source_string_index": 13,
-        "description_text": "Building on the work of engineer-inventors Thomas Newcomen and John Smeaton, who designed small steam engines for pumping water out of mines, James Watt (1736-1819) developed the first efficient steam engines.  \n\nWatt's engines were used in factories and mills but due to the supposed danger that the boilers would burst if pressure went too high, they were designed as low pressure engines. Richard Trevethick in Britain and Oliver Evans in the United States challenged this assumption to build the first high pressure engines. Trevethick designed a mobile steam road carriage in 1801.\n\nTrevethick's engine designs probably influenced George Stephenson's work in the coal fields. In 1812 Stephenson altered an engine that was used for pumping water from the mine to have it move coal. \n\nThis development led to railroads, and this technology allows Engineers to build railroads through farms, plains, deserts, and forests.\n"
+        "description_text": "Building on the work of engineer-inventors Thomas Newcomen and John Smeaton, who designed small steam engines for pumping water out of mines, James Watt (1736-1819) developed the first efficient steam engines.  \n\nWatt's engines were used in factories and mills but due to the supposed danger that the boilers would burst if pressure went too high, they were designed as low pressure engines. Richard Trevethick in Britain and Oliver Evans in the United States challenged this assumption to build the first high pressure engines. Trevethick designed a mobile steam road carriage in 1801.\n\nTrevethick's engine designs probably influenced George Stephenson's work in the coal fields. In 1812 Stephenson altered an engine that was used for pumping water from the mine to have it move coal. \n\nThis development led to railroads, and this technology allows Engineers to build railroads through farms, plains, deserts, and forests.\n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Engineers may build railroads through farms, plains, deserts, and forests.",
+        "effects": [
+          {
+            "type": "terrain_access",
+            "actor": "Engineers",
+            "action": "build_railroad",
+            "terrain": [
+              "farms",
+              "plains",
+              "deserts",
+              "forests"
+            ]
+          }
+        ]
       },
       {
         "id": 2,
@@ -2676,7 +2786,25 @@
         "resource_text": "Seed Drill",
         "description_source_block": 144,
         "description_source_string_index": 14,
-        "description_text": "The seed drill, a farm machine used for sowing crops more efficiently, began to appear during the eighteenth century. Although not the first such device, the seed drill invented by Jethro Tull (1674-1741) in 1701 and made public in 1731 was more practical and efficient than other such machines. \n\nSeed drilling equipment required an investment most farmers were unwilling or unable to make in the eighteenth century. In England drilling was adopted slowly with drills being shared from farm to farm and rarely being used on smaller holdings. The seed drill developed by James Cooke in 1782 and improved over the years led directly to modern seed drill machines.\n\nThe seed drill allows Farmers to improve Grain and Produce farms to Level I. Farms produce two units per turn when improved.\n"
+        "description_text": "The seed drill, a farm machine used for sowing crops more efficiently, began to appear during the eighteenth century. Although not the first such device, the seed drill invented by Jethro Tull (1674-1741) in 1701 and made public in 1731 was more practical and efficient than other such machines. \n\nSeed drilling equipment required an investment most farmers were unwilling or unable to make in the eighteenth century. In England drilling was adopted slowly with drills being shared from farm to farm and rarely being used on smaller holdings. The seed drill developed by James Cooke in 1782 and improved over the years led directly to modern seed drill machines.\n\nThe seed drill allows Farmers to improve Grain and Produce farms to Level I. Farms produce two units per turn when improved.\n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Farmers improve Grain and Produce to Level I, producing 2 per turn.",
+        "effects": [
+          {
+            "type": "production_level",
+            "actor": "Farmers",
+            "commodity": "Grain",
+            "level": "I",
+            "output_per_turn": 2
+          },
+          {
+            "type": "production_level",
+            "actor": "Farmers",
+            "commodity": "Produce",
+            "level": "I",
+            "output_per_turn": 2
+          }
+        ]
       },
       {
         "id": 3,
@@ -2686,7 +2814,18 @@
         "resource_text": "Cotton Gin",
         "description_source_block": 144,
         "description_source_string_index": 15,
-        "description_text": "In 1793, when Eli Whitney visited a plantation, cotton was  cultivated and harvested primarily by slaves, especially in the United States. Plantation owners recognized that the labor-intensive and time-consuming process of removing seeds by hand kept too many slaves out of the fields, but textile mills would not accept cotton that was full of seeds.\n\nWhitney invented a simple device that revolutionized cotton growing. His cotton gin spun the cotton through a roller covered with teeth and the seeds fell away.  The machine was later improved by Hogden Holmes. Large gins could be powered by steam engines or water wheels.\n\nThis advance allows Farmers to improve Cotton plantations to Level I. Plantations will produce two units of cotton per turn."
+        "description_text": "In 1793, when Eli Whitney visited a plantation, cotton was  cultivated and harvested primarily by slaves, especially in the United States. Plantation owners recognized that the labor-intensive and time-consuming process of removing seeds by hand kept too many slaves out of the fields, but textile mills would not accept cotton that was full of seeds.\n\nWhitney invented a simple device that revolutionized cotton growing. His cotton gin spun the cotton through a roller covered with teeth and the seeds fell away.  The machine was later improved by Hogden Holmes. Large gins could be powered by steam engines or water wheels.\n\nThis advance allows Farmers to improve Cotton plantations to Level I. Plantations will produce two units of cotton per turn.",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Cotton plantations improve to Level I, producing 2 Cotton per turn.",
+        "effects": [
+          {
+            "type": "production_level",
+            "actor": "Cotton plantations",
+            "commodity": "Cotton",
+            "level": "I",
+            "output_per_turn": 2
+          }
+        ]
       },
       {
         "id": 4,
@@ -2696,7 +2835,15 @@
         "resource_text": "Streamlined Hulls",
         "description_source_block": 145,
         "description_source_string_index": 0,
-        "description_text": "Scientific studies of hull design coupled with a need for speedy transport of mail, passengers, and rare products from the Far East led to the clipper ship.  Some clippers were constructed with four, rather than three, masts to increase sail area.  Iron or even steel frames could be planked with wood to make the hull more sturdy. Clippers continued to be useful throughout the century, even in the days of steam.   The Cutty Sark,  built in 1875, was designed for strong winds and once clocked 17 1/2 knots.  \n\nClipper ships may be constructed in the shipyard. In time of war, clippers are more likely to run a blockade  or escape from hostile fleets than are other merchant ships.\n"
+        "description_text": "Scientific studies of hull design coupled with a need for speedy transport of mail, passengers, and rare products from the Far East led to the clipper ship.  Some clippers were constructed with four, rather than three, masts to increase sail area.  Iron or even steel frames could be planked with wood to make the hull more sturdy. Clippers continued to be useful throughout the century, even in the days of steam.   The Cutty Sark,  built in 1875, was designed for strong winds and once clocked 17 1/2 knots.  \n\nClipper ships may be constructed in the shipyard. In time of war, clippers are more likely to run a blockade  or escape from hostile fleets than are other merchant ships.\n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Permits construction of Clippers.",
+        "effects": [
+          {
+            "type": "unit_unlock",
+            "unit": "Clipper"
+          }
+        ]
       },
       {
         "id": 5,
@@ -2706,7 +2853,31 @@
         "resource_text": "Square-Set Timbering",
         "description_source_block": 145,
         "description_source_string_index": 1,
-        "description_text": "Square set timbering is a system for supporting the rock above an area in a mine that has been emptied of valuable ore.  These square sets--hollow cubes of timber--could be assembled on the surface and then fitted into place in the mine. \n\nThis development increases safety in the mine and allows greater quantities of the valuable minerals to be removed.\n\nMiners may improve all mines to Level II. Coal and Iron mines produce four units per turn. Gold and Gem mines produce two units per turn.\n"
+        "description_text": "Square set timbering is a system for supporting the rock above an area in a mine that has been emptied of valuable ore.  These square sets--hollow cubes of timber--could be assembled on the surface and then fitted into place in the mine. \n\nThis development increases safety in the mine and allows greater quantities of the valuable minerals to be removed.\n\nMiners may improve all mines to Level II. Coal and Iron mines produce four units per turn. Gold and Gem mines produce two units per turn.\n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "All mines improve to Level II; Coal/Iron produce 4 and Gold/Gems produce 2 per turn.",
+        "effects": [
+          {
+            "type": "production_level",
+            "actor": "Miners",
+            "commodity_group": [
+              "Coal",
+              "Iron"
+            ],
+            "level": "II",
+            "output_per_turn": 4
+          },
+          {
+            "type": "production_level",
+            "actor": "Miners",
+            "commodity_group": [
+              "Gold",
+              "Gems"
+            ],
+            "level": "II",
+            "output_per_turn": 2
+          }
+        ]
       },
       {
         "id": 6,
@@ -2716,7 +2887,26 @@
         "resource_text": "Iron Railroad Bridge",
         "description_source_block": 145,
         "description_source_string_index": 2,
-        "description_text": "Early in the history of railroads the inadequacy of wooden bridging became apparent; heavier trains required bridges of greater stability.  Fortunately, improved techniques of metallurgy permitted the use of iron for bridges. George Stephenson designed and built the first such bridge for the Stockton-Darlington Railroad in 1822. This railroad later became the first to carry passengers.\n\nWith this breakthrough, engineers may build railroads through swamps.  Foresters, produced in the university,  use this technology to provide easier access to more Timber in forests. Timber terrain improves to Level I, producing 2 units of timber per turn.\n"
+        "description_text": "Early in the history of railroads the inadequacy of wooden bridging became apparent; heavier trains required bridges of greater stability.  Fortunately, improved techniques of metallurgy permitted the use of iron for bridges. George Stephenson designed and built the first such bridge for the Stockton-Darlington Railroad in 1822. This railroad later became the first to carry passengers.\n\nWith this breakthrough, engineers may build railroads through swamps.  Foresters, produced in the university,  use this technology to provide easier access to more Timber in forests. Timber terrain improves to Level I, producing 2 units of timber per turn.\n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Engineers may rail swamps; Foresters improve Timber to Level I, producing 2 per turn.",
+        "effects": [
+          {
+            "type": "terrain_access",
+            "actor": "Engineers",
+            "action": "build_railroad",
+            "terrain": [
+              "swamps"
+            ]
+          },
+          {
+            "type": "production_level",
+            "actor": "Foresters",
+            "commodity": "Timber",
+            "level": "I",
+            "output_per_turn": 2
+          }
+        ]
       },
       {
         "id": 7,
@@ -2726,7 +2916,25 @@
         "resource_text": "Feed Grasses",
         "description_source_block": 145,
         "description_source_string_index": 3,
-        "description_text": "The development of superior feeds for livestock and the increased efficiency of crop rotation methods were important throughout the eighteenth and early nineteenth centuries.  The traditional crop rotation--winter grain, spring grain, fallow--provided insufficient fodder for livestock, and, in consequence, manure yields were low and livestock unhealthy. Gradually, farmers began to add fodder crops such as clover to the cycle, providing increased feed for their stock during winter. \n\nIn some countries the enclosure of former common land encouraged this trend by giving individuals control over the land and the herd.  This development allows for the education of Ranchers in the university, who may then improve Wool farms and Livestock ranches to Level I, producing two units per turn.\n"
+        "description_text": "The development of superior feeds for livestock and the increased efficiency of crop rotation methods were important throughout the eighteenth and early nineteenth centuries.  The traditional crop rotation--winter grain, spring grain, fallow--provided insufficient fodder for livestock, and, in consequence, manure yields were low and livestock unhealthy. Gradually, farmers began to add fodder crops such as clover to the cycle, providing increased feed for their stock during winter. \n\nIn some countries the enclosure of former common land encouraged this trend by giving individuals control over the land and the herd.  This development allows for the education of Ranchers in the university, who may then improve Wool farms and Livestock ranches to Level I, producing two units per turn.\n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Ranchers improve Wool and Livestock to Level I, producing 2 per turn.",
+        "effects": [
+          {
+            "type": "production_level",
+            "actor": "Ranchers",
+            "commodity": "Wool",
+            "level": "I",
+            "output_per_turn": 2
+          },
+          {
+            "type": "production_level",
+            "actor": "Ranchers",
+            "commodity": "Livestock",
+            "level": "I",
+            "output_per_turn": 2
+          }
+        ]
       },
       {
         "id": 8,
@@ -2736,7 +2944,23 @@
         "resource_text": "Spinning Jenny",
         "description_source_block": 145,
         "description_source_string_index": 4,
-        "description_text": "The spinning jenny, invented in 1764 by James Hargreaves, was first used for large scale industry by Richard Arkwright.  The machine took over the work of many hand spinners thereby multiplying the yarn that could be spun by one laborer.  Once an industrialist provided the initial investment to buy the spinning jennies, to establish the mill, and to hire enough workers, huge profits were made.\n\nMore than any other device, the spinning jenny came to represent the social costs of the Industrial Revolution. The workforce at Arkwright's mill, which was probably typical, was mainly children from 7 to 13 years old who worked a thirteen-hour day crouched low beneath the machines.\n\nWith this advance, farmers improve cotton plantations to Level II. Ranchers improve Wool farms to Level II. Both will produce three units per turn when improved."
+        "description_text": "The spinning jenny, invented in 1764 by James Hargreaves, was first used for large scale industry by Richard Arkwright.  The machine took over the work of many hand spinners thereby multiplying the yarn that could be spun by one laborer.  Once an industrialist provided the initial investment to buy the spinning jennies, to establish the mill, and to hire enough workers, huge profits were made.\n\nMore than any other device, the spinning jenny came to represent the social costs of the Industrial Revolution. The workforce at Arkwright's mill, which was probably typical, was mainly children from 7 to 13 years old who worked a thirteen-hour day crouched low beneath the machines.\n\nWith this advance, farmers improve cotton plantations to Level II. Ranchers improve Wool farms to Level II. Both will produce three units per turn when improved.",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Cotton and Wool improve to Level II, producing 3 per turn.",
+        "effects": [
+          {
+            "type": "production_level",
+            "commodity": "Cotton",
+            "level": "II",
+            "output_per_turn": 3
+          },
+          {
+            "type": "production_level",
+            "commodity": "Wool",
+            "level": "II",
+            "output_per_turn": 3
+          }
+        ]
       },
       {
         "id": 9,
@@ -2746,7 +2970,19 @@
         "resource_text": "Paddlewheels",
         "description_source_block": 145,
         "description_source_string_index": 5,
-        "description_text": "Prior to the invention and general acceptance of the screw propeller, ships equipped with steam engines were propelled with paddle wheels. This technology has costs, especially for military vessels, because the huge wheels take space which cannot be used for mounting cannon. \n\nThe lack of space for cannons on the raider is partly redressed by the power of new breech-loading rifled guns rather than the older smoothbore cannon.  However, raiders' firepower and small size will not allow them to stand up to a ship of the line.  \n\nPaddle wheels appeared on many types of merchant ships. The largest was the Great Eastern  which first crossed the Atlantic in 1860. Later this ship laid an Atlantic telegraph cable. No larger ships were built until 1899.\n\nPaddle wheels permit the construction of a large merchant ship and a raider--a fast escort vessel."
+        "description_text": "Prior to the invention and general acceptance of the screw propeller, ships equipped with steam engines were propelled with paddle wheels. This technology has costs, especially for military vessels, because the huge wheels take space which cannot be used for mounting cannon. \n\nThe lack of space for cannons on the raider is partly redressed by the power of new breech-loading rifled guns rather than the older smoothbore cannon.  However, raiders' firepower and small size will not allow them to stand up to a ship of the line.  \n\nPaddle wheels appeared on many types of merchant ships. The largest was the Great Eastern  which first crossed the Atlantic in 1860. Later this ship laid an Atlantic telegraph cable. No larger ships were built until 1899.\n\nPaddle wheels permit the construction of a large merchant ship and a raider--a fast escort vessel.",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Permits construction of Large Merchant Ships and Raiders.",
+        "effects": [
+          {
+            "type": "unit_unlock",
+            "unit": "Large Merchant Ship"
+          },
+          {
+            "type": "unit_unlock",
+            "unit": "Raider"
+          }
+        ]
       },
       {
         "id": 10,
@@ -2756,7 +2992,23 @@
         "resource_text": "Steel Plows",
         "description_source_block": 145,
         "description_source_string_index": 6,
-        "description_text": "At the close of the eighteenth and beginning of the nineteenth centuries, plow designs rapidly improved as more iron, and later steel, were used. The first development came with the hardening of cast iron plowshares. Robert Ransome invented a process whereby one surface was cooled more quickly resulting in a plowshare that was self-sharpening through use. \n\nNext the moldboard of the plow and later the entire implement were made of replaceable iron parts. At the close of this period, in 1846, John Deere built a plow with a steel moldboard.\n\nThese developments permit Farmers to improve Grain and Produce farms to Level II. Farms will produce three units per turn."
+        "description_text": "At the close of the eighteenth and beginning of the nineteenth centuries, plow designs rapidly improved as more iron, and later steel, were used. The first development came with the hardening of cast iron plowshares. Robert Ransome invented a process whereby one surface was cooled more quickly resulting in a plowshare that was self-sharpening through use. \n\nNext the moldboard of the plow and later the entire implement were made of replaceable iron parts. At the close of this period, in 1846, John Deere built a plow with a steel moldboard.\n\nThese developments permit Farmers to improve Grain and Produce farms to Level II. Farms will produce three units per turn.",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Grain and Produce improve to Level II, producing 3 per turn.",
+        "effects": [
+          {
+            "type": "production_level",
+            "commodity": "Grain",
+            "level": "II",
+            "output_per_turn": 3
+          },
+          {
+            "type": "production_level",
+            "commodity": "Produce",
+            "level": "II",
+            "output_per_turn": 3
+          }
+        ]
       },
       {
         "id": 11,
@@ -2766,7 +3018,30 @@
         "resource_text": "Bessemer Converter",
         "description_source_block": 145,
         "description_source_string_index": 7,
-        "description_text": "In 1856 Henry Bessemer invented a process whereby air could be blown into the bottom of a vat of molten iron to remove the carbon, producing steel much more cheaply than previously possible. These Bessemer converters rapidly supplanted earlier forms of steel-making throughout the industrializing nations. For example, between 1865 and 1879 the yearly steel production of Britain and Germany multiplied by four. \n\nCheap high grade steel significantly affected military technology and growth. Mass produced rifles and artillery using this steel, coupled with ever higher rates of conscription, increased the size and the destructive ability of the great powers' armies .\n\nThese improvements to heavy industry allow the recruiting of Sharpshooters and Scouts, and permit the upgrading of Light Infantry and Hussars to these more modern units."
+        "description_text": "In 1856 Henry Bessemer invented a process whereby air could be blown into the bottom of a vat of molten iron to remove the carbon, producing steel much more cheaply than previously possible. These Bessemer converters rapidly supplanted earlier forms of steel-making throughout the industrializing nations. For example, between 1865 and 1879 the yearly steel production of Britain and Germany multiplied by four. \n\nCheap high grade steel significantly affected military technology and growth. Mass produced rifles and artillery using this steel, coupled with ever higher rates of conscription, increased the size and the destructive ability of the great powers' armies .\n\nThese improvements to heavy industry allow the recruiting of Sharpshooters and Scouts, and permit the upgrading of Light Infantry and Hussars to these more modern units.",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Permits Sharpshooters and Scouts, and upgrades Light Infantry and Hussars.",
+        "effects": [
+          {
+            "type": "unit_unlock",
+            "unit": "Sharpshooters"
+          },
+          {
+            "type": "unit_unlock",
+            "unit": "Scouts"
+          },
+          {
+            "type": "unit_upgrade",
+            "from": [
+              "Light Infantry",
+              "Hussars"
+            ],
+            "to": [
+              "Sharpshooters",
+              "Scouts"
+            ]
+          }
+        ]
       },
       {
         "id": 12,
@@ -2776,7 +3051,26 @@
         "resource_text": "Compound Steam Engine",
         "description_source_block": 145,
         "description_source_string_index": 8,
-        "description_text": "Richard Trevethick's work with high pressure steam opened the door to build a compound steam engine that allowed greater  expanding of the steam without increasing the temperature in the cylinder. When Arthur Woolf built such an engine with two cylinders in 1811, a 50% savings in fuel consumption occurred.  Trevethick also began building compound engines.\n\nWith this technology Engineers may build railroads through hills, and Foresters may reach more Timber,  improving Timber terrain to Level II and producing three units per turn.\n"
+        "description_text": "Richard Trevethick's work with high pressure steam opened the door to build a compound steam engine that allowed greater  expanding of the steam without increasing the temperature in the cylinder. When Arthur Woolf built such an engine with two cylinders in 1811, a 50% savings in fuel consumption occurred.  Trevethick also began building compound engines.\n\nWith this technology Engineers may build railroads through hills, and Foresters may reach more Timber,  improving Timber terrain to Level II and producing three units per turn.\n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Engineers may rail hills; Foresters improve Timber to Level II, producing 3 per turn.",
+        "effects": [
+          {
+            "type": "terrain_access",
+            "actor": "Engineers",
+            "action": "build_railroad",
+            "terrain": [
+              "hills"
+            ]
+          },
+          {
+            "type": "production_level",
+            "actor": "Foresters",
+            "commodity": "Timber",
+            "level": "II",
+            "output_per_turn": 3
+          }
+        ]
       },
       {
         "id": 13,
@@ -2786,7 +3080,27 @@
         "resource_text": "Rifled Artillery",
         "description_source_block": 145,
         "description_source_string_index": 9,
-        "description_text": "Traditionally, cannons were made of bronze, but as artillery grew larger this became prohibitively expensive.  Consequently, wrought and cast iron cannons became more common as the nineteenth century progressed. Often these guns were reinforced with bands of iron to prevent them from flying apart when fired, making it possible to use larger guns.\n\nDesire for greater range and accuracy led to rifling the barrels of the new guns. Firing such a gun could result in damage to the barrel until flexible copper bands molded to the rifling were used to prevent wear.\n\nThis new technology allows recruiting of Field Artillery and Siege Artillery regiments and upgrading older artillery to these more modern units.\n"
+        "description_text": "Traditionally, cannons were made of bronze, but as artillery grew larger this became prohibitively expensive.  Consequently, wrought and cast iron cannons became more common as the nineteenth century progressed. Often these guns were reinforced with bands of iron to prevent them from flying apart when fired, making it possible to use larger guns.\n\nDesire for greater range and accuracy led to rifling the barrels of the new guns. Firing such a gun could result in damage to the barrel until flexible copper bands molded to the rifling were used to prevent wear.\n\nThis new technology allows recruiting of Field Artillery and Siege Artillery regiments and upgrading older artillery to these more modern units.\n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Permits Field Artillery and Siege Artillery, and upgrades older artillery.",
+        "effects": [
+          {
+            "type": "unit_unlock",
+            "unit": "Field Artillery"
+          },
+          {
+            "type": "unit_unlock",
+            "unit": "Siege Artillery"
+          },
+          {
+            "type": "unit_upgrade",
+            "from": "older artillery",
+            "to": [
+              "Field Artillery",
+              "Siege Artillery"
+            ]
+          }
+        ]
       },
       {
         "id": 14,
@@ -2796,7 +3110,32 @@
         "resource_text": "Breech-Loading Rifles",
         "description_source_block": 145,
         "description_source_string_index": 10,
-        "description_text": "Niklaus von Dreyse invented his needle gun, the first successful breech-loading rifle, in 1829, but this weapon was not adopted by the Prussian Army until 1840. Other armies were even slower to upgrade, and Austria lost the battle of Sadowa to Prussia in 1866 at least in part due to the superiority of the needle gun. However, even without the breech-loading feature, small arms at mid-century were much more deadly than Napoleonic Era muskets. During the American Civil War both sides experienced the horrible cost of attacking entrenched infantry armed with long range rifles.\n\nDuring the 1860s, France equipped its army with a superior breech-loading rifle,  the Chassepot, which led all the great powers to rapidly upgrade their infantry weapons. By the 1880s, all modern armies were equipped with bolt action magazine rifles.  \n\nThis weapon allows the military to recruit Rifle Infantry, Guards, and Carbine Cavalry, and to upgrade older regiments to these modern units."
+        "description_text": "Niklaus von Dreyse invented his needle gun, the first successful breech-loading rifle, in 1829, but this weapon was not adopted by the Prussian Army until 1840. Other armies were even slower to upgrade, and Austria lost the battle of Sadowa to Prussia in 1866 at least in part due to the superiority of the needle gun. However, even without the breech-loading feature, small arms at mid-century were much more deadly than Napoleonic Era muskets. During the American Civil War both sides experienced the horrible cost of attacking entrenched infantry armed with long range rifles.\n\nDuring the 1860s, France equipped its army with a superior breech-loading rifle,  the Chassepot, which led all the great powers to rapidly upgrade their infantry weapons. By the 1880s, all modern armies were equipped with bolt action magazine rifles.  \n\nThis weapon allows the military to recruit Rifle Infantry, Guards, and Carbine Cavalry, and to upgrade older regiments to these modern units.",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Permits Rifle Infantry, Guards, and Carbine Cavalry, and upgrades older regiments.",
+        "effects": [
+          {
+            "type": "unit_unlock",
+            "unit": "Rifle Infantry"
+          },
+          {
+            "type": "unit_unlock",
+            "unit": "Guards"
+          },
+          {
+            "type": "unit_unlock",
+            "unit": "Carbine Cavalry"
+          },
+          {
+            "type": "unit_upgrade",
+            "from": "older regiments",
+            "to": [
+              "Rifle Infantry",
+              "Guards",
+              "Carbine Cavalry"
+            ]
+          }
+        ]
       },
       {
         "id": 15,
@@ -2806,7 +3145,15 @@
         "resource_text": "Advanced Iron Working",
         "description_source_block": 145,
         "description_source_string_index": 11,
-        "description_text": "Although the benefits of armor on ships were recognized early in the nineteenth century,  conservative thinking, ship instability and technical difficulties in iron-working prevented the construction of sea-going ironclads until the late 1850s.  When France built La Gloire, the British responded with the Warrior.   This three-masted sailing ship was driven in battle by a screw (propeller) and was armed with both smoothbore cannons and more modern rifled naval guns. She had an iron frame and wood planking with iron plates attached to her sides for much of her length.\n\nDuring the American Civil War the benefits of ironclads were confirmed when C.S.S. Virginia  (formerly U.S.S. Merrimac ) decimated a small fleet of wooden steam frigates and was prevented from sinking them all only by the arrival of another ironclad, the U.S.S. Monitor. \n\nIronclads may be constructed in the shipyard. Although less heavily gunned than a ship of the line, an ironclad may defeat  one due to the ironclad's armor."
+        "description_text": "Although the benefits of armor on ships were recognized early in the nineteenth century,  conservative thinking, ship instability and technical difficulties in iron-working prevented the construction of sea-going ironclads until the late 1850s.  When France built La Gloire, the British responded with the Warrior.   This three-masted sailing ship was driven in battle by a screw (propeller) and was armed with both smoothbore cannons and more modern rifled naval guns. She had an iron frame and wood planking with iron plates attached to her sides for much of her length.\n\nDuring the American Civil War the benefits of ironclads were confirmed when C.S.S. Virginia  (formerly U.S.S. Merrimac ) decimated a small fleet of wooden steam frigates and was prevented from sinking them all only by the arrival of another ironclad, the U.S.S. Monitor. \n\nIronclads may be constructed in the shipyard. Although less heavily gunned than a ship of the line, an ironclad may defeat  one due to the ironclad's armor.",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Permits construction of Ironclads.",
+        "effects": [
+          {
+            "type": "unit_unlock",
+            "unit": "Ironclad"
+          }
+        ]
       },
       {
         "id": 16,
@@ -2816,7 +3163,23 @@
         "resource_text": "Power Loom",
         "description_source_block": 145,
         "description_source_string_index": 12,
-        "description_text": "Because of the large number of different actions carried out by a hand loom weaver, it was difficult to develop a powered loom for weaving cloth, and the first power looms were uneconomical. In addition, a way to stop the power if the thread broke had to be developed. Once perfected, this feature allowed one weaver to watch several operating looms at once.\n\nThe labor savings and profits to the mill owners resulting from power looms and other new industrial machinery threatened workers' livelihood and resulted in violent protests.  In 1811, for example, the Luddites destroyed industrial machines in England.\n\nIn spite of resistance, the number of operating power looms in Britain grew from 2400 to 14,150 from 1813 to 1820. By 1822 one model, Robert's loom, was the most widely used in England.  By mid-century efficient power looms had displaced hand loom weaving for both cotton and worsted cloth. \n\nFarmers improve Cotton plantations to Level III. Ranchers improve Wool farms to Level III. Both will produce four units per turn."
+        "description_text": "Because of the large number of different actions carried out by a hand loom weaver, it was difficult to develop a powered loom for weaving cloth, and the first power looms were uneconomical. In addition, a way to stop the power if the thread broke had to be developed. Once perfected, this feature allowed one weaver to watch several operating looms at once.\n\nThe labor savings and profits to the mill owners resulting from power looms and other new industrial machinery threatened workers' livelihood and resulted in violent protests.  In 1811, for example, the Luddites destroyed industrial machines in England.\n\nIn spite of resistance, the number of operating power looms in Britain grew from 2400 to 14,150 from 1813 to 1820. By 1822 one model, Robert's loom, was the most widely used in England.  By mid-century efficient power looms had displaced hand loom weaving for both cotton and worsted cloth. \n\nFarmers improve Cotton plantations to Level III. Ranchers improve Wool farms to Level III. Both will produce four units per turn.",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Cotton and Wool improve to Level III, producing 4 per turn.",
+        "effects": [
+          {
+            "type": "production_level",
+            "commodity": "Cotton",
+            "level": "III",
+            "output_per_turn": 4
+          },
+          {
+            "type": "production_level",
+            "commodity": "Wool",
+            "level": "III",
+            "output_per_turn": 4
+          }
+        ]
       },
       {
         "id": 17,
@@ -2826,7 +3189,17 @@
         "resource_text": "Mechanical Reaper",
         "description_source_block": 145,
         "description_source_string_index": 13,
-        "description_text": "The most labor-intensive work on an eighteenth century farm was the harvest. Since the start of the Industrial Revolution, many attempts to mechanize the process of cutting the grain had been made. In 1826 Patrick Bell invented a cutting machine (which consisted of scissors pushed by horses) that achieved some success.\n\nThe mechanical reaper invented by Cyrus McCormick in 1831 and patented in 1834, which used the knife and cutter bar, achieved general popularity, especially after the Great Exhibition of 1851.\nMechanical reapers speeded the harvest and greatly reduced the number of laborers needed to cut the grain.  \n\nFarmers may improve Grain farms to Level III, producing four units of Grain per turn.\n"
+        "description_text": "The most labor-intensive work on an eighteenth century farm was the harvest. Since the start of the Industrial Revolution, many attempts to mechanize the process of cutting the grain had been made. In 1826 Patrick Bell invented a cutting machine (which consisted of scissors pushed by horses) that achieved some success.\n\nThe mechanical reaper invented by Cyrus McCormick in 1831 and patented in 1834, which used the knife and cutter bar, achieved general popularity, especially after the Great Exhibition of 1851.\nMechanical reapers speeded the harvest and greatly reduced the number of laborers needed to cut the grain.  \n\nFarmers may improve Grain farms to Level III, producing four units of Grain per turn.\n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Grain improves to Level III, producing 4 per turn.",
+        "effects": [
+          {
+            "type": "production_level",
+            "commodity": "Grain",
+            "level": "III",
+            "output_per_turn": 4
+          }
+        ]
       },
       {
         "id": 18,
@@ -2836,7 +3209,17 @@
         "resource_text": "Commercial Fertilizer",
         "description_source_block": 145,
         "description_source_string_index": 14,
-        "description_text": "During the late eighteenth century, the value of phosphates for growing crops was first discovered.  This knowledge was of small use until, in 1841, John Lawes first treated the phosphates with sulfuric acid. This began the super phosphate industry and significantly improved the effectiveness of fertilizers.\n\nWith this technology Farmers may improve Produce farms to Level III, growing four units of Produce each turn. \n"
+        "description_text": "During the late eighteenth century, the value of phosphates for growing crops was first discovered.  This knowledge was of small use until, in 1841, John Lawes first treated the phosphates with sulfuric acid. This began the super phosphate industry and significantly improved the effectiveness of fertilizers.\n\nWith this technology Farmers may improve Produce farms to Level III, growing four units of Produce each turn. \n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Produce improves to Level III, producing 4 per turn.",
+        "effects": [
+          {
+            "type": "production_level",
+            "commodity": "Produce",
+            "level": "III",
+            "output_per_turn": 4
+          }
+        ]
       },
       {
         "id": 19,
@@ -2846,7 +3229,40 @@
         "resource_text": "Oil Drilling",
         "description_source_block": 145,
         "description_source_string_index": 15,
-        "description_text": "Oil was drilled for the first time at Titusville, Pennsylvania, in 1859.  In 1865 the first oil pipeline, six miles long, was constructed. Eventually, oil came to supply much of the world's energy needs.  \n\nThe discovery that oil drilling could be performed economically permits Drillers to be educated in the university. They will  produce Oil at Level I: two units per turn.  Additionally, Prospectors may search for Oil in Desert, Tundra and Swamp terrain. It is now possible to construct a Refinery and Power Plant.\n"
+        "description_text": "Oil was drilled for the first time at Titusville, Pennsylvania, in 1859.  In 1865 the first oil pipeline, six miles long, was constructed. Eventually, oil came to supply much of the world's energy needs.  \n\nThe discovery that oil drilling could be performed economically permits Drillers to be educated in the university. They will  produce Oil at Level I: two units per turn.  Additionally, Prospectors may search for Oil in Desert, Tundra and Swamp terrain. It is now possible to construct a Refinery and Power Plant.\n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Permits Drillers, Oil Level I, oil prospecting in Desert/Tundra/Swamp, Refineries, and Power Plants.",
+        "effects": [
+          {
+            "type": "unit_unlock",
+            "unit": "Driller"
+          },
+          {
+            "type": "production_level",
+            "actor": "Drillers",
+            "commodity": "Oil",
+            "level": "I",
+            "output_per_turn": 2
+          },
+          {
+            "type": "prospecting_access",
+            "actor": "Prospectors",
+            "commodity": "Oil",
+            "terrain": [
+              "Desert",
+              "Tundra",
+              "Swamp"
+            ]
+          },
+          {
+            "type": "building_unlock",
+            "building": "Oil Refinery"
+          },
+          {
+            "type": "building_unlock",
+            "building": "Power Plant"
+          }
+        ]
       },
       {
         "id": 20,
@@ -2856,7 +3272,17 @@
         "resource_text": "Barbed Wire",
         "description_source_block": 146,
         "description_source_string_index": 0,
-        "description_text": "The invention of barbed wire significantly increased the enclosure of open range land and allowed ranchers to better regulate their herds. Breeds were improved and disease reduced by isolating one herd from another.\n\nRanchers improve Livestock ranches to Level II, producing three units of Livestock per turn."
+        "description_text": "The invention of barbed wire significantly increased the enclosure of open range land and allowed ranchers to better regulate their herds. Breeds were improved and disease reduced by isolating one herd from another.\n\nRanchers improve Livestock ranches to Level II, producing three units of Livestock per turn.",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Livestock improves to Level II, producing 3 per turn.",
+        "effects": [
+          {
+            "type": "production_level",
+            "commodity": "Livestock",
+            "level": "II",
+            "output_per_turn": 3
+          }
+        ]
       },
       {
         "id": 21,
@@ -2866,7 +3292,15 @@
         "resource_text": "Steel Armor Plate",
         "description_source_block": 146,
         "description_source_string_index": 1,
-        "description_text": "New ironclad design, shortly after the American Civil War, primarily affected the (British) Royal Navy, resulting in heavier and more powerful guns as well as thicker armor.   H.M.S. Inflexible, although the last battleship designed to carry sails, significantly changed naval warfare and remained the strongest ship afloat throughout the 1880s.  She was armed with four 80 ton guns in two huge rotating turrets and was equipped with electric lighting.  Later in the century ironclad battleships lost their sails but continued to develop the power and range of their guns as well as the thickness of their armor plate.   \n\nBuild these warships in the shipyard to achieve command of the sea.  Their larger guns provide a longer range than earlier warships and they are exceptionally difficult to sink. "
+        "description_text": "New ironclad design, shortly after the American Civil War, primarily affected the (British) Royal Navy, resulting in heavier and more powerful guns as well as thicker armor.   H.M.S. Inflexible, although the last battleship designed to carry sails, significantly changed naval warfare and remained the strongest ship afloat throughout the 1880s.  She was armed with four 80 ton guns in two huge rotating turrets and was equipped with electric lighting.  Later in the century ironclad battleships lost their sails but continued to develop the power and range of their guns as well as the thickness of their armor plate.   \n\nBuild these warships in the shipyard to achieve command of the sea.  Their larger guns provide a longer range than earlier warships and they are exceptionally difficult to sink. ",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Permits warships with larger guns and heavier armor.",
+        "effects": [
+          {
+            "type": "naval_design_improvement",
+            "details": "larger guns and heavier armor"
+          }
+        ]
       },
       {
         "id": 22,
@@ -2876,7 +3310,27 @@
         "resource_text": "Large Artillery",
         "description_source_block": 146,
         "description_source_string_index": 2,
-        "description_text": "Alfred Krupp of the Krupp Works in Germany exhibited all-steel artillery at the Great Exhibition of 1851. Although the first steel guns were made of several separate pieces, improved techniques of metallurgy and larger production facilities soon resulted in heavy guns cast in one massive piece of steel.\n\nRecoil, a growing problem with ever larger cannons, was reduced with the invention of a recuperator between the barrel and the gun carriage. Using a recuperator, the carriage of the cannon barely moves when the gun is fired. Gun crews no longer need to move the gun back into position after firing. \n\nIn the siege of Port Arthur in 1904-05 the heavy howitzers of the Japanese Army proved decisive, both by destroying the walls of the fortress and by battering the ships in the harbor.  \n\nThis technology permits the recruiting of Railroad Gun and Mobile Artillery regiments, and the upgrading of older artillery to these more modern units."
+        "description_text": "Alfred Krupp of the Krupp Works in Germany exhibited all-steel artillery at the Great Exhibition of 1851. Although the first steel guns were made of several separate pieces, improved techniques of metallurgy and larger production facilities soon resulted in heavy guns cast in one massive piece of steel.\n\nRecoil, a growing problem with ever larger cannons, was reduced with the invention of a recuperator between the barrel and the gun carriage. Using a recuperator, the carriage of the cannon barely moves when the gun is fired. Gun crews no longer need to move the gun back into position after firing. \n\nIn the siege of Port Arthur in 1904-05 the heavy howitzers of the Japanese Army proved decisive, both by destroying the walls of the fortress and by battering the ships in the harbor.  \n\nThis technology permits the recruiting of Railroad Gun and Mobile Artillery regiments, and the upgrading of older artillery to these more modern units.",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Permits Railroad Guns and Mobile Artillery, and upgrades older artillery.",
+        "effects": [
+          {
+            "type": "unit_unlock",
+            "unit": "Railroad Gun"
+          },
+          {
+            "type": "unit_unlock",
+            "unit": "Mobile Artillery"
+          },
+          {
+            "type": "unit_upgrade",
+            "from": "older artillery",
+            "to": [
+              "Railroad Gun",
+              "Mobile Artillery"
+            ]
+          }
+        ]
       },
       {
         "id": 23,
@@ -2886,7 +3340,46 @@
         "resource_text": "Dynamite",
         "description_source_block": 146,
         "description_source_string_index": 3,
-        "description_text": "In 1866 Alfred Nobel invented a new form of explosive called dynamite. Although dynamite has many military applications, especially in demolitions,  it has many non-military uses as well.\n\nUsing dynamite to blast a path, Engineers may build rail through mountain terrain. Foresters can reach previously inaccessible Timber and improve Timber production to Level III, producing four units per turn.  Finally, dynamite allows miners to improve all mines to Level III: Coal and Iron to six units per turn; Gold and Gems to three units per turn.\n"
+        "description_text": "In 1866 Alfred Nobel invented a new form of explosive called dynamite. Although dynamite has many military applications, especially in demolitions,  it has many non-military uses as well.\n\nUsing dynamite to blast a path, Engineers may build rail through mountain terrain. Foresters can reach previously inaccessible Timber and improve Timber production to Level III, producing four units per turn.  Finally, dynamite allows miners to improve all mines to Level III: Coal and Iron to six units per turn; Gold and Gems to three units per turn.\n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Engineers may rail mountains; Foresters improve Timber to Level III (4); all mines reach Level III (Coal/Iron 6, Gold/Gems 3).",
+        "effects": [
+          {
+            "type": "terrain_access",
+            "actor": "Engineers",
+            "action": "build_railroad",
+            "terrain": [
+              "mountains"
+            ]
+          },
+          {
+            "type": "production_level",
+            "actor": "Foresters",
+            "commodity": "Timber",
+            "level": "III",
+            "output_per_turn": 4
+          },
+          {
+            "type": "production_level",
+            "actor": "Miners",
+            "commodity_group": [
+              "Coal",
+              "Iron"
+            ],
+            "level": "III",
+            "output_per_turn": 6
+          },
+          {
+            "type": "production_level",
+            "actor": "Miners",
+            "commodity_group": [
+              "Gold",
+              "Gems"
+            ],
+            "level": "III",
+            "output_per_turn": 3
+          }
+        ]
       },
       {
         "id": 24,
@@ -2896,7 +3389,15 @@
         "resource_text": "Marine Engineering",
         "description_source_block": 146,
         "description_source_string_index": 4,
-        "description_text": "In the latter part of the nineteenth century, the great powers evolved a new class of ship to protect merchant commerce from cruising commerce raiders. These ships, designated armored cruisers, were as fast or faster than the earlier raiders, with better guns and light armor plate.  Since the primary goal of small (non-capital) ship designers was speed, not armor, the steam turbine engine, first made practical by Sir Charles Parsons, was used in smaller vessels like the armored cruiser and the destroyer first.  After turbines proved more reliable and cleaner than traditional engines, they were fitted in capital ships as well.\n\nArmored Cruisers are relatively inexpensive and are highly efficient in protecting merchants and demolishing the trade of the enemy.  One Armored Cruiser can sink a large number of raiders or early ironclads by remaining out of their range with its superior speed.  These ships should not be placed in the line of battle.  \n"
+        "description_text": "In the latter part of the nineteenth century, the great powers evolved a new class of ship to protect merchant commerce from cruising commerce raiders. These ships, designated armored cruisers, were as fast or faster than the earlier raiders, with better guns and light armor plate.  Since the primary goal of small (non-capital) ship designers was speed, not armor, the steam turbine engine, first made practical by Sir Charles Parsons, was used in smaller vessels like the armored cruiser and the destroyer first.  After turbines proved more reliable and cleaner than traditional engines, they were fitted in capital ships as well.\n\nArmored Cruisers are relatively inexpensive and are highly efficient in protecting merchants and demolishing the trade of the enemy.  One Armored Cruiser can sink a large number of raiders or early ironclads by remaining out of their range with its superior speed.  These ships should not be placed in the line of battle.  \n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Permits construction of Armored Cruisers.",
+        "effects": [
+          {
+            "type": "unit_unlock",
+            "unit": "Armored Cruiser"
+          }
+        ]
       },
       {
         "id": 25,
@@ -2906,7 +3407,32 @@
         "resource_text": "Machine Guns",
         "description_source_block": 146,
         "description_source_string_index": 5,
-        "description_text": "Early machine guns and automatic fire weapons included the Gatling gun, a ten-barrel gun constructed by Richard Gatling in 1862; the repeating rifle invented by Ferdinand Mannlicher in 1878; and the Maxim gun patented by Hiram Maxim in 1882. These weapons led to the machine guns that decimated armies during World War I.\n\nThis firepower immensely increased the casualty rates of armies. For example, at the beginning of World War I,  a rifle fired 15 rounds per minute and a machine gun fired 600.  Fire this heavy destroyed entire regiments in a few minutes when they ventured from their entrenchments to attack the enemies' lines.\n\nThis advance allows recruiting of Modern Infantry, Machine Gunners, and Rangers, and the upgrading of older regiments to these more modern units.  \n"
+        "description_text": "Early machine guns and automatic fire weapons included the Gatling gun, a ten-barrel gun constructed by Richard Gatling in 1862; the repeating rifle invented by Ferdinand Mannlicher in 1878; and the Maxim gun patented by Hiram Maxim in 1882. These weapons led to the machine guns that decimated armies during World War I.\n\nThis firepower immensely increased the casualty rates of armies. For example, at the beginning of World War I,  a rifle fired 15 rounds per minute and a machine gun fired 600.  Fire this heavy destroyed entire regiments in a few minutes when they ventured from their entrenchments to attack the enemies' lines.\n\nThis advance allows recruiting of Modern Infantry, Machine Gunners, and Rangers, and the upgrading of older regiments to these more modern units.  \n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Permits Modern Infantry, Machine Gunners, and Rangers, and upgrades older regiments.",
+        "effects": [
+          {
+            "type": "unit_unlock",
+            "unit": "Modern Infantry"
+          },
+          {
+            "type": "unit_unlock",
+            "unit": "Machine Gunners"
+          },
+          {
+            "type": "unit_unlock",
+            "unit": "Rangers"
+          },
+          {
+            "type": "unit_upgrade",
+            "from": "older regiments",
+            "to": [
+              "Modern Infantry",
+              "Machine Gunners",
+              "Rangers"
+            ]
+          }
+        ]
       },
       {
         "id": 26,
@@ -2916,7 +3442,25 @@
         "resource_text": "Chemistry",
         "description_source_block": 146,
         "description_source_string_index": 6,
-        "description_text": "Throughout the period of the Industrial Revolution, chemistry as a branch of learning grew from a purely empirical and incomplete science to a theoretically founded science which could respond rapidly to the demands of growing industries. New developments in many industries, including food preservation, glass making, soap production, and textiles led to greater experimentation. The general acceptance of the system of chemical elements after the work of Lavoisier provided a theoretical underpinning for the new empirical discoveries.\n\nThis revolution in chemistry is represented by growth in production of food and oil. Drillers improve Oil wells to Level II, producing four units per turn. Ranchers improve Livestock ranches to Level III, producing four units per turn.\n"
+        "description_text": "Throughout the period of the Industrial Revolution, chemistry as a branch of learning grew from a purely empirical and incomplete science to a theoretically founded science which could respond rapidly to the demands of growing industries. New developments in many industries, including food preservation, glass making, soap production, and textiles led to greater experimentation. The general acceptance of the system of chemical elements after the work of Lavoisier provided a theoretical underpinning for the new empirical discoveries.\n\nThis revolution in chemistry is represented by growth in production of food and oil. Drillers improve Oil wells to Level II, producing four units per turn. Ranchers improve Livestock ranches to Level III, producing four units per turn.\n",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Drillers improve Oil to Level II (4); Ranchers improve Livestock to Level III (4).",
+        "effects": [
+          {
+            "type": "production_level",
+            "actor": "Drillers",
+            "commodity": "Oil",
+            "level": "II",
+            "output_per_turn": 4
+          },
+          {
+            "type": "production_level",
+            "actor": "Ranchers",
+            "commodity": "Livestock",
+            "level": "III",
+            "output_per_turn": 4
+          }
+        ]
       },
       {
         "id": 27,
@@ -2926,7 +3470,20 @@
         "resource_text": "Improved Range-Finding",
         "description_source_block": 146,
         "description_source_string_index": 7,
-        "description_text": "During 1905 Admiral Sir John A. Fisher designed the first all-big- gun warship, the H.M.S  Dreadnought, which gave its name to the modern battleship.   When launched in 1906,  Dreadnought  made all other battleships immediately obsolete.  The armament of ten 12-inch, long-range guns meant that the Dreadnought could sink its foes from a greater range and with a heavier weight of metal, but only if accurately aimed.  \n\nIn 1912 Sir Percy Scott introduced director firing to the Royal Navy. This system allowed a single officer, high above the smoke-shrouded decks, to fire all the guns on the ship electrically. Using  salvo firing, a battleship could demolish any ship with shorter range guns.\n\nAlthough early dreadnoughts and battle cruisers burned coal, the advantages of oil for speed and efficiency soon mandated oil-burning designs and conversion of older coal burners.   In the shipyards, all Dreadnoughts and Battle Cruisers require oil, not coal. "
+        "description_text": "During 1905 Admiral Sir John A. Fisher designed the first all-big- gun warship, the H.M.S  Dreadnought, which gave its name to the modern battleship.   When launched in 1906,  Dreadnought  made all other battleships immediately obsolete.  The armament of ten 12-inch, long-range guns meant that the Dreadnought could sink its foes from a greater range and with a heavier weight of metal, but only if accurately aimed.  \n\nIn 1912 Sir Percy Scott introduced director firing to the Royal Navy. This system allowed a single officer, high above the smoke-shrouded decks, to fire all the guns on the ship electrically. Using  salvo firing, a battleship could demolish any ship with shorter range guns.\n\nAlthough early dreadnoughts and battle cruisers burned coal, the advantages of oil for speed and efficiency soon mandated oil-burning designs and conversion of older coal burners.   In the shipyards, all Dreadnoughts and Battle Cruisers require oil, not coal. ",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Dreadnoughts and Battle Cruisers may use Oil rather than Coal.",
+        "effects": [
+          {
+            "type": "construction_requirement_change",
+            "unit": [
+              "Dreadnought",
+              "Battle Cruiser"
+            ],
+            "from": "Coal",
+            "to": "Oil"
+          }
+        ]
       },
       {
         "id": 28,
@@ -2936,7 +3493,34 @@
         "resource_text": "Internal Combustion",
         "description_source_block": 146,
         "description_source_string_index": 8,
-        "description_text": "Although the first successful internal combustion engine was invented in 1860 by Lenoir, practical applications were not developed until the close of the century.  Diesel patented his engine in 1892, and in 1893 both Karl Benz and Henry Ford built their first motorcars.\n\nPractical oil and gasoline burning internal combustion engines permit the recruiting of Armored and Mechanized regiments and the upgrading of older units to these modern types. Additionally, Drillers may improve Oil wells to Level III, producing six units per turn."
+        "description_text": "Although the first successful internal combustion engine was invented in 1860 by Lenoir, practical applications were not developed until the close of the century.  Diesel patented his engine in 1892, and in 1893 both Karl Benz and Henry Ford built their first motorcars.\n\nPractical oil and gasoline burning internal combustion engines permit the recruiting of Armored and Mechanized regiments and the upgrading of older units to these modern types. Additionally, Drillers may improve Oil wells to Level III, producing six units per turn.",
+        "effects_status": "resource_text_direct",
+        "effects_summary": "Permits Armored and Mechanized regiments and upgrades older units; Drillers improve Oil to Level III, producing 6 per turn.",
+        "effects": [
+          {
+            "type": "unit_unlock",
+            "unit": "Armored regiments"
+          },
+          {
+            "type": "unit_unlock",
+            "unit": "Mechanized regiments"
+          },
+          {
+            "type": "unit_upgrade",
+            "from": "older units",
+            "to": [
+              "Armored regiments",
+              "Mechanized regiments"
+            ]
+          },
+          {
+            "type": "production_level",
+            "actor": "Drillers",
+            "commodity": "Oil",
+            "level": "III",
+            "output_per_turn": 6
+          }
+        ]
       }
     ],
     "purchase_ui_templates": {
@@ -2993,7 +3577,877 @@
         }
       }
     },
-    "evidence": "STR#ENU.GOB blocks #1073-#1075 contain all 28 technology names in exact progression order. Blocks #144-#146 contain the corresponding in-game descriptions, which explicitly state terrain, production, unit, and ship effects. Blocks #1454-#1455 contain the year/prerequisite templates and purchase-screen labels. Numeric costs, years, and prerequisites remain pending executable-reader work."
+    "evidence": "STR#ENU.GOB blocks #1073-#1075 contain all 28 technology names in exact progression order. Blocks #144-#146 contain the corresponding in-game descriptions, which explicitly state terrain, production, unit, and ship effects; the structured effects above are a direct normalization of that text. Blocks #1454-#1455 contain the year/prerequisite templates and purchase-screen labels. Numeric costs, years, and prerequisites remain pending executable-reader work."
+  },
+  "resource_output": {
+    "status": "verified",
+    "table": {
+      "address": "0x00696D98",
+      "row_count": 23,
+      "row_stride_bytes": 4,
+      "columns": [
+        "input_0",
+        "input_1",
+        "input_2",
+        "input_3"
+      ],
+      "raw_rows": [
+        [
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          0,
+          2,
+          4,
+          6
+        ],
+        [
+          0,
+          2,
+          4,
+          6
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          2,
+          4,
+          6
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    "input_selector": {
+      "address": "0x00696DF8",
+      "length": 23,
+      "meaning": "Per-resource selector for the packed input byte at resource_record+0x0C; nonzero selects the high nibble, zero selects the low nibble.",
+      "high_nibble_resource_ids": [
+        3,
+        4,
+        6,
+        21,
+        22
+      ],
+      "raw_flags": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        6,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1
+      ]
+    },
+    "rows": [
+      {
+        "resource_id": 0,
+        "resource": "cotton",
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "manual_aligned_resource_curve",
+        "status": "verified"
+      },
+      {
+        "resource_id": 1,
+        "resource": "wool",
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "manual_aligned_resource_curve",
+        "status": "verified"
+      },
+      {
+        "resource_id": 2,
+        "resource": "timber",
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "manual_aligned_resource_curve",
+        "status": "verified"
+      },
+      {
+        "resource_id": 3,
+        "resource": "coal",
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          2,
+          4,
+          6
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "high",
+        "input_selector_flag": 1,
+        "interpretation": "manual_aligned_resource_curve",
+        "status": "verified"
+      },
+      {
+        "resource_id": 4,
+        "resource": "iron",
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          2,
+          4,
+          6
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "high",
+        "input_selector_flag": 1,
+        "interpretation": "manual_aligned_resource_curve",
+        "status": "verified"
+      },
+      {
+        "resource_id": 5,
+        "resource": "horses",
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "manual_aligned_resource_curve",
+        "status": "verified"
+      },
+      {
+        "resource_id": 6,
+        "resource": "oil",
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          2,
+          4,
+          6
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "high",
+        "input_selector_flag": 6,
+        "interpretation": "manual_aligned_resource_curve",
+        "status": "verified"
+      },
+      {
+        "resource_id": 7,
+        "resource": null,
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "unused_processed_commodity_slot",
+        "status": "verified_zero_unused_slot"
+      },
+      {
+        "resource_id": 8,
+        "resource": null,
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "unused_processed_commodity_slot",
+        "status": "verified_zero_unused_slot"
+      },
+      {
+        "resource_id": 9,
+        "resource": null,
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "unused_processed_commodity_slot",
+        "status": "verified_zero_unused_slot"
+      },
+      {
+        "resource_id": 10,
+        "resource": null,
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "unused_processed_commodity_slot",
+        "status": "verified_zero_unused_slot"
+      },
+      {
+        "resource_id": 11,
+        "resource": null,
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "unused_processed_commodity_slot",
+        "status": "verified_zero_unused_slot"
+      },
+      {
+        "resource_id": 12,
+        "resource": null,
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "unused_processed_commodity_slot",
+        "status": "verified_zero_unused_slot"
+      },
+      {
+        "resource_id": 13,
+        "resource": null,
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "unused_processed_commodity_slot",
+        "status": "verified_zero_unused_slot"
+      },
+      {
+        "resource_id": 14,
+        "resource": null,
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "unused_processed_commodity_slot",
+        "status": "verified_zero_unused_slot"
+      },
+      {
+        "resource_id": 15,
+        "resource": null,
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "unused_processed_commodity_slot",
+        "status": "verified_zero_unused_slot"
+      },
+      {
+        "resource_id": 16,
+        "resource": null,
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "unused_processed_commodity_slot",
+        "status": "verified_zero_unused_slot"
+      },
+      {
+        "resource_id": 17,
+        "resource": "grain",
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "manual_aligned_resource_curve",
+        "status": "verified"
+      },
+      {
+        "resource_id": 18,
+        "resource": "fruit",
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "manual_aligned_resource_curve",
+        "status": "verified"
+      },
+      {
+        "resource_id": 19,
+        "resource": "fish",
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "fish_low_nibble_quantity_unresolved",
+        "status": "verified"
+      },
+      {
+        "resource_id": 20,
+        "resource": "livestock",
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "low",
+        "input_selector_flag": 0,
+        "interpretation": "manual_aligned_resource_curve",
+        "status": "verified"
+      },
+      {
+        "resource_id": 21,
+        "resource": "gems",
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "high",
+        "input_selector_flag": 1,
+        "interpretation": "manual_aligned_resource_curve",
+        "status": "verified"
+      },
+      {
+        "resource_id": 22,
+        "resource": "gold",
+        "input_levels": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "yield_by_input": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "input_byte": "resource_record+0x0C",
+        "input_nibble": "high",
+        "input_selector_flag": 1,
+        "interpretation": "manual_aligned_resource_curve",
+        "status": "verified"
+      }
+    ],
+    "record_class_gate": {
+      "address": "0x0066D770",
+      "bytes_for_class_ids_0_through_14": [
+        0,
+        0,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0
+      ],
+      "reader": "0x005B73E0",
+      "meaning": "The town recalculator uses the classifier as a nonzero gate after obtaining a province/resource record class; the exact class labels remain unresolved."
+    },
+    "readers": [
+      {
+        "address": "0x005B73E0",
+        "role": "town output recalculation indexes the 23-row curve table by output/resource slot and returned level quantity"
+      },
+      {
+        "address": "0x00513610",
+        "role": "map/resource helper reads the same table after decoding a resource record"
+      },
+      {
+        "address": "0x00514110",
+        "role": "classifies the map/resource record used by town production and terrain/object logic"
+      }
+    ],
+    "evidence": "The executable bytes at 0x00696D98 are 23 four-byte rows. Nonzero rows occur exactly at the shipped raw-deposit IDs: 0-6 and 17-22. Most rows match the manual's 1/2/3/4, 0/2/4/6, flat-1, and 0/1/2/3 resource curves. The helper at 0x00513610 reads a packed input byte at resource_record+0x0C and uses the selector bytes at 0x00696DF8 to choose its nibble: high for resource IDs 3, 4, 6, 21, and 22 (coal, iron, oil, gems, gold), low for the other rows. Fish is the deliberate exception: its executable row is 1/2/3/4 even though the manual describes fish as one per adjacent water source and not civilian-improvable, so fish's table input is a low-nibble source quantity whose exact adjacency calculation remains unresolved. Processed-commodity slots 7-16 are all zero. The town recalculator at 0x005B73E0 reads this table in its production path."
+  },
+  "town_development": {
+    "status": "verified_internal_rules",
+    "class": {
+      "name": "TTown",
+      "descriptor": "0x0066D780",
+      "vtable": "0x0066D7C8",
+      "record_size_bytes": 80,
+      "constructor": "0x005B6C10",
+      "initializer": "0x005B6CD0",
+      "serialization": {
+        "write": "0x005B6D70",
+        "read": "0x005B6E60",
+        "saved_fields": [
+          "+0x04 name",
+          "+0x14",
+          "+0x16",
+          "+0x18",
+          "+0x1A creation_turn",
+          "+0x1C",
+          "+0x1E..+0x49 23 uint16 values",
+          "+0x4C",
+          "+0x4D",
+          "+0x4E"
+        ],
+        "runtime_recomputed_field": "+0x4F"
+      }
+    },
+    "field_map": {
+      "+0x1A": "turn/year when the town record was initialized",
+      "+0x1E/+0x20": "first raw material-output pair",
+      "+0x22": "second raw material-output bucket",
+      "+0x24/+0x26": "third raw material-output pair; development uses the smaller value",
+      "+0x2A": "fourth raw output bucket, enabled only for a specific province-record class",
+      "+0x2E": "first material-development progress",
+      "+0x30": "second material-development progress",
+      "+0x34": "third material-development progress",
+      "+0x36": "fourth material-development progress",
+      "+0x38/+0x3A/+0x3C": "consumer-good development progress for the first three material channels",
+      "+0x4C": "saved connection/served-state flag used by country turn processing; exact UI label unresolved",
+      "+0x4D": "saved town eligibility flag supplied at creation; exact UI label unresolved",
+      "+0x4E": "runtime flag set when a linked province table contributes the extra ten-word output block",
+      "+0x4F": "runtime eligibility/status flag, recomputed during load after the opening turns"
+    },
+    "connection_gate": {
+      "status": "verified_internal_gate",
+      "town_method": "0x005B7830",
+      "wrapper": "0x0040454D",
+      "requirements": [
+        "+0x4D must be nonzero",
+        "the global map/transport query at 0x00513CA0 must succeed"
+      ],
+      "neighbor_geometry": "The query uses the six original UMap neighbor directions from 0x00696E70/0x00696E80, so this is the executable counterpart of the manual's depot/port on or next to the town requirement.",
+      "country_turn_consumer": "0x004DB7D0"
+    },
+    "update_method": {
+      "address": "0x005B7570",
+      "vtable_slot": "+0x34",
+      "owner_city_capacity_getter": "0x0040257C -> 0x004B4DC0",
+      "age_formula": "current_turn - town.+0x1A",
+      "material_gate": {
+        "condition": "age > 4 and age is even",
+        "increment": "each eligible channel increases by exactly 1 per update invocation",
+        "channels": [
+          {
+            "raw_output_fields": [
+              "+0x1E",
+              "+0x20"
+            ],
+            "progress_field": "+0x2E",
+            "capital_capacity_id": 1,
+            "cap_formula": "min(ceil(capital_capacity_id_1 / 4), floor((town.+0x1E + town.+0x20) / 2))"
+          },
+          {
+            "raw_output_fields": [
+              "+0x22"
+            ],
+            "progress_field": "+0x30",
+            "capital_capacity_id": 5,
+            "cap_formula": "min(ceil(capital_capacity_id_5 / 4), floor(town.+0x22 / 2))"
+          },
+          {
+            "raw_output_fields": [
+              "+0x24",
+              "+0x26"
+            ],
+            "progress_field": "+0x34",
+            "capital_capacity_id": 3,
+            "cap_formula": "min(ceil(capital_capacity_id_3 / 4), floor(min(town.+0x24, town.+0x26) / 2))"
+          },
+          {
+            "raw_output_fields": [
+              "+0x2A"
+            ],
+            "progress_field": "+0x36",
+            "capital_capacity_id": null,
+            "extra_condition": "global province/country record byte at +0x27C must equal 2",
+            "cap_formula": "floor(town.+0x2A / 2)"
+          }
+        ]
+      },
+      "consumer_goods_gate": {
+        "condition": "age > 9 and age is odd",
+        "central_cap_source": "owner-city vtable +0x74; sum returned object words +0x1A, +0x1C, and +0x1E",
+        "channels": [
+          {
+            "material_progress_field": "+0x2E",
+            "consumer_progress_field": "+0x38",
+            "cap_formula": "min(floor(town.+0x2E / 2), central_consumer_capacity_sum)"
+          },
+          {
+            "material_progress_field": "+0x30",
+            "consumer_progress_field": "+0x3A",
+            "cap_formula": "min(floor(town.+0x30 / 2), central_consumer_capacity_sum)"
+          },
+          {
+            "material_progress_field": "+0x34",
+            "consumer_progress_field": "+0x3C",
+            "cap_formula": "min(floor(town.+0x34 / 2), central_consumer_capacity_sum)"
+          }
+        ]
+      }
+    },
+    "output_recalculation": {
+      "methods": [
+        "0x005B6F70",
+        "0x005B7140",
+        "0x005B73E0"
+      ],
+      "behavior": "The town clears its 23 output values, walks province/resource records, and asks the global production routines for contributions. A linked record can set +0x4E and add ten additional words into +0x2C..+0x3F.",
+      "manual_cross_check": [
+        "The original manual says towns produce steel, lumber, and fabric materials first.",
+        "The manual says consumer goods follow the material stage and are capped at half the material output."
+      ]
+    },
+    "visible_town_stage": {
+      "status": "pending",
+      "finding": "The traced TTown update changes production counters and connection/status flags, but does not directly write a hamlet/village/town sprite or map-cell town_type. The exact threshold that drives the two STR#ENU.GOB growth messages remains to be isolated from the map/UI/event consumers.",
+      "map_cell_check": {
+        "candidate_field": "scenario map cell byte +0x1D (byte 29, town_type in the Modern map parser)",
+        "result": "no write to this field was found in the traced TTown/country turn path; the few direct +0x1D writes elsewhere belong to unrelated small objects",
+        "status": "negative_result_not_full_proof"
+      },
+      "resource_messages": [
+        {
+          "block": 99,
+          "string_index": 12,
+          "text": "hamlet grows into a village"
+        },
+        {
+          "block": 99,
+          "string_index": 13,
+          "text": "village grows into a town with factories"
+        }
+      ]
+    },
+    "evidence": "The TTown constructor, serializer, production recalculators, connection helper, and per-turn update are all present in the original executable. The timing, parity, raw-output caps, capital-capacity caps, and half-material consumer-good caps are direct control-flow results from 0x005B7570; the manual's qualitative sequence agrees with those results. Internal capacity IDs 1, 5, and 3 are retained as numeric IDs because their exact factory-name mapping is not yet independently proven."
   },
   "cost_leads": {
     "status": "candidate",

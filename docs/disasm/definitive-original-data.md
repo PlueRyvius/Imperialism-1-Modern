@@ -1,16 +1,17 @@
 # Definitive original-game information
 
-Publication label: definitive_original_information
+Publication label: `definitive_original_information`
 
 Status: This is the repository's authoritative record of observations directly recovered from the original Imperialism.exe and Data/STR#ENU.GOB. “Definitive” applies to values and resource text directly observed in those original files. Entries marked candidate or described as unresolved labels remain hypotheses, not confirmed semantics.
 
-Source identity: Imperialism.exe SHA-256 6afab8495db715fd9e719cffa74abe5ede4dd763428ff65d73be4edf16c9e691; Data/STR#ENU.GOB SHA-256 d754e503d144086051b70be53a085ae428e151908992530b8463c2e040c2d97f.
+Source identity: Imperialism.exe SHA-256 `6afab8495db715fd9e719cffa74abe5ede4dd763428ff65d73be4edf16c9e691`; Data/STR#ENU.GOB SHA-256 `d754e503d144086051b70be53a085ae428e151908992530b8463c2e040c2d97f`.
 
 The original binary, resource archive, disassembly listing, and audit database are not committed. The logical source names and hashes above identify the local source used for this extraction.
 
 See [definitive-original-data.json](definitive-original-data.json) for the machine-readable record and full technology descriptions.
 
 ## Extracted tables and formulas
+
 ## Verified naval table
 
 The executable contains 14 rows × 9 fields at `0x00698108`, with 36-byte rows. Accessors read the low signed 16 bits from each dword slot.
@@ -125,6 +126,21 @@ These compact tables are read by the army manager, defense minister, tactical da
 
 The artillery flag is set exactly for the six artillery records. The role-slot table repeats slots 0-7 for each technology era, then reserves slot 8 for the three engineering units and slot 9 for General records. The defense-minister power table is a related internal combat contribution: most ordinary units mirror the main firepower scale, Armor uses its alternate 60 value, and artillery/special records are zero. The composition matrix is an internal mixed-stack code; its final UI label remains open.
 
+## Verified original map geometry
+
+The `UMap.cpp` coordinate routines establish a 108 Ã— 60 legacy cell grid. Internally, horizontal positions use a doubled coordinate, so the row-major cell index is `floor(horizontal_subcoordinate / 2) + 108 * y`; the vertical coordinate is bounded to 0 through 59. The six signed neighbor offsets are read from `0x00696E70` and `0x00696E80`.
+
+| Direction | Horizontal subcoordinate delta | Vertical delta |
+|---:|---:|---:|
+| 0 | 1 | -1 |
+| 1 | 2 | 0 |
+| 2 | 1 | 1 |
+| 3 | -1 | 1 |
+| 4 | -2 | 0 |
+| 5 | -1 | -1 |
+
+The seam-normalization routine at `0x00512D13` applies the original horizontal wrap behavior, while `0x00512850` performs the row-major index calculation. This is geometry evidence only; it does not imply that the Modern engine must retain the original fixed dimensions.
+
 ## Resource-backed production formulas
 
 The original `STR#ENU.GOB` help resources directly state the following:
@@ -145,38 +161,73 @@ The original `STR#ENU.GOB` help resources directly state the following:
 
 The executable's `STR#ENU.GOB` resources contain all 28 technology names in progression order. This identifies the catalog and ordering; the numeric research costs, years, prerequisites, and benefits are deliberately left pending until their data readers are isolated.
 
-| ID | Technology | Name resource |
-|---:|---|---|
-| 1 | High Pressure Steam Engine | `#1073[10]` |
-| 2 | Seed Drill | `#1073[11]` |
-| 3 | Cotton Gin | `#1073[12]` |
-| 4 | Streamlined Hulls | `#1073[13]` |
-| 5 | Square-Set Timbering | `#1073[14]` |
-| 6 | Iron Railroad Bridge | `#1073[15]` |
-| 7 | Feed Grasses | `#1074[0]` |
-| 8 | Spinning Jenny | `#1074[1]` |
-| 9 | Paddlewheels | `#1074[2]` |
-| 10 | Steel Plows | `#1074[3]` |
-| 11 | Bessemer Converter | `#1074[4]` |
-| 12 | Compound Steam Engine | `#1074[5]` |
-| 13 | Rifled Artillery | `#1074[6]` |
-| 14 | Breech-Loading Rifles | `#1074[7]` |
-| 15 | Advanced Iron Working | `#1074[8]` |
-| 16 | Power Loom | `#1074[9]` |
-| 17 | Mechanical Reaper | `#1074[10]` |
-| 18 | Commercial Fertilizer | `#1074[11]` |
-| 19 | Oil Drilling | `#1074[12]` |
-| 20 | Barbed Wire | `#1074[13]` |
-| 21 | Steel Armor Plate | `#1074[14]` |
-| 22 | Large Artillery | `#1074[15]` |
-| 23 | Dynamite | `#1075[0]` |
-| 24 | Marine Engineering | `#1075[1]` |
-| 25 | Machine Guns | `#1075[2]` |
-| 26 | Chemistry | `#1075[3]` |
-| 27 | Improved Range-Finding | `#1075[4]` |
-| 28 | Internal Combustion | `#1075[5]` |
+| ID | Technology | Name resource | Resource-backed effect summary |
+|---:|---|---|---|
+| 1 | High Pressure Steam Engine | `#1073[10]` | Engineers may build railroads through farms, plains, deserts, and forests. |
+| 2 | Seed Drill | `#1073[11]` | Farmers improve Grain and Produce to Level I, producing 2 per turn. |
+| 3 | Cotton Gin | `#1073[12]` | Cotton plantations improve to Level I, producing 2 Cotton per turn. |
+| 4 | Streamlined Hulls | `#1073[13]` | Permits construction of Clippers. |
+| 5 | Square-Set Timbering | `#1073[14]` | All mines improve to Level II; Coal/Iron produce 4 and Gold/Gems produce 2 per turn. |
+| 6 | Iron Railroad Bridge | `#1073[15]` | Engineers may rail swamps; Foresters improve Timber to Level I, producing 2 per turn. |
+| 7 | Feed Grasses | `#1074[0]` | Ranchers improve Wool and Livestock to Level I, producing 2 per turn. |
+| 8 | Spinning Jenny | `#1074[1]` | Cotton and Wool improve to Level II, producing 3 per turn. |
+| 9 | Paddlewheels | `#1074[2]` | Permits construction of Large Merchant Ships and Raiders. |
+| 10 | Steel Plows | `#1074[3]` | Grain and Produce improve to Level II, producing 3 per turn. |
+| 11 | Bessemer Converter | `#1074[4]` | Permits Sharpshooters and Scouts, and upgrades Light Infantry and Hussars. |
+| 12 | Compound Steam Engine | `#1074[5]` | Engineers may rail hills; Foresters improve Timber to Level II, producing 3 per turn. |
+| 13 | Rifled Artillery | `#1074[6]` | Permits Field Artillery and Siege Artillery, and upgrades older artillery. |
+| 14 | Breech-Loading Rifles | `#1074[7]` | Permits Rifle Infantry, Guards, and Carbine Cavalry, and upgrades older regiments. |
+| 15 | Advanced Iron Working | `#1074[8]` | Permits construction of Ironclads. |
+| 16 | Power Loom | `#1074[9]` | Cotton and Wool improve to Level III, producing 4 per turn. |
+| 17 | Mechanical Reaper | `#1074[10]` | Grain improves to Level III, producing 4 per turn. |
+| 18 | Commercial Fertilizer | `#1074[11]` | Produce improves to Level III, producing 4 per turn. |
+| 19 | Oil Drilling | `#1074[12]` | Permits Drillers, Oil Level I, oil prospecting in Desert/Tundra/Swamp, Refineries, and Power Plants. |
+| 20 | Barbed Wire | `#1074[13]` | Livestock improves to Level II, producing 3 per turn. |
+| 21 | Steel Armor Plate | `#1074[14]` | Permits warships with larger guns and heavier armor. |
+| 22 | Large Artillery | `#1074[15]` | Permits Railroad Guns and Mobile Artillery, and upgrades older artillery. |
+| 23 | Dynamite | `#1075[0]` | Engineers may rail mountains; Foresters improve Timber to Level III (4); all mines reach Level III (Coal/Iron 6, Gold/Gems 3). |
+| 24 | Marine Engineering | `#1075[1]` | Permits construction of Armored Cruisers. |
+| 25 | Machine Guns | `#1075[2]` | Permits Modern Infantry, Machine Gunners, and Rangers, and upgrades older regiments. |
+| 26 | Chemistry | `#1075[3]` | Drillers improve Oil to Level II (4); Ranchers improve Livestock to Level III (4). |
+| 27 | Improved Range-Finding | `#1075[4]` | Dreadnoughts and Battle Cruisers may use Oil rather than Coal. |
+| 28 | Internal Combustion | `#1075[5]` | Permits Armored and Mechanized regiments and upgrades older units; Drillers improve Oil to Level III, producing 6 per turn. |
 
-The same archive provides `Purchased in [1:year]`, one- and two-prerequisite templates, and the purchase-screen labels for cost, benefits, details, and purchase/cancel actions. The corresponding description blocks are `#144`-`#146`; their full text is preserved per technology in the JSON, including explicit unit unlocks, upgrades, terrain access, and production effects.
+The effect summaries and structured `effects` arrays are direct normalizations of the corresponding description strings, not guesses about numeric data. The same archive provides `Purchased in [1:year]`, one- and two-prerequisite templates, and the purchase-screen labels for cost, benefits, details, and purchase/cancel actions. Numeric costs, years, and prerequisites remain pending executable-reader work.
+
+## Verified executable raw-resource output curves
+
+The executable contains a 23-row × 4-byte raw-resource production table at `0x00696D98`. It uses the same slot namespace as town/warehouse output, but only the map-deposit rows are nonzero:
+
+| Resource ID | Resource | Level 0 | Level 1 | Level 2 | Level 3 |
+|---:|---|---:|---:|---:|---:|
+| 0 | cotton | 1 | 2 | 3 | 4 |
+| 1 | wool | 1 | 2 | 3 | 4 |
+| 2 | timber | 1 | 2 | 3 | 4 |
+| 3 | coal | 0 | 2 | 4 | 6 |
+| 4 | iron | 0 | 2 | 4 | 6 |
+| 5 | horses | 1 | 1 | 1 | 1 |
+| 6 | oil | 0 | 2 | 4 | 6 |
+| 17 | grain | 1 | 2 | 3 | 4 |
+| 18 | fruit | 1 | 2 | 3 | 4 |
+| 19 | fish | 1 | 2 | 3 | 4 |
+| 20 | livestock | 1 | 2 | 3 | 4 |
+| 21 | gems | 0 | 1 | 2 | 3 |
+| 22 | gold | 0 | 1 | 2 | 3 |
+
+The companion selector at `0x00696DF8` tells the reader at `0x00513610` whether to use the low or high nibble of `resource_record+0x0C`; high-nibble resources are coal, iron, oil, gems, and gold. Fish uses the low nibble, so its 1/2/3/4 row is a stored source quantity rather than a confirmed civilian development level; the exact adjacency calculation remains unresolved.
+
+Most rows directly confirm the manual's Resource Development Table: cultivated resources use 1/2/3/4, coal/iron/oil use 0/2/4/6, horses use flat 1, and gold/gems use 0/1/2/3. Fish is an important exception: the executable row is 1/2/3/4, while the manual describes fish as one per adjacent water source and not civilian-improvable. That tells us this table's fish input is a production-count/adjacency quantity, not a confirmed fish development level. The zero rows 7–16 are not missing data; they are processed-commodity slots that cannot be map deposits. The town output reader at `0x005B73E0` consumes this table. The adjacent class-gate bytes at `0x0066D770` are also verified as a production filter, but their remaining internal labels are still open.
+
+## Town industrial development: executable rules
+
+The original executable contains a `TTown` record (`0x0066D780`, 0x50 bytes) and a per-update method at `0x005B7570`. A town must first be eligible (`+0x4D`) and pass the six-neighbor map/transport query at `0x00513CA0`, which is the executable form of the manual's connected depot/port requirement.
+
+The update method uses `age = current_turn - creation_turn`:
+- Material progress is considered only when `age > 4` and age is even. Each eligible material channel rises by exactly 1, capped by both half of its town raw-output bucket and one quarter of the matching capital-city capacity (rounded up).
+- The first three material channels use internal capital-capacity IDs 1, 5, and 3. The fourth channel uses a province-record condition and has no direct capital-capacity lookup in this method. The factory-name mapping for those numeric IDs remains deliberately open.
+- Consumer-good progress is considered only when `age > 9` and age is odd. It is capped at half of the corresponding material progress and by the central consumer-capacity sum. This is the exact executable form of the manual's “materials first” and “goods capped at half material output” description.
+
+The traced update changes production counters, not a direct hamlet/village/town map-sprite field. The two growth messages are present in `STR#ENU.GOB` block #99 (strings 12 and 13), but the separate visual/message threshold consumer remains pending; no fixed threshold is being invented here.
 
 ## Additional cost-table leads
 
@@ -192,4 +243,4 @@ The cash-table leads at `0x0065046A`, `0x00650650`, and `0x00650660` are preserv
 
 - Executable: `Imperialism.exe`
 - SHA-256: `6afab8495db715fd9e719cffa74abe5ede4dd763428ff65d73be4edf16c9e691`
-- W32Dasm audit: `local disassembly audit database`
+- W32Dasm audit: `local disassembly audit database (not committed)`
