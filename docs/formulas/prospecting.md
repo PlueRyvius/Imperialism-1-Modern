@@ -119,7 +119,7 @@ costs nothing. `HasProspected` stays the honest record of who actually *looked*.
 ## Oil is gated — and it is reachable now
 
 The importer emits the whole technology table, and `technology.oil-drilling`
-carries a price: **25,000, from 1856, with no prerequisite.** So an imported world
+carries a price: **12,000, from 1856, with no prerequisite.** So an imported world
 *can* reach its oil, by saving up and buying the technology like any other.
 
 **This section used to say the opposite and the change is the point.** Before the
@@ -135,11 +135,12 @@ change.** It was already in content, expressed as a `ProspectingRule` naming a
 technology, and giving that technology a price was enough. Three slices of gate
 machinery came alive the same way.
 
-What is untested is what it costs in practice. 25,000 is twice a Mechanical Reaper
-and the soak's gold mine earns about 20,000 in a century, so an imported power very
-plausibly cannot afford oil inside a normal game even though it is no longer
-forbidden — which is a different claim and one nobody has measured. **No soak run
-covers oil.** See [technology.md](technology.md).
+What is untested is what it costs in practice. **The price halved when the
+executable's cash table replaced the price list's** — 25,000 was Barbed Wire's
+number, read one row down — so oil is now the same 12,000 as a Mechanical Reaper
+rather than twice one. Against a gold mine's 20,000 in a century that is the
+difference between out of reach and affordable-once, and **nobody has measured
+either. No soak run covers oil.** See [technology.md](technology.md).
 
 A scenario can still grant it outright through `InitialCountryTechnologies`, which
 remains what a hand-authored world would use.

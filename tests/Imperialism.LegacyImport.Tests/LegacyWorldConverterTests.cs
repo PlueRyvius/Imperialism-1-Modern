@@ -694,17 +694,24 @@ public sealed class LegacyWorldConverterTests
     /// Investment screen reads.
     /// </summary>
     /// <remarks>
-    /// This is the wiki's order rather than the manual's printed order — the two
-    /// differ at positions 4–7 and 13–14, which is exactly where the manual's
-    /// two-column layout is worst. **The corpus cannot choose between them**, and
-    /// the reason is worth stating precisely rather than as agreement: a power
-    /// holding *five* technologies genuinely holds different gates under each, and
-    /// the corpus has no such power (its counts are 0, 6, 9, 13, 14 and 21). Both
-    /// falsification counts come out identical under either ordering. See
-    /// <c>docs/formulas/technology.md</c>.
+    /// **Order and cost are the executable's**, from the name blocks in `STR#ENU.GOB`
+    /// and the 28-entry cash table the technology store reads at the same position.
+    /// The recovered order turns out to be the manual's printed one, so the wiki
+    /// ordering this used to pin — differing at positions 4–7 and 13–14 — is
+    /// retracted. Twelve of the twenty-six prices moved with it, because the wiki's
+    /// price column was **off by one from Streamlined Hulls onwards**: each entry
+    /// carried the next one's price.
     /// <para>
-    /// Names stay the manual's where the two sources disagree: "Steel and Iron
-    /// Plows" over the wiki's "Steel Plows", "Fertiliser" over "Fertilizer".
+    /// **The years are derived and the prerequisites are not recovered.** The
+    /// executable stores an inclusive pseudo-random turn-offset window per
+    /// technology, not a year; the year here is <c>1815 + window minimum</c>, which
+    /// puts 25 of the wiki's 26 observed years inside their window and 19 exactly on
+    /// it. Prerequisites are still the wiki's and are now the weakest column. See
+    /// <c>docs/formulas/technology.md</c>.
+    /// </para>
+    /// <para>
+    /// Names stay the manual's where the sources disagree: "Steel and Iron Plows"
+    /// over "Steel Plows", "Fertiliser" over "Fertilizer", "Armour" over "Armor".
     /// </para>
     /// </remarks>
     [Fact]
@@ -715,31 +722,31 @@ public sealed class LegacyWorldConverterTests
             ("High Pressure Steam Engine", null, 1815, []),
             ("Seed Drill", null, 1815, []),
             ("Cotton Gin", 1_000, 1816, []),
+            ("Streamlined Hulls", 1_000, 1821, []),
+            ("Square-Set Timbering", 1_500, 1821, []),
             ("Iron Railroad Bridge", 1_500, 1821, []),
             ("Feed Grasses", 1_500, 1821, []),
-            ("Square-Set Timbering", 1_500, 1821, []),
-            ("Streamlined Hulls", 1_500, 1821, []),
-            ("Spinning Jenny", 3_000, 1826, ["Cotton Gin", "Feed Grasses"]),
+            ("Spinning Jenny", 1_500, 1826, ["Cotton Gin", "Feed Grasses"]),
             ("Paddlewheels", 3_000, 1826, []),
             ("Steel and Iron Plows", 3_000, 1831, ["Seed Drill"]),
-            ("Bessemer Converter", 6_000, 1836, []),
-            ("Compound Steam Engine", 7_000, 1836, ["Iron Railroad Bridge"]),
-            ("Breech-Loading Rifles", 12_000, 1841, ["Bessemer Converter"]),
-            ("Rifled Artillery", 10_000, 1841, []),
+            ("Bessemer Converter", 3_000, 1836, []),
+            ("Compound Steam Engine", 6_000, 1836, ["Iron Railroad Bridge"]),
+            ("Rifled Artillery", 7_000, 1841, []),
+            ("Breech-Loading Rifles", 10_000, 1841, ["Bessemer Converter"]),
             ("Advanced Iron Working", 12_000, 1846, []),
             ("Power Loom", 12_000, 1846, ["Spinning Jenny"]),
             ("Mechanical Reaper", 12_000, 1851, ["Steel and Iron Plows"]),
             ("Commercial Fertiliser", 12_000, 1856, ["Steel and Iron Plows"]),
-            ("Oil Drilling", 25_000, 1856, []),
-            ("Barbed Wire", 20_000, 1862, ["Feed Grasses"]),
-            ("Steel Armour Plate", 40_000, 1866, ["Advanced Iron Working"]),
-            ("Large Artillery", 40_000, 1872, ["Rifled Artillery"]),
-            ("Dynamite", 40_000, 1874, ["Compound Steam Engine", "Square-Set Timbering"]),
-            ("Marine Engineering", 40_000, 1873, ["Steel Armour Plate"]),
-            ("Machine Guns", 100_000, 1879, ["Breech-Loading Rifles"]),
-            ("Chemistry", 120_000, 1875, ["Oil Drilling", "Barbed Wire"]),
-            ("Improved Range-Finding", 150_000, 1881, ["Marine Engineering"]),
-            ("Internal Combustion", 150_000, 1884, ["Chemistry"]),
+            ("Oil Drilling", 12_000, 1856, []),
+            ("Barbed Wire", 25_000, 1861, ["Feed Grasses"]),
+            ("Steel Armour Plate", 20_000, 1866, ["Advanced Iron Working"]),
+            ("Large Artillery", 40_000, 1871, ["Rifled Artillery"]),
+            ("Dynamite", 40_000, 1871, ["Compound Steam Engine", "Square-Set Timbering"]),
+            ("Marine Engineering", 40_000, 1871, ["Steel Armour Plate"]),
+            ("Machine Guns", 40_000, 1876, ["Breech-Loading Rifles"]),
+            ("Chemistry", 100_000, 1876, ["Oil Drilling", "Barbed Wire"]),
+            ("Improved Range-Finding", 120_000, 1881, ["Marine Engineering"]),
+            ("Internal Combustion", 150_000, 1881, ["Chemistry"]),
         ];
 
         var result = LegacyWorldConverter.Convert(
@@ -1216,10 +1223,11 @@ public sealed class LegacyWorldConverterTests
     /// check behind that reading.
     /// </summary>
     /// <remarks>
-    /// **Id 5 is one of the six positions the reordering moved**, and this is the
-    /// assertion that would have caught it: it used to resolve to Square-Set
-    /// Timbering under the manual's printed order and resolves to Feed Grasses
-    /// under the wiki's. Id 23 is Dynamite under both.
+    /// **Id 5 is one of the six positions the orderings disagree about**, which is
+    /// what makes it the id worth pinning: Feed Grasses under the wiki's order,
+    /// Square-Set Timbering under the executable's. It reads Square-Set Timbering
+    /// now, and the wiki order it used to hold is retracted. Id 23 is Dynamite under
+    /// both.
     /// </remarks>
     [Fact]
     public void TechRecordsBecomeStartingKnowledge()
@@ -1239,7 +1247,7 @@ public sealed class LegacyWorldConverterTests
 
         Assert.True(result.Success, result.Report.ToHumanReadable());
         Assert.Equal(
-            ["technology.feed-grasses", "technology.dynamite"],
+            ["technology.square-set-timbering", "technology.dynamite"],
             result.Document!.Scenarios[0].CountryTechnologies
                 .Select(static item => item.Technology));
 

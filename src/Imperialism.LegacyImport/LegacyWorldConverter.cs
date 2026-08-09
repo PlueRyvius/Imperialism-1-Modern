@@ -215,43 +215,49 @@ public static class LegacyWorldConverter
     /// list is what an id is resolved against.
     /// </summary>
     /// <remarks>
-    /// <b>This is the wiki's order, not the manual's printed order</b>, and the
-    /// two differ at positions 4–7 and 13–14 — exactly the rows where the
-    /// manual's two-column layout is worst. The costs, years and prerequisites
-    /// come from the same source, which is a community transcription of the
-    /// original's own Investment screen
-    /// (<c>imperialism.fandom.com/wiki/Technology_(Imp1)</c>).
+    /// <b>The order and the prices are the executable's now</b>, and the recovered
+    /// order turns out to be the manual's printed one. `STR#ENU.GOB` blocks
+    /// #1073–#1075 hold all 28 names in progression order and the technology store
+    /// reads a 28-entry cash table at <c>0x0066AAE8</c> indexed by that same
+    /// position; both are recorded in
+    /// <c>docs/disasm/definitive-original-data.md</c>. The wiki ordering this table
+    /// used to carry — differing at positions 4–7 and 13–14 — is **retracted, not
+    /// superseded**. The corpus never could choose between the two, and in the end
+    /// did not have to.
     /// <para>
-    /// <b>The corpus cannot choose between the two orderings, and the reason is
-    /// not that they agree.</b> They genuinely disagree at exactly one place: a
-    /// power holding **five** technologies holds Square-Set Timbering under the
-    /// manual's order — mines to Level II — and holds Iron Railroad Bridge and Feed
-    /// Grasses instead under the wiki's. That is a real discriminating case and
-    /// **the corpus does not contain it**: its powers hold 0, 6, 9, 13, 14 or 21,
-    /// never 5. From six upwards the wiki prefix is a superset of the manual's, and
-    /// from seven upwards the two prefixes are the same *set* — positions 4–7 are a
-    /// permutation within it — so nothing above five can tell them apart either.
-    /// Positions 13/14 gate nothing at all.
-    /// <para>
-    /// Measured rather than argued: 380 authored levels permitted and 4 not, and
-    /// 1,140 rail ends permitted and 0 not, **identical under both orderings**. The
-    /// arrival dates cannot separate them either, because positions 4–7 all arrive
-    /// in 1821. So the wiki order ships on source quality — data-derived, internally
-    /// consistent on prerequisites, and legible where the manual's two-column OCR
-    /// is worst in exactly these rows — and **not on evidence.** See
-    /// <c>docs/formulas/technology.md</c>.
+    /// <b>The wiki's price column was off by one, and the binary shows exactly
+    /// where.</b> From Streamlined Hulls onwards each wiki price is the price of the
+    /// *next* technology in the recovered order — Bessemer Converter carried Compound
+    /// Steam Engine's 6,000, Oil Drilling carried Barbed Wire's 25,000, Machine Guns
+    /// carried Chemistry's 100,000 — which is why twelve of the twenty-six moved here
+    /// and why the last entry did not have to. A slip that reproduces itself for
+    /// twenty-four consecutive rows is not two sources disagreeing; it is one source
+    /// wrong in a legible way.
     /// </para>
     /// <para>
-    /// Names stay the manual's where the two disagree: "Steel and Iron Plows"
-    /// over the wiki's "Steel Plows", "Fertiliser" over "Fertilizer". The keys
-    /// are name-derived and already shipped, so a rename would be a content
-    /// break for no gain.
+    /// <b>The arrival years are derived, and the derivation is corroborated
+    /// twenty-five times.</b> The executable stores no year: it generates each
+    /// non-starting technology an inclusive pseudo-random <em>turn-offset</em> window
+    /// from 26 two-word entries at <c>0x0066ABA4</c>. Read as one offset per year
+    /// from the 1815 epoch the corpus already established, **25 of the wiki's 26
+    /// years fall inside their window and 19 sit exactly on its minimum**. Chemistry
+    /// is the single miss, by one year, and is also one of the two rows the wiki had
+    /// out of order. So the year below is <c>1815 + window minimum</c> — the earliest
+    /// anybody may buy, which is what the field means — and the wiki's scattered
+    /// later dates read as single draws from a range rather than as a table.
     /// </para>
     /// <para>
-    /// The arrival years are the *earliest* of each of the wiki's ranges. The
-    /// manual calls its dates "approximate" and the wiki's are not strictly
-    /// monotonic — 24 arrives before 23, 26 before 25 — so one fixed year per
-    /// technology is a simplification of a range, recorded in the doc.
+    /// <b>The prerequisites are still the wiki's, and are now the weakest column
+    /// here.</b> The executable's prerequisite graph has not been recovered, and the
+    /// price column's slip is a reason to trust the rest of that source less rather
+    /// than more. Every edge still points backwards under the recovered order, which
+    /// is the only check available. See <c>docs/formulas/technology.md</c>.
+    /// </para>
+    /// <para>
+    /// Names stay the manual's where the sources disagree: "Steel and Iron Plows"
+    /// over "Steel Plows", "Fertiliser" over "Fertilizer", "Armour" over "Armor".
+    /// The keys are name-derived and already shipped, so a rename would be a
+    /// content break for no gain.
     /// </para>
     /// <para>
     /// Only the entries this engine can act on are given a gate below. Regiments,
@@ -264,31 +270,31 @@ public static class LegacyWorldConverter
         new(SteamEngine, null, 1815),
         new(SeedDrill, null, 1815),
         new(CottonGin, 1_000, 1816),
+        new(StreamlinedHulls, 1_000, 1821),
+        new(SquareSetTimbering, 1_500, 1821),
         new(IronRailroadBridge, 1_500, 1821),
         new(FeedGrasses, 1_500, 1821),
-        new(SquareSetTimbering, 1_500, 1821),
-        new("Streamlined Hulls", 1_500, 1821),
-        new(SpinningJenny, 3_000, 1826, CottonGin, FeedGrasses),
-        new("Paddlewheels", 3_000, 1826),
+        new(SpinningJenny, 1_500, 1826, CottonGin, FeedGrasses),
+        new(Paddlewheels, 3_000, 1826),
         new(SteelAndIronPlows, 3_000, 1831, SeedDrill),
-        new(BessemerConverter, 6_000, 1836),
-        new(CompoundSteamEngine, 7_000, 1836, IronRailroadBridge),
-        new(BreechLoadingRifles, 12_000, 1841, BessemerConverter),
-        new(RifledArtillery, 10_000, 1841),
+        new(BessemerConverter, 3_000, 1836),
+        new(CompoundSteamEngine, 6_000, 1836, IronRailroadBridge),
+        new(RifledArtillery, 7_000, 1841),
+        new(BreechLoadingRifles, 10_000, 1841, BessemerConverter),
         new(AdvancedIronWorking, 12_000, 1846),
         new(PowerLoom, 12_000, 1846, SpinningJenny),
         new(MechanicalReaper, 12_000, 1851, SteelAndIronPlows),
         new(CommercialFertiliser, 12_000, 1856, SteelAndIronPlows),
-        new(OilDrilling, 25_000, 1856),
-        new(BarbedWire, 20_000, 1862, FeedGrasses),
-        new(SteelArmourPlate, 40_000, 1866, AdvancedIronWorking),
-        new("Large Artillery", 40_000, 1872, RifledArtillery),
-        new(Dynamite, 40_000, 1874, CompoundSteamEngine, SquareSetTimbering),
-        new(MarineEngineering, 40_000, 1873, SteelArmourPlate),
-        new("Machine Guns", 100_000, 1879, BreechLoadingRifles),
-        new(Chemistry, 120_000, 1875, OilDrilling, BarbedWire),
-        new("Improved Range-Finding", 150_000, 1881, MarineEngineering),
-        new(InternalCombustion, 150_000, 1884, Chemistry),
+        new(OilDrilling, 12_000, 1856),
+        new(BarbedWire, 25_000, 1861, FeedGrasses),
+        new(SteelArmourPlate, 20_000, 1866, AdvancedIronWorking),
+        new("Large Artillery", 40_000, 1871, RifledArtillery),
+        new(Dynamite, 40_000, 1871, CompoundSteamEngine, SquareSetTimbering),
+        new(MarineEngineering, 40_000, 1871, SteelArmourPlate),
+        new("Machine Guns", 40_000, 1876, BreechLoadingRifles),
+        new(Chemistry, 100_000, 1876, OilDrilling, BarbedWire),
+        new("Improved Range-Finding", 120_000, 1881, MarineEngineering),
+        new(InternalCombustion, 150_000, 1881, Chemistry),
     ];
 
     private const string SeedDrill = "Seed Drill";
