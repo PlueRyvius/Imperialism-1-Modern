@@ -247,6 +247,14 @@ geometry and attaches them to the adjacent ocean graph. The exact lifecycle for
 ports created or removed after setup remains a separate trace, but static sea
 topology is map-derived rather than scenario-serialized.
 
+The traversal order is now also pinned: `0x0055E360` maps neighbour indices
+`0..5` to north-east, east, south-east, south-west, west, north-west. The
+builder inserts a reciprocal edge the first time that its ascending cell scan
+encounters it; it does not sort node ids. This encounter order is material to
+shortest-path ties and is preserved by the modern imported topology. The
+original's 108 by 60 limits are confined to this legacy helper, not imported
+modern map dimensions.
+
 The direct task-force path overwrites its requested destination with the resolved
 leg. A queued AI mission may reissue a later order, but the present trace does not
 prove player-facing automatic continuation, so the modern core must not invent it.

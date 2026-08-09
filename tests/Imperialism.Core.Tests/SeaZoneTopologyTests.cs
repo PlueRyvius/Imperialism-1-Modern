@@ -31,6 +31,19 @@ public sealed class SeaZoneTopologyTests
         Assert.Equal([new SeaZoneId(0)], withSeam.SeaTopology.GetNeighbors(new SeaZoneId(1)));
     }
 
+    [Fact]
+    public void TopologyPreservesOriginalCellAndDirectionEncounterOrder()
+    {
+        // From the first cell, the original probes east (zone 2) before
+        // south-east (zone 1).  Numeric sorting would incorrectly return 1,2.
+        var map = CreateMap(new MapDimensions(2, 2), wrapsHorizontally: false,
+            [new SeaZoneId(0), new SeaZoneId(2), new SeaZoneId(1), null]);
+
+        Assert.Equal(
+            [new SeaZoneId(2), new SeaZoneId(1)],
+            map.SeaTopology.GetNeighbors(new SeaZoneId(0)));
+    }
+
     private static MapDefinition CreateMap(
         MapDimensions dimensions,
         bool wrapsHorizontally,
@@ -41,14 +54,18 @@ public sealed class SeaZoneTopologyTests
             dimensions.GetCoordinate(new CellIndex(index)),
             new TerrainId(0),
             zone is { } value ? CellRegion.ForSeaZone(value) : CellRegion.Unassigned));
+        var seaZoneCount = zones
+            .Where(static zone => zone.HasValue)
+            .Select(static zone => zone!.Value.Value)
+            .DefaultIfEmpty(-1)
+            .Max() + 1;
+        var seaZones = Enumerable.Range(0, seaZoneCount)
+            .Select(index => new SeaZoneDefinition(new SeaZoneId(index), $"Zone {index}"));
+
         return new MapDefinition(
             dimensions,
             cells,
-            seaZones:
-            [
-                new SeaZoneDefinition(new SeaZoneId(0), "West"),
-                new SeaZoneDefinition(new SeaZoneId(1), "East"),
-            ],
+            seaZones: seaZones,
             wrapsHorizontally: wrapsHorizontally);
     }
 }

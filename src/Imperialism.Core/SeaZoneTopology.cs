@@ -26,8 +26,12 @@ public sealed class SeaZoneTopology
         int seaZoneCount,
         bool wrapsHorizontally)
     {
+        // UOcean setup in the original scans cells in record order and probes
+        // the six directions in HexDirections.All order.  Its adjacency array
+        // appends a reciprocal pair at the first encounter; preserving that
+        // order matters where two shortest paths are otherwise tied.
         var links = Enumerable.Range(0, seaZoneCount)
-            .Select(static _ => new SortedSet<int>())
+            .Select(static _ => new List<SeaZoneId>())
             .ToArray();
 
         foreach (var cell in cells)
@@ -57,15 +61,18 @@ public sealed class SeaZoneTopology
                     continue;
                 }
 
-                links[from.Value].Add(to.Value);
-                links[to.Value].Add(from.Value);
+                if (links[from.Value].Contains(to))
+                {
+                    continue;
+                }
+
+                links[from.Value].Add(to);
+                links[to.Value].Add(from);
             }
         }
 
         return new SeaZoneTopology(links
-            .Select(static link => (IReadOnlyList<SeaZoneId>)link
-                .Select(static value => new SeaZoneId(value))
-                .ToArray())
+            .Select(static link => (IReadOnlyList<SeaZoneId>)link.ToArray())
             .ToArray());
     }
 
