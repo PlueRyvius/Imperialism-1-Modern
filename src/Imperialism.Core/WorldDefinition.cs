@@ -1227,6 +1227,27 @@ public sealed class WorldState
     }
 
     /// <summary>
+    /// Places a task force into the original's port-control qualifying patrol
+    /// state. This alone has no tactical-combat or port-access side effect.
+    /// </summary>
+    public void PatrolTaskForce(CountryId country, TaskForceId taskForce)
+    {
+        ValidateCountry(country);
+        var force = GetTaskForce(taskForce);
+        if (force.Country != country)
+        {
+            throw new InvalidOperationException("A country cannot patrol with a foreign task force.");
+        }
+
+        if (force.PlannedSeaZone is not null)
+        {
+            throw new InvalidOperationException("A sailing leg must resolve before a task force can patrol.");
+        }
+
+        force.Activity = TaskForceActivity.Patrolling;
+    }
+
+    /// <summary>
     /// Plans one original-style strategic sailing leg. The destination is
     /// reduced to a shortest-path leg no longer than the slowest selected hull,
     /// then <see cref="ResolveTaskForceMoves"/> applies it separately.
@@ -1263,6 +1284,9 @@ public sealed class WorldState
             .Min();
         var resolved = ResolveSailingLeg(force.SeaZone, destination, maximumSeaZones);
         force.PlannedSeaZone = resolved;
+        // The original sailing planner switches the task force to state 1, so
+        // it no longer qualifies as state-3 patrol control while in transit.
+        force.Activity = TaskForceActivity.Idle;
         return new TaskForceMovePlan(
             force.Id,
             force.SeaZone,

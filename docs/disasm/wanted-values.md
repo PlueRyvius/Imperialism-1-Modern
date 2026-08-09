@@ -159,8 +159,16 @@ path at `0x005B7830`. It checks each of the six neighbouring cells. For adjacent
 ocean it calls `0x00561510`, which builds a country bit mask from qualifying
 task-force ships at that target and returns blocked only when an opposing eligible
 country is present **and the port owner's bit is absent** (with the diplomacy test
-at the same call site). This is the executable form of undisputed enemy control:
-it is not a simple hostile-ship-presence rule. More precisely, the routine scans
+at the same call site). More exactly, its country test resolves through
+`0x004EF590`: after validating the pair, it compares the signed 16-bit entry at
+`countryA * 23 + countryB` in the country's raw relation matrix against the
+runtime value returned by `0x0057D8B0` (global-state offset `+0x2C`). It blocks
+when those values differ. Shipped `rela` records are the 253 unordered pairs
+among 23 countries and carry raw values such as 80 through 150 and 255; the
+runtime sentinel's initialization is still open, so that comparison must not
+yet be simplified to a guessed friendly/hostile threshold. This is the
+executable form of undisputed enemy control: it is not a simple
+hostile-ship-presence rule. More precisely, the routine scans
 the global `TShip` list at `0x006A3EDC`; a ship qualifies only when its `UOcean`
 at `+0x08` is the target, its `TTaskForce*` at `+0x0C` is non-null and active
 (`TTaskForce+0x26 == 0`), and that task force's state at `+0x08` is 3 or 4. It

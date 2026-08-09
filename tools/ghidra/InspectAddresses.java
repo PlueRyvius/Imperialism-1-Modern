@@ -67,7 +67,15 @@ public class InspectAddresses extends GhidraScript {
         try {
             for (String value : decompile.split(",")) {
                 long raw = Long.parseLong(value.trim().replace("0x", ""), 16);
-                Function function = getFunctionContaining(toAddr(raw));
+                Address address = toAddr(raw);
+                Function function = getFunctionContaining(address);
+                if (function == null) {
+                    // Some C++ virtual-table entries are bare jump thunks that
+                    // the imported program has not promoted to functions.
+                    // Creating the requested function lets the same narrow,
+                    // address-driven inspection decompile those entries.
+                    function = createFunction(address, null);
+                }
                 println(String.format("=== DECOMPILE %08X ===", raw));
                 if (function == null) {
                     println("no containing function");

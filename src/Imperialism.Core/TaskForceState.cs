@@ -1,6 +1,15 @@
 namespace Imperialism.Core;
 
 /// <summary>
+/// Task-force activities with an executable-backed modern behaviour.
+/// </summary>
+public enum TaskForceActivity
+{
+    Idle,
+    Patrolling,
+}
+
+/// <summary>
 /// A group of co-located fleet records awaiting a strategic naval command.
 /// </summary>
 /// <remarks>
@@ -47,6 +56,13 @@ public sealed class TaskForceState
     /// so the long-range request is intentionally not retained here.
     /// </summary>
     public SeaZoneId? PlannedSeaZone { get; internal set; }
+
+    /// <summary>
+    /// The original port predicate qualifies the equivalent of this activity
+    /// (task-force state 3). Other original state values are not represented
+    /// until their target and resolution behaviour are recovered.
+    /// </summary>
+    public TaskForceActivity Activity { get; internal set; }
 
     /// <summary>Fleet records in deterministic ascending ID order.</summary>
     public IReadOnlyList<FleetId> Fleets => _fleets;

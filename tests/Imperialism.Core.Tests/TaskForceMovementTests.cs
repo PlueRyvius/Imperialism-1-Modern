@@ -14,6 +14,8 @@ public sealed class TaskForceMovementTests
             [new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1),
              new InitialShip(new CountryId(0), new ShipTypeId(1), 0, 1)]);
         var force = state.AssembleTaskForce(new CountryId(0), [new FleetId(1), new FleetId(2)]);
+        state.PatrolTaskForce(new CountryId(0), force.Id);
+        Assert.Equal(TaskForceActivity.Patrolling, force.Activity);
 
         var plan = state.PlanTaskForceMove(new CountryId(0), force.Id, new SeaZoneId(4));
 
@@ -23,6 +25,7 @@ public sealed class TaskForceMovementTests
         Assert.Equal(2, plan.MaximumSeaZones);
         Assert.Equal(new SeaZoneId(0), force.SeaZone);
         Assert.Equal(new SeaZoneId(2), force.PlannedSeaZone);
+        Assert.Equal(TaskForceActivity.Idle, force.Activity);
 
         Assert.Equal(
             [new TaskForceMoveResolution(force.Id, new SeaZoneId(0), new SeaZoneId(2))],
@@ -30,6 +33,22 @@ public sealed class TaskForceMovementTests
         Assert.Equal(new SeaZoneId(2), force.SeaZone);
         Assert.Null(force.PlannedSeaZone);
         Assert.All(force.Fleets, id => Assert.Equal(new SeaZoneId(2), state.GetFleet(id).SeaZone));
+    }
+
+    [Fact]
+    public void OnlyTheOwnerCanPutAnIdleTaskForceOnPatrol()
+    {
+        var state = CreateState(
+            new MapDimensions(2, 1),
+            [0, 1],
+            [new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1)]);
+        var force = state.AssembleTaskForce(new CountryId(0), [new FleetId(1)]);
+
+        state.PatrolTaskForce(new CountryId(0), force.Id);
+
+        Assert.Equal(TaskForceActivity.Patrolling, force.Activity);
+        Assert.Throws<InvalidOperationException>(() =>
+            state.PatrolTaskForce(new CountryId(1), force.Id));
     }
 
     [Fact]
@@ -82,7 +101,8 @@ public sealed class TaskForceMovementTests
         var scenario = new ScenarioDefinition("Movement", 1815, [], initialShips: ships);
         return new WorldState(new WorldDefinition(
             map,
-            [new CountryDefinition(new CountryId(0), "Power 0")],
+            [new CountryDefinition(new CountryId(0), "Power 0"),
+             new CountryDefinition(new CountryId(1), "Power 1")],
             scenario,
             shipTypes:
             [
