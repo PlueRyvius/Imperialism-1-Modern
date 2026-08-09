@@ -32,6 +32,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | What's still unknown? | `docs/formulas/_index.md` |
 | Does the economy hold up over 100 turns? | `docs/formulas/soak.md` |
 | Navigating the original binary, and resolving a crash | `docs/disasm/README.md`, `docs/disasm/module-map.md` |
+| **What the binary actually said** | `docs/disasm/definitive-original-data.md` |
 | **What we want out of the binary, and how to check it** | `docs/disasm/wanted-values.md` |
 | Reading the binary's *behaviour* rather than its addresses | `docs/disasm/ghidra.md` |
 
@@ -364,8 +365,11 @@ expanding a mill does not.
 **The railyard was predicted to break 2:1 and it does not.** `production.md`
 carried that expectation twice and it is now retracted there rather than quietly
 dropped: a capacity point costs one lumber and one steel, two inputs for one
-point, so every reading of the labour sentence still agrees — and the manual
-never prices the railyard's labour at all. No candidate for that test is in view.
+point, so every reading of the labour sentence still agrees — and the manual never
+prices the railyard's labour at all. The executable's own recipe for transport
+capacity is 2 labour, 1 steel, 1 lumber, so what shipped here was right for the
+wrong reason. **Canned food was the recipe that broke it**, and it was on the list
+the whole time; see the binary-recovery section below.
 
 **A power starts with a warehouse, and forgetting that produced a wrong
 conclusion.** The manual says so outright — "you must construct a lumber and steel
@@ -492,22 +496,24 @@ Reaper costs and its ceiling never lifts, while a patient one buys it the quarte
 arrives. Note the honest caveat — the greedy run misses by a *thousand*, so that is
 a knife edge and the robust claim is only the direction.
 
-**The prices, prerequisites and arrival dates come from a price list the owner
+**The prices, prerequisites and arrival dates came from a price list the owner
 supplied**, transcribed from a fan wiki of the original's Investment screen. The
 host 402s, so `docs/formulas/technology.md` **is** the record of it. It is
-data-derived rather than remembered, which earns it a new row on the evidence scale
-in `_index.md`, and it is second-hand and unverifiable, which keeps it below the
-manual.
+data-derived rather than remembered, which earned it a new row on the evidence scale
+in `_index.md`, and it is second-hand and unverifiable, which kept it below the
+manual. **Only its arrival dates survived the binary** — see the recovery section
+below. The prerequisites are still its and are now the weakest column in the table.
 
-**It reordered the table, and the corpus provably cannot say whether that is
-right.** A `tech` id is a bare index, so the six moved positions change what every
-shipped power holds. All three corpus checks were run under both orderings and
-**none discriminates** — not because the orderings agree but because the one case
-where they genuinely disagree, a power holding exactly *five* technologies, does not
-occur in the corpus (its counts are 0, 6, 9, 13, 14, 21). 380/4 and 1,140/0 are
-identical either way. The order ships on source quality, and that is the weakest
-link in the chain. **Prefix closure is a vacuous control between them and is
-labelled as one.**
+**It reordered the table, the corpus provably could not say whether that was
+right, and the binary says it was not.** A `tech` id is a bare index, so the six
+moved positions change what every shipped power holds. All three corpus checks were
+run under both orderings and **none discriminated** — not because the orderings agree
+but because the one case where they genuinely disagree, a power holding exactly
+*five* technologies, does not occur in the corpus (its counts are 0, 6, 9, 13, 14,
+21). 380/4 and 1,140/0 are identical either way, and stayed identical through the
+reversion. The order shipped on source quality, labelled the weakest link in the
+chain, which is exactly what made replacing it cost one assertion. **Prefix closure
+is a vacuous control between them and is labelled as one.**
 
 **While reordering, the gates were name-keyed.** `ResourceTechnologyLadders`, the
 four rail constants and Oil Drilling were table *positions*, so a reorder silently
@@ -582,8 +588,8 @@ a run where the pool was visibly binding.
 **The opening fleet is not an eighth engine default.** All three skirmishes give every power
 three ships of type 1, independently — and `ship` is *not* one of the seven records a
 skirmish omits. So six cargo holds is recoverable from the corpus where the transport pool
-beside it is not. The inference is only which class: both candidate ship orderings put the
-Trader first.
+beside it is not. The inference was only which class, and it is no longer an inference: the
+executable's array puts the Trader at index 1.
 
 **A `ship` type index is 1-based, and the corpus proves it.** Read as 0-based it puts a
 Clipper — which needs Streamlined Hulls — in an 1816 skirmish whose powers hold nothing, and
@@ -591,31 +597,79 @@ five more in `s13`/`s14`. Under 1-based, **142 records and 307 ships produce zer
 contradictions** under either technology ordering. It pins which offsets are gated and says
 nothing about the order within each group.
 
-**It does not settle the technology table order, and that was the hope.** A Clipper held by a
+**It did not settle the technology table order, and that was the hope.** A Clipper held by a
 power with 4–6 technologies would have discriminated the two orderings; no such record
 exists, because the only six-technology scenarios field ungated hulls exclusively. **Third
-independent corpus check to come back silent.**
+independent corpus check to come back silent** — and then the binary answered it anyway.
 
-**So `ship` records stay deferred, on purpose.** There are thirteen hull classes — five
-merchants and eight warships — and the array order is unresolved, so converting against a
-guess would hand powers fleets that were never there. Trade still works on imported worlds
-because the fair-start fleet comes from `startingDefaults` and needs no index: content refers
-to a hull by key, and only the legacy integer needs the order.
+## The binary answered, and four shipped tables moved
 
-**No ship build costs are transcribed, and that is a decision.** The owner's cost table had a
-misaligned column — what it labelled Speed was battle movement, and it carried no sailing
-speed at all — so every value after Hull is suspect, arms included. Arms later sets beachhead
-force size, so being out by one is a gameplay bug rather than a cosmetic one. That
-misalignment also explains the Clipper's flagged speed of 0: merchants have no battle
-movement because they never fight.
+`docs/disasm/definitive-original-data.md` is an extraction from `Imperialism.exe` and
+`Data/STR#ENU.GOB`. It resolved the two blocking entries on `docs/disasm/wanted-values.md`
+and corrected a rule nobody had listed as open. Where it disagrees with anything, **it wins
+and the other source is retracted, not balanced against.**
 
-**The ship stats are not in any file.** Four pattern searches came back empty — the
-executable at three widths, strided struct arrays to stride 64, order-independent windows,
-and clustered `mov` immediates across the 59 MB disassembly listing, where not one window of
-sixty held even six of the eight hull values. The values are assigned individually in code,
-so this is a Ghidra task on the ship constructor, not a byte hunt — and a far better target
-than the failed labour-cost hunt, since a constructor's immediates sit in the decompiled
-output where a formula was spread across arithmetic.
+**The technology table's order is the manual's printed order**, so the fan-wiki reordering
+shipped at v19 is retracted. One assertion changed in the whole suite:
+`TechRecordsBecomeStartingKnowledge`, which pins id 5 precisely because it was one of the
+six disputed positions.
+
+**The two falsification counts are unverified against this change, and that matters.** The
+analysis says 380/4 and 1,140/0 cannot move under a permutation within a prefix, and the
+tests holding them return silently unless `IMPERIALISM_SCENARIO_DIR` names the full
+ten-scenario corpus. Anyone with that corpus should run them; until then the counts are a
+prediction. **This is the "skip visibly, never iterate an empty corpus" trap from the
+Conventions section, in its C# form** — the gate returns rather than skipping, so a run
+with no corpus is indistinguishable from a run that checked nothing.
+
+**Twelve of the twenty-six technology prices were wrong, and all in the same way.** From
+Streamlined Hulls onwards, every price the wiki carried is the price of the *next*
+technology in the recovered order — a column read one row down. Oil Drilling is 12,000, not
+25,000. The arrival years are now `1815 + the executable's turn-offset window minimum`; 25
+of the wiki's 26 observed years fall inside their window, which is what pins the reading and
+is also the one column of that source that survived.
+
+**The ship array order is recovered, so nothing about ships is a guess any more.** Thirteen
+classes in the executable's own order — which is what a `ship` record's 1-based type indexes
+into — with cargo, sea zones, build bills and combat stats. **The Freighter carries 16**, the
+last unknown cargo figure. **The Frigate takes 2 arms, not 3**, settling the discrepancy that
+mattered because arms later set beachhead force size. And **the manual's "Speed" column is
+sea zones**, not a sailing rate: the naval table has a separate battle-movement field, and no
+sailing speed at all. The claim that armour and speed decide whether a merchant runs a
+blockade was inferred from that label and is retracted.
+
+**Labour is two per production cycle, flat.** `production.md` implemented "the recipe's total
+input units" and said no shipped recipe distinguished the readings. One did, and it was on
+the list the whole time: food processing takes four input units and makes two units of canned
+food, and the original charges two labour for it like everything else. Canned food's labour
+cost halves. **No published soak table moves** — the soak's fixture recipes were all already
+costing two.
+
+**Two searches failed for the same reason, and it is worth internalising.** The ship stats
+were called "not in any file" after four pattern searches; the table was at `0x00698108` all
+along, and every field the fingerprint clustered on is *encoded* — firepower ×100, armour as
+its complement against 100, hull as an internal 600–2,800 scale. The technology fingerprint
+was built from the wiki's price column and would have confirmed a table shifted by one.
+**A fingerprint carries its source's errors and then confirms them; find the reader
+function instead.** And the labour rate hunted through 59 MB of listing was printed in
+English in the resource archive — **read `STR#ENU.GOB` before disassembling anything.**
+
+**`ship` records convert.** They were deferred for want of the array order and all 142 now
+import as fleets: `[country, type, zone, count]`, the zone carried and never interpreted, a
+repeated class summed rather than warned about, and an unnameable type dropped rather than
+clamped. A country the scenario equips takes its authored fleet instead of the fair-start
+three Traders, which is Core's existing rule and needed no change.
+**`EveryShipInTheCorpusIsAHullItsOwnerCouldHaveBuilt` is the falsification check** —
+`s1`'s 29 records / 59 hulls are measured, the 142/307 totals are transcribed from
+`trade.md` and want a full corpus to confirm.
+
+**What is recorded and deliberately unused.** The army purchase and stat tables, the map
+geometry, the town-development rules, the power conversion (1 fuel → 6 power, 100 fuel a
+turn) and worker training (1 paper + $100 to train, 2 paper + $1,000 to promote) are all in
+the extraction and modelled nowhere. So is every entry marked `candidate` — including a
+nine-record cost block that *looks* like the civilian purchase list and whose first figure
+happens to match our remembered depot cost. **Do not promote a candidate without tracing its
+selector.**
 
 Transient power, research *progress*, conflict, diplomacy, trade subsidies, sea routes
 between ports, blockade, moving regiments by rail, building ships, the University, the
@@ -624,13 +678,13 @@ newspaper and fortifications remain explicitly pending. So does
 `docs/formulas/money.md` records the finding without acting on it, because pricing
 every civilian's work would move every number in the soak.
 
-**Production spends labour.** Each recipe costs its total input units, from one
-pool per country shared across every facility. The manual prices exactly one
-recipe — a unit of clothing costs two fabric and two labour — and settles the
-rest only because every shipped recipe consumes two input units per unit of
-output, which collapses the competing readings of that sentence into the same
-number. A recipe that broke 2:1 would separate them; the railyard will be the
-first. Read `docs/formulas/production.md` before changing the rate.
+**Production spends labour: two per cycle, flat**, from one pool per country shared
+across every facility. The manual prices exactly one recipe — a unit of clothing
+costs two fabric and two labour — and the original's own help resources charge the
+same two for all nine of theirs, food processing's four-input cycle included. The
+"total input units" rule this repository shipped is retracted; so is the standing
+claim that no recipe distinguished the readings. Read
+`docs/formulas/production.md` before changing the rate.
 
 **Starving and sickening both cost labour on the *next* turn**, because
 `Production` runs before `Feeding`. A workforce works the turn it dies or falls

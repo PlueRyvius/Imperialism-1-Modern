@@ -1001,17 +1001,17 @@ public sealed class LegacyWorldConverterTests
     }
 
     /// <summary>
-    /// <c>ship</c> records are **still deferred**, and that is a decision rather than an
-    /// oversight: the record's type is a 1-based index into the game's own ship array, and
-    /// the array order needs the binary to settle. Converting them against a guessed order
-    /// would hand powers the wrong hulls.
+    /// <c>ship</c> records convert. The record is <c>[country, type, zone, count]</c> and
+    /// the type is a 1-based index into the executable's naval table.
     /// </summary>
     /// <remarks>
-    /// Trade still works on imported worlds, because the fair-start fleet comes from
-    /// <c>startingDefaults</c> and needs no index. See <c>docs/formulas/trade.md</c>.
+    /// **They were deferred for want of that order and are not any more.** The zone is
+    /// carried and never interpreted — it is not the map's ocean zone byte — and a
+    /// repeated class is a second record rather than an error, which is why `s1` can give
+    /// one power `8x2` and `8x1` separately. See <c>docs/formulas/trade.md</c>.
     /// </remarks>
     [Fact]
-    public void ShipRecordsAreStillDeferred()
+    public void ShipRecordsBecomeFleets()
     {
         var result = LegacyWorldConverter.Convert(
             CreateMap(2, 1, LandCell(0, 0), OceanCell()),
@@ -1020,14 +1020,50 @@ public sealed class LegacyWorldConverterTests
                 Record("year", 0),
                 NameRecord("cnam", 0, "Country"),
                 NameRecord("pnam", 0, "Province"),
+                Record("labo", 0, 4, 2, 1),
                 Record("ship", 0, 1, 14, 3),
+
+                // The same class again, in another zone: a bag, not a table.
+                Record("ship", 0, 1, 9, 2),
+
+                // Type 5 is the Paddlewheeler, which is where a guessed order would have
+                // put something else.
+                Record("ship", 0, 5, 9, 1),
+
+                // Dropped: no such hull, and no ships at all.
+                Record("ship", 0, 14, 9, 1),
+                Record("ship", 0, 2, 9, 0),
             ]),
             null,
-            "deferred-ship-map");
+            "ship-record-map");
 
         Assert.True(result.Success, result.Report.ToHumanReadable());
-        Assert.Empty(result.Document!.Scenarios[0].Ships);
-        Assert.Contains("scenario.tag.ship", result.Report.DeferredCounts.Keys);
+        Assert.Equal(
+            [
+                ("country.legacy.000", "ship.trader", 14, 3L),
+                ("country.legacy.000", "ship.trader", 9, 2L),
+                ("country.legacy.000", "ship.paddlewheeler", 9, 1L),
+            ],
+            result.Document!.Scenarios[0].Ships
+                .Select(static item => (item.Country, item.Type, item.SeaZone, item.Count)));
+
+        // A hull the table cannot name is reported and dropped, never clamped — that is
+        // the one mistake the whole deferral existed to avoid.
+        Assert.Contains(
+            result.Report.Diagnostics,
+            static item => item.Code == "scenario.unknown-ship-type");
+        Assert.DoesNotContain("scenario.tag.ship", result.Report.DeferredCounts.Keys);
+
+        // An equipped country takes its authored fleet and not the default three Traders,
+        // even though `labo` makes it a default-start country.
+        var compiled = WorldContentCompiler.Compile(result.Document);
+        var state = new WorldState(compiled.World);
+        var country = new CountryId(0);
+        var trader = compiled.World.ShipTypes.Single(static item => item.Name == "Trader").Id;
+        Assert.Equal(5, state.GetShipCount(country, trader));
+
+        // 5 Traders at 2 holds, plus a Paddlewheeler at 8.
+        Assert.Equal(18, state.GetMerchantMarine(country));
     }
 
     /// <summary>
@@ -1889,6 +1925,133 @@ public sealed class LegacyWorldConverterTests
         // moves, the transcription moved with it.
         Assert.Equal(4, beyond.Count);
         Assert.All(beyond, entry => Assert.Contains("resource.forest L3", entry, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// **Every ship in the corpus is a hull its owner could have built.** 142 records,
+    /// 307 ships, zero contradictions — the same falsification method that validated the
+    /// <c>tech</c> ids, and the check `wanted-values.md` promised before the ship array
+    /// order was known.
+    /// </summary>
+    /// <remarks>
+    /// **This is the check that pinned 1-based indexing**, back when the order was not
+    /// known: read as 0-based it puts a Clipper — which needs Streamlined Hulls — in an
+    /// 1816 skirmish whose powers hold nothing, plus five more in <c>s13</c> and
+    /// <c>s14</c>. Nine contradictions against zero.
+    /// <para>
+    /// It is worth keeping now that the order is recovered, because the two agree without
+    /// either having been fitted to the other: the check requires types 1–4 to be ungated,
+    /// and the executable's first four are Trader, Indiaman, Frigate and Ship-of-the-Line.
+    /// <b>If this count moves, either the array or the technology table moved.</b>
+    /// </para>
+    /// <para>
+    /// Unlike the development ladder there are **no exceptions at all**, which is a
+    /// stronger result than 380/4: a scenario may author a development level past what its
+    /// owner could build, and no scenario authors a hull past it.
+    /// </para>
+    /// <para>
+    /// <b>Provenance of the numbers, because they are not all the same kind.</b> The
+    /// per-scenario row for <c>s1</c> was measured against the file; the 142/307 totals are
+    /// the corpus figures <c>docs/formulas/trade.md</c> recorded when the 1-based reading
+    /// was established, and they are transcribed here rather than re-measured — this
+    /// environment holds only <c>s1</c>. If a full corpus disagrees with them, believe the
+    /// corpus.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EveryShipInTheCorpusIsAHullItsOwnerCouldHaveBuilt()
+    {
+        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+
+        // Measured. s1 is the only scenario fielding a gated hull at all — the
+        // Paddlewheeler and the Raider both need Paddlewheels — which is what stops this
+        // check being vacuous, and it is 1882 holding 21 technologies, so it passes.
+        var expected = new Dictionary<string, (int Records, long Hulls)>(StringComparer.Ordinal)
+        {
+            ["s1"] = (29, 59),
+        };
+
+        var records = 0;
+        var hulls = 0L;
+        var beyond = new List<string>();
+        var byType = new SortedDictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var mapPath in Directory.GetFiles(directory, "*.map").OrderBy(static path => path))
+        {
+            var key = Path.GetFileNameWithoutExtension(mapPath);
+            var scenarioPath = Path.Combine(directory, $"{key}.scn");
+            if (key == "s0" || !File.Exists(scenarioPath))
+            {
+                continue;
+            }
+
+            var result = LegacyWorldConverter.Convert(
+                LegacyMapCodec.Decode(File.ReadAllBytes(mapPath), MapFormatProfile.Imperialism1),
+                LegacyScenarioCodec.Decode(File.ReadAllBytes(scenarioPath)),
+                null,
+                $"fleet-{key}");
+            Assert.True(result.Success);
+
+            var document = result.Document!;
+            var gates = document.ShipTypes.ToDictionary(
+                static item => item.Key,
+                static item => item.RequiredTechnology,
+                StringComparer.Ordinal);
+            var held = document.Scenarios[0].CountryTechnologies
+                .GroupBy(static item => item.Country, StringComparer.Ordinal)
+                .ToDictionary(
+                    static group => group.Key,
+                    static group => group.Select(static item => item.Technology)
+                        .ToHashSet(StringComparer.Ordinal),
+                    StringComparer.Ordinal);
+            var starting = document.StartingDefaults!.Technologies;
+
+            foreach (var ship in document.Scenarios[0].Ships)
+            {
+                records++;
+                hulls += ship.Count;
+                byType[ship.Type] = byType.GetValueOrDefault(ship.Type) + 1;
+
+                var gate = gates[ship.Type];
+                if (gate is null ||
+                    starting.Contains(gate) ||
+                    (held.TryGetValue(ship.Country, out var known) && known.Contains(gate)))
+                {
+                    continue;
+                }
+
+                beyond.Add($"{key} {ship.Country} holds {ship.Type}, which needs {gate}");
+            }
+
+            if (expected.TryGetValue(key, out var counts))
+            {
+                Assert.Equal(
+                    counts,
+                    (document.Scenarios[0].Ships.Length,
+                        document.Scenarios[0].Ships.Sum(static item => item.Count)));
+            }
+        }
+
+        // The finding itself first, so a partial corpus still reports it rather than
+        // failing on the completeness guard below and saying nothing.
+        Assert.Empty(beyond);
+
+        // Not vacuous: gated hulls are genuinely present, so the check has something to
+        // catch. The Paddlewheeler and the Raider are the two that need Paddlewheels, and
+        // only s1 — in 1882, holding 21 technologies — fields either.
+        Assert.True(
+            byType.GetValueOrDefault("ship.paddlewheeler") + byType.GetValueOrDefault("ship.raider") > 0,
+            $"No gated hull in the corpus, so this check proves nothing: {string.Join(", ", byType)}");
+
+        // Setting the variable is a declaration that the whole corpus is there, so a
+        // partial one is a broken setup rather than a pass — the same guard the other
+        // corpus checks in this file use, and it fires for the same reason they do.
+        Assert.Equal(142, records);
+        Assert.Equal(307, hulls);
     }
 
     /// <summary>

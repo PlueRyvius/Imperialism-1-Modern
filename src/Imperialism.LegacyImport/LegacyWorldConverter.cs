@@ -567,7 +567,7 @@ public static class LegacyWorldConverter
         new(
             [
                 "cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port", "rail", "labo",
-                "civi", "tech", "tran", "cash",
+                "civi", "tech", "tran", "cash", "ship",
             ],
             StringComparer.Ordinal);
 
@@ -787,6 +787,7 @@ public static class LegacyWorldConverter
         var transportCapacity = ReadTransportCapacity(scenario, countryKeys, report);
         var countryCash = ReadCountryCash(scenario, countryKeys, report);
         var civilians = ReadCivilians(scenario, map, countryKeys, report);
+        var ships = ReadShips(scenario, countryKeys, report);
 
         // `labo` names the Great Powers and only them — seven in every shipped scenario —
         // so it is how the importer tells them from the minor nations without guessing.
@@ -936,6 +937,7 @@ public static class LegacyWorldConverter
                     Depots = depots,
                     Workers = workers,
                     Civilians = civilians,
+                    Ships = ships,
                     CountryTechnologies = countryTechnologies,
                     TransportCapacity = transportCapacity,
                     Cash = countryCash,
@@ -1379,6 +1381,105 @@ public static class LegacyWorldConverter
             {
                 Country = countryKey,
                 Technology = TechnologyKeyAt((int)technology),
+            });
+        }
+
+        return result.ToArray();
+    }
+
+    /// <summary>
+    /// Converts <c>ship</c> records into a scenario's fleets. The record is
+    /// <c>[country, type, zone, count]</c>, where the type is a **1-based index into the
+    /// executable's naval table** — see <see cref="ShipTypes"/>, which is that table in
+    /// its own order.
+    /// </summary>
+    /// <remarks>
+    /// <b>These were deferred until the array order was recovered</b>, on the grounds that
+    /// converting against a guess would hand powers fleets that were never there. It is
+    /// recovered, so they convert.
+    /// <para>
+    /// <b>The zone is carried and never interpreted.</b> A ship's zone is not the map's
+    /// ocean zone byte — <c>docs/scenario-semantics.md</c> establishes that the two
+    /// numberings are unrelated and that 23 zone ids appear on no ocean cell at all — so a
+    /// fleet can be named and not located. It is kept rather than dropped because losing
+    /// it would make the information unrecoverable from a round trip, and because merchant
+    /// marine capacity does not care where the ships are.
+    /// </para>
+    /// <para>
+    /// <b>A repeated (country, type) is not an error</b>, unlike a repeated <c>tech</c>.
+    /// `s1` gives one power `8x2` and `8x1` as separate records, and two records can name
+    /// the same class in different zones, so a fleet is a bag rather than a table. Core
+    /// sums them.
+    /// </para>
+    /// <para>
+    /// <b>An out-of-range type is dropped with a warning rather than clamped.</b> Only
+    /// types 1–9 appear in the corpus, so nothing shipped exercises it; inventing a hull
+    /// for an id the table cannot name would be the one mistake this whole deferral
+    /// existed to avoid.
+    /// </para>
+    /// </remarks>
+    private static ShipContent[] ReadShips(
+        ScenarioDocument scenario,
+        IReadOnlyDictionary<uint, string> countryKeys,
+        LegacyImportReport report)
+    {
+        var result = new List<ShipContent>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "ship")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 4)
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-ship",
+                    path,
+                    "A ship record must contain a country, a type, a sea zone and a count.");
+                continue;
+            }
+
+            var country = record.Fields[0];
+            var type = record.Fields[1];
+            var zone = record.Fields[2];
+            var count = record.Fields[3];
+            if (!countryKeys.TryGetValue(country, out var countryKey))
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-ship-country",
+                    path,
+                    $"Ship refers to unknown country {country}.");
+                continue;
+            }
+
+            if (type == 0 || type > (uint)ShipTypes.Count)
+            {
+                report.Add(
+                    LegacyImportSeverity.Warning,
+                    "scenario.unknown-ship-type",
+                    path,
+                    $"Ship type {type} is outside the table of {ShipTypes.Count}; " +
+                    "no ships were placed.");
+                continue;
+            }
+
+            // A record of no ships is authoring noise, not a fleet. Dropped quietly:
+            // nothing is lost and an empty entry would only widen the content.
+            if (count == 0)
+            {
+                continue;
+            }
+
+            result.Add(new ShipContent
+            {
+                Country = countryKey,
+                Type = ShipTypeKey(ShipTypes[(int)type - 1].Key),
+                SeaZone = (int)zone,
+                Count = count,
             });
         }
 

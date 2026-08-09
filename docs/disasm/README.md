@@ -21,6 +21,16 @@ archive. Direct observations are labeled definitive; unresolved semantic
 interpretations remain marked candidate. The original copyrighted sources and
 disassembly listing remain outside the repository.
 
+**What of it is in the engine, and what is not.** The technology table's order and
+prices, the thirteen ship classes, the production recipes and labour rate, the
+worker-conversion costs and the raw-resource yield curves are all shipped —
+`docs/formulas/technology.md`, `trade.md`, `production.md` and `migration.md` record
+what each one changed. The army tables, the map geometry, the town-development rules
+and everything marked `candidate` are recorded and unused, because nothing in this
+engine models them yet. Do not promote a `candidate` into content without tracing
+its selector first; `wanted-values.md` explains why, with two worked examples of a
+plausible fingerprint confirming the wrong table.
+
 ## Building the index
 
 ```sh

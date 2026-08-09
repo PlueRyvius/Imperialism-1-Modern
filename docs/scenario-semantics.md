@@ -214,8 +214,11 @@ cell it stands on**, which means moving one across a border changes its side.
 0-based it grants a Clipper — which needs Streamlined Hulls — to an 1816 skirmish power
 holding no technology at all, and five more in `s13` and `s14`. Read as 1-based, all **142
 records and 307 ships** in the corpus are hulls their owner could have built, with zero
-contradictions. The corpus uses types 1–9 of a thirteen-class array, and the *order* of that
-array is still unknown — which is why the importer converts `ship` records for nothing yet.
+contradictions. The corpus uses types 1–9 of a thirteen-class array, and **the order of that array is
+recovered from the executable's naval table**, so the importer converts these records. The
+two agree without either having been fitted to the other: the 1-based check requires types
+1–4 to be ungated hulls, and the recovered array's first four are Trader, Indiaman, Frigate
+and Ship-of-the-Line.
 The three skirmishes each give every power three of type 1, which is where the opening
 merchant marine comes from. See `formulas/trade.md`.
 The type tiers track the scenario's year, which is a useful cross-check on both:

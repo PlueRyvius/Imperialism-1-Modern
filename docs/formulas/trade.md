@@ -281,46 +281,70 @@ records, zero contradictions, under either technology ordering. Same falsificati
 that validated the `tech` ids.
 
 **Two limits on what that proves.** It pins *which offsets are gated* — types 1–4 all
-appear under six or fewer technologies, so none of them can be a Clipper, Steamship or
+appear under six or fewer technologies, so none of them can be a Clipper, Paddlewheeler or
 Raider — and it says nothing about the order *within* each group. Any permutation inside
 {1,2,3,4} or inside the gated hulls fits equally.
 
-### It does not settle the technology table order
+### It did not settle the technology table order, and did not need to
 
-This was expected to. Clipper needs Streamlined Hulls, and Streamlined Hulls is one of the
-six positions [technology.md](technology.md#the-reorder-and-why-the-corpus-cannot-decide-it)
-moved — so a Clipper held by a power with 4, 5 or 6 technologies would have discriminated
-the two orderings that the authored levels, the rail ends and the arrival dates all
-provably could not.
+This was expected to. Clipper needs Streamlined Hulls, and Streamlined Hulls was one of
+the six disputed positions, so a Clipper held by a power with 4, 5 or 6 technologies would
+have discriminated the two orderings that the authored levels, the rail ends and the
+arrival dates all provably could not.
 
 **No such record exists.** `s13` and `s14` are the only six-technology scenarios and they
-field types 1–4 exclusively, all ungated. That is the **third** independent corpus check to
-come back silent on the ordering, and it stays on source quality.
+field types 1–4 exclusively, all ungated. That was the third independent corpus check to
+come back silent — and the question is closed anyway now, from the binary. See
+[technology.md](technology.md#the-order-is-settled-and-it-is-the-manuals).
 
-### So `ship` records are still deferred
+**The recovered array vindicates what the 1-based check already pinned.** It said types
+1–4 must be ungated hulls, because powers with no technology at all hold them. The
+executable's first four are Trader, Indiaman, Frigate and Ship-of-the-Line: ungated,
+exactly as required. The corpus and the binary agree without either having been fitted to
+the other.
 
-The importer does not convert them. With thirteen classes and an unresolved array order,
-converting against a guess would hand powers the wrong hulls — and unlike a wrong price,
-that is not a number to recalibrate later but a fleet that was never there.
+### `ship` records convert
 
-**Trade still works on imported worlds**, because the fair-start fleet comes from
-`startingDefaults` and needs no index at all. That separation is the point: content refers
-to a hull by key, and only the legacy integer needs the order.
+The importer deferred all 142 for want of the array order, because converting against a
+guess would hand powers fleets that were never there. The order is recovered, so they
+convert: `[country, type, zone, count]`, type resolved through the executable's array.
 
-### The stats are not in the file, and that is a Ghidra job
+**The zone is carried and never interpreted**, for the reason
+[`../scenario-semantics.md`](../scenario-semantics.md) gives — a ship's zone is not the
+map's ocean zone byte, the numberings are unrelated, and 23 zone ids appear on no ocean
+cell at all. A fleet can be named and not located. Keeping it costs nothing and dropping
+it would make the information unrecoverable from a round trip.
+
+**A repeated class is a second record, not an error.** `s1` gives one power `8x2` and
+`8x1` separately, and two records can name the same class in different zones, so a fleet
+is a bag and Core sums it. That is unlike `tech`, where a repeat is warned about and
+dropped, and the difference is that a count adds up where a grant does not.
+
+**An out-of-range type is dropped with a warning, never clamped.** Nothing shipped
+exercises it — only types 1–9 appear — but inventing a hull for an id the table cannot
+name is the single mistake the whole deferral existed to avoid.
+
+**An equipped country ignores the fair-start fleet entirely**, which is Core's existing
+rule and needed no change here: `startingDefaults` applies per country and a scenario that
+authors any fleet takes that one whole, since adding a default Trader to an authored navy
+would invent a ship.
+
+### The stats were not in the file, and that is why the searches failed
 
 Four pattern searches for a static ship-stat table came back empty: the executable at
 1-, 2- and 4-byte widths; strided struct arrays at every stride to 64; order-independent
-windows (which handles a different ship order); and clustered `mov` immediates across the
-59 MB disassembly listing, where **not one window of sixty held even six of the eight hull
-values**. `confenu.irg` and `tabsenu.gob` have nothing either — and the `.gob` files turn
-out to be PE resource containers rather than archives, uncompressed and searchable.
+windows; and clustered `mov` immediates across the 59 MB disassembly listing, where **not
+one window of sixty held even six of the eight hull values**.
 
-So there is no array to find: the values are **assigned individually in code**, which is
-how 1997 C++ builds unit-type objects and why no search clusters them. Finding the ship
-constructor and reading its immediates is a decompiler task, and a far better target than
-the failed labour-cost hunt — a constructor's immediates sit in the decompiled output where
-a formula was spread across arithmetic.
+**The table was there all along, and the searches were looking for the wrong numbers.**
+It sits at `0x00698108` in 36-byte rows of nine dword slots, and the accessors read the
+low signed 16 bits of each. Firepower is stored ×100, so a Dreadnought's 20 is `2000`;
+armour is stored as `100 - armour`, so 70 is `30`; and hull is the 600–2,800 internal
+scale, not the manual's 30–115. A search for the manual's printed values could not have
+matched a single field but range and sea zones. **Every one of the eight hull values the
+search was clustering on is a decoded value, not a stored one** — which is the lesson
+worth keeping from this: search for what a table would *store*, and if the encoding is
+unknown, search for the reader instead.
 
 ## Design
 
@@ -449,7 +473,9 @@ and the four definition invariants.
 
 `tests/Imperialism.LegacyImport.Tests/LegacyWorldConverterTests.cs` pins the whole roster —
 order, price and the eight omissions — the thirteen-class ship table, the starting fleet,
-Great Power status, and that `ship` records are still deferred.
+Great Power status, and `ship` record conversion — the array order, a repeated class, a
+zero count and an unnameable type, and an authored fleet beating the default.
+`EveryShipInTheCorpusIsAHullItsOwnerCouldHaveBuilt` is the falsification check.
 
 `tests/Imperialism.Content.Tests/WorldContentTests.cs` pins the v19→v20 migration, its
 rejection of a contradictory v19 package, and a round trip of the roster, the hulls, the
