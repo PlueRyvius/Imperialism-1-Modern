@@ -2736,7 +2736,7 @@
   },
   "technology": {
     "status": "resource_backed",
-    "source_archive": "C:\\Users\\Ryvius\\Desktop\\Imperialism\\Data\\STR#ENU.GOB",
+    "source_archive": "Data/STR#ENU.GOB",
     "source_archive_sha256": "d754e503d144086051b70be53a085ae428e151908992530b8463c2e040c2d97f",
     "name_resource_blocks": [
       1073,
@@ -2752,9 +2752,32 @@
       1454,
       1455
     ],
+    "purchase_cost_table": {
+      "address": "0x0066AAE8",
+      "storage": "uint32[28]",
+      "entry_count": 28,
+      "indexing": "zero_based_internal_technology_index; purchase record field +0x64",
+      "reader_addresses": [
+        "0x005B0B30",
+        "0x005B0BB0"
+      ],
+      "field": "cash deducted for technology purchase"
+    },
+    "availability_window_table": {
+      "address": "0x0066ABA4",
+      "storage": "uint16[26][2]",
+      "applies_to_internal_index_range": {
+        "minimum": 2,
+        "maximum": 27,
+        "inclusive": true
+      },
+      "generator_address": "0x005AF330",
+      "semantics": "inclusive pseudo-random turn-offset window; the two starting technologies are omitted"
+    },
     "technologies": [
       {
         "id": 1,
+        "internal_index": 0,
         "name": "High Pressure Steam Engine",
         "source_block": 1073,
         "source_string_index": 10,
@@ -2776,10 +2799,14 @@
               "forests"
             ]
           }
-        ]
+        ],
+        "purchase_cost_cash": 0,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_status": "starting_technology"
       },
       {
         "id": 2,
+        "internal_index": 1,
         "name": "Seed Drill",
         "source_block": 1073,
         "source_string_index": 11,
@@ -2804,10 +2831,14 @@
             "level": "I",
             "output_per_turn": 2
           }
-        ]
+        ],
+        "purchase_cost_cash": 0,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_status": "starting_technology"
       },
       {
         "id": 3,
+        "internal_index": 2,
         "name": "Cotton Gin",
         "source_block": 1073,
         "source_string_index": 12,
@@ -2825,10 +2856,19 @@
             "level": "I",
             "output_per_turn": 2
           }
-        ]
+        ],
+        "purchase_cost_cash": 1000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 1,
+          "maximum": 5,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 4,
+        "internal_index": 3,
         "name": "Streamlined Hulls",
         "source_block": 1073,
         "source_string_index": 13,
@@ -2843,10 +2883,19 @@
             "type": "unit_unlock",
             "unit": "Clipper"
           }
-        ]
+        ],
+        "purchase_cost_cash": 1000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 6,
+          "maximum": 10,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 5,
+        "internal_index": 4,
         "name": "Square-Set Timbering",
         "source_block": 1073,
         "source_string_index": 14,
@@ -2877,10 +2926,19 @@
             "level": "II",
             "output_per_turn": 2
           }
-        ]
+        ],
+        "purchase_cost_cash": 1500,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 6,
+          "maximum": 10,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 6,
+        "internal_index": 5,
         "name": "Iron Railroad Bridge",
         "source_block": 1073,
         "source_string_index": 15,
@@ -2906,10 +2964,19 @@
             "level": "I",
             "output_per_turn": 2
           }
-        ]
+        ],
+        "purchase_cost_cash": 1500,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 6,
+          "maximum": 10,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 7,
+        "internal_index": 6,
         "name": "Feed Grasses",
         "source_block": 1074,
         "source_string_index": 0,
@@ -2934,10 +3001,19 @@
             "level": "I",
             "output_per_turn": 2
           }
-        ]
+        ],
+        "purchase_cost_cash": 1500,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 6,
+          "maximum": 10,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 8,
+        "internal_index": 7,
         "name": "Spinning Jenny",
         "source_block": 1074,
         "source_string_index": 1,
@@ -2960,10 +3036,19 @@
             "level": "II",
             "output_per_turn": 3
           }
-        ]
+        ],
+        "purchase_cost_cash": 1500,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 11,
+          "maximum": 15,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 9,
+        "internal_index": 8,
         "name": "Paddlewheels",
         "source_block": 1074,
         "source_string_index": 2,
@@ -2982,10 +3067,19 @@
             "type": "unit_unlock",
             "unit": "Raider"
           }
-        ]
+        ],
+        "purchase_cost_cash": 3000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 11,
+          "maximum": 15,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 10,
+        "internal_index": 9,
         "name": "Steel Plows",
         "source_block": 1074,
         "source_string_index": 3,
@@ -3008,10 +3102,19 @@
             "level": "II",
             "output_per_turn": 3
           }
-        ]
+        ],
+        "purchase_cost_cash": 3000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 16,
+          "maximum": 20,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 11,
+        "internal_index": 10,
         "name": "Bessemer Converter",
         "source_block": 1074,
         "source_string_index": 4,
@@ -3041,10 +3144,19 @@
               "Scouts"
             ]
           }
-        ]
+        ],
+        "purchase_cost_cash": 3000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 21,
+          "maximum": 25,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 12,
+        "internal_index": 11,
         "name": "Compound Steam Engine",
         "source_block": 1074,
         "source_string_index": 5,
@@ -3070,10 +3182,19 @@
             "level": "II",
             "output_per_turn": 3
           }
-        ]
+        ],
+        "purchase_cost_cash": 6000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 21,
+          "maximum": 25,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 13,
+        "internal_index": 12,
         "name": "Rifled Artillery",
         "source_block": 1074,
         "source_string_index": 6,
@@ -3100,10 +3221,19 @@
               "Siege Artillery"
             ]
           }
-        ]
+        ],
+        "purchase_cost_cash": 7000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 26,
+          "maximum": 30,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 14,
+        "internal_index": 13,
         "name": "Breech-Loading Rifles",
         "source_block": 1074,
         "source_string_index": 7,
@@ -3135,10 +3265,19 @@
               "Carbine Cavalry"
             ]
           }
-        ]
+        ],
+        "purchase_cost_cash": 10000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 26,
+          "maximum": 30,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 15,
+        "internal_index": 14,
         "name": "Advanced Iron Working",
         "source_block": 1074,
         "source_string_index": 8,
@@ -3153,10 +3292,19 @@
             "type": "unit_unlock",
             "unit": "Ironclad"
           }
-        ]
+        ],
+        "purchase_cost_cash": 12000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 31,
+          "maximum": 35,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 16,
+        "internal_index": 15,
         "name": "Power Loom",
         "source_block": 1074,
         "source_string_index": 9,
@@ -3179,10 +3327,19 @@
             "level": "III",
             "output_per_turn": 4
           }
-        ]
+        ],
+        "purchase_cost_cash": 12000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 31,
+          "maximum": 35,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 17,
+        "internal_index": 16,
         "name": "Mechanical Reaper",
         "source_block": 1074,
         "source_string_index": 10,
@@ -3199,10 +3356,19 @@
             "level": "III",
             "output_per_turn": 4
           }
-        ]
+        ],
+        "purchase_cost_cash": 12000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 36,
+          "maximum": 40,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 18,
+        "internal_index": 17,
         "name": "Commercial Fertilizer",
         "source_block": 1074,
         "source_string_index": 11,
@@ -3219,10 +3385,19 @@
             "level": "III",
             "output_per_turn": 4
           }
-        ]
+        ],
+        "purchase_cost_cash": 12000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 41,
+          "maximum": 45,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 19,
+        "internal_index": 18,
         "name": "Oil Drilling",
         "source_block": 1074,
         "source_string_index": 12,
@@ -3262,10 +3437,19 @@
             "type": "building_unlock",
             "building": "Power Plant"
           }
-        ]
+        ],
+        "purchase_cost_cash": 12000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 41,
+          "maximum": 45,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 20,
+        "internal_index": 19,
         "name": "Barbed Wire",
         "source_block": 1074,
         "source_string_index": 13,
@@ -3282,10 +3466,19 @@
             "level": "II",
             "output_per_turn": 3
           }
-        ]
+        ],
+        "purchase_cost_cash": 25000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 46,
+          "maximum": 50,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 21,
+        "internal_index": 20,
         "name": "Steel Armor Plate",
         "source_block": 1074,
         "source_string_index": 14,
@@ -3300,10 +3493,19 @@
             "type": "naval_design_improvement",
             "details": "larger guns and heavier armor"
           }
-        ]
+        ],
+        "purchase_cost_cash": 20000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 51,
+          "maximum": 55,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 22,
+        "internal_index": 21,
         "name": "Large Artillery",
         "source_block": 1074,
         "source_string_index": 15,
@@ -3330,10 +3532,19 @@
               "Mobile Artillery"
             ]
           }
-        ]
+        ],
+        "purchase_cost_cash": 40000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 56,
+          "maximum": 60,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 23,
+        "internal_index": 22,
         "name": "Dynamite",
         "source_block": 1075,
         "source_string_index": 0,
@@ -3379,10 +3590,19 @@
             "level": "III",
             "output_per_turn": 3
           }
-        ]
+        ],
+        "purchase_cost_cash": 40000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 56,
+          "maximum": 60,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 24,
+        "internal_index": 23,
         "name": "Marine Engineering",
         "source_block": 1075,
         "source_string_index": 1,
@@ -3397,10 +3617,19 @@
             "type": "unit_unlock",
             "unit": "Armored Cruiser"
           }
-        ]
+        ],
+        "purchase_cost_cash": 40000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 56,
+          "maximum": 60,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 25,
+        "internal_index": 24,
         "name": "Machine Guns",
         "source_block": 1075,
         "source_string_index": 2,
@@ -3432,10 +3661,19 @@
               "Rangers"
             ]
           }
-        ]
+        ],
+        "purchase_cost_cash": 40000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 61,
+          "maximum": 65,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 26,
+        "internal_index": 25,
         "name": "Chemistry",
         "source_block": 1075,
         "source_string_index": 3,
@@ -3460,10 +3698,19 @@
             "level": "III",
             "output_per_turn": 4
           }
-        ]
+        ],
+        "purchase_cost_cash": 100000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 61,
+          "maximum": 65,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 27,
+        "internal_index": 26,
         "name": "Improved Range-Finding",
         "source_block": 1075,
         "source_string_index": 4,
@@ -3483,10 +3730,19 @@
             "from": "Coal",
             "to": "Oil"
           }
-        ]
+        ],
+        "purchase_cost_cash": 120000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 66,
+          "maximum": 70,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       },
       {
         "id": 28,
+        "internal_index": 27,
         "name": "Internal Combustion",
         "source_block": 1075,
         "source_string_index": 5,
@@ -3520,7 +3776,15 @@
             "level": "III",
             "output_per_turn": 6
           }
-        ]
+        ],
+        "purchase_cost_cash": 150000,
+        "purchase_cost_status": "verified_executable_reader",
+        "availability_turn_offset_window": {
+          "minimum": 66,
+          "maximum": 70,
+          "inclusive": true
+        },
+        "availability_status": "verified_executable_random_window"
       }
     ],
     "purchase_ui_templates": {
@@ -3577,7 +3841,7 @@
         }
       }
     },
-    "evidence": "STR#ENU.GOB blocks #1073-#1075 contain all 28 technology names in exact progression order. Blocks #144-#146 contain the corresponding in-game descriptions, which explicitly state terrain, production, unit, and ship effects; the structured effects above are a direct normalization of that text. Blocks #1454-#1455 contain the year/prerequisite templates and purchase-screen labels. Numeric costs, years, and prerequisites remain pending executable-reader work."
+    "evidence": "STR#ENU.GOB blocks #1073-#1075 contain all 28 technology names in exact progression order. Blocks #144-#146 contain the corresponding in-game descriptions, which explicitly state terrain, production, unit, and ship effects; the structured effects above are a direct normalization of that text. The purchase path at 0x005B0B30/0x005B0BB0 indexes the executable cash table at 0x0066AAE8, and the initializer at 0x005AF330 generates inclusive availability windows from 0x0066ABA4 for the 26 non-starting technologies. The archive provides year/prerequisite templates, but the separate prerequisite reader/graph remains unresolved."
   },
   "resource_output": {
     "status": "verified",

@@ -157,42 +157,42 @@ The original `STR#ENU.GOB` help resources directly state the following:
 - Power: 1 fuel → 6 power, with up to 100 fuel per turn.
 - Worker conversion: 1 food + 1 furniture + 1 clothing → 1 untrained worker; untrained worker + 1 paper + $100 → trained worker; trained worker + 2 paper + $1,000 → expert worker.
 
-## Resource-backed technology catalog
+## Verified technology purchase metadata and resource-backed catalog
 
-The executable's `STR#ENU.GOB` resources contain all 28 technology names in progression order. This identifies the catalog and ordering; the numeric research costs, years, prerequisites, and benefits are deliberately left pending until their data readers are isolated.
+The executable's `STR#ENU.GOB` resources contain all 28 technology names in progression order. The technology-store code also reads a zero-based 28-entry cash-cost table at `0x0066AAE8` through the purchase paths at `0x005B0B30` and `0x005B0BB0`; the purchase record's `+0x64` field supplies that internal selector. The report displays those entries as the resource/scenario progression IDs (1-based), so the displayed ID is internal index + 1. The first two entries are starting technologies and have zero purchase cost.
 
-| ID | Technology | Name resource | Resource-backed effect summary |
-|---:|---|---|---|
-| 1 | High Pressure Steam Engine | `#1073[10]` | Engineers may build railroads through farms, plains, deserts, and forests. |
-| 2 | Seed Drill | `#1073[11]` | Farmers improve Grain and Produce to Level I, producing 2 per turn. |
-| 3 | Cotton Gin | `#1073[12]` | Cotton plantations improve to Level I, producing 2 Cotton per turn. |
-| 4 | Streamlined Hulls | `#1073[13]` | Permits construction of Clippers. |
-| 5 | Square-Set Timbering | `#1073[14]` | All mines improve to Level II; Coal/Iron produce 4 and Gold/Gems produce 2 per turn. |
-| 6 | Iron Railroad Bridge | `#1073[15]` | Engineers may rail swamps; Foresters improve Timber to Level I, producing 2 per turn. |
-| 7 | Feed Grasses | `#1074[0]` | Ranchers improve Wool and Livestock to Level I, producing 2 per turn. |
-| 8 | Spinning Jenny | `#1074[1]` | Cotton and Wool improve to Level II, producing 3 per turn. |
-| 9 | Paddlewheels | `#1074[2]` | Permits construction of Large Merchant Ships and Raiders. |
-| 10 | Steel Plows | `#1074[3]` | Grain and Produce improve to Level II, producing 3 per turn. |
-| 11 | Bessemer Converter | `#1074[4]` | Permits Sharpshooters and Scouts, and upgrades Light Infantry and Hussars. |
-| 12 | Compound Steam Engine | `#1074[5]` | Engineers may rail hills; Foresters improve Timber to Level II, producing 3 per turn. |
-| 13 | Rifled Artillery | `#1074[6]` | Permits Field Artillery and Siege Artillery, and upgrades older artillery. |
-| 14 | Breech-Loading Rifles | `#1074[7]` | Permits Rifle Infantry, Guards, and Carbine Cavalry, and upgrades older regiments. |
-| 15 | Advanced Iron Working | `#1074[8]` | Permits construction of Ironclads. |
-| 16 | Power Loom | `#1074[9]` | Cotton and Wool improve to Level III, producing 4 per turn. |
-| 17 | Mechanical Reaper | `#1074[10]` | Grain improves to Level III, producing 4 per turn. |
-| 18 | Commercial Fertilizer | `#1074[11]` | Produce improves to Level III, producing 4 per turn. |
-| 19 | Oil Drilling | `#1074[12]` | Permits Drillers, Oil Level I, oil prospecting in Desert/Tundra/Swamp, Refineries, and Power Plants. |
-| 20 | Barbed Wire | `#1074[13]` | Livestock improves to Level II, producing 3 per turn. |
-| 21 | Steel Armor Plate | `#1074[14]` | Permits warships with larger guns and heavier armor. |
-| 22 | Large Artillery | `#1074[15]` | Permits Railroad Guns and Mobile Artillery, and upgrades older artillery. |
-| 23 | Dynamite | `#1075[0]` | Engineers may rail mountains; Foresters improve Timber to Level III (4); all mines reach Level III (Coal/Iron 6, Gold/Gems 3). |
-| 24 | Marine Engineering | `#1075[1]` | Permits construction of Armored Cruisers. |
-| 25 | Machine Guns | `#1075[2]` | Permits Modern Infantry, Machine Gunners, and Rangers, and upgrades older regiments. |
-| 26 | Chemistry | `#1075[3]` | Drillers improve Oil to Level II (4); Ranchers improve Livestock to Level III (4). |
-| 27 | Improved Range-Finding | `#1075[4]` | Dreadnoughts and Battle Cruisers may use Oil rather than Coal. |
-| 28 | Internal Combustion | `#1075[5]` | Permits Armored and Mechanized regiments and upgrades older units; Drillers improve Oil to Level III, producing 6 per turn. |
+| ID | Technology | Cash cost | Availability offset window | Name resource | Resource-backed effect summary |
+|---:|---|---:|---|---|---|
+| 1 | High Pressure Steam Engine | $0 | starting technology | `#1073[10]` | Engineers may build railroads through farms, plains, deserts, and forests. |
+| 2 | Seed Drill | $0 | starting technology | `#1073[11]` | Farmers improve Grain and Produce to Level I, producing 2 per turn. |
+| 3 | Cotton Gin | $1,000 | 1–5 (inclusive) | `#1073[12]` | Cotton plantations improve to Level I, producing 2 Cotton per turn. |
+| 4 | Streamlined Hulls | $1,000 | 6–10 (inclusive) | `#1073[13]` | Permits construction of Clippers. |
+| 5 | Square-Set Timbering | $1,500 | 6–10 (inclusive) | `#1073[14]` | All mines improve to Level II; Coal/Iron produce 4 and Gold/Gems produce 2 per turn. |
+| 6 | Iron Railroad Bridge | $1,500 | 6–10 (inclusive) | `#1073[15]` | Engineers may rail swamps; Foresters improve Timber to Level I, producing 2 per turn. |
+| 7 | Feed Grasses | $1,500 | 6–10 (inclusive) | `#1074[0]` | Ranchers improve Wool and Livestock to Level I, producing 2 per turn. |
+| 8 | Spinning Jenny | $1,500 | 11–15 (inclusive) | `#1074[1]` | Cotton and Wool improve to Level II, producing 3 per turn. |
+| 9 | Paddlewheels | $3,000 | 11–15 (inclusive) | `#1074[2]` | Permits construction of Large Merchant Ships and Raiders. |
+| 10 | Steel Plows | $3,000 | 16–20 (inclusive) | `#1074[3]` | Grain and Produce improve to Level II, producing 3 per turn. |
+| 11 | Bessemer Converter | $3,000 | 21–25 (inclusive) | `#1074[4]` | Permits Sharpshooters and Scouts, and upgrades Light Infantry and Hussars. |
+| 12 | Compound Steam Engine | $6,000 | 21–25 (inclusive) | `#1074[5]` | Engineers may rail hills; Foresters improve Timber to Level II, producing 3 per turn. |
+| 13 | Rifled Artillery | $7,000 | 26–30 (inclusive) | `#1074[6]` | Permits Field Artillery and Siege Artillery, and upgrades older artillery. |
+| 14 | Breech-Loading Rifles | $10,000 | 26–30 (inclusive) | `#1074[7]` | Permits Rifle Infantry, Guards, and Carbine Cavalry, and upgrades older regiments. |
+| 15 | Advanced Iron Working | $12,000 | 31–35 (inclusive) | `#1074[8]` | Permits construction of Ironclads. |
+| 16 | Power Loom | $12,000 | 31–35 (inclusive) | `#1074[9]` | Cotton and Wool improve to Level III, producing 4 per turn. |
+| 17 | Mechanical Reaper | $12,000 | 36–40 (inclusive) | `#1074[10]` | Grain improves to Level III, producing 4 per turn. |
+| 18 | Commercial Fertilizer | $12,000 | 41–45 (inclusive) | `#1074[11]` | Produce improves to Level III, producing 4 per turn. |
+| 19 | Oil Drilling | $12,000 | 41–45 (inclusive) | `#1074[12]` | Permits Drillers, Oil Level I, oil prospecting in Desert/Tundra/Swamp, Refineries, and Power Plants. |
+| 20 | Barbed Wire | $25,000 | 46–50 (inclusive) | `#1074[13]` | Livestock improves to Level II, producing 3 per turn. |
+| 21 | Steel Armor Plate | $20,000 | 51–55 (inclusive) | `#1074[14]` | Permits warships with larger guns and heavier armor. |
+| 22 | Large Artillery | $40,000 | 56–60 (inclusive) | `#1074[15]` | Permits Railroad Guns and Mobile Artillery, and upgrades older artillery. |
+| 23 | Dynamite | $40,000 | 56–60 (inclusive) | `#1075[0]` | Engineers may rail mountains; Foresters improve Timber to Level III (4); all mines reach Level III (Coal/Iron 6, Gold/Gems 3). |
+| 24 | Marine Engineering | $40,000 | 56–60 (inclusive) | `#1075[1]` | Permits construction of Armored Cruisers. |
+| 25 | Machine Guns | $40,000 | 61–65 (inclusive) | `#1075[2]` | Permits Modern Infantry, Machine Gunners, and Rangers, and upgrades older regiments. |
+| 26 | Chemistry | $100,000 | 61–65 (inclusive) | `#1075[3]` | Drillers improve Oil to Level II (4); Ranchers improve Livestock to Level III (4). |
+| 27 | Improved Range-Finding | $120,000 | 66–70 (inclusive) | `#1075[4]` | Dreadnoughts and Battle Cruisers may use Oil rather than Coal. |
+| 28 | Internal Combustion | $150,000 | 66–70 (inclusive) | `#1075[5]` | Permits Armored and Mechanized regiments and upgrades older units; Drillers improve Oil to Level III, producing 6 per turn. |
 
-The effect summaries and structured `effects` arrays are direct normalizations of the corresponding description strings, not guesses about numeric data. The same archive provides `Purchased in [1:year]`, one- and two-prerequisite templates, and the purchase-screen labels for cost, benefits, details, and purchase/cancel actions. Numeric costs, years, and prerequisites remain pending executable-reader work.
+The 26 non-starting technologies receive an inclusive pseudo-random availability offset from the 26 two-word windows at `0x0066ABA4`, initialized by `0x005AF330`; the two starting technologies have no generated window. These are executable turn-offset ranges, not a claim that the earliest boundary is the only arrival date. The effect summaries and structured `effects` arrays are direct normalizations of the corresponding description strings, not guesses about numeric data. The same archive provides `Purchased in [1:year]`, one- and two-prerequisite templates, and the purchase-screen labels for cost, benefits, details, and purchase/cancel actions. The separate executable prerequisite graph and the final conversion from these offsets to the displayed calendar year remain pending.
 
 ## Verified executable raw-resource output curves
 
