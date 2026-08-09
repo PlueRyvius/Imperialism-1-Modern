@@ -138,11 +138,12 @@ public sealed class ProductionRecipeDefinition
 
     /// <summary>
     /// Labour spent per cycle, drawn from the country's single pool rather than
-    /// from the facility. The manual's tutorial prices one recipe outright —
-    /// clothing costs two fabric and two labour — and every recipe the original
-    /// ships consumes exactly two input units per unit of output, so "one labour
-    /// per input unit" and "two per output unit" are the same number everywhere
-    /// it can be checked. See <c>docs/formulas/production.md</c>.
+    /// from the facility. <b>The original charges two, flat, for every one of its
+    /// recipes</b> — its own help resources say so, including for the
+    /// food-processing cycle that takes four input units and makes two. The manual's
+    /// tutorial priced only clothing and so admitted "one per input unit" and "two
+    /// per output unit" as well; both are retracted. See
+    /// <c>docs/formulas/production.md</c>.
     /// </summary>
     public long LabourCost { get; }
 

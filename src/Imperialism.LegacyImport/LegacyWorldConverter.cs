@@ -2415,10 +2415,19 @@ public static class LegacyWorldConverter
     /// provinces you own, rounded down".
     /// </summary>
     /// <remarks>
-    /// **One of each per worker is a guess.** The manual names the three
-    /// commodities and never says how much of any of them, so this is a real
-    /// economic constant nobody has measured. See
-    /// <c>docs/formulas/migration.md</c>; do not cite it as evidence.
+    /// **One of each per worker was a guess and is now the original's own text.** The
+    /// manual names the three commodities and no quantity; the executable's help
+    /// resources state the conversion outright — one food, one furniture and one clothing
+    /// make one untrained worker. The guess was right, which is worth recording precisely
+    /// because it so easily might not have been. See <c>docs/formulas/migration.md</c>.
+    /// <para>
+    /// The same resource block prices the two conversions above this one — an untrained
+    /// worker plus one paper and $100 becomes trained, a trained worker plus two paper and
+    /// $1,000 becomes expert — and **neither is modelled**. The Capitol recruits untrained
+    /// workers and nothing promotes them, so the numbers sit in
+    /// <c>docs/disasm/definitive-original-data.md</c> waiting for the Trade School and the
+    /// University.
+    /// </para>
     /// </remarks>
     private static MigrationContent CreateStandardMigration() => new()
     {
@@ -2573,6 +2582,12 @@ public static class LegacyWorldConverter
         Quantity("steel", 20),
     ];
 
+    /// <summary>
+    /// Two units of labour per production cycle, whatever the cycle makes. Stated
+    /// outright by all nine of the original's own recipe help strings.
+    /// </summary>
+    private const long LabourPerCycle = 2;
+
     private static ProductionRecipeContentDefinition[] CreateStandardProductionRecipes() =>
     [
         Recipe("fabric-from-cotton", "Fabric from Cotton", "textile-mill", [("cotton", 2)], [("fabric", 1)]),
@@ -2602,12 +2617,23 @@ public static class LegacyWorldConverter
         };
 
     /// <summary>
-    /// Labour is not passed in because no original recipe needs it to be: the
-    /// manual prices clothing at two fabric and two labour, and every recipe the
-    /// original ships spends exactly two input units per unit of output, so the
-    /// input total reproduces that rate throughout. See
-    /// <c>docs/formulas/production.md</c>.
+    /// One recipe. <b>Labour is two, flat, for every one of them.</b>
     /// </summary>
+    /// <remarks>
+    /// The manual priced labour exactly once — two fabric and two labour for a unit of
+    /// clothing — which admitted three readings: two per cycle, one per input unit, or
+    /// two per unit of output. <c>production.md</c> recorded them as undetermined and
+    /// implemented the input-total reading. <b>The original's own help resources settle
+    /// it: all nine of its recipes cost "2 labor", including the food-processing cycle
+    /// that takes four inputs and makes two.</b> So the rate is per cycle and neither of
+    /// the other two readings survives.
+    /// <para>
+    /// This is the recipe that was said not to exist. <c>production.md</c> predicted the
+    /// railyard would be the first non-2:1 case and retracted that when it was not, and
+    /// concluded no candidate was in view — canned food was in the list the whole time and
+    /// was miscounted as agreeing. Its labour cost moves from four to two here.
+    /// </para>
+    /// </remarks>
     private static ProductionRecipeContentDefinition Recipe(
         string key,
         string name,
@@ -2622,7 +2648,7 @@ public static class LegacyWorldConverter
             Name = name,
             Facility = $"facility.{facility}",
             CapacityCost = 1,
-            LabourCost = inputArray.Sum(static item => item.Quantity),
+            LabourCost = LabourPerCycle,
             Inputs = inputArray.Select(static item => Quantity(item.Commodity, item.Quantity)).ToArray(),
             Outputs = outputs.Select(static item => Quantity(item.Commodity, item.Quantity)).ToArray(),
         };

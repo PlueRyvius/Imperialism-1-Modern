@@ -348,21 +348,22 @@ public sealed class LegacyWorldConverterTests
             result.Document.ExpansionCostPerCapacityPoint
                 .Select(static item => (item.Commodity, item.Quantity)));
 
-        // The manual prices one recipe outright — a unit of clothing costs two
-        // fabric and two labour — and every recipe above spends exactly two
-        // input units per unit of output, so that one quote fixes them all.
-        // Canned food is the only one that differs, and only because its cycle
-        // makes two units at once. See docs/formulas/production.md.
+        // **Labour is two per cycle, flat**, and the original's own recipe help strings
+        // say so for all nine of them. The manual's single priced example — two fabric and
+        // two labour for a unit of clothing — admitted three readings; food processing is
+        // the recipe that separates them, taking four inputs and making two for the same
+        // two labour. The input-total reading this used to assert is retracted. See
+        // docs/formulas/production.md.
+        Assert.All(result.Document.ProductionRecipes, static recipe =>
+            Assert.Equal(2, recipe.LabourCost));
+
+        var cannedFood = result.Document.ProductionRecipes
+            .Single(static recipe => recipe.Key == "recipe.canned-food-from-fish");
         Assert.Equal(
-            2,
-            result.Document.ProductionRecipes
-                .Single(static recipe => recipe.Key == "recipe.clothing-from-fabric").LabourCost);
-        Assert.All(result.Document.ProductionRecipes, static recipe => Assert.Equal(
-            2 * recipe.Outputs.Sum(static item => item.Quantity),
-            recipe.LabourCost));
-        Assert.All(result.Document.ProductionRecipes, static recipe => Assert.Equal(
-            recipe.Inputs.Sum(static item => item.Quantity),
-            recipe.LabourCost));
+            (4L, 2L, 2L),
+            (cannedFood.Inputs.Sum(static item => item.Quantity),
+                cannedFood.Outputs.Sum(static item => item.Quantity),
+                cannedFood.LabourCost));
     }
 
     [Fact]
