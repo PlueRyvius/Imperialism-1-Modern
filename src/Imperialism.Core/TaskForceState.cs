@@ -41,6 +41,13 @@ public sealed class TaskForceState
 
     public SeaZoneId SeaZone { get; internal set; }
 
+    /// <summary>
+    /// The end of the currently planned sailing leg, if one awaits resolution.
+    /// The original overwrites its requested destination with this resolved leg,
+    /// so the long-range request is intentionally not retained here.
+    /// </summary>
+    public SeaZoneId? PlannedSeaZone { get; internal set; }
+
     /// <summary>Fleet records in deterministic ascending ID order.</summary>
     public IReadOnlyList<FleetId> Fleets => _fleets;
 }

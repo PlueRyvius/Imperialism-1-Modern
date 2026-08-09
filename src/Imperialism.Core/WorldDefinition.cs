@@ -1218,6 +1218,130 @@ public sealed class WorldState
     /// <summary>Task forces in deterministic assembly order.</summary>
     public IReadOnlyList<TaskForceState> TaskForces => _taskForces;
 
+    public TaskForceState GetTaskForce(TaskForceId taskForce)
+    {
+        var index = taskForce.Value - 1;
+        return (ulong)index < (ulong)_taskForces.Count
+            ? _taskForces[(int)index]
+            : throw new ArgumentOutOfRangeException(nameof(taskForce));
+    }
+
+    /// <summary>
+    /// Plans one original-style strategic sailing leg. The destination is
+    /// reduced to a shortest-path leg no longer than the slowest selected hull,
+    /// then <see cref="ResolveTaskForceMoves"/> applies it separately.
+    /// </summary>
+    /// <remarks>
+    /// The executable keeps planning (state 1) and the member-position update
+    /// in distinct routines. Their relative place in the wider simultaneous
+    /// turn is still unproven, so this headless boundary remains explicit.
+    /// </remarks>
+    public TaskForceMovePlan PlanTaskForceMove(
+        CountryId country,
+        TaskForceId taskForce,
+        SeaZoneId destination)
+    {
+        ValidateCountry(country);
+        if ((uint)destination.Value >= (uint)Definition.Map.SeaZones.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(destination));
+        }
+
+        var force = GetTaskForce(taskForce);
+        if (force.Country != country)
+        {
+            throw new InvalidOperationException("A country cannot sail a foreign task force.");
+        }
+
+        if (force.PlannedSeaZone is not null)
+        {
+            throw new InvalidOperationException("A task force already has a sailing leg awaiting resolution.");
+        }
+
+        var maximumSeaZones = force.Fleets
+            .Select(id => Definition.ShipTypes[GetFleet(id).Type.Value].SeaZones)
+            .Min();
+        var resolved = ResolveSailingLeg(force.SeaZone, destination, maximumSeaZones);
+        force.PlannedSeaZone = resolved;
+        return new TaskForceMovePlan(
+            force.Id,
+            force.SeaZone,
+            destination,
+            resolved,
+            maximumSeaZones);
+    }
+
+    /// <summary>
+    /// Applies all planned sailing legs in deterministic task-force ID order.
+    /// No combat, interception, or continuation order is implied.
+    /// </summary>
+    public IReadOnlyList<TaskForceMoveResolution> ResolveTaskForceMoves()
+    {
+        var resolutions = new List<TaskForceMoveResolution>();
+        foreach (var force in _taskForces)
+        {
+            if (force.PlannedSeaZone is not { } destination)
+            {
+                continue;
+            }
+
+            var from = force.SeaZone;
+            foreach (var fleetId in force.Fleets)
+            {
+                GetFleet(fleetId).SeaZone = destination;
+            }
+
+            force.SeaZone = destination;
+            force.PlannedSeaZone = null;
+            resolutions.Add(new TaskForceMoveResolution(force.Id, from, destination));
+        }
+
+        return resolutions.AsReadOnly();
+    }
+
+    private SeaZoneId ResolveSailingLeg(
+        SeaZoneId origin,
+        SeaZoneId destination,
+        long maximumSeaZones)
+    {
+        if (maximumSeaZones <= 0 || origin == destination)
+        {
+            return origin;
+        }
+
+        var distance = new Dictionary<SeaZoneId, int> { [destination] = 0 };
+        var frontier = new Queue<SeaZoneId>();
+        frontier.Enqueue(destination);
+        while (frontier.TryDequeue(out var current))
+        {
+            foreach (var neighbor in Definition.Map.SeaTopology.GetNeighbors(current))
+            {
+                if (distance.TryAdd(neighbor, checked(distance[current] + 1)))
+                {
+                    frontier.Enqueue(neighbor);
+                }
+            }
+        }
+
+        // An unreachable request produces a zero-length resolved leg, matching
+        // the original planner's decreasing-distance walk without inventing a
+        // modern refusal rule.
+        if (!distance.TryGetValue(origin, out var remaining))
+        {
+            return origin;
+        }
+
+        var currentZone = origin;
+        for (var step = 0L; step < maximumSeaZones && remaining > 0; step++)
+        {
+            currentZone = Definition.Map.SeaTopology.GetNeighbors(currentZone)
+                .First(neighbor => distance.TryGetValue(neighbor, out var next) && next < remaining);
+            remaining--;
+        }
+
+        return currentZone;
+    }
+
     /// <summary>
     /// This country's merchant marine: the total cargo holds across every ship it owns.
     /// </summary>
