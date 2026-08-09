@@ -447,7 +447,14 @@ public static class WorldContentCompiler
         MapDefinition map;
         try
         {
-            map = new MapDefinition(dimensions, cells, provinces, seaZones, resources, terrains);
+            map = new MapDefinition(
+                dimensions,
+                cells,
+                provinces,
+                seaZones,
+                resources,
+                terrains,
+                mapContent.WrapsHorizontally);
         }
         catch (ArgumentException exception)
         {

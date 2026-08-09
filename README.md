@@ -98,13 +98,15 @@ transport graph and deterministic turn skeleton.
 - [x] Packed, deterministic rail-connectivity snapshots filtered by current ownership
 - [x] Lazy connectivity rebuild after rail construction, removal, or conquest
 - [x] Generated 64,800-cell scale regression (ten times the original map area)
-- [ ] Capital/depot collection and evidence-backed port/river/sea connectivity
+- [x] Capital/depot collection and static port/depot sea gateways
 - [x] Deterministic quarterly turn pipeline and immutable event log
 - [x] Content-defined commodity catalog, checked inventory, and deferred-delivery intents
 - [x] Content-defined facilities/recipes, shared capacity, staged output, and legacy economy import
 - [x] Worker feeding, and labour priced per recipe and spent by production
 - [x] Starvation and sickness cutting the labour pool from the following turn
-- [ ] Transient power, capacity construction, and transport allocation
+- [x] Transport capacity construction and per-turn allocation
+- [x] River downstream connectivity
+- [ ] Naval control of sea ports and transient power
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's
@@ -114,7 +116,9 @@ load-bearing infrastructure rather than a late feature.
 
 The 108x60 grid is a limit of the 1997 file format and binary, not of this
 engine. Import takes a format profile; the in-memory model carries its own
-dimensions. Keeping that boundary clean is what makes larger maps cheap —
+dimensions. Its base sea-zone movement graph is derived from those dimensions,
+not from a legacy cell count; a map opts into an east-west seam explicitly.
+Keeping that boundary clean is what makes larger maps cheap —
 the remaining cost is authoring effort, not engine work.
 
 The generated Core regression uses 360x180 (64,800 cells), exactly ten times

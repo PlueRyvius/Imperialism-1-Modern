@@ -16,7 +16,8 @@ public sealed class MapDefinition
         IEnumerable<ProvinceDefinition>? provinces = null,
         IEnumerable<SeaZoneDefinition>? seaZones = null,
         IEnumerable<ResourceDefinition>? resources = null,
-        IEnumerable<TerrainDefinition>? terrains = null)
+        IEnumerable<TerrainDefinition>? terrains = null,
+        bool wrapsHorizontally = false)
     {
         ArgumentNullException.ThrowIfNull(cells);
         var cellArray = cells.ToArray();
@@ -134,15 +135,30 @@ public sealed class MapDefinition
         _terrains = Array.AsReadOnly(terrainArray);
         _provinceCells = FreezeMembershipLists(provinceCells);
         _seaZoneCells = FreezeMembershipLists(seaZoneCells);
+        WrapsHorizontally = wrapsHorizontally;
+        SeaTopology = SeaZoneTopology.FromMap(
+            dimensions,
+            _cells,
+            _seaZones.Count,
+            wrapsHorizontally);
     }
 
     public MapDimensions Dimensions { get; }
+
+    /// <summary>
+    /// Whether east and west map edges are adjacent. Legacy Imperialism maps
+    /// use this seam; modern maps opt in explicitly.
+    /// </summary>
+    public bool WrapsHorizontally { get; }
 
     public IReadOnlyList<CellDefinition> Cells => _cells;
 
     public IReadOnlyList<ProvinceDefinition> Provinces => _provinces;
 
     public IReadOnlyList<SeaZoneDefinition> SeaZones => _seaZones;
+
+    /// <summary>The map-derived base sea-zone movement graph.</summary>
+    public SeaZoneTopology SeaTopology { get; }
 
     public IReadOnlyList<ResourceDefinition> Resources => _resources;
 

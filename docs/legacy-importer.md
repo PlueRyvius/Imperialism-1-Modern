@@ -223,7 +223,9 @@ against every nonzero value in the ten-map corpus. Paths are undirected.
 The source table contains sequential-label typos at 49 and 55. Their corrected
 values are `WestLower–Source` and `SouthWest–Mouth`, respectively. The sequence
 on either side and the complete eight-position source/mouth runs establish the
-correction. Cross-cell river connectivity is intentionally deferred.
+correction. The core now derives source-to-mouth connectivity from these paths;
+the importer continues to preserve the raw local geometry rather than writing a
+second, derived graph into content.
 
 ## Command line
 

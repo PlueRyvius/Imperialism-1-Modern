@@ -114,13 +114,12 @@ hold — which is exactly why they are wanted.
 **The order is the manual's printed order.** `STR#ENU.GOB` blocks #1073–#1075 carry all 28
 names in progression order; the fan-wiki reordering we shipped at v19 is retracted.
 
-**The two pinned counts this entry named as the check are UNVERIFIED against the
-reversion.** `EveryAuthoredLevelInTheCorpusIsOneItsOwnerCouldHaveBuilt` and
-`EveryRailedCellInTheCorpusIsOneItsOwnerCouldHaveBuilt` both return silently unless
-`IMPERIALISM_SCENARIO_DIR` points at the full ten-scenario corpus, and the machine this
-was done on holds only `s1`. The analysis says 380/4 and 1,140/0 cannot move — the two
-orderings are a permutation within a prefix — but **that is a prediction, not a
-measurement. Run both with a full corpus before treating them as confirmed.**
+**The two pinned counts now run only with a visible corpus gate.**
+`EveryAuthoredLevelInTheCorpusIsOneItsOwnerCouldHaveBuilt` and
+`EveryRailedCellInTheCorpusIsOneItsOwnerCouldHaveBuilt` are discovery-time
+`CorpusFact`s: set `IMPERIALISM_SCENARIO_DIR` to a complete legal local corpus or
+see an explicit skip. The full local corpus pass confirmed the expected 380/4 and
+1,140/0 counts.
 
 **The costs came with it**, from a 28-entry cash table at `0x0066AAE8`, and **twelve of the
 twenty-six were wrong.** The fingerprint above was built from the fan-wiki list, and that
@@ -137,13 +136,121 @@ technology an inclusive pseudo-random turn-offset window (26 two-word entries at
 `0x0066ABA4`). Reading offset *n* as year `1815 + n` puts 25 of the wiki's 26 observed
 years inside their window and 19 exactly on the minimum, which is what pins the reading.
 
-### Still wanted here: the prerequisite graph
+### ~~The prerequisite graph~~ — RECOVERED
 
-The executable has one and it has not been read. Ours is the fan-wiki's, and after the
-price slip it is the weakest column in the table — 16 entries naming 19 edges, all of
-which happen to point backwards. **Recognise it** by that shape: a small per-technology
-list of earlier indices. **Check it** against `EveryPrerequisiteSitsEarlierInTheTable`,
-which the engine also enforces in `TechnologyDefinition`.
+The technology-store reader at `0x005B0A90` reads two raw little-endian signed
+16-bit IDs per 1-based technology row from the 29-row table at `0x0066AC10`; row
+0 is the all-zero sentinel, and a zero field means no prerequisite. This is direct
+executable data and control flow, not a fingerprint. The full table and the material
+corrections to the former fan-wiki graph are in `definitive-original-data.md`.
+
+### Port connectivity: recovered predicate and task-force state
+
+The executable registers distinct `TControlSeaZoneMission` and
+`TBlockadePortMission` classes. The control mission's vtable begins at
+`0x0065A740`; its unique paths include `0x005387F0` and `0x00538FE0`, which
+initialise and compare a computed sea-zone strength/result. The blockade mission's
+vtable begins at `0x0065AC60`; its target-validation path at `0x0053ADF0` indexes
+the country table, so its name alone does not prove that it disconnects every port
+belonging to that country.
+
+The decisive consumer is `UMap`'s `0x00513CA0`, called by the town/connection
+path at `0x005B7830`. It checks each of the six neighbouring cells. For adjacent
+ocean it calls `0x00561510`, which builds a country bit mask from qualifying
+task-force ships at that target and returns blocked only when an opposing eligible
+country is present **and the port owner's bit is absent** (with the diplomacy test
+at the same call site). This is the executable form of undisputed enemy control:
+it is not a simple hostile-ship-presence rule. More precisely, the routine scans
+the global `TShip` list at `0x006A3EDC`; a ship qualifies only when its `UOcean`
+at `+0x08` is the target, its `TTaskForce*` at `+0x0C` is non-null and active
+(`TTaskForce+0x26 == 0`), and that task force's state at `+0x08` is 3 or 4. It
+then sets the bit for `TShip+0x14` (owner), so a qualifying friendly force
+prevents a hostile force from blocking the port.
+
+For river access, the same predicate calls `0x00563B70`. That routine follows the
+original river-code transition tables for up to 100 cells and flags a change in
+the raw land `NationZoneA` value before it reaches ocean. The caller accepts the
+river continuation only when that trace reports no change. This proves that the
+connection test is downstream/path sensitive. The modern core now materialises
+that source-to-mouth geometry, including the original horizontal map seam and
+100-cell guard.
+
+The scenario fleet record and its map bridge are now recovered. The `.scn`
+loader at `0x00581E60` dispatches big-endian four-character tags through the
+table at `0x00698B50`: `ship` reaches `0x00582720`, while `zone` reaches
+`0x00582FA0`. The four-field `ship` reader consumes `(country, type, zone,
+count)`: it uses field 0 to update the seven-power country table, resolves
+field 2 through `0x0055F100`, and creates one `TShip` per field 3 through
+`0x0054F8E0`. The `zone` reader consumes its zone id and resolves that same id
+through `0x0055F100`. `TShip+0x08` is the resulting `UOcean` record and
+`TShip+0x14` is the owning country id. `UOcean`'s map resolver at `0x00563300`
+selects the 0x48-byte ocean record for raw map region `r` as
+`records[r - 0x17]`. Thus a scenario `zone`/`ship` id `z` denotes raw map-ocean
+region `z + 0x17`.
+
+The loader is called from setup state 2 at `0x0057DA70`, after the pre-load
+map/zone preparation in state 3 (`0x0057CAD0`), and before the per-power
+post-load virtual calls at `+0x168` and `+0x184`. This clears the placement and
+setup-order gates, but not the command, range, or strategic-resolution rules.
+
+The first command-side trace distinguishes queued mission objects from the
+fleet state used by the predicate. `UCountryAuto` at `0x004E8540` creates an object through the mission
+factory at `0x005350D0` and appends it through a virtual `+0x30` call on the
+country's queued-mission collection. Factory case 4 builds the object whose
+vtable is `TBlockadePortMission` (`0x0065AC60`); the control-sea-zone vtable is
+installed by cases 0 and 2. Its handler at `0x005387F0` reads a target at
+object offset `+0x14` and iterates `TPortZone` entries through
+`0x00561C80`/`0x00561D40`; those iterators are not the active fleet records.
+
+`TTaskForce` has vtable `0x0065C468` and owns a list of ships. Attaching a ship
+at `0x00553BC0` writes the task-force pointer to `TShip+0x0C`; detachment clears
+that field. The command dispatcher at `0x0055A160` sets state 3 for action 12,
+state 6 for action 14, and state 5 for action 16. The status renderer identifies
+state 3 as `patrolling` and state 6 as `blockading`; notably, the port predicate
+accepts states 3 and 4, not state 6. State 4 is produced by the manager refresh
+at `0x00557560`, but its player-facing semantic remains unproven.
+
+The same phase routine at `0x0057F280` performs its per-power updates, then calls
+the `TNavyMgr` refresh at `0x005577B0` (which calls `0x00557560`), followed by
+`0x005578A0`. The latter resolves interactions among task forces, includes a
+randomized check, and then clears/rebuilds manager state. This proves a naval
+resolution pass and its local order; it does not yet place a particular
+production/extraction call relative to that pass or a modern equivalence for
+original naval combat.
+
+### Fleet movement: shortest path, slowest hull, one resolved leg
+
+Strategic movement is now recovered. A task force stores its current zone at
+`+0x18` when constructed and receives a requested destination in `+0x0C`. The
+planner at `0x005533F0` runs the `TPortZone`/ocean graph search at `0x00560F80`,
+roots it at the requested destination, resets `+0x0C` to the current zone, and
+walks adjacent nodes with decreasing shortest-path distance. It performs at most
+the minimum `sea zones` value across the selected ships (`0x00554A80`, reading
+`0x00698124 + 0x24 * shipType`), then leaves the reachable leg in `+0x0C` and
+sets state 1.
+
+The state-1 resolver at `0x00556100` writes that leg to every member's
+`TShip+0x08` and marks the task force complete. Therefore fleets move by a
+shortest-path leg of up to the slowest hull's allowance per resolution, rather
+than teleporting to a distant selected zone. `0x005610B0` memoizes the graph
+distance matrix used by command validation and path planning. The movement
+adjacency list is runtime data at node `+0x28`/`+0x30`, but its builder is now
+recovered: UMapper allocates one base `UOcean` for each raw sea region beginning
+at map region `0x17`, and UOcean setup (`0x00562340`) finishes with
+`0x00563F50`. That pass scans all `108 × 60` map cells, resolves each to its
+base-ocean or `TPortZone` node, examines all six neighbours through
+`0x0055E360`, rejects duplicate/self links, and inserts reciprocal movement
+edges. The neighbour helper uses row-dependent hex geometry; north/south never
+wrap, while east/west wrapping depends on the map seam flag at map `+0x20`.
+`0x005635E0` supplies `TPortZone` nodes from the original's eligible port
+geometry and attaches them to the adjacent ocean graph. The exact lifecycle for
+ports created or removed after setup remains a separate trace, but static sea
+topology is map-derived rather than scenario-serialized.
+
+The direct task-force path overwrites its requested destination with the resolved
+leg. A queued AI mission may reissue a later order, but the present trace does not
+prove player-facing automatic continuation, so the modern core must not invent it.
+Landing (state 5), blockade (state 6), and combat remain separate command paths.
 
 ---
 

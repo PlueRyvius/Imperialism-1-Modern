@@ -249,13 +249,10 @@ document, because each is a lesson about evidence:
   assertion. **Labelling a weak link is what makes it cheap to replace.**
 
   **A second lesson landed on top of it, less flattering.** The two falsification counts
-  have *not* been re-measured against the reversion: their tests read
-  `IMPERIALISM_SCENARIO_DIR`, return silently when it is unset, and the machine this was
-  done on holds one scenario of ten. A green suite proved nothing about them. That is the
-  `CLAUDE.md` convention — "skip visibly, never iterate an empty corpus" — failing in its
-  C# form, where the gate is a bare `return`. **A corpus check that can pass without a
-  corpus is a check you have to remember to run**, and remembering is exactly what the
-  convention exists to avoid.
+  used to return silently when `IMPERIALISM_SCENARIO_DIR` was unset. They are now
+  discovery-time `CorpusFact`s, so the suite reports an explicit skip until a complete
+  legal local corpus is configured. The full-corpus run confirms the pinned counts; a
+  corpus check can no longer pass simply because it inspected nothing.
 - **A number nothing reads is a bug waiting to be load-bearing.** A scenario's
   `year` field is an offset from 1815 and the importer read it as an absolute year.
   Nothing noticed for four slices because nothing read the year. This is now the

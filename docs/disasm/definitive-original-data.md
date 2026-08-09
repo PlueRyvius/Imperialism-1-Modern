@@ -192,7 +192,44 @@ The executable's `STR#ENU.GOB` resources contain all 28 technology names in prog
 | 27 | Improved Range-Finding | $120,000 | 66–70 (inclusive) | `#1075[4]` | Dreadnoughts and Battle Cruisers may use Oil rather than Coal. |
 | 28 | Internal Combustion | $150,000 | 66–70 (inclusive) | `#1075[5]` | Permits Armored and Mechanized regiments and upgrades older units; Drillers improve Oil to Level III, producing 6 per turn. |
 
-The 26 non-starting technologies receive an inclusive pseudo-random availability offset from the 26 two-word windows at `0x0066ABA4`, initialized by `0x005AF330`; the two starting technologies have no generated window. These are executable turn-offset ranges, not a claim that the earliest boundary is the only arrival date. The effect summaries and structured `effects` arrays are direct normalizations of the corresponding description strings, not guesses about numeric data. The same archive provides `Purchased in [1:year]`, one- and two-prerequisite templates, and the purchase-screen labels for cost, benefits, details, and purchase/cancel actions. The separate executable prerequisite graph and the final conversion from these offsets to the displayed calendar year remain pending.
+The 26 non-starting technologies receive an inclusive pseudo-random availability offset from the 26 two-word windows at `0x0066ABA4`, initialized by `0x005AF330`; the two starting technologies have no generated window. These are executable turn-offset ranges, not a claim that the earliest boundary is the only arrival date. The effect summaries and structured `effects` arrays are direct normalizations of the corresponding description strings, not guesses about numeric data. The same archive provides `Purchased in [1:year]`, one- and two-prerequisite templates, and the purchase-screen labels for cost, benefits, details, and purchase/cancel actions. The final conversion from these offsets to the displayed calendar year remains a model simplification.
+
+### Verified technology prerequisite graph
+
+The technology-store reader at `0x005B0A90` reads the prerequisite pair for the
+requested 1-based technology ID from `0x0066AC10 + 4 * id`; its two field reads
+are at `0x005B0AA1` and `0x005B0AB9`/`0x005B0AE0`. The table is 29 rows of two
+little-endian signed 16-bit IDs: row 0 is the all-zero sentinel, rows 1–28 use the
+same one-based namespace as scenario `tech` records, and zero in either field means
+no prerequisite. The store UI calls this reader at `0x005B1768`.
+
+| ID | Prerequisite IDs, in stored order |
+|---:|---|
+| 1–4 | — |
+| 5 | 1 High Pressure Steam Engine |
+| 6 | 1 High Pressure Steam Engine |
+| 7 | — |
+| 8 | 7 Feed Grasses; 3 Cotton Gin |
+| 9 | — |
+| 10 | 2 Seed Drill |
+| 11 | — |
+| 12 | 6 Iron Railroad Bridge |
+| 13 | — |
+| 14 | 11 Bessemer Converter |
+| 15 | — |
+| 16 | 8 Spinning Jenny |
+| 17 | 10 Steel and Iron Plows |
+| 18 | 10 Steel and Iron Plows |
+| 19 | — |
+| 20 | 7 Feed Grasses |
+| 21 | 15 Advanced Iron Working |
+| 22 | 13 Rifled Artillery |
+| 23 | 5 Square-Set Timbering; 12 Compound Steam Engine |
+| 24 | 9 Paddlewheels; 10 Steel and Iron Plows |
+| 25 | 14 Breech-Loading Rifles |
+| 26 | 19 Oil Drilling |
+| 27 | 24 Marine Engineering |
+| 28 | 26 Chemistry |
 
 ## Verified executable raw-resource output curves
 
@@ -228,6 +265,95 @@ The update method uses `age = current_turn - creation_turn`:
 - Consumer-good progress is considered only when `age > 9` and age is odd. It is capped at half of the corresponding material progress and by the central consumer-capacity sum. This is the exact executable form of the manual's “materials first” and “goods capped at half material output” description.
 
 The traced update changes production counters, not a direct hamlet/village/town map-sprite field. The two growth messages are present in `STR#ENU.GOB` block #99 (strings 12 and 13), but the separate visual/message threshold consumer remains pending; no fixed threshold is being invented here.
+
+### Port connection: executable predicate
+
+`0x005B7830` calls the `UMap` predicate at `0x00513CA0` before treating an
+eligible town/port as connected. The predicate inspects the six original hex
+neighbours. Its ocean branch calls `0x00561510`, which builds a bit mask of
+eligible task forces at the target. It scans the global `TShip` list at
+`0x006A3EDC`, requiring the target `UOcean` at `TShip+0x08`, an active
+`TTaskForce*` at `+0x0C`, and task-force state 3 or 4 at `TTaskForce+0x08`; the
+country bit comes from `TShip+0x14`. It returns blocked only when a hostile
+eligible country's bit is present and the port owner's bit is absent; this is
+executable evidence for the manual's *undisputed* enemy-control rule, rather than
+a presence-only fleet rule.
+
+The river branch calls `0x00563B70`, which follows the original river-code
+transition tables at `0x0065C632`/`0x0065C668` (with a 100-cell safety bound).
+It reports a different raw land `NationZoneA` before its route reaches ocean, and
+`0x00513CA0` accepts the route only when that report is clear. Thus a river port's
+connection is path-sensitive and ownership-sensitive in the original. The modern
+core now reifies the map transition geometry and its 100-cell guard.
+
+The scenario fleet representation and map bridge are recovered. The `.scn`
+loader at `0x00581E60` dispatches `ship` records to the four-field big-endian
+reader at `0x00582720` and `zone` records to `0x00582FA0`; both handlers resolve
+their zone id through `0x0055F100`. The `ship` fields are `(country, type,
+zone, count)` and create one `TShip` at `0x0054F8E0` per `count`. The created
+record has the resolved `UOcean` object at `+0x08` and its owner country id at
+`+0x14`. `UOcean` maps raw ocean region `r` to a 0x48-byte runtime entry at
+`r - 0x17` through `0x00563300`; therefore a scenario zone id `z` maps to raw
+ocean region `z + 0x17`. The loader runs in setup state 2 at `0x0057DA70`,
+after state 3's map/zone preparation and before the per-power post-load calls.
+Fleet placement is now executable-backed, while mission eligibility, range,
+and movement remain open.
+
+### Strategic mission construction: partial behavioral trace
+
+The original AI submits strategic work through `UCountryAuto` at `0x004E8540`.
+It calls the mission factory at `0x005350D0`, appends the resulting object to a
+queued-mission collection by virtual method `+0x30`, and marks the relevant
+country-side work flags pending. Factory case 4 instantiates the
+`TBlockadePortMission` vtable at `0x0065AC60`; cases 0 and 2 install the
+`TControlSeaZoneMission` vtable at `0x0065A740`. The control mission handler
+at `0x005387F0` reads its target from object `+0x14`, enumerates `TPortZone`
+entries through `0x00561C80`/`0x00561D40`, and adjusts a zone-local result when
+an entry matches that target. Those iterators are not active fleet records. The
+fleet record is `TTaskForce` (vtable `0x0065C468`):
+`0x00553BC0` attaches its ships by writing `TShip+0x0C`, and the port predicate
+uses task-force state 3 or 4. The command dispatcher `0x0055A160` maps action 12
+to state 3 (`patrolling` in the status renderer), action 14 to state 6
+(`blockading`), and action 16 to state 5 (invasion). State 6 does not qualify for
+the port predicate; state 4 does, but its player-facing meaning remains open.
+
+The phase routine at `0x0057F280` performs per-power updates, calls the navy
+manager refresh `0x005577B0`/`0x00557560`, then calls `0x005578A0`. That follow-on
+resolves task-force interactions with randomized checks and clears/rebuilds
+manager state. This establishes the local naval-resolution order, but not the
+relative order of a specific production/extraction query or a modern equivalence
+for original naval combat.
+
+### Fleet movement and range
+
+The strategic movement record is `TTaskForce`: construction records the current
+ocean/port-zone object at `+0x18`, while a requested destination is staged at
+`+0x0C`. `0x005533F0` runs the graph search at `0x00560F80` from that requested
+destination, begins from the current object, and repeatedly selects an adjacent
+node with lower shortest-path distance. The number of selections is capped by
+`0x00554A80`'s minimum `sea zones` value across the selected ship types. It then
+writes the resulting reachable leg back to `+0x0C` and selects task-force state
+1. `0x00556100` resolves state 1 by assigning that object to every member's
+`TShip+0x08` and marking the task force complete.
+
+`0x005610B0` caches shortest-path distances between the runtime ocean/port-zone
+objects. Its pathfinder walks each node's runtime movement adjacency list
+(`+0x28` with count at `+0x30`). The graph is generated from the map rather than
+serialized by a scenario: UMapper allocates a base `UOcean` for each raw sea
+region beginning at `0x17`, then UOcean setup (`0x00562340`) invokes
+`0x00563F50`. That builder scans every `108 × 60` map cell, resolves its
+base-ocean or eligible-port `TPortZone` node, and checks its six
+`0x0055E360` hex neighbours. Distinct valid nodes are duplicate-checked and
+linked reciprocally. The helper has row-dependent hex geometry, does not wrap
+north/south, and wraps east/west only when the map seam flag at `+0x20` permits
+it. `0x005635E0` creates the port-zone nodes from original eligible port
+geometry and attaches them to this graph. Thus the original moves a fleet up to
+its slowest member's strategic allowance along a shortest path in one
+resolution; it does not move a fleet directly to a remote selected destination.
+Whether a queued player order automatically reissues after a partial leg, and
+the lifecycle for ports created or removed after setup, remain open. State 5
+landing and state 6 blockade are not being conflated with this state-1 sailing
+rule.
 
 ## Additional cost-table leads
 

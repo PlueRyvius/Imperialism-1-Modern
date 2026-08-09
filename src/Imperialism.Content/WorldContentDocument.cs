@@ -114,6 +114,12 @@ public sealed class MapContentDocument
 
     public int Height { get; set; }
 
+    /// <summary>
+    /// Whether east and west map edges touch. This is explicit so modern maps
+    /// of any size can choose a seam without inheriting the legacy 108x60 rule.
+    /// </summary>
+    public bool WrapsHorizontally { get; set; }
+
     public NamedContentDefinition[] Provinces { get; set; } = [];
 
     public NamedContentDefinition[] SeaZones { get; set; } = [];

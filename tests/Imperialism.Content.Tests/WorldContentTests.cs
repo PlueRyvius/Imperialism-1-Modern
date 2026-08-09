@@ -271,7 +271,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(21)]
+    [InlineData(22)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1542,6 +1542,18 @@ public sealed class WorldContentTests
         // And a country is not a Great Power, which is the right answer for a world with
         // no trade in it: the flag exists only to decide who carries a cargo.
         Assert.All(world.Countries, country => Assert.False(country.IsGreatPower));
+    }
+
+    [Fact]
+    public void VersionTwentyMigratesToANonWrappingMap()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 20);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.False(migrated.Map.WrapsHorizontally);
+        Assert.False(WorldContentCompiler.Compile(migrated).World.Map.WrapsHorizontally);
     }
 
     [Theory]

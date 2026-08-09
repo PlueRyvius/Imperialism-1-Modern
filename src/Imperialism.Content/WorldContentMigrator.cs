@@ -106,6 +106,11 @@ internal static class WorldContentMigrator
             MigrateVersionNineteenToTwenty(document);
         }
 
+        if (document.FormatVersion == 20)
+        {
+            MigrateVersionTwentyToTwentyOne(document);
+        }
+
         return document;
     }
 
@@ -912,6 +917,17 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 20;
+    }
+
+    /// <summary>
+    /// Version 21 records whether the map has an east/west seam. Old packages
+    /// had no sea-zone movement graph, so they have no behaviour to preserve
+    /// here and land as non-wrapping modern maps. The legacy converter supplies
+    /// the original seam explicitly when it creates a new package.
+    /// </summary>
+    private static void MigrateVersionTwentyToTwentyOne(WorldContentDocument document)
+    {
+        document.FormatVersion = 21;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

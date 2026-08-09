@@ -147,6 +147,12 @@ trades at the opening price forever, which is what keeps the transcribed prices 
 from the guessed curve. A version 19 package migrates to a world that trades nothing, which
 is how it behaved.
 
+Version 21 adds `map.wrapsHorizontally`. It controls only whether the map's east and west
+hex edges are neighbours when deriving the base sea-zone movement graph; it is independent
+of width and height. Legacy conversion sets it because the original map seam wraps. Older
+modern packages migrate as non-wrapping maps because they had no naval movement behaviour
+to preserve.
+
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the
@@ -204,7 +210,8 @@ at most one province or sea-zone key. Settlement sites and river paths are map
 geography. A river path is an undirected pair drawn from `northEast`,
 `eastUpper`, `eastLower`, `southEast`, `southWest`, `westUpper`, `westLower`,
 `northWest`, `source`, and `mouth`. It records only the shape inside that cell;
-the package does not infer cross-cell river connectivity.
+the package does not store a derived cross-cell graph. The core derives the
+original source-to-mouth connectivity when it evaluates an inland port.
 
 Rails are pairs of adjacent cell indices represented internally as canonical
 undirected `CellLink` values.

@@ -57,14 +57,10 @@ public sealed class ScenarioInfoCodecTests
         Assert.Contains(message, exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [CorpusFact]
     public void OriginalInfoFilesRoundTripWhenCorpusIsConfigured()
     {
-        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return;
-        }
+        var directory = CorpusFactAttribute.RequireScenarioDirectory();
 
         var paths = Directory.GetFiles(directory, "*.inf")
             .Where(IsNumberedScenarioFile)

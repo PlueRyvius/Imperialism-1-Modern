@@ -178,6 +178,7 @@ public sealed class LegacyWorldConverterTests
         var document = Assert.IsType<WorldContentDocument>(result.Document);
         Assert.Equal("Fixture Campaign", document.Map.Name);
         Assert.Equal("map.legacy.fixture", document.Map.Key);
+        Assert.True(document.Map.WrapsHorizontally);
         Assert.Equal(["country.legacy.002", "country.legacy.003"], document.Countries.Select(static item => item.Key));
         Assert.Equal(["province.legacy.00010", "province.legacy.00011"], document.Map.Provinces.Select(static item => item.Key));
         Assert.Single(document.Map.SeaZones);
@@ -189,6 +190,7 @@ public sealed class LegacyWorldConverterTests
         Assert.Equal(4, document.Commodities.Count(static item => item.Category == CommodityCategory.Goods));
         Assert.Equal("commodity.coal", Assert.Single(document.Resources).Commodity);
         var compiled = WorldContentCompiler.Compile(document);
+        Assert.True(compiled.World.Map.WrapsHorizontally);
         Assert.Equal(
             new RiverPath(RiverEndpoint.WestLower, RiverEndpoint.Source),
             compiled.World.Map.Cells[3].River);
@@ -703,11 +705,11 @@ public sealed class LegacyWorldConverterTests
     /// price column was **off by one from Streamlined Hulls onwards**: each entry
     /// carried the next one's price.
     /// <para>
-    /// **The years are derived and the prerequisites are not recovered.** The
+    /// **The years are derived and the prerequisites are recovered.** The
     /// executable stores an inclusive pseudo-random turn-offset window per
     /// technology, not a year; the year here is <c>1815 + window minimum</c>, which
     /// puts 25 of the wiki's 26 observed years inside their window and 19 exactly on
-    /// it. Prerequisites are still the wiki's and are now the weakest column. See
+    /// it. Prerequisites come from the executable's two-ID table. See
     /// <c>docs/formulas/technology.md</c>.
     /// </para>
     /// <para>
@@ -724,10 +726,10 @@ public sealed class LegacyWorldConverterTests
             ("Seed Drill", null, 1815, []),
             ("Cotton Gin", 1_000, 1816, []),
             ("Streamlined Hulls", 1_000, 1821, []),
-            ("Square-Set Timbering", 1_500, 1821, []),
-            ("Iron Railroad Bridge", 1_500, 1821, []),
+            ("Square-Set Timbering", 1_500, 1821, ["High Pressure Steam Engine"]),
+            ("Iron Railroad Bridge", 1_500, 1821, ["High Pressure Steam Engine"]),
             ("Feed Grasses", 1_500, 1821, []),
-            ("Spinning Jenny", 1_500, 1826, ["Cotton Gin", "Feed Grasses"]),
+            ("Spinning Jenny", 1_500, 1826, ["Feed Grasses", "Cotton Gin"]),
             ("Paddlewheels", 3_000, 1826, []),
             ("Steel and Iron Plows", 3_000, 1831, ["Seed Drill"]),
             ("Bessemer Converter", 3_000, 1836, []),
@@ -742,10 +744,10 @@ public sealed class LegacyWorldConverterTests
             ("Barbed Wire", 25_000, 1861, ["Feed Grasses"]),
             ("Steel Armour Plate", 20_000, 1866, ["Advanced Iron Working"]),
             ("Large Artillery", 40_000, 1871, ["Rifled Artillery"]),
-            ("Dynamite", 40_000, 1871, ["Compound Steam Engine", "Square-Set Timbering"]),
-            ("Marine Engineering", 40_000, 1871, ["Steel Armour Plate"]),
+            ("Dynamite", 40_000, 1871, ["Square-Set Timbering", "Compound Steam Engine"]),
+            ("Marine Engineering", 40_000, 1871, ["Paddlewheels", "Steel and Iron Plows"]),
             ("Machine Guns", 40_000, 1876, ["Breech-Loading Rifles"]),
-            ("Chemistry", 100_000, 1876, ["Oil Drilling", "Barbed Wire"]),
+            ("Chemistry", 100_000, 1876, ["Oil Drilling"]),
             ("Improved Range-Finding", 120_000, 1881, ["Marine Engineering"]),
             ("Internal Combustion", 150_000, 1881, ["Chemistry"]),
         ];
@@ -1119,10 +1121,10 @@ public sealed class LegacyWorldConverterTests
         }
 
         // Not vacuous in the weak sense — there is plenty to check — while still
-        // being vacuous as evidence about the ordering. Sixteen entries name a
-        // prerequisite and three of them name two, so there are nineteen edges.
-        Assert.Equal(16, withPrerequisites);
-        Assert.Equal(19, edges);
+        // being vacuous as evidence about the ordering. Eighteen entries name a
+        // prerequisite and three of them name two, so there are twenty-one edges.
+        Assert.Equal(18, withPrerequisites);
+        Assert.Equal(21, edges);
     }
 
     /// <summary>
@@ -1336,14 +1338,10 @@ public sealed class LegacyWorldConverterTests
     /// repeated <c>deve</c> cell and the seam-crossing port in <c>s3</c>. A
     /// synthetic fixture would have agreed with both mistakes.
     /// </summary>
-    [Fact]
+    [CorpusFact]
     public void TheWholeShippedCorpusConvertsWhenItIsConfigured()
     {
-        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return;
-        }
+        var directory = RequireScenarioDirectory();
 
         var expectedPorts = new Dictionary<string, int>(StringComparer.Ordinal)
         {
@@ -1617,9 +1615,9 @@ public sealed class LegacyWorldConverterTests
     /// synthetic four-cell fixture alone.
     ///
     /// <code>
-    ///        port+depot  cells before  after
-    ///  s1            12           463    471
-    ///  s3             3           235    239
+    ///        port+depot  static cells  river-aware cells
+    ///  s1            12           471                456
+    ///  s3             3           239                233
     ///  s9             4           126    156
     ///  s12            4           124    154
     ///  s13, s14       1           105    109
@@ -1628,19 +1626,15 @@ public sealed class LegacyWorldConverterTests
     /// <c>s5</c>, <c>s10</c>, <c>s11</c> and <c>s15</c> author no such hex and
     /// are unchanged, which is the control this measurement needs.
     /// </remarks>
-    [Fact]
+    [CorpusFact]
     public void TheCorpusAuthorsPortAndDepotHexesAndTheyConnectTheLinesBehindThem()
     {
-        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return;
-        }
+        var directory = RequireScenarioDirectory();
 
         var expected = new Dictionary<string, (int Gateways, int CollectedCells)>(StringComparer.Ordinal)
         {
-            ["s1"] = (12, 471),
-            ["s3"] = (3, 239),
+            ["s1"] = (12, 456),
+            ["s3"] = (3, 233),
             ["s9"] = (4, 156),
             ["s12"] = (4, 154),
             ["s13"] = (1, 109),
@@ -1718,14 +1712,10 @@ public sealed class LegacyWorldConverterTests
     /// <c>docs/formulas/engineer.md</c>.
     /// </para>
     /// </remarks>
-    [Fact]
+    [CorpusFact]
     public void EveryRailedCellInTheCorpusIsOneItsOwnerCouldHaveBuilt()
     {
-        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return;
-        }
+        var directory = RequireScenarioDirectory();
 
         var permitted = 0;
         var beyond = new List<string>();
@@ -1834,14 +1824,10 @@ public sealed class LegacyWorldConverterTests
     /// it, and averaging it in would drown the signal.
     /// </para>
     /// </remarks>
-    [Fact]
+    [CorpusFact]
     public void EveryAuthoredLevelInTheCorpusIsOneItsOwnerCouldHaveBuilt()
     {
-        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return;
-        }
+        var directory = RequireScenarioDirectory();
 
         var permitted = 0;
         var beyond = new List<string>();
@@ -1958,14 +1944,10 @@ public sealed class LegacyWorldConverterTests
     /// corpus.
     /// </para>
     /// </remarks>
-    [Fact]
+    [CorpusFact]
     public void EveryShipInTheCorpusIsAHullItsOwnerCouldHaveBuilt()
     {
-        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return;
-        }
+        var directory = RequireScenarioDirectory();
 
         // Measured. s1 is the only scenario fielding a gated hull at all — the
         // Paddlewheeler and the Raider both need Paddlewheels — which is what stops this
@@ -2066,14 +2048,10 @@ public sealed class LegacyWorldConverterTests
     /// "Unification Movements 1848-1890" against 33. Both are 1815 + field exactly,
     /// which is also the manual's campaign start.
     /// </remarks>
-    [Fact]
+    [CorpusFact]
     public void AScenarioYearIsAnOffsetFrom1815()
     {
-        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return;
-        }
+        var directory = RequireScenarioDirectory();
 
         var years = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var mapPath in Directory.GetFiles(directory, "*.map").OrderBy(static path => path))
@@ -2138,14 +2116,10 @@ public sealed class LegacyWorldConverterTests
     /// count. The third check, like the other two, is silent on the question.
     /// </para>
     /// </remarks>
-    [Fact]
+    [CorpusFact]
     public void HowMuchTheCorpusGrantsAheadOfItsArrivalDates()
     {
-        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return;
-        }
+        var directory = RequireScenarioDirectory();
 
         var early = new Dictionary<string, int>(StringComparer.Ordinal);
         var granted = 0;
@@ -2200,14 +2174,10 @@ public sealed class LegacyWorldConverterTests
     /// cells and seven powers, and it is the only check that the phases compose
     /// on data nobody tailored for them.
     /// </summary>
-    [Fact]
+    [CorpusFact]
     public void AnImportedScenarioResolvesATurn()
     {
-        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return;
-        }
+        var directory = RequireScenarioDirectory();
 
         // Setting the variable is a declaration that the corpus is there, so a
         // missing `s1` is a broken setup rather than a reason to test nothing.
@@ -2812,6 +2782,17 @@ public sealed class LegacyWorldConverterTests
                 .Convert(map, new ScenarioDocument([.. names, Record("civi", 0)]), null, "fields")
                 .Report.Diagnostics,
             item => item.Code == "scenario.invalid-civi");
+    }
+
+    private static string RequireScenarioDirectory()
+    {
+        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            throw new InvalidOperationException("CorpusFact should have skipped this test because IMPERIALISM_SCENARIO_DIR is unset.");
+        }
+
+        return directory;
     }
 
     private static MapDocument CreateMap(int width, int height, params HexCell[] cells)
