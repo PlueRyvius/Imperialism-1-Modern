@@ -64,13 +64,10 @@ public class InspectAddresses extends GhidraScript {
         }
 
         String decompile = System.getenv("IMP_GHIDRA_DECOMPILE");
-        if (decompile == null || decompile.trim().isEmpty()) {
-            return;
-        }
-
-        DecompInterface decompiler = new DecompInterface();
-        decompiler.openProgram(currentProgram);
-        try {
+        if (decompile != null && !decompile.trim().isEmpty()) {
+            DecompInterface decompiler = new DecompInterface();
+            decompiler.openProgram(currentProgram);
+            try {
             for (String value : decompile.split(",")) {
                 long raw = Long.parseLong(value.trim().replace("0x", ""), 16);
                 Address address = toAddr(raw);
@@ -95,8 +92,9 @@ public class InspectAddresses extends GhidraScript {
                     println("DECOMPILE FAILED: " + result.getErrorMessage());
                 }
             }
-        } finally {
-            decompiler.dispose();
+            } finally {
+                decompiler.dispose();
+            }
         }
 
         String globalField = System.getenv("IMP_GHIDRA_GLOBAL_FIELD");
@@ -189,6 +187,33 @@ public class InspectAddresses extends GhidraScript {
                         continue;
                     }
                     for (int operand = 0; operand < instruction.getNumOperands(); operand++) {
+                        String representation = instruction.getDefaultOperandRepresentation(operand)
+                            .toLowerCase();
+                        if (representation.contains(offsetText) || representation.contains(hexadecimalText)) {
+                            println(function.getEntryPoint() + " " + instruction);
+                        }
+                    }
+                }
+            }
+        }
+
+        String writeOffset = System.getenv("IMP_GHIDRA_WRITE_OFFSET");
+        if (writeOffset != null && !writeOffset.trim().isEmpty()) {
+            long offset = Long.parseLong(writeOffset.trim().replace("0x", ""), 16);
+            String offsetText = String.format("0x%X", offset).toLowerCase();
+            String hexadecimalText = String.format("%Xh", offset).toLowerCase();
+            println(String.format("=== MEMORY WRITES AT OFFSET %X ===", offset));
+            FunctionIterator functions = currentProgram.getFunctionManager().getFunctions(true);
+            while (functions.hasNext()) {
+                Function function = functions.next();
+                InstructionIterator instructions = currentProgram.getListing()
+                    .getInstructions(function.getBody(), true);
+                while (instructions.hasNext()) {
+                    Instruction instruction = instructions.next();
+                    for (int operand = 0; operand < instruction.getNumOperands(); operand++) {
+                        if ((instruction.getOperandType(operand) & OperandType.WRITE) == 0) {
+                            continue;
+                        }
                         String representation = instruction.getDefaultOperandRepresentation(operand)
                             .toLowerCase();
                         if (representation.contains(offsetText) || representation.contains(hexadecimalText)) {
