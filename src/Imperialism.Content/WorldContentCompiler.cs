@@ -145,7 +145,7 @@ public static class WorldContentCompiler
         }).ToArray();
 
         // After the technology map, because a hull may name the knowledge its shipyard
-        // needs: Streamlined Hulls opens the Clipper and Paddlewheels the Steamship.
+        // needs: Streamlined Hulls opens the Clipper and Paddlewheels the Paddlewheeler.
         var shipTypeContent = RequireArray(document.ShipTypes, "shipTypes");
         var shipTypeIds = BuildShipTypeKeyMap(shipTypeContent);
         var shipTypes = shipTypeContent.Select((definition, index) =>
@@ -161,6 +161,7 @@ public static class WorldContentCompiler
                     new ShipTypeId(index),
                     definition.Name,
                     definition.Cargo,
+                    definition.SeaZones,
                     bill,
                     definition.RequiredTechnology is null
                         ? null
@@ -171,7 +172,12 @@ public static class WorldContentCompiler
                     definition.Combat is not { } combat
                         ? null
                         : new ShipCombatStats(
-                            combat.Firepower, combat.Range, combat.Armour, combat.Hull, combat.Speed));
+                            combat.Firepower,
+                            combat.Range,
+                            combat.Armour,
+                            combat.HullScale,
+                            combat.BattleSpeed,
+                            combat.Hull));
             }
             catch (ArgumentException exception)
             {

@@ -1575,14 +1575,21 @@ public sealed class WorldContentTests
         document.Commodities[0].TradeOrder = 4;
         document.ShipTypes =
         [
-            new ShipTypeContentDefinition { Key = "ship.trader", Name = "Trader", Cargo = 2 },
+            new ShipTypeContentDefinition
+            {
+                Key = "ship.trader", Name = "Trader", Cargo = 2, SeaZones = 1,
+            },
             new ShipTypeContentDefinition
             {
                 Key = "ship.clipper",
                 Name = "Clipper",
                 Cargo = 4,
+                SeaZones = 1,
                 RequiredTechnology = document.Technologies[0].Key,
-                Combat = new ShipCombatContent { Firepower = 0, Range = 0, Armour = 0, Hull = 25, Speed = 7 },
+                Combat = new ShipCombatContent
+                {
+                    Firepower = 0, Range = 0, Armour = 0, HullScale = 600, BattleSpeed = 0,
+                },
             },
         ];
         document.Trade = new TradeContentSettings
@@ -1607,7 +1614,10 @@ public sealed class WorldContentTests
 
         var clipper = world.ShipTypes[1];
         Assert.Equal((4L, new TechnologyId(0)), (clipper.Cargo, clipper.RequiredTechnology!.Value));
-        Assert.Equal(25, clipper.Combat!.Hull);
+        Assert.Equal((600L, 1L), (clipper.Combat!.HullScale, clipper.SeaZones));
+
+        // A merchant has no printed hull rating, and absent is how that is written.
+        Assert.Null(clipper.Combat.Hull);
         Assert.NotNull(world.Trade);
         Assert.True(world.Countries[0].IsGreatPower);
 

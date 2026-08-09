@@ -528,6 +528,12 @@ public sealed class ShipTypeContentDefinition
     public long Cargo { get; set; }
 
     /// <summary>
+    /// Sea zones crossed in a turn: one for every merchant, two to six for a warship.
+    /// This is the column the manual prints as "Speed".
+    /// </summary>
+    public long SeaZones { get; set; }
+
+    /// <summary>
     /// What the shipyard consumes to build one — materials only, never cash. Empty where
     /// nothing reliable has been transcribed.
     /// </summary>
@@ -545,22 +551,37 @@ public sealed class ShipTypeContentDefinition
     public ShipCombatContent? Combat { get; set; }
 }
 
-/// <summary>A hull's fighting numbers. Transcribed for the battle engine.</summary>
+/// <summary>
+/// A hull's fighting numbers, for all thirteen classes. Transcribed for the battle
+/// engine.
+/// </summary>
 public sealed class ShipCombatContent
 {
     public long Firepower { get; set; }
 
     public long Range { get; set; }
 
+    /// <summary>Armour, 0 to 70. The executable stores its complement against 100.</summary>
     public long Armour { get; set; }
 
-    public long Hull { get; set; }
+    /// <summary>
+    /// The executable's internal hull scale, 600 to 2,800 — the divisor its battle report
+    /// normalises damage by, not a count of hull points.
+    /// </summary>
+    public long HullScale { get; set; }
 
     /// <summary>
-    /// Sailing speed, which is not purely military: it decides whether a merchant runs a
-    /// blockade. Distinct from battle movement, which is not modelled at all.
+    /// Movement inside a tactical battle, 0 to 9. Zero for a merchant. Distinct from
+    /// <see cref="ShipTypeContentDefinition.SeaZones"/>, which is movement on the map.
     /// </summary>
-    public long Speed { get; set; }
+    public long BattleSpeed { get; set; }
+
+    /// <summary>
+    /// The hull rating the manual prints, or absent for the five merchants its combat
+    /// table omits. Kept beside <see cref="HullScale"/>; neither derives the other.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Hull { get; set; }
 }
 
 public sealed class ResourceContentDefinition

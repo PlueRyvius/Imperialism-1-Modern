@@ -868,16 +868,15 @@ public sealed class LegacyWorldConverterTests
     }
 
     /// <summary>
-    /// The thirteen classes of ship: five merchants and eight warships. **Cargo is the only
-    /// column this engine reads**, and only merchants have any.
+    /// The thirteen classes of ship, **in the executable's own array order** — which is
+    /// what a legacy <c>ship</c> record's 1-based type indexes into, and what used to be
+    /// the blocking unknown.
     /// </summary>
     /// <remarks>
-    /// **No build costs are pinned because none are transcribed.** The owner's cost table
-    /// had a misaligned column — what it labelled Speed was battle movement, and it carried
-    /// no sailing speed at all — so every value after Hull in it is suspect, arms included.
-    /// Arms later sets the force landable at a beachhead, so being out by one would be a
-    /// gameplay bug rather than a cosmetic one; nothing reads a bill until a shipyard
-    /// exists, so the honest move is to ship none.
+    /// The whole table is pinned now rather than cargo alone: order, cargo, sea zones, the
+    /// six-commodity build bill and the combat numbers all come from
+    /// <c>docs/disasm/definitive-original-data.md</c>. If any of it moves, the
+    /// transcription moved.
     /// </remarks>
     [Fact]
     public void TheShipTableIsPinned()
@@ -897,24 +896,47 @@ public sealed class LegacyWorldConverterTests
         var ships = result.Document!.ShipTypes;
         Assert.Equal(13, ships.Length);
 
-        // Cargo: the five merchants, and nothing else. The Freighter's is unknown and is
-        // left at zero rather than invented.
+        // **The order is the executable's**, and it is what a `ship` record indexes into.
         Assert.Equal(
             [
-                ("ship.trader", 2L), ("ship.indiaman", 4L), ("ship.steamship", 8L),
-                ("ship.clipper", 4L), ("ship.freighter", 0L),
+                "ship.trader", "ship.indiaman", "ship.frigate", "ship.ship-of-the-line",
+                "ship.paddlewheeler", "ship.clipper", "ship.raider", "ship.ironclad",
+                "ship.advanced-ironclad", "ship.freighter", "ship.armoured-cruiser",
+                "ship.dreadnought", "ship.battle-cruiser",
             ],
-            ships.Take(5).Select(static item => (item.Key, item.Cargo)));
-        Assert.All(ships.Skip(5), item => Assert.Equal(0, item.Cargo));
+            ships.Select(static item => item.Key));
 
-        // Warships carry the manual's combat numbers and merchants carry none: they never
-        // fight, which is also why their sailing speed is not in that table.
-        Assert.All(ships.Take(5), item => Assert.Null(item.Combat));
+        // Cargo: the five merchants, and nothing else. **The Freighter's 16 was the last
+        // unknown cargo figure** and is four Traders' worth.
+        Assert.Equal(
+            [
+                ("ship.trader", 2L), ("ship.indiaman", 4L), ("ship.paddlewheeler", 8L),
+                ("ship.clipper", 4L), ("ship.freighter", 16L),
+            ],
+            ships.Where(static item => item.Cargo > 0).Select(static item => (item.Key, item.Cargo)));
+
+        // Sea zones is the column the manual prints as Speed: one for every merchant, two
+        // to six for a warship.
+        Assert.Equal(
+            [1L, 1L, 3L, 2L, 1L, 1L, 5L, 3L, 4L, 1L, 6L, 5L, 6L],
+            ships.Select(static item => item.SeaZones));
+
+        // **Every hull has combat numbers, merchants included** — the manual's table
+        // printed warships only, and the Freighter is the toughest thing afloat that
+        // cannot shoot back.
+        Assert.All(ships, item => Assert.NotNull(item.Combat));
+        var freighter = ships.Single(static item => item.Key == "ship.freighter");
+        Assert.Equal(
+            (0L, 0L, 25L, 1200L, 0L, (long?)null),
+            (freighter.Combat!.Firepower, freighter.Combat.Range, freighter.Combat.Armour,
+                freighter.Combat.HullScale, freighter.Combat.BattleSpeed, freighter.Combat.Hull));
+
         var dreadnought = ships.Single(static item => item.Key == "ship.dreadnought");
         Assert.Equal(
-            (20L, 13L, 70L, 115L, 5L),
+            (20L, 13L, 70L, 2800L, 7L, (long?)115L),
             (dreadnought.Combat!.Firepower, dreadnought.Combat.Range, dreadnought.Combat.Armour,
-                dreadnought.Combat.Hull, dreadnought.Combat.Speed));
+                dreadnought.Combat.HullScale, dreadnought.Combat.BattleSpeed,
+                dreadnought.Combat.Hull));
 
         // Two technology entries that gate nothing else in the engine gate a hull here.
         Assert.Equal(
@@ -922,10 +944,24 @@ public sealed class LegacyWorldConverterTests
             ships.Single(static item => item.Key == "ship.clipper").RequiredTechnology);
         Assert.Equal(
             "technology.paddlewheels",
-            ships.Single(static item => item.Key == "ship.steamship").RequiredTechnology);
+            ships.Single(static item => item.Key == "ship.paddlewheeler").RequiredTechnology);
 
-        // Nothing is priced in materials yet, deliberately.
-        Assert.All(ships, item => Assert.Empty(item.BuildCost));
+        // **Every hull is priced, and none of them in cash.** The Frigate's arms figure
+        // settles the 2-versus-3 discrepancy the old cost table left open.
+        Assert.All(ships, item => Assert.NotEmpty(item.BuildCost));
+        Assert.Equal(
+            [("commodity.lumber", 5L), ("commodity.fabric", 2L), ("commodity.armaments", 2L)],
+            ships.Single(static item => item.Key == "ship.frigate").BuildCost
+                .Select(static item => (item.Commodity, item.Quantity)));
+        Assert.Equal(
+            [("commodity.armaments", 24L), ("commodity.steel", 30L), ("commodity.fuel", 20L)],
+            dreadnought.BuildCost.Select(static item => (item.Commodity, item.Quantity)));
+
+        // Every commodity a bill names must exist in the roster.
+        var commodities = result.Document.Commodities.Select(static item => item.Key).ToHashSet();
+        Assert.All(
+            ships.SelectMany(static item => item.BuildCost),
+            item => Assert.Contains(item.Commodity, commodities));
 
         // Every gate named must exist in the catalog.
         var declared = result.Document.Technologies.Select(static item => item.Key).ToHashSet();

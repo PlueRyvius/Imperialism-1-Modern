@@ -41,27 +41,37 @@ internal enum LegacyProspecting : byte
     NeedsOilDrilling,
 }
 
-/// <summary>One class of ship: its key, cargo, technology gate and combat numbers.</summary>
+/// <summary>
+/// One class of ship: its key, cargo, sea zones, build bill, technology gate and combat
+/// numbers — one row of the executable's naval table.
+/// </summary>
 internal readonly record struct LegacyShipType(
     string Key,
     string Name,
     long Cargo = 0,
+    long SeaZones = 0,
     LegacyShipCombat? Combat = null,
-    string? RequiredTechnology = null);
+    string? RequiredTechnology = null,
+    long Lumber = 0,
+    long Fabric = 0,
+    long Arms = 0,
+    long Steel = 0,
+    long Coal = 0,
+    long Fuel = 0);
 
-/// <summary>A hull's fighting numbers, from the manual's Ship Type table.</summary>
+/// <summary>A hull's fighting numbers, from the executable's naval table.</summary>
 /// <remarks>
-/// Battle movement is deliberately absent. The manual's table carries it, and nothing here
-/// models fleet movement — recording a number no reader can interpret would invite it being
-/// mistaken for sailing speed, which is the error that produced a misaligned column in the
-/// first place.
+/// <see cref="Hull"/> is the manual's printed rating and is absent for the five merchants
+/// its combat table leaves out; <see cref="HullScale"/> is the executable's own internal
+/// scale and every hull has one. Neither derives the other.
 /// </remarks>
 internal readonly record struct LegacyShipCombat(
     long Firepower,
     long Range,
     long Armour,
-    long Hull,
-    long Speed);
+    long HullScale,
+    long BattleSpeed,
+    long? Hull = null);
 
 public static class LegacyWorldConverter
 {
@@ -2231,55 +2241,78 @@ public static class LegacyWorldConverter
     /// The thirteen classes of ship: five merchants and eight warships.
     /// </summary>
     /// <remarks>
-    /// <b>This is not the game's array order, and nothing here depends on it being.</b>
-    /// Content refers to a hull by key, so the order below is only a listing. The order
-    /// <em>does</em> matter for one thing — a legacy <c>ship</c> record's type is a 1-based
-    /// index into the game's own array — and that is why <c>ship</c> records are still
-    /// deferred: the array order needs the binary to settle. See
-    /// <c>docs/formulas/trade.md</c>.
+    /// <b>This is the game's array order.</b> The executable holds fourteen 36-byte rows at
+    /// <c>0x00698108</c> — an unused row 0 and the thirteen classes — and a legacy
+    /// <c>ship</c> record's 1-based type indexes straight into it, which is exactly the
+    /// order below. That was the blocking unknown in
+    /// <c>docs/disasm/wanted-values.md</c> and it is settled; the list used to be an
+    /// arbitrary listing and is now load-bearing, so **do not reorder it.**
     /// <para>
-    /// <b>Cargo is the only column this engine reads</b>, and only the merchants have any:
-    /// a country's merchant marine is the sum of the cargo it owns. The four merchant cargo
-    /// figures come from the owner; the Freighter's is unknown and is left at zero rather
-    /// than invented, which makes it a hull nobody would build until the number arrives.
+    /// <b>The Freighter carries 16, and that was the last unknown cargo figure.</b> Leaving
+    /// it at zero made it a hull nobody would build; at 16 it is worth four Traders, which
+    /// is what an industrial-age merchant marine is built out of. Sea zones are new here
+    /// and are one for every merchant, so the manual's Speed column never distinguished
+    /// them either.
     /// </para>
     /// <para>
-    /// <b>No build costs are transcribed, deliberately.</b> The owner's cost table proved to
-    /// have a misaligned column — what it labelled Speed was battle movement, and it
-    /// carried no sailing speed at all — so every value after Hull in it is suspect,
-    /// including arms. Shipping possibly-shifted numbers is worse than shipping none, and
-    /// nothing reads a build bill until a shipyard exists. The arms figure in particular
-    /// later sets the force landable at a beachhead, so being wrong by one would be a
-    /// gameplay bug rather than a cosmetic one.
+    /// <b>The build bills are the executable's six commodity arrays</b> at
+    /// <c>0x00695B50</c> and the five words after it, read by the availability,
+    /// maximum-quantity, deduction, order-cost and cost-list paths alike. The refusal to
+    /// ship the owner's cost table was right and is now moot: the recovered Frigate row is
+    /// 2 fabric, 5 lumber, **2 arms** — settling the 2-versus-3 discrepancy that mattered
+    /// because arms later set the force landable at a beachhead — and the merchant recipes
+    /// the old document omitted are here too.
     /// </para>
     /// <para>
-    /// The warship combat stats are from the manual's own Ship Type table and are
-    /// transcribed here and read by nothing, exactly as the technology table's
-    /// unmodellable entries are.
+    /// <b>The manual's "Speed" column is sea zones, and reading it as a sailing rate was
+    /// wrong.</b> Field 7 of the naval table carries exactly those eight numbers, and
+    /// field 4 carries the battle movement the manual prints separately. So the misaligned
+    /// column that discredited the owner's table was real, and the correction is not that
+    /// a sailing speed is missing — there is no sailing speed. The claim that armour and
+    /// speed decide whether a merchant runs a blockade was inferred from the label and is
+    /// retracted; what a merchant does have is armour and a hull scale, which is the part
+    /// blockade will want.
     /// </para>
     /// </remarks>
     private static readonly IReadOnlyList<LegacyShipType> ShipTypes =
     [
-        // The merchants. None appears in the manual's combat table, because they never
-        // fight; speed still matters to them, for outrunning a blockade, and is unknown.
-        new("trader", "Trader", Cargo: 2),
-        new("indiaman", "Indiaman", Cargo: 4),
-        new("steamship", "Steamship", Cargo: 8, RequiredTechnology: Paddlewheels),
-        new("clipper", "Clipper", Cargo: 4, RequiredTechnology: StreamlinedHulls),
-        new("freighter", "Freighter"),
+        // 1-5. Trader, Indiaman, Frigate, Ship-of-the-Line, Paddlewheeler: the four hulls
+        // an 1815 power starts able to build, plus the first steamer.
+        new("trader", "Trader", Cargo: 2, SeaZones: 1,
+            Combat: new(0, 0, 0, 600, 0), Lumber: 4, Fabric: 2),
+        new("indiaman", "Indiaman", Cargo: 4, SeaZones: 1,
+            Combat: new(0, 0, 5, 1000, 0), Lumber: 7, Fabric: 3),
+        new("frigate", "Frigate", SeaZones: 3,
+            Combat: new(3, 5, 10, 900, 4, Hull: 35), Lumber: 5, Fabric: 2, Arms: 2),
+        new("ship-of-the-line", "Ship-of-the-Line", SeaZones: 2,
+            Combat: new(6, 6, 20, 1700, 3, Hull: 65), Lumber: 8, Fabric: 3, Arms: 5),
+        new("paddlewheeler", "Paddlewheeler", Cargo: 8, SeaZones: 1, RequiredTechnology: Paddlewheels,
+            Combat: new(0, 0, 5, 900, 0), Lumber: 6, Steel: 2, Coal: 10),
 
-        // The eight warships, in the manual's printed order: four fast ships and four
-        // battleships, alternating by era.
-        new("frigate", "Frigate", Combat: new(3, 5, 10, 35, 3)),
-        new("ship-of-the-line", "Ship-of-the-Line", Combat: new(6, 6, 20, 65, 2)),
-        new("raider", "Raider", Combat: new(3, 7, 20, 30, 5), RequiredTechnology: Paddlewheels),
-        new("ironclad", "Ironclad", Combat: new(5, 8, 55, 50, 3)),
-        new("armoured-cruiser", "Armoured Cruiser", Combat: new(6, 9, 50, 40, 6)),
-        new("advanced-ironclad", "Advanced Ironclad", Combat: new(10, 10, 60, 70, 4)),
-        new("battle-cruiser", "Battle Cruiser", Combat: new(18, 13, 55, 90, 6)),
-        new("dreadnought", "Dreadnought", Combat: new(20, 13, 70, 115, 5)),
+        // 6-13. The Clipper, then the seven hulls the industrial technologies open.
+        new("clipper", "Clipper", Cargo: 4, SeaZones: 1, RequiredTechnology: StreamlinedHulls,
+            Combat: new(0, 0, 0, 600, 0), Lumber: 6, Fabric: 2),
+        new("raider", "Raider", SeaZones: 5, RequiredTechnology: Paddlewheels,
+            Combat: new(3, 7, 20, 700, 7, Hull: 30), Lumber: 6, Arms: 3, Coal: 10),
+        new("ironclad", "Ironclad", SeaZones: 3,
+            Combat: new(5, 8, 55, 1200, 5, Hull: 50), Lumber: 4, Arms: 6, Steel: 4, Coal: 10),
+        new("advanced-ironclad", "Advanced Ironclad", SeaZones: 4,
+            Combat: new(10, 10, 60, 1800, 6, Hull: 70), Lumber: 8, Arms: 15, Steel: 10, Coal: 20),
+        new("freighter", "Freighter", Cargo: 16, SeaZones: 1,
+            Combat: new(0, 0, 25, 1200, 0), Steel: 8, Coal: 20),
+        new("armoured-cruiser", "Armoured Cruiser", SeaZones: 6,
+            Combat: new(6, 9, 50, 1000, 8, Hull: 40), Lumber: 2, Arms: 8, Steel: 6, Coal: 20),
+        new("dreadnought", "Dreadnought", SeaZones: 5,
+            Combat: new(20, 13, 70, 2800, 7, Hull: 115), Arms: 24, Steel: 30, Fuel: 20),
+        new("battle-cruiser", "Battle Cruiser", SeaZones: 6,
+            Combat: new(18, 13, 55, 2200, 9, Hull: 90), Arms: 18, Steel: 22, Fuel: 20),
     ];
 
+    /// <summary>
+    /// The two technologies that gate a hull, named here rather than beside the rest of
+    /// the technology table because gating a hull is the only thing either of them does in
+    /// this engine. <see cref="TechnologyTable"/> refers to them too.
+    /// </summary>
     private const string StreamlinedHulls = "Streamlined Hulls";
     private const string Paddlewheels = "Paddlewheels";
 
@@ -2305,6 +2338,8 @@ public static class LegacyWorldConverter
             Key = ShipTypeKey(type.Key),
             Name = type.Name,
             Cargo = type.Cargo,
+            SeaZones = type.SeaZones,
+            BuildCost = ShipBuildCost(type),
             RequiredTechnology = type.RequiredTechnology is null
                 ? null
                 : TechnologyKey(type.RequiredTechnology),
@@ -2315,10 +2350,30 @@ public static class LegacyWorldConverter
                     Firepower = combat.Firepower,
                     Range = combat.Range,
                     Armour = combat.Armour,
+                    HullScale = combat.HullScale,
+                    BattleSpeed = combat.BattleSpeed,
                     Hull = combat.Hull,
-                    Speed = combat.Speed,
                 },
         }).ToArray();
+
+    /// <summary>
+    /// One hull's bill, in the order the executable's six arrays sit in memory. A
+    /// commodity the hull does not want is left off rather than written as zero, which is
+    /// what <see cref="ShipTypeDefinition"/> requires of a bill.
+    /// </summary>
+    private static CommodityQuantityContent[] ShipBuildCost(LegacyShipType type) =>
+        new (string Commodity, long Quantity)[]
+        {
+            ("lumber", type.Lumber),
+            ("fabric", type.Fabric),
+            ("armaments", type.Arms),
+            ("steel", type.Steel),
+            ("coal", type.Coal),
+            ("fuel", type.Fuel),
+        }
+        .Where(static item => item.Quantity > 0)
+        .Select(static item => Quantity(item.Commodity, item.Quantity))
+        .ToArray();
 
     private static string ShipTypeKey(string key) => $"ship.{key}";
 

@@ -35,8 +35,8 @@ numbers. The split matters more than the average.
 | **The fifteen prices** | **observed** — the original's own Bid and Offers screen |
 | **Which commodities are tradable** | **observed**, and it agrees with the manual three times independently |
 | **The commodity order** | **observed**, from the same screen |
-| Merchant cargo per class | **observed**, from the owner |
-| The opening fleet | **corpus** — all three skirmishes agree |
+| **The ship table** — order, cargo, sea zones, build bills, combat | **the executable's own naval and cost tables** |
+| The opening fleet | **corpus** — all three skirmishes agree; the class is the executable's |
 | A `ship` type index is 1-based | **corpus-corroborated** — see below |
 | **How far a price moves** | **a guess**, quarantined behind `ITradeMarket` |
 | **Which bidder gets first refusal** | **a placeholder** — the real rule needs diplomacy |
@@ -120,41 +120,101 @@ answerable.
 
 ## Ships
 
-**Thirteen classes: five merchants and eight warships.** Cargo is the only column this
-engine reads — a country's merchant marine is the sum of the cargo it owns — and the rest
-is transcribed for the slices that will read it.
+**Thirteen classes: five merchants and eight warships**, and the whole table is now the
+executable's. It holds fourteen 36-byte rows at `0x00698108` — an unused row 0 and the
+thirteen classes — plus six 30-entry commodity arrays at `0x00695B50` for the build
+bills. Cargo is still the only column this engine reads.
 
-| Merchant | Cargo | Needs |
-|---|---|---|
-| Trader | 2 | — |
-| Indiaman | 4 | — |
-| Steamship | 8 | Paddlewheels |
-| Clipper | 4 | Streamlined Hulls |
-| Freighter | *unknown* | — |
+**The order below is the game's own**, which is what a legacy `ship` record's 1-based type
+indexes into, and it was the blocking unknown on
+[`../disasm/wanted-values.md`](../disasm/wanted-values.md).
 
-The Freighter's cargo is left at zero rather than invented, which makes it a hull nobody
-would build until the number arrives.
+| # | Class | Cargo | Sea zones | Needs | Build bill |
+|---|---|---|---|---|---|
+| 1 | Trader | 2 | 1 | — | 4 lumber, 2 fabric |
+| 2 | Indiaman | 4 | 1 | — | 7 lumber, 3 fabric |
+| 3 | Frigate | — | 3 | — | 5 lumber, 2 fabric, 2 arms |
+| 4 | Ship-of-the-Line | — | 2 | — | 8 lumber, 3 fabric, 5 arms |
+| 5 | Paddlewheeler | 8 | 1 | Paddlewheels | 6 lumber, 2 steel, 10 coal |
+| 6 | Clipper | 4 | 1 | Streamlined Hulls | 6 lumber, 2 fabric |
+| 7 | Raider | — | 5 | Paddlewheels | 6 lumber, 3 arms, 10 coal |
+| 8 | Ironclad | — | 3 | — | 4 lumber, 6 arms, 4 steel, 10 coal |
+| 9 | Advanced Ironclad | — | 4 | — | 8 lumber, 15 arms, 10 steel, 20 coal |
+| 10 | Freighter | **16** | 1 | — | 8 steel, 20 coal |
+| 11 | Armoured Cruiser | — | 6 | — | 2 lumber, 8 arms, 6 steel, 20 coal |
+| 12 | Dreadnought | — | 5 | — | 24 arms, 30 steel, 20 fuel |
+| 13 | Battle Cruiser | — | 6 | — | 18 arms, 22 steel, 20 fuel |
+
+**The Freighter carries 16**, which was the last unknown cargo figure. At zero it was a
+hull nobody would build; at 16 it is worth four Traders, and it is what an industrial
+merchant marine is actually made of.
 
 **Two technology entries that gate nothing else in the engine gate a hull here.**
 Streamlined Hulls and Paddlewheels were dead weight in the technology table; the Clipper
-and the Steamship give them work.
+and the Paddlewheeler give them work. The executable gates no other hull, which is worth
+noting against the descriptions: Advanced Iron Working "permits construction of
+Ironclads" and Marine Engineering "permits construction of Armoured Cruisers", so those
+gates exist somewhere and are **not** in the naval table's own fields.
 
-The eight warships carry the manual's own Ship Type table — firepower, range, armour,
-hull and sailing speed — and **are read by nothing**, exactly as the technology table's
-unmodellable rows are. Warship cargo is zero, which is what makes a navy and a merchant
-marine two different numbers out of the same shipyard.
+### The manual's "Speed" column is sea zones
 
-### No build costs are transcribed, and that is deliberate
+This is the correction that mattered most. The naval table has **two** movement fields:
+field 7, whose eight warship values are exactly the manual's printed Speed column, and
+field 4, which is the battle movement the manual prints separately. So the manual's
+"Speed" is a world-map allowance in sea zones per turn, and **there is no sailing speed
+anywhere in the record.**
 
-The owner's cost table proved to have **a misaligned column**: what it labelled Speed was
-*battle movement*, and it carried no sailing speed at all. So every value after Hull in
-it is suspect — arms included, and arms later sets "the force size that can be landed at
-a beachhead on hostile soil in one turn". Shipping possibly-shifted numbers is worse than
-shipping none, and nothing reads a build bill until a shipyard exists.
+That retracts a claim this document and the code both carried: that a merchant's armour
+and speed decide whether it runs a blockade. Every merchant has sea zones 1 and battle
+speed 0, so neither field distinguishes them. What merchants *do* have is armour and a
+hull scale — the Freighter has 25 armour, more than a Frigate — which is presumably what
+blockade will read.
 
-That misalignment also explains an oddity the owner had flagged with `(??!)`: the
-Clipper's speed of 0. It was not an error. Merchant ships have no battle movement because
-they never fight, so 0 was right for the column it was actually in.
+It also settles the oddity the owner had flagged with `(??!)`: the Clipper's speed of 0.
+Not an error. Merchants have no battle movement because they never fight.
+
+### The build bills are recovered, and the refusal to guess them paid off
+
+This document used to say no build costs were transcribed, because the owner's cost table
+had a misaligned column and every value after Hull in it was suspect — arms included, and
+arms later sets "the force size that can be landed at a beachhead on hostile soil in one
+turn". **The misalignment was real and the caution was right.**
+
+The recovered bills settle the one discrepancy that was called out by name: **the Frigate
+takes 2 arms**, not 3. Ship-of-the-Line's 5 was never in doubt. The merchant recipes the
+old document omitted entirely are here too, and **not one of the thirteen costs cash** —
+which independently confirms the owner's "at no monetary cost but with varying amounts of
+resources and/or materials".
+
+### The combat numbers
+
+Every hull has them, merchants included; the manual's table printed warships only.
+
+| Class | Firepower | Range | Armour | Hull scale | Battle speed | Manual's H |
+|---|---|---|---|---|---|---|
+| Trader | 0 | 0 | 0 | 600 | 0 | — |
+| Indiaman | 0 | 0 | 5 | 1,000 | 0 | — |
+| Frigate | 3 | 5 | 10 | 900 | 4 | 35 |
+| Ship-of-the-Line | 6 | 6 | 20 | 1,700 | 3 | 65 |
+| Paddlewheeler | 0 | 0 | 5 | 900 | 0 | — |
+| Clipper | 0 | 0 | 0 | 600 | 0 | — |
+| Raider | 3 | 7 | 20 | 700 | 7 | 30 |
+| Ironclad | 5 | 8 | 55 | 1,200 | 5 | 50 |
+| Advanced Ironclad | 10 | 10 | 60 | 1,800 | 6 | 70 |
+| Freighter | 0 | 0 | 25 | 1,200 | 0 | — |
+| Armoured Cruiser | 6 | 9 | 50 | 1,000 | 8 | 40 |
+| Dreadnought | 20 | 13 | 70 | 2,800 | 7 | 115 |
+| Battle Cruiser | 18 | 13 | 55 | 2,200 | 9 | 90 |
+
+Two things about the storage. **Armour is stored as its complement** — the accessor
+returns `100 - stored` — which is why the unused row 0 reads as 100 armour, and why a
+Trader's 0 is a real zero rather than a missing value. And **hull scale is not the
+manual's H.** It is the divisor the battle report normalises damage by; the ratio between
+the two runs from 23.3 to 26.2 across the eight warships, so no single scale converts one
+into the other. Both are kept.
+
+Firepower, range, armour and the manual's Speed column all match the manual exactly, which
+is a clean cross-check on the transcription in both directions.
 
 ## Merchant marine
 
@@ -193,16 +253,16 @@ start's mills and workforce, and it matters because
 the opening merchant marine is recoverable from the corpus where the transport pool beside
 it is not.
 
-**The one inference is which class.** The corpus says "three of type 1" and the type index
-needs the binary to resolve; both candidate orderings of the ship array put the Trader
-first, so **three Traders — six holds** is the reading. If the array begins elsewhere, this
-moves with it.
+**The one inference was which class, and it is no longer an inference.** The corpus says
+"three of type 1"; the executable's array puts the Trader at index 1. **Three Traders —
+six holds**, confirmed rather than assumed.
 
 ## Reading the `ship` records
 
 `ship` is `[country, type, zone, count]`, already documented in
 [`../scenario-semantics.md`](../scenario-semantics.md). The corpus carries **142 records
-and 307 ships**, and the importer had deferred all of them.
+and 307 ships**, and the importer deferred all of them until the array order was
+recovered.
 
 ### The type index is 1-based, and the corpus proves it
 
@@ -369,9 +429,10 @@ Trade, second in the turn, planned against what industry has claimed:
 - `TradeRefusal`, `CommodityTradedEvent`, `TradeUnfilledEvent`, `WorldPriceChangedEvent`.
 - `.iworld` **v20**: `commodities[].worldPrice` / `tradeOrder`, `shipTypes[]`, `trade`,
   `countries[].isGreatPower`, `startingDefaults.ships`, `scenarios[].ships`, with a
-  v19→v20 migration to a world that trades nothing.
+  v19→v20 migration to a world that trades nothing. A hull carries `seaZones`, a
+  `buildCost`, and `combat` with `hullScale`, `battleSpeed` and an optional `hull`.
 - `LegacyWorldConverter.TradeRoster`, `ShipTypes`, `StartingFleet`, and Great Power status
-  from `labo`. **`ship` records remain deferred.**
+  from `labo`. `LegacyWorldConverter.ReadShips` converts `ship` records.
 
 ## Test data
 
@@ -446,8 +507,8 @@ the work duration was 1. Trade income buys improvement faster than the food supp
 - **Trade subsidies**, which make the price per *pair* rather than per commodity and are
   the manual's own answer to being outbid.
 - **Whether oil and fuel are tradable.** The roster omits both and the manual does not say.
-- **The ship array order**, which keeps `ship` records deferred. Ghidra's job.
-- **The Freighter's cargo**, and every build cost, for the same reason.
+- ~~**The ship array order**, the Freighter's cargo, and every build cost.~~
+  **All recovered**, and `ship` records convert.
 - **Minor-nation behaviour.** The mechanism takes their orders and nothing generates them
   outside fixtures, which is the largest thing standing between this run and a measurement.
 - **Blockade, interception and escorts**, which want conflict and give armour and sailing
