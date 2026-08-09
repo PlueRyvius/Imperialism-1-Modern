@@ -9,6 +9,7 @@ import ghidra.app.decompiler.DecompInterface;
 import ghidra.app.decompiler.DecompileResults;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.FunctionIterator;
 import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.listing.InstructionIterator;
 import ghidra.program.model.mem.MemoryBlock;
@@ -127,6 +128,71 @@ public class InspectAddresses extends GhidraScript {
                             if (representation.contains(String.format("0x%X", fieldOffset))) {
                                 println(function.getEntryPoint() + " " + instruction);
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        String globalVcall = System.getenv("IMP_GHIDRA_GLOBAL_VCALL");
+        if (globalVcall != null && !globalVcall.trim().isEmpty()) {
+            String[] parts = globalVcall.split(":");
+            if (parts.length != 2) {
+                println("[InspectAddresses] IMP_GHIDRA_GLOBAL_VCALL must be globalAddress:vtableOffset");
+            } else {
+                long globalRaw = Long.parseLong(parts[0].trim().replace("0x", ""), 16);
+                long vtableOffset = Long.parseLong(parts[1].trim().replace("0x", ""), 16);
+                Address globalAddress = toAddr(globalRaw);
+                Set<Address> inspected = new HashSet<>();
+                String offsetText = String.format("0x%X", vtableOffset).toLowerCase();
+                String hexadecimalText = String.format("%Xh", vtableOffset).toLowerCase();
+                println(String.format("=== GLOBAL VCALL %08X+%X ===", globalRaw, vtableOffset));
+                for (Reference reference : getReferencesTo(globalAddress)) {
+                    Function function = getFunctionContaining(reference.getFromAddress());
+                    if (function == null || !inspected.add(function.getEntryPoint())) {
+                        continue;
+                    }
+
+                    InstructionIterator instructions = currentProgram.getListing()
+                        .getInstructions(function.getBody(), true);
+                    while (instructions.hasNext()) {
+                        Instruction instruction = instructions.next();
+                        if (!"CALL".equals(instruction.getMnemonicString())) {
+                            continue;
+                        }
+                        for (int operand = 0; operand < instruction.getNumOperands(); operand++) {
+                            String representation = instruction.getDefaultOperandRepresentation(operand)
+                                .toLowerCase();
+                            if (representation.contains(offsetText) || representation.contains(hexadecimalText)) {
+                                println(function.getEntryPoint() + " " + instruction);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        String vcallOffset = System.getenv("IMP_GHIDRA_VCALL_OFFSET");
+        if (vcallOffset != null && !vcallOffset.trim().isEmpty()) {
+            long offset = Long.parseLong(vcallOffset.trim().replace("0x", ""), 16);
+            String offsetText = String.format("0x%X", offset).toLowerCase();
+            String hexadecimalText = String.format("%Xh", offset).toLowerCase();
+            println(String.format("=== VCALL OFFSET %X ===", offset));
+            FunctionIterator functions = currentProgram.getFunctionManager().getFunctions(true);
+            while (functions.hasNext()) {
+                Function function = functions.next();
+                InstructionIterator instructions = currentProgram.getListing()
+                    .getInstructions(function.getBody(), true);
+                while (instructions.hasNext()) {
+                    Instruction instruction = instructions.next();
+                    if (!"CALL".equals(instruction.getMnemonicString())) {
+                        continue;
+                    }
+                    for (int operand = 0; operand < instruction.getNumOperands(); operand++) {
+                        String representation = instruction.getDefaultOperandRepresentation(operand)
+                            .toLowerCase();
+                        if (representation.contains(offsetText) || representation.contains(hexadecimalText)) {
+                            println(function.getEntryPoint() + " " + instruction);
                         }
                     }
                 }
