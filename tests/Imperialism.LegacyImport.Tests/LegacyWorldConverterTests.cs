@@ -1068,6 +1068,43 @@ public sealed class LegacyWorldConverterTests
         Assert.Equal(18, state.GetMerchantMarine(country));
     }
 
+    [Fact]
+    public void RelationRecordsArePreservedInSourceOrderWithoutAssigningMeaning()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "First"),
+                NameRecord("cnam", 1, "Second"),
+                NameRecord("pnam", 0, "Province"),
+                Record("rela", 0, 1, 100),
+                Record("rela", 1, 0, 110),
+            ]),
+            null,
+            "relation-record-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Equal(
+            [
+                ("country.legacy.000", "country.legacy.001", 100),
+                ("country.legacy.001", "country.legacy.000", 110),
+            ],
+            result.Document!.Scenarios[0].Relations
+                .Select(static item => (item.First, item.Second, item.Value)));
+        Assert.DoesNotContain("scenario.tag.rela", result.Report.DeferredCounts.Keys);
+
+        var compiled = WorldContentCompiler.Compile(result.Document);
+        Assert.Equal(
+            [
+                (new CountryId(0), new CountryId(1), 100),
+                (new CountryId(1), new CountryId(0), 110),
+            ],
+            compiled.World.Scenario.InitialRelations
+                .Select(static item => (item.First, item.Second, item.Value)));
+    }
+
     /// <summary>
     /// Every prerequisite points strictly earlier, so any contiguous prefix of the
     /// table is prerequisite-closed — which is the shape a <c>tech</c> record has,

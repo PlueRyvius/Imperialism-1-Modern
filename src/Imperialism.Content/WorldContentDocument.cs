@@ -171,6 +171,12 @@ public sealed class ScenarioContentDocument
     /// </summary>
     public ShipContent[] Ships { get; set; } = [];
 
+    /// <summary>
+    /// Raw diplomatic relationship records in their source order: the 1997
+    /// <c>rela</c> records. The headless navy does not interpret them yet.
+    /// </summary>
+    public RelationContent[] Relations { get; set; } = [];
+
     public CountryTechnologyContent[] CountryTechnologies { get; set; } = [];
 
     /// <summary>
@@ -306,6 +312,16 @@ public sealed class CountryCashContent
     public string Country { get; set; } = string.Empty;
 
     public long Amount { get; set; }
+}
+
+/// <summary>One raw 1997 <c>rela</c> record.</summary>
+public sealed class RelationContent
+{
+    public string First { get; set; } = string.Empty;
+
+    public string Second { get; set; } = string.Empty;
+
+    public int Value { get; set; }
 }
 
 /// <summary>One fleet: a country, a class of ship, a sea zone and a count.</summary>

@@ -681,6 +681,23 @@ public static class WorldContentCompiler
                 entry.Count));
         }
 
+        var relations = new List<InitialRelation>();
+        var relationEntries = RequireArray(scenarioContent.Relations, $"{path}.relations");
+        for (var index = 0; index < relationEntries.Length; index++)
+        {
+            var entryPath = $"{path}.relations[{index}]";
+            var entry = relationEntries[index] ?? throw Error(entryPath, "Value is required.");
+            if (entry.Value is < 0 or > byte.MaxValue)
+            {
+                throw Error($"{entryPath}.value", "A raw relation value must be between 0 and 255.");
+            }
+
+            relations.Add(new InitialRelation(
+                new CountryId(FindKey(countryIds, entry.First, $"{entryPath}.first")),
+                new CountryId(FindKey(countryIds, entry.Second, $"{entryPath}.second")),
+                entry.Value));
+        }
+
         if (string.IsNullOrWhiteSpace(scenarioContent.Name))
         {
             throw Error($"{path}.name", "Value cannot be blank.");
@@ -705,7 +722,8 @@ public static class WorldContentCompiler
                 civilians,
                 transportCapacity,
                 cash,
-                ships);
+                ships,
+                relations);
             return new WorldDefinition(
                 map,
                 countries,

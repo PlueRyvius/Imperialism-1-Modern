@@ -111,6 +111,11 @@ internal static class WorldContentMigrator
             MigrateVersionTwentyToTwentyOne(document);
         }
 
+        if (document.FormatVersion == 21)
+        {
+            MigrateVersionTwentyOneToTwentyTwo(document);
+        }
+
         return document;
     }
 
@@ -928,6 +933,31 @@ internal static class WorldContentMigrator
     private static void MigrateVersionTwentyToTwentyOne(WorldContentDocument document)
     {
         document.FormatVersion = 21;
+    }
+
+    /// <summary>
+    /// Version 22 preserves raw scenario relationship records. Older worlds had
+    /// no diplomacy consumer, so an empty list is the only behaviour-preserving
+    /// migration; importing an authored legacy scenario is the path that supplies
+    /// its original values.
+    /// </summary>
+    private static void MigrateVersionTwentyOneToTwentyTwo(WorldContentDocument document)
+    {
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.Relations is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion", "Version 21 cannot declare relationship records.");
+            }
+
+            if (scenario is not null)
+            {
+                scenario.Relations = [];
+            }
+        }
+
+        document.FormatVersion = 22;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

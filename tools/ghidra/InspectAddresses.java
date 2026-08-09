@@ -9,9 +9,14 @@ import ghidra.app.decompiler.DecompInterface;
 import ghidra.app.decompiler.DecompileResults;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.Instruction;
+import ghidra.program.model.listing.InstructionIterator;
 import ghidra.program.model.mem.MemoryBlock;
+import ghidra.program.model.lang.OperandType;
 import ghidra.program.model.symbol.Reference;
 import ghidra.program.model.symbol.Symbol;
+import java.util.HashSet;
+import java.util.Set;
 
 public class InspectAddresses extends GhidraScript {
     @Override
@@ -91,6 +96,41 @@ public class InspectAddresses extends GhidraScript {
             }
         } finally {
             decompiler.dispose();
+        }
+
+        String globalField = System.getenv("IMP_GHIDRA_GLOBAL_FIELD");
+        if (globalField != null && !globalField.trim().isEmpty()) {
+            String[] parts = globalField.split(":");
+            if (parts.length != 2) {
+                println("[InspectAddresses] IMP_GHIDRA_GLOBAL_FIELD must be globalAddress:fieldOffset");
+            } else {
+                long globalRaw = Long.parseLong(parts[0].trim().replace("0x", ""), 16);
+                long fieldOffset = Long.parseLong(parts[1].trim().replace("0x", ""), 16);
+                Address globalAddress = toAddr(globalRaw);
+                Set<Address> inspected = new HashSet<>();
+                println(String.format("=== GLOBAL FIELD %08X+%X ===", globalRaw, fieldOffset));
+                for (Reference reference : getReferencesTo(globalAddress)) {
+                    Function function = getFunctionContaining(reference.getFromAddress());
+                    if (function == null || !inspected.add(function.getEntryPoint())) {
+                        continue;
+                    }
+
+                    InstructionIterator instructions = currentProgram.getListing()
+                        .getInstructions(function.getBody(), true);
+                    while (instructions.hasNext()) {
+                        Instruction instruction = instructions.next();
+                        for (int operand = 0; operand < instruction.getNumOperands(); operand++) {
+                            if ((instruction.getOperandType(operand) & OperandType.WRITE) == 0) {
+                                continue;
+                            }
+                            String representation = instruction.getDefaultOperandRepresentation(operand);
+                            if (representation.contains(String.format("0x%X", fieldOffset))) {
+                                println(function.getEntryPoint() + " " + instruction);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         String text = System.getenv("IMP_GHIDRA_TEXT");

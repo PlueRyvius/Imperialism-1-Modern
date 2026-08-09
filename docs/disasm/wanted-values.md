@@ -94,7 +94,7 @@ recovered from the corpus**, because the whole evidence is that the records are 
 | `tran` | transport capacity pool | **pure guess, and load-bearing**: at 0 an imported skirmish is unplayable |
 | `deve` | starting cell development levels | assumed none |
 | `rail` | depots built at the start | assumed none |
-| `rela` | diplomatic relations | unrecovered, and nothing reads it yet |
+| `rela` | diplomatic relations | raw records recovered; gameplay meaning remains deferred |
 
 `tech` — the seventh — is already recovered, from the manual: every power starts with High
 Pressure Steam Engine and Seed Drill.
@@ -163,7 +163,10 @@ at the same call site). More exactly, its country test resolves through
 `0x004EF590`: after validating the pair, it compares the signed 16-bit entry at
 `countryA * 23 + countryB` in the country's raw relation matrix against the
 runtime value returned by `0x0057D8B0` (global-state offset `+0x2C`). It blocks
-when those values differ. Shipped `rela` records are the 253 unordered pairs
+when those values differ. The loader setter is `0x004EFCB0`: it stores each
+record symmetrically at `[first * 23 + second]` and `[second * 23 + first]` in
+the signed 16-bit matrix at country manager `+0x79C`; values above 255 are
+clamped (and values below 50 take an additional eligibility path). Shipped `rela` records are the 253 unordered pairs
 among 23 countries and carry raw values such as 80 through 150 and 255; the
 runtime sentinel's initialization is still open, so that comparison must not
 yet be simplified to a guessed friendly/hostile threshold. This is the

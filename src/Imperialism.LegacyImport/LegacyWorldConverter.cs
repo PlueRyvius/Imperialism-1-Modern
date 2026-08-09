@@ -567,7 +567,7 @@ public static class LegacyWorldConverter
         new(
             [
                 "cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port", "rail", "labo",
-                "civi", "tech", "tran", "cash", "ship",
+                "civi", "tech", "tran", "cash", "ship", "rela",
             ],
             StringComparer.Ordinal);
 
@@ -788,6 +788,7 @@ public static class LegacyWorldConverter
         var countryCash = ReadCountryCash(scenario, countryKeys, report);
         var civilians = ReadCivilians(scenario, map, countryKeys, report);
         var ships = ReadShips(scenario, countryKeys, report);
+        var relations = ReadRelations(scenario, countryKeys, report);
 
         // `labo` names the Great Powers and only them — seven in every shipped scenario —
         // so it is how the importer tells them from the minor nations without guessing.
@@ -940,6 +941,7 @@ public static class LegacyWorldConverter
                     Workers = workers,
                     Civilians = civilians,
                     Ships = ships,
+                    Relations = relations,
                     CountryTechnologies = countryTechnologies,
                     TransportCapacity = transportCapacity,
                     Cash = countryCash,
@@ -1482,6 +1484,71 @@ public static class LegacyWorldConverter
                 Type = ShipTypeKey(ShipTypes[(int)type - 1].Key),
                 SeaZone = (int)zone,
                 Count = count,
+            });
+        }
+
+        return result.ToArray();
+    }
+
+    /// <summary>
+    /// Converts raw <c>rela</c> records without interpreting their values. The
+    /// original setter mirrors the byte value into both halves of its country
+    /// matrix, but relation effects remain deferred until its comparison state is
+    /// recovered.
+    /// </summary>
+    private static RelationContent[] ReadRelations(
+        ScenarioDocument scenario,
+        IReadOnlyDictionary<uint, string> countryKeys,
+        LegacyImportReport report)
+    {
+        var result = new List<RelationContent>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "rela")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 3)
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-relation",
+                    path,
+                    "A relation record must contain two countries and one raw value.");
+                continue;
+            }
+
+            var first = record.Fields[0];
+            var second = record.Fields[1];
+            var value = record.Fields[2];
+            if (!countryKeys.TryGetValue(first, out var firstKey) ||
+                !countryKeys.TryGetValue(second, out var secondKey))
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-relation-country",
+                    path,
+                    "Relation refers to an unknown country.");
+                continue;
+            }
+
+            if (value > byte.MaxValue)
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-relation-value",
+                    path,
+                    "Relation values above 255 are outside the recovered stored range.");
+                continue;
+            }
+
+            result.Add(new RelationContent
+            {
+                First = firstKey,
+                Second = secondKey,
+                Value = (int)value,
             });
         }
 

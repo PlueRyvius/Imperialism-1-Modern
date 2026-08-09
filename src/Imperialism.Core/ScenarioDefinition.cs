@@ -17,6 +17,7 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<InitialTransportCapacity> _initialTransportCapacity;
     private readonly IReadOnlyList<InitialCash> _initialCash;
     private readonly IReadOnlyList<InitialShip> _initialShips;
+    private readonly IReadOnlyList<InitialRelation> _initialRelations;
 
     public ScenarioDefinition(
         string name,
@@ -35,7 +36,8 @@ public sealed class ScenarioDefinition
         IEnumerable<InitialCivilian>? initialCivilians = null,
         IEnumerable<InitialTransportCapacity>? initialTransportCapacity = null,
         IEnumerable<InitialCash>? initialCash = null,
-        IEnumerable<InitialShip>? initialShips = null)
+        IEnumerable<InitialShip>? initialShips = null,
+        IEnumerable<InitialRelation>? initialRelations = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
@@ -164,6 +166,12 @@ public sealed class ScenarioDefinition
         // erroring on a repeat would reject shipped data. They sum.
         _initialShips = Array.AsReadOnly(initialShips?.ToArray() ?? []);
 
+        // The EXE applies relationship records in scenario order and mirrors each
+        // value into both halves of its matrix. Keep the source records as an ordered
+        // sequence; later diplomacy work can replay that exact behavior instead of
+        // silently choosing a duplicate policy here.
+        _initialRelations = Array.AsReadOnly(initialRelations?.ToArray() ?? []);
+
         // Civilians are deliberately not made unique by cell. The original
         // stacks them freely — `s1` gives one power two Miners — and nothing in
         // the manual says a tile holds only one.
@@ -232,6 +240,12 @@ public sealed class ScenarioDefinition
     /// on the same skirmish-agreement argument that settled the workforce and the mills.
     /// </remarks>
     public IReadOnlyList<InitialShip> InitialShips => _initialShips;
+
+    /// <summary>
+    /// Raw relationship records the scenario starts with: the 1997 <c>rela</c>
+    /// records. They have no gameplay consumer yet.
+    /// </summary>
+    public IReadOnlyList<InitialRelation> InitialRelations => _initialRelations;
 
     /// <summary>
     /// Civilians on the map at the start, in the order they will be issued ids.
