@@ -341,6 +341,36 @@ public sealed class ExtractionTests
     }
 
     [Fact]
+    public void AnEffectiveHostilePatrolStrandsACoastalPortUnlessAFriendlyPatrolIsPresent()
+    {
+        var state = CreatePortState(
+            ports: [2],
+            initialShips:
+            [
+                new InitialShip(new CountryId(1), new ShipTypeId(0), 0, 1),
+                new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1),
+            ]);
+        var hostile = state.AssembleTaskForce(new CountryId(1), [new FleetId(1)]);
+        _ = state.AssembleTaskForce(new CountryId(0), [new FleetId(2)]);
+        state.PatrolTaskForce(new CountryId(1), hostile.Id);
+        state.SetRelationMode(new CountryId(1), new CountryId(0), CountryRelationMode.Hostile);
+
+        // The original setter stamps the current sequence; its hostile effect
+        // starts only after a turn advances that sequence.
+        _ = TurnResolver.Resolve(state, TurnOrders.Empty(2), 0);
+        var blocked = TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+            .Events.OfType<ResourceExtractedEvent>().Single();
+        Assert.Equal(0, blocked.FishingPortCount);
+        Assert.Equal(1, blocked.StrandedPortCount);
+
+        state.PatrolTaskForce(new CountryId(0), new TaskForceId(2));
+        var protectedPort = TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+            .Events.OfType<ResourceExtractedEvent>().Single();
+        Assert.Equal(1, protectedPort.FishingPortCount);
+        Assert.Equal(0, protectedPort.StrandedPortCount);
+    }
+
+    [Fact]
     public void ADownstreamProvinceLossStrandsARiverPortsCatch()
     {
         var state = CreateRiverPortState();
@@ -628,7 +658,8 @@ public sealed class ExtractionTests
         int[] ports,
         (int First, int Second)[]? extraRails = null,
         bool withFishing = true,
-        bool capitalBesideSea = false)
+        bool capitalBesideSea = false,
+        IEnumerable<InitialShip>? initialShips = null)
     {
         const int width = 4;
         var dimensions = new MapDimensions(width, 1);
@@ -676,7 +707,8 @@ public sealed class ExtractionTests
             null,
             null,
             null,
-            ports.Select(static cell => new CellIndex(cell)));
+            ports.Select(static cell => new CellIndex(cell)),
+            initialShips: initialShips);
 
         var definition = new WorldDefinition(
             map,
@@ -690,7 +722,8 @@ public sealed class ExtractionTests
             null,
             new ExtractionSettings(
                 1,
-                withFishing ? new PortFishing(new CommodityId(Fish), 1) : null));
+                withFishing ? new PortFishing(new CommodityId(Fish), 1) : null),
+            shipTypes: [new ShipTypeDefinition(new ShipTypeId(0), "Test ship")]);
         return new WorldState(definition);
     }
 

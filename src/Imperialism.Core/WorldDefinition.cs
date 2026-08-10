@@ -685,12 +685,15 @@ public sealed class WorldState
     private readonly long[] _cash;
     private readonly long[] _worldPrice;
     private readonly long[] _ships;
+    private readonly short[] _relationModes;
+    private readonly short[] _relationTokens;
     private readonly IReadOnlyList<FleetState> _fleets;
     private readonly List<TaskForceState> _taskForces = [];
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private readonly Dictionary<CivilianUnitId, CivilianUnit> _civilians = [];
     private long _nextDeliveryId = 1;
     private long _nextCivilianId = 1;
+    private short _relationSequence;
 
     public WorldState(WorldDefinition definition)
     {
@@ -851,6 +854,16 @@ public sealed class WorldState
 
         _fleets = Array.AsReadOnly(fleets.ToArray());
 
+        // The original country manager initializes its 23-by-23 mode table to
+        // 4 and its separate effective-token table to -1. Scenario `rela`
+        // records populate a third, raw-score table and do not replace either
+        // of these runtime values.
+        var relationSlots = checked(definition.Countries.Count * definition.Countries.Count);
+        _relationModes = new short[relationSlots];
+        _relationTokens = new short[relationSlots];
+        Array.Fill(_relationModes, (short)CountryRelationMode.Standard);
+        Array.Fill(_relationTokens, (short)-1);
+
         if (definition.StartingDefaults?.Ships is { Count: > 0 } fleet)
         {
             foreach (var country in definition.Scenario.DefaultStartCountries)
@@ -907,6 +920,42 @@ public sealed class WorldState
     public TurnDate CurrentDate { get; private set; }
 
     public int CurrentYear => CurrentDate.Year;
+
+    /// <summary>Current effective-relation generation used by port access.</summary>
+    public short RelationSequence => _relationSequence;
+
+    public CountryRelationMode GetRelationMode(CountryId first, CountryId second) =>
+        (CountryRelationMode)_relationModes[GetRelationOffset(first, second)];
+
+    public short GetRelationToken(CountryId first, CountryId second) =>
+        _relationTokens[GetRelationOffset(first, second)];
+
+    /// <summary>
+    /// Applies the original symmetric relation-mode setter. The mode's token is
+    /// stamped with the current generation, so a hostile mode becomes effective
+    /// after the next completed turn advances that generation.
+    /// </summary>
+    public void SetRelationMode(CountryId first, CountryId second, CountryRelationMode mode)
+    {
+        ValidateCountry(first);
+        ValidateCountry(second);
+        if (!Enum.IsDefined(mode))
+        {
+            throw new ArgumentOutOfRangeException(nameof(mode));
+        }
+
+        var firstOffset = GetRelationOffset(first, second);
+        var secondOffset = GetRelationOffset(second, first);
+        _relationModes[firstOffset] = (short)mode;
+        _relationModes[secondOffset] = (short)mode;
+        _relationTokens[firstOffset] = _relationSequence;
+        _relationTokens[secondOffset] = _relationSequence;
+    }
+
+    /// <summary>Whether the original sea-port predicate treats this pair as hostile.</summary>
+    public bool HasEffectiveHostility(CountryId first, CountryId second) =>
+        GetRelationMode(first, second) == CountryRelationMode.Hostile &&
+        GetRelationToken(first, second) != _relationSequence;
 
     public long GetAvailableQuantity(CountryId country, CommodityId commodity) =>
         _availableInventory[GetInventoryOffset(country, commodity)];
@@ -1887,8 +1936,16 @@ public sealed class WorldState
 
     internal void CompleteTurn()
     {
+        _relationSequence = checked((short)(_relationSequence + 1));
         CurrentDate = CurrentDate.Next();
         CompletedTurnCount = checked(CompletedTurnCount + 1);
+    }
+
+    private int GetRelationOffset(CountryId first, CountryId second)
+    {
+        ValidateCountry(first);
+        ValidateCountry(second);
+        return checked((first.Value * Definition.Countries.Count) + second.Value);
     }
 
     internal IReadOnlyList<PendingDelivery> CommitPendingDeliveries()

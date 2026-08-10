@@ -232,7 +232,7 @@ internal static class ExtractionPlanner
         foreach (var port in state.GetPorts())
         {
             if (Owns(state, map, port, country) &&
-                RiverPortConnectivity.HasSeaAccess(state, port, country) &&
+                PortAccess.HasAccess(state, port, country) &&
                 stamp[port.Value] != pass)
             {
                 stamp[port.Value] = pass;
@@ -253,7 +253,7 @@ internal static class ExtractionPlanner
         {
             if (state.HasDepot(port) &&
                 Owns(state, map, port, country) &&
-                RiverPortConnectivity.HasSeaAccess(state, port, country) &&
+                PortAccess.HasAccess(state, port, country) &&
                 rail.GetComponentId(port) is { } seaward)
             {
                 gateways.Add(seaward);
