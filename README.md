@@ -106,7 +106,7 @@ transport graph and deterministic turn skeleton.
 - [x] Starvation and sickness cutting the labour pool from the following turn
 - [x] Transport capacity construction and per-turn allocation
 - [x] River downstream connectivity
-- [ ] Naval control of sea ports and transient power
+- [x] Headless naval control of sea ports and transient power
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's
