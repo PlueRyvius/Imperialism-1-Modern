@@ -51,15 +51,11 @@ still has no reason to be in the tree: the tests read it from
 gitignored for local copies. There is no longer an automated guard, so this is a
 convention rather than a check.
 
-**Extracted art is the one deliberate exception, and it is narrow.** The
-interface chrome, icons and fonts named in
-`assets/manifest/imperialism-art.json` are committed under
-`src/Imperialism.Client/art/` so the shell runs from a clone; nothing the
-manifest does not name is extracted, and no full-screen background or map tile
-is committed at all. A test asserts that every file under `art/` is named by the
-manifest, so this one *is* a check. `docs/asset-pipeline.md` records the
-decision, the evidence behind the transparency rule, and the separate and weaker
-position of the four bundled TrueType fonts.
+**Interface art is committed**, under `src/Imperialism.Client/art/`, so the shell
+runs from a clone. The constraint that remains is bookkeeping, not policy: every
+file there must be named by `assets/manifest/imperialism-art.json`, and a test
+enforces it, so nothing arrives without a recorded source and a re-run of the
+extractor reproduces it byte for byte. See `docs/asset-pipeline.md`.
 
 **The `.map` trailer is a province table.** 384 slots indexed by province id,
 each holding that province's town cell as a big-endian u16 at offset 4, 65535

@@ -128,39 +128,22 @@ terrain, not that set, so they are named `civilian_*` and the three coverall
 icons remain unidentified. The status border shows grades as text until they turn
 up.
 
-## What is committed, and why that is a change
+## What is committed
 
-The repository's rule was that no extracted byte belongs in the tree. That rule
-is now **narrowed, not abandoned**.
+The thirty-three interface pieces and four typefaces the manifest names, 282 KB
+in total, under `src/Imperialism.Client/art/` with their Godot `.import`
+sidecars. The archives themselves, the full-screen backgrounds, the map tiles
+and everything the manifest does not name stay out of the tree — not as a
+principle, but because they are bulk nobody needs to clone.
 
-Still uncommitted: `.map`, `.scn` and `.inf` files, the `.gob` archives
-themselves, the disassembly listing, every full-screen background, every map
-tile, and every image the manifest does not name.
-
-Committed: the thirty-three interface pieces and four typefaces the manifest
-names, 282 KB in total, under `src/Imperialism.Client/art/` with their Godot
-`.import` sidecars.
-
-The reason for the split is that the two kinds of art fail differently. A map
-drawn with procedural terrain colours is legible and always has been; that
-fallback stays required. A window with no chrome is not a degraded interface but
-an absent one, and a shell that only works for people who own the original and
-have run a tool is a shell nobody sees.
-
-Three things keep this honest rather than aspirational:
+Two rules keep the directory tidy rather than sprawling:
 
 - `ArtManifestTests` walks `art/` and fails on any file the manifest does not
-  name, so art cannot arrive without a recorded source.
-- CI enforces a 10 MB ceiling on the directory. Raising it is a decision, and
-  the workflow file is where that decision gets made.
-- The extractor still ships without content: anyone with their own installation
-  can regenerate every committed byte from the manifest.
+  name, so a piece cannot arrive without a recorded source and a way to
+  regenerate it.
+- CI holds the directory under 10 MB. Raising it is a decision, and the workflow
+  file is where that decision gets made.
 
-**The fonts are a weaker position than the art and are flagged separately.**
-`Antqua.ttf`, `Antquab.ttf`, `WeBeLt__.ttf` and `WeBeBd__.ttf` are third-party
-typefaces the original bundled, not artwork its authors drew, so "a
-non-commercial reimplementation reuses the original's own art" does not cover
-them in the same way. If that becomes a problem the fallback is a metric-similar
-open face — an old-style serif for the Antiqua and a condensed display face for
-the WeBe — and it is a one-line change in the theme, because nothing else refers
-to a font by name.
+Map tile art is a separate question and unchanged: the procedural palette stays
+the guaranteed fallback there, because a map drawn in flat colours is legible
+and a window with no chrome is not.
