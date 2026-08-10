@@ -1,6 +1,8 @@
 // Prints Ghidra's symbols, references, and containing functions for a comma-separated
-// IMP_GHIDRA_ADDRESSES environment variable.  Derived decompilation output stays outside
-// the repository; this script is only the repeatable inspection tool.
+// IMP_GHIDRA_ADDRESSES environment variable. IMP_GHIDRA_SKIP_RAW avoids the byte dump;
+// IMP_GHIDRA_DECOMPILE_GREP filters decompiled C lines (use | between terms). Derived
+// decompilation output stays outside the repository; this script is only the repeatable
+// inspection tool.
 //
 // @category Imperialism
 
@@ -29,6 +31,8 @@ public class InspectAddresses extends GhidraScript {
             return;
         }
 
+        boolean skipRaw = Boolean.parseBoolean(System.getenv("IMP_GHIDRA_SKIP_RAW"));
+        if (!skipRaw) {
         for (String value : values.split(",")) {
             long raw = Long.parseLong(value.trim().replace("0x", ""), 16);
             Address address = toAddr(raw);
@@ -63,8 +67,10 @@ public class InspectAddresses extends GhidraScript {
                 println("  " + reference.getFromAddress() + " " + reference.getReferenceType());
             }
         }
+        }
 
         String decompile = System.getenv("IMP_GHIDRA_DECOMPILE");
+        String decompileGrep = System.getenv("IMP_GHIDRA_DECOMPILE_GREP");
         if (decompile != null && !decompile.trim().isEmpty()) {
             DecompInterface decompiler = new DecompInterface();
             decompiler.openProgram(currentProgram);
@@ -88,7 +94,41 @@ public class InspectAddresses extends GhidraScript {
 
                 DecompileResults result = decompiler.decompileFunction(function, 180, monitor);
                 if (result.decompileCompleted()) {
-                    println(result.getDecompiledFunction().getC());
+                    String source = result.getDecompiledFunction().getC();
+                    if (decompileGrep == null || decompileGrep.trim().isEmpty()) {
+                        println(source);
+                    } else {
+                        String[] patterns = decompileGrep.toLowerCase().split("\\|");
+                        String[] lines = source.split("\\r?\\n");
+                        boolean[] selected = new boolean[lines.length];
+                        boolean found = false;
+                        for (int index = 0; index < lines.length; index++) {
+                            String line = lines[index].toLowerCase();
+                            boolean matches = false;
+                            for (String pattern : patterns) {
+                                if (!pattern.isEmpty() && line.contains(pattern)) {
+                                    matches = true;
+                                    found = true;
+                                }
+                            }
+                            if (matches) {
+                                for (int context = Math.max(0, index - 3);
+                                     context <= Math.min(lines.length - 1, index + 3);
+                                     context++) {
+                                    selected[context] = true;
+                                }
+                            }
+                        }
+                        if (!found) {
+                            println("no decompiled lines matched: " + decompileGrep);
+                        } else {
+                            for (int index = 0; index < lines.length; index++) {
+                                if (selected[index]) {
+                                    println(String.format("%04d: %s", index + 1, lines[index]));
+                                }
+                            }
+                        }
+                    }
                 } else {
                     println("DECOMPILE FAILED: " + result.getErrorMessage());
                 }

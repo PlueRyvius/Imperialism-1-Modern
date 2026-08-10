@@ -130,11 +130,19 @@ The artillery flag is set exactly for the six artillery records. The role-slot t
 
 The original scenario `army` record is `[province, type, count]`, with `type`
 zero-based into the 30-row table above. It supplies a province stack; it does
-not carry a duplicate owner. `UTacPlayer`'s decision callback at `0x0059C440`
-iterates a battle roster, gathers side statistics through `0x0059B5B0`, and
-sets per-unit orders through its state-specific helpers. This proves a
-headless tactical-AI/roster boundary, but not deployment, legal movement,
-damage, victory, or province-capture rules. Those remain deferred.
+not carry a duplicate owner. The original battle setup at `0x005A4790` creates
+two side controllers in fixed input order: its first side is marked `1` and
+its second side `0`. For each side it invokes `0x0059B1B0`, which iterates the
+source army list and allocates one 0x58-byte tactical unit object per source
+entry through `0x005A5F20`. The surrounding army-manager entry at `0x004A5B10`
+creates the parent battle object, calls that setup, then hands control to the
+parent's virtual lifecycle entry at `0x0059FC20`.
+
+`UTacPlayer`'s decision callback at `0x0059C440` consumes those side rosters,
+gathers side statistics through `0x0059B5B0`, and sets per-unit orders through
+its state-specific helpers. This proves a headless tactical-AI/roster boundary
+and attacker-first setup order, but not deployment, legal movement, damage,
+victory, or province-capture rules. Those remain deferred.
 
 The unattributed function at `0x005C4C60` is not the tactical resolver: its
 strings and caller form randomized battle-report prose. Do not use that range
