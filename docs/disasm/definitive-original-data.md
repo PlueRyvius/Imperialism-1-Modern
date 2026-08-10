@@ -316,6 +316,10 @@ uses task-force state 3 or 4. The command dispatcher `0x0055A160` maps action 12
 to state 3 (`patrolling` in the status renderer), action 14 to state 6
 (`blockading`), and action 16 to state 5 (invasion). State 6 does not qualify for
 the port predicate; state 4 does, but its player-facing meaning remains open.
+The navy refresh at `0x00557560` assigns state 4 only after rebuilding a
+per-country task force, pruning members, and receiving false from a virtual
+predicate on the task force target; the opposite branch assigns state 7. State
+4 is therefore a resolution outcome, not a recovered player command.
 
 The phase routine at `0x0057F280` performs per-power updates, calls the navy
 manager refresh `0x005577B0`/`0x00557560`, then calls `0x005578A0`. That follow-on

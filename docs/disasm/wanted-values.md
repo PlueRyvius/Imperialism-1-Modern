@@ -248,7 +248,11 @@ that field. The command dispatcher at `0x0055A160` sets state 3 for action 12,
 state 6 for action 14, and state 5 for action 16. The status renderer identifies
 state 3 as `patrolling` and state 6 as `blockading`; notably, the port predicate
 accepts states 3 and 4, not state 6. State 4 is produced by the manager refresh
-at `0x00557560`, but its player-facing semantic remains unproven.
+at `0x00557560`, but its player-facing semantic remains unproven. The refresh
+first rebuilds a per-country task force, prunes unsuitable members, and then
+writes state 4 only when a virtual predicate on its target object returns false;
+the opposite branch writes state 7. Therefore state 4 is a resolution outcome,
+not a user-selectable mission, and must not become an invented Modern command.
 
 Actions 14 and 16 are now separated more sharply than their UI names alone
 suggest. Action 14 resolves the selected target through `0x005633B0`, which
