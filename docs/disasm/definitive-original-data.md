@@ -126,6 +126,20 @@ These compact tables are read by the army manager, defense minister, tactical da
 
 The artillery flag is set exactly for the six artillery records. The role-slot table repeats slots 0-7 for each technology era, then reserves slot 8 for the three engineering units and slot 9 for General records. The defense-minister power table is a related internal combat contribution: most ordinary units mirror the main firepower scale, Armor uses its alternate 60 value, and artillery/special records are zero. The composition matrix is an internal mixed-stack code; its final UI label remains open.
 
+## Verified tactical roster and AI boundary
+
+The original scenario `army` record is `[province, type, count]`, with `type`
+zero-based into the 30-row table above. It supplies a province stack; it does
+not carry a duplicate owner. `UTacPlayer`'s decision callback at `0x0059C440`
+iterates a battle roster, gathers side statistics through `0x0059B5B0`, and
+sets per-unit orders through its state-specific helpers. This proves a
+headless tactical-AI/roster boundary, but not deployment, legal movement,
+damage, victory, or province-capture rules. Those remain deferred.
+
+The unattributed function at `0x005C4C60` is not the tactical resolver: its
+strings and caller form randomized battle-report prose. Do not use that range
+as evidence for tactical mechanics.
+
 ## Verified original map geometry
 
 The `UMap.cpp` coordinate routines establish a 108 Ã— 60 legacy cell grid. Internally, horizontal positions use a doubled coordinate, so the row-major cell index is `floor(horizontal_subcoordinate / 2) + 108 * y`; the vertical coordinate is bounded to 0 through 59. The six signed neighbor offsets are read from `0x00696E70` and `0x00696E80`.

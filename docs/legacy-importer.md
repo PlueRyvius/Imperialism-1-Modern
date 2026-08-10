@@ -144,6 +144,13 @@ there is no research system, so swamp, desert and tundra can never be prospected
 That is the manual's own rule rather than a gap. See `formulas/technology.md` and
 `formulas/prospecting.md`, which record the corpus counts the tests now pin.
 
+`army` records are converted rather than deferred. The record is `[province, type,
+count]`; the province supplies ownership, and type is the executable's zero-based
+index into its fixed 30-row army table. Repeated stacks retain their source order.
+An unknown province is an error; an unknown type is warned and dropped; zero-count
+records are authoring noise. This preserves the tactical roster without guessing
+deployment, movement, losses, capture, or combat resolution.
+
 `civi` records are converted rather than deferred. The record is `[type, cell]`
 and names **no owner** — the original reads it off the province the cell sits
 in, and the corpus supports that without exception: all 210 records across the

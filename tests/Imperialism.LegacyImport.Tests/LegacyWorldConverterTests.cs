@@ -1068,6 +1068,45 @@ public sealed class LegacyWorldConverterTests
         Assert.Equal(18, state.GetMerchantMarine(country));
     }
 
+    /// <summary>
+    /// <c>army</c> records convert without inventing an owner, unit name, or
+    /// battle rule. The record is <c>[province, type, count]</c>; the type is
+    /// the executable's zero-based 30-row army-table index.
+    /// </summary>
+    [Fact]
+    public void ArmyRecordsBecomeProvinceStacks()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+                Record("army", 0, 0, 4),
+                Record("army", 0, 8, 2),
+                Record("army", 0, 30, 1),
+                Record("army", 0, 7, 0),
+            ]),
+            null,
+            "army-record-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Equal(
+            [("province.legacy.00000", 0, 4L), ("province.legacy.00000", 8, 2L)],
+            result.Document!.Scenarios[0].Armies
+                .Select(static item => (item.Province, item.Type, item.Count)));
+        Assert.Contains(
+            result.Report.Diagnostics,
+            static item => item.Code == "scenario.unknown-army-type");
+        Assert.DoesNotContain("scenario.tag.army", result.Report.DeferredCounts.Keys);
+
+        var armies = WorldContentCompiler.Compile(result.Document).World.Scenario.InitialArmies;
+        Assert.Equal(
+            [(new ProvinceId(0), new ArmyTypeId(0), 4L), (new ProvinceId(0), new ArmyTypeId(8), 2L)],
+            armies.Select(static item => (item.Province, item.Type, item.Count)));
+    }
+
     [Fact]
     public void RelationRecordsArePreservedInSourceOrderWithoutAssigningMeaning()
     {

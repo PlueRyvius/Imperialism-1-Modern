@@ -17,6 +17,7 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<InitialTransportCapacity> _initialTransportCapacity;
     private readonly IReadOnlyList<InitialCash> _initialCash;
     private readonly IReadOnlyList<InitialShip> _initialShips;
+    private readonly IReadOnlyList<InitialArmy> _initialArmies;
     private readonly IReadOnlyList<InitialRelation> _initialRelations;
     private readonly IReadOnlyList<InitialRelationState> _initialRelationStates;
 
@@ -40,7 +41,8 @@ public sealed class ScenarioDefinition
         IEnumerable<InitialShip>? initialShips = null,
         IEnumerable<InitialRelation>? initialRelations = null,
         IEnumerable<InitialRelationState>? initialRelationStates = null,
-        short initialRelationSequence = 0)
+        short initialRelationSequence = 0,
+        IEnumerable<InitialArmy>? initialArmies = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
@@ -169,6 +171,11 @@ public sealed class ScenarioDefinition
         // erroring on a repeat would reject shipped data. They sum.
         _initialShips = Array.AsReadOnly(initialShips?.ToArray() ?? []);
 
+        // The source is a bag of records, not a province/type table. Retain its
+        // order and repeats until the original stacking and battle-selection
+        // rules are recovered.
+        _initialArmies = Array.AsReadOnly(initialArmies?.ToArray() ?? []);
+
         // The EXE applies relationship records in scenario order and mirrors each
         // value into both halves of its matrix. Keep the source records as an ordered
         // sequence; later diplomacy work can replay that exact behavior instead of
@@ -249,6 +256,12 @@ public sealed class ScenarioDefinition
     /// on the same skirmish-agreement argument that settled the workforce and the mills.
     /// </remarks>
     public IReadOnlyList<InitialShip> InitialShips => _initialShips;
+
+    /// <summary>
+    /// Army stacks the scenario starts with: the original <c>army</c> records,
+    /// preserved in source order for a later tactical-battle setup pass.
+    /// </summary>
+    public IReadOnlyList<InitialArmy> InitialArmies => _initialArmies;
 
     /// <summary>
     /// Raw relationship records the scenario starts with: the 1997 <c>rela</c>

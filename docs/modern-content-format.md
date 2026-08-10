@@ -202,8 +202,10 @@ The top-level document contains:
   rails, capitals, optional positive initial commodity quantities, sparse
   positive capacities for limited facilities, sparse starting cell development,
   which technologies each country begins knowing, the cells carrying a port or a
-  rail depot, each country's starting workforce, and the civilians on the map at
-  the start, each naming its owner, its type and the land cell it stands on.
+  rail depot, each country's starting workforce, the civilians on the map at
+  the start, and army stacks. An army stack names its province, the original
+  executable's zero-based 30-row unit-table index, and its positive count;
+  province ownership deliberately remains the single owner source.
 
 Each cell references one terrain key, zero or more unique resource keys, and
 at most one province or sea-zone key. Settlement sites and river paths are map

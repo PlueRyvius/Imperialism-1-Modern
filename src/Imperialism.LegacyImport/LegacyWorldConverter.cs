@@ -567,7 +567,7 @@ public static class LegacyWorldConverter
         new(
             [
                 "cnam", "pnam", "zone", "year", "capa", "ware", "deve", "port", "rail", "labo",
-                "civi", "tech", "tran", "cash", "ship", "rela",
+                "civi", "tech", "tran", "cash", "ship", "army", "rela",
             ],
             StringComparer.Ordinal);
 
@@ -788,6 +788,7 @@ public static class LegacyWorldConverter
         var countryCash = ReadCountryCash(scenario, countryKeys, report);
         var civilians = ReadCivilians(scenario, map, countryKeys, report);
         var ships = ReadShips(scenario, countryKeys, report);
+        var armies = ReadArmies(scenario, provinceKeys, report);
         var relations = ReadRelations(scenario, countryKeys, report);
 
         // `labo` names the Great Powers and only them — seven in every shipped scenario —
@@ -941,6 +942,7 @@ public static class LegacyWorldConverter
                     Workers = workers,
                     Civilians = civilians,
                     Ships = ships,
+                    Armies = armies,
                     Relations = relations,
                     CountryTechnologies = countryTechnologies,
                     TransportCapacity = transportCapacity,
@@ -1483,6 +1485,76 @@ public static class LegacyWorldConverter
                 Country = countryKey,
                 Type = ShipTypeKey(ShipTypes[(int)type - 1].Key),
                 SeaZone = (int)zone,
+                Count = count,
+            });
+        }
+
+        return result.ToArray();
+    }
+
+    /// <summary>
+    /// Preserves original <c>army</c> records as <c>[province, type, count]</c>.
+    /// The type is zero-based and indexes the executable's verified 30-row
+    /// army table; ownership is intentionally not copied, because it is the
+    /// province-owner record that supplies it.
+    /// </summary>
+    private static ArmyContent[] ReadArmies(
+        ScenarioDocument scenario,
+        IReadOnlyDictionary<uint, string> provinceKeys,
+        LegacyImportReport report)
+    {
+        var result = new List<ArmyContent>();
+        foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
+        {
+            if (record.Tag != "army")
+            {
+                continue;
+            }
+
+            var path = $"scenario.records[{index}]";
+            if (record.Fields.Count != 3)
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-army",
+                    path,
+                    "An army record must contain a province, a type and a count.");
+                continue;
+            }
+
+            var province = record.Fields[0];
+            var type = record.Fields[1];
+            var count = record.Fields[2];
+            if (!provinceKeys.TryGetValue(province, out var provinceKey))
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "scenario.invalid-army-province",
+                    path,
+                    $"Army refers to unknown province {province}.");
+                continue;
+            }
+
+            if (type >= (uint)ArmyTypeId.OriginalTypeCount)
+            {
+                report.Add(
+                    LegacyImportSeverity.Warning,
+                    "scenario.unknown-army-type",
+                    path,
+                    $"Army type {type} is outside the table of {ArmyTypeId.OriginalTypeCount}; " +
+                    "no army stack was placed.");
+                continue;
+            }
+
+            if (count == 0)
+            {
+                continue;
+            }
+
+            result.Add(new ArmyContent
+            {
+                Province = provinceKey,
+                Type = (int)type,
                 Count = count,
             });
         }

@@ -681,6 +681,30 @@ public static class WorldContentCompiler
                 entry.Count));
         }
 
+        var armies = new List<InitialArmy>();
+        var armyEntries = RequireArray(scenarioContent.Armies, $"{path}.armies");
+        for (var index = 0; index < armyEntries.Length; index++)
+        {
+            var entryPath = $"{path}.armies[{index}]";
+            var entry = armyEntries[index] ?? throw Error(entryPath, "Value is required.");
+            if (entry.Count <= 0)
+            {
+                throw Error($"{entryPath}.count", "An army stack of nothing is the absence of a record.");
+            }
+
+            try
+            {
+                armies.Add(new InitialArmy(
+                    new ProvinceId(FindKey(provinceIds, entry.Province, $"{entryPath}.province")),
+                    new ArmyTypeId(entry.Type),
+                    entry.Count));
+            }
+            catch (ArgumentOutOfRangeException exception)
+            {
+                throw Error($"{entryPath}.type", exception.Message, exception);
+            }
+        }
+
         var relations = new List<InitialRelation>();
         var relationEntries = RequireArray(scenarioContent.Relations, $"{path}.relations");
         for (var index = 0; index < relationEntries.Length; index++)
@@ -753,7 +777,8 @@ public static class WorldContentCompiler
                 ships,
                 relations,
                 relationStates,
-                (short)scenarioContent.RelationSequence);
+                (short)scenarioContent.RelationSequence,
+                armies);
             return new WorldDefinition(
                 map,
                 countries,

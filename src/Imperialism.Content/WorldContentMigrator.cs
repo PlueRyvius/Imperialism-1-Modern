@@ -121,6 +121,11 @@ internal static class WorldContentMigrator
             MigrateVersionTwentyTwoToTwentyThree(document);
         }
 
+        if (document.FormatVersion == 23)
+        {
+            MigrateVersionTwentyThreeToTwentyFour(document);
+        }
+
         return document;
     }
 
@@ -988,6 +993,30 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 23;
+    }
+
+    /// <summary>
+    /// Version 24 preserves original scenario army records. A version 23
+    /// package had no army consumer, so an empty list is the only compatible
+    /// migration; legacy import is the evidence-backed path that supplies them.
+    /// </summary>
+    private static void MigrateVersionTwentyThreeToTwentyFour(WorldContentDocument document)
+    {
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.Armies is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion", "Version 23 cannot declare army records.");
+            }
+
+            if (scenario is not null)
+            {
+                scenario.Armies = [];
+            }
+        }
+
+        document.FormatVersion = 24;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

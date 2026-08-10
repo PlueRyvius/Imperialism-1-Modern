@@ -166,6 +166,12 @@ public sealed class ScenarioContentDocument
     public CivilianContent[] Civilians { get; set; } = [];
 
     /// <summary>
+    /// Army stacks placed at the start: the original <c>army</c> record. The
+    /// type is the zero-based index of the executable's fixed 30-row table.
+    /// </summary>
+    public ArmyContent[] Armies { get; set; } = [];
+
+    /// <summary>
     /// Fleets each country starts with: the 1997 <c>ship</c> record. A country listed here
     /// ignores <c>startingDefaults.ships</c> entirely, rather than adding to it.
     /// </summary>
@@ -362,6 +368,16 @@ public sealed class ShipContent
     public string Type { get; set; } = string.Empty;
 
     public int SeaZone { get; set; }
+
+    public long Count { get; set; }
+}
+
+/// <summary>One army stack: a province, an original army-table type and a count.</summary>
+public sealed class ArmyContent
+{
+    public string Province { get; set; } = string.Empty;
+
+    public int Type { get; set; }
 
     public long Count { get; set; }
 }

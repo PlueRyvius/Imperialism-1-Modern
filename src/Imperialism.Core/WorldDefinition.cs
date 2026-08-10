@@ -484,6 +484,18 @@ public sealed class WorldDefinition
             // against. See docs/scenario-semantics.md.
         }
 
+        foreach (var army in scenario.InitialArmies)
+        {
+            if ((uint)army.Province.Value >= (uint)map.Provinces.Count)
+            {
+                throw new ArgumentException(
+                    $"Initial army refers to missing province {army.Province.Value}.",
+                    nameof(scenario));
+            }
+
+            ArgumentOutOfRangeException.ThrowIfNegative(army.Count);
+        }
+
         foreach (var ship in startingDefaults?.Ships ?? [])
         {
             if ((uint)ship.Type.Value >= (uint)shipTypeArray.Length)

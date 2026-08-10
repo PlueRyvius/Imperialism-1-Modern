@@ -322,7 +322,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(24)]
+    [InlineData(25)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1631,6 +1631,48 @@ public sealed class WorldContentTests
             Assert.Equal(0, scenario.RelationSequence);
             Assert.Empty(scenario.RelationStates);
         });
+    }
+
+    [Fact]
+    public void VersionTwentyThreeMigratesToNoArmyRecords()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 23);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.All(migrated.Scenarios, static scenario => Assert.Empty(scenario.Armies));
+    }
+
+    [Fact]
+    public void ScenarioArmiesPreserveTheOriginalZeroBasedTypeAndSourceOrder()
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].Armies =
+        [
+            new ArmyContent { Province = "province.east", Type = 8, Count = 4 },
+            new ArmyContent { Province = "province.west", Type = 0, Count = 7 },
+        ];
+
+        var encoded = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(encoded);
+        var armies = WorldContentCompiler.Compile(decoded).World.Scenario.InitialArmies;
+
+        Assert.Equal(
+            [(new ProvinceId(1), new ArmyTypeId(8), 4L), (new ProvinceId(0), new ArmyTypeId(0), 7L)],
+            armies.Select(static item => (item.Province, item.Type, item.Count)));
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(30)]
+    public void ScenarioArmyRejectsAnUnknownOriginalType(int type)
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].Armies =
+        [new ArmyContent { Province = "province.west", Type = type, Count = 1 }];
+
+        AssertPath("scenarios[0].armies[0].type", document);
     }
 
     [Theory]
