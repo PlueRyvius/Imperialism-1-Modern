@@ -36,6 +36,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{1F0112D2
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Imperialism.AssetExtractor", "tools\Imperialism.AssetExtractor\Imperialism.AssetExtractor.csproj", "{E7F0E02C-7182-4683-B39F-3D2B20EE6DE2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Imperialism.Client.Assets.Tests", "tests\Imperialism.Client.Assets.Tests\Imperialism.Client.Assets.Tests.csproj", "{8C3643AA-B119-4F26-BB51-36C90DEA7CE8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -98,11 +100,16 @@ Global
 		{E7F0E02C-7182-4683-B39F-3D2B20EE6DE2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E7F0E02C-7182-4683-B39F-3D2B20EE6DE2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E7F0E02C-7182-4683-B39F-3D2B20EE6DE2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C3643AA-B119-4F26-BB51-36C90DEA7CE8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C3643AA-B119-4F26-BB51-36C90DEA7CE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C3643AA-B119-4F26-BB51-36C90DEA7CE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C3643AA-B119-4F26-BB51-36C90DEA7CE8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{BE0F9240-337C-47F8-BF79-C8B3CA10A988} = {27E0374C-21E0-4AF8-B958-DEAA3A68EE58}
 		{6160209A-B059-4578-B748-7FEF96686FF0} = {00AC2538-53C6-4A65-AEC4-C9B483375063}
 		{EF26E8F5-0AF2-4EB5-B83E-09767847AE81} = {27E0374C-21E0-4AF8-B958-DEAA3A68EE58}
 		{E7F0E02C-7182-4683-B39F-3D2B20EE6DE2} = {1F0112D2-A097-413A-8F77-4073AC151CA8}
+		{8C3643AA-B119-4F26-BB51-36C90DEA7CE8} = {00AC2538-53C6-4A65-AEC4-C9B483375063}
 	EndGlobalSection
 EndGlobal

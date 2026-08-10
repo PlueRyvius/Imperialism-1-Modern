@@ -29,3 +29,16 @@ jobs:
       - run: dotnet restore Imperialism.sln
       - run: dotnet build Imperialism.sln --no-restore --configuration Release
       - run: dotnet test Imperialism.sln --no-build --configuration Release
+
+  art-budget:
+    # The interface art is committed so the shell runs from a clone. That is
+    # only defensible while it stays small, so the ceiling is enforced rather
+    # than intended. Raising it is a decision, and this is where it gets made.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Committed art stays under 10 MB
+        run: |
+          size=$(du -sb src/Imperialism.Client/art | cut -f1)
+          echo "committed art: $size bytes"
+          test "$size" -le 10485760

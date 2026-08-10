@@ -16,7 +16,8 @@ namespace Imperialism.AssetExtractor;
 /// </remarks>
 internal sealed record ArtManifest(
     [property: JsonPropertyName("source")] IReadOnlyList<ArtSource> Source,
-    [property: JsonPropertyName("entries")] IReadOnlyList<ArtEntry> Entries)
+    [property: JsonPropertyName("entries")] IReadOnlyList<ArtEntry> Entries,
+    [property: JsonPropertyName("fonts")] IReadOnlyList<ArtFont> Fonts)
 {
     private static readonly JsonSerializerOptions ReadOptions = new()
     {
@@ -31,11 +32,12 @@ internal sealed record ArtManifest(
         var manifest = JsonSerializer.Deserialize<ArtManifest>(File.ReadAllText(path), ReadOptions)
             ?? throw new InvalidDataException($"'{path}' is not an art manifest.");
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var entry in manifest.Entries)
+        foreach (var target in manifest.Entries.Select(entry => entry.Path)
+                     .Concat(manifest.Fonts.Select(font => font.Path)))
         {
-            if (!seen.Add(entry.Path))
+            if (!seen.Add(target))
             {
-                throw new InvalidDataException($"The manifest writes '{entry.Path}' twice.");
+                throw new InvalidDataException($"The manifest writes '{target}' twice.");
             }
         }
 
@@ -77,6 +79,17 @@ internal sealed record ArtManifest(
         return pixels;
     }
 }
+
+/// <summary>
+/// A typeface the original ships as an ordinary TrueType file beside its
+/// archives. These are copied rather than decoded, and they carry a weaker
+/// licensing position than the artwork: they are third-party faces the original
+/// bundled, not art its authors drew. See <c>docs/asset-pipeline.md</c>.
+/// </summary>
+internal sealed record ArtFont(
+    [property: JsonPropertyName("source")] string Source,
+    [property: JsonPropertyName("path")] string Path,
+    [property: JsonPropertyName("role")] string Role);
 
 internal sealed record ArtSource(
     [property: JsonPropertyName("archive")] string Archive,

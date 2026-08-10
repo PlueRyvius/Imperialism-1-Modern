@@ -10,6 +10,7 @@ try
     return options.Mode switch
     {
         RunMode.Report => Report(options),
+        RunMode.Probe => Probe(options),
         RunMode.ContactSheet => ContactSheets(options),
         _ => Extract(options),
     };
@@ -79,6 +80,114 @@ static int Report(Options options)
 
     return 0;
 }
+
+static int Probe(Options options)
+{
+    // Nine-patch margins for hand-drawn chrome have to contain the whole bevel
+    // and inlay or the light direction breaks at the seam. Reading the runs of
+    // colour along an edge measures where those bands actually end, which beats
+    // dragging handles in an inspector and calling the result 14.
+    foreach (var path in options.Archives)
+    {
+        var reader = new PortableExecutableResourceReader(File.ReadAllBytes(path));
+        foreach (var name in options.Probes)
+        {
+            var entry = reader
+                .OfType(PortableExecutableResourceReader.BitmapResourceType)
+                .FirstOrDefault(candidate =>
+                    string.Equals(candidate.Name.ToString(), name, StringComparison.Ordinal));
+            if (entry is null)
+            {
+                continue;
+            }
+
+            var bitmap = DeviceIndependentBitmap.Decode(reader.GetData(entry).Span);
+            Console.WriteLine($"{Path.GetFileName(path)} {name} {bitmap.Width}x{bitmap.Height}");
+            Console.WriteLine($"  top    {Runs(bitmap, horizontal: true, line: 0)}");
+            Console.WriteLine($"  left   {Runs(bitmap, horizontal: false, line: 0)}");
+            Console.WriteLine($"  bottom {Runs(bitmap, horizontal: true, line: bitmap.Height - 1)}");
+            Console.WriteLine($"  right  {Runs(bitmap, horizontal: false, line: bitmap.Width - 1)}");
+            Console.WriteLine($"  columnAt8 {Runs(bitmap, horizontal: false, line: 8)}");
+            Console.WriteLine($"  rowAt8 {Runs(bitmap, horizontal: true, line: 8)}");
+            Console.WriteLine($"  centreColumn {Runs(bitmap, horizontal: false, line: bitmap.Width / 2)}");
+            Console.WriteLine($"  centreRow {Runs(bitmap, horizontal: true, line: bitmap.Height / 2)}");
+            foreach (var field in new[] { 0, 40 })
+            {
+                Console.WriteLine($"  fieldBox index {field}: {FieldBox(bitmap, field)}");
+            }
+        }
+    }
+
+    return 0;
+}
+
+/// <summary>
+/// The extent of a flat interior colour, which is how a framed panel says where
+/// its border stops. Reported as the margins a nine-patch would need.
+/// </summary>
+static string FieldBox(DeviceIndependentBitmap bitmap, int field)
+{
+    var left = int.MaxValue;
+    var top = int.MaxValue;
+    var right = -1;
+    var bottom = -1;
+    for (var row = 0; row < bitmap.Height; row++)
+    {
+        for (var column = 0; column < bitmap.Width; column++)
+        {
+            if (bitmap.PaletteIndices[(row * bitmap.Width) + column] != field)
+            {
+                continue;
+            }
+
+            left = Math.Min(left, column);
+            top = Math.Min(top, row);
+            right = Math.Max(right, column);
+            bottom = Math.Max(bottom, row);
+        }
+    }
+
+    return right < 0
+        ? "absent"
+        : $"x {left}..{right}, y {top}..{bottom} " +
+          $"(margins left {left} top {top} right {bitmap.Width - 1 - right} bottom {bitmap.Height - 1 - bottom})";
+}
+
+static string Runs(DeviceIndependentBitmap bitmap, bool horizontal, int line)
+{
+    if (!bitmap.IsPalettized)
+    {
+        return "(direct colour)";
+    }
+
+    var length = horizontal ? bitmap.Width : bitmap.Height;
+    var parts = new List<string>();
+    var start = 0;
+    for (var position = 1; position <= length; position++)
+    {
+        var previous = Sample(bitmap, horizontal, line, position - 1);
+        var current = position < length ? Sample(bitmap, horizontal, line, position) : -1;
+        if (current == previous)
+        {
+            continue;
+        }
+
+        parts.Add($"{start}..{position - 1}:{previous}");
+        start = position;
+        if (parts.Count >= 14)
+        {
+            parts.Add("...");
+            break;
+        }
+    }
+
+    return string.Join(" ", parts);
+}
+
+static int Sample(DeviceIndependentBitmap bitmap, bool horizontal, int line, int position) =>
+    horizontal
+        ? bitmap.PaletteIndices[(line * bitmap.Width) + position]
+        : bitmap.PaletteIndices[(position * bitmap.Width) + line];
 
 static string[] Palette(PortableExecutableResourceReader reader)
 {
@@ -263,12 +372,28 @@ static int Extract(Options options)
         written++;
     }
 
+    foreach (var font in manifest.Fonts)
+    {
+        var source = Path.Combine(options.DataDirectory, font.Source);
+        if (!File.Exists(source))
+        {
+            problems.Add($"missing font {source}");
+            continue;
+        }
+
+        var target = Path.Combine(output, font.Path.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(target))!);
+        WriteIfChanged(target, File.ReadAllBytes(source));
+        written++;
+    }
+
     foreach (var problem in problems)
     {
         Console.Error.WriteLine(problem);
     }
 
-    Console.Error.WriteLine($"extracted {written} of {manifest.Entries.Count} manifest entries to {output}");
+    var total = manifest.Entries.Count + manifest.Fonts.Count;
+    Console.Error.WriteLine($"extracted {written} of {total} manifest entries to {output}");
     return problems.Count == 0 ? 0 : 1;
 }
 
@@ -290,6 +415,7 @@ static string Hash(ReadOnlySpan<byte> bytes) =>
 internal enum RunMode
 {
     Report,
+    Probe,
     ContactSheet,
     Manifest,
 }
@@ -297,6 +423,7 @@ internal enum RunMode
 internal sealed record Options(
     RunMode Mode,
     string[] Archives,
+    string[] Probes,
     string? ManifestPath,
     string DataDirectory,
     string? Output)
@@ -305,6 +432,7 @@ internal sealed record Options(
     {
         var mode = (RunMode?)null;
         var archives = new List<string>();
+        var probes = new List<string>();
         string? manifestPath = null;
         var dataDirectory = ".";
         string? output = null;
@@ -315,6 +443,10 @@ internal sealed record Options(
             {
                 case "--report":
                     mode = RunMode.Report;
+                    break;
+                case "--probe":
+                    mode = RunMode.Probe;
+                    probes.Add(ReadValue(args, ref index));
                     break;
                 case "--contact-sheet":
                     mode = RunMode.ContactSheet;
@@ -340,7 +472,7 @@ internal sealed record Options(
         if (mode is null)
         {
             throw new ArgumentException(
-                "One of --report, --contact-sheet, or --manifest <path> is required.");
+                "One of --report, --probe <resource>, --contact-sheet, or --manifest <path> is required.");
         }
 
         if (mode != RunMode.Manifest && archives.Count == 0)
@@ -348,7 +480,13 @@ internal sealed record Options(
             throw new ArgumentException("At least one --archive is required.");
         }
 
-        return new Options(mode.Value, archives.ToArray(), manifestPath, dataDirectory, output);
+        return new Options(
+            mode.Value,
+            archives.ToArray(),
+            probes.ToArray(),
+            manifestPath,
+            dataDirectory,
+            output);
     }
 
     private static string ReadValue(string[] args, ref int index)
