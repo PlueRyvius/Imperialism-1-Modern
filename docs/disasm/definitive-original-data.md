@@ -315,11 +315,13 @@ fleet record is `TTaskForce` (vtable `0x0065C468`):
 uses task-force state 3 or 4. The command dispatcher `0x0055A160` maps action 12
 to state 3 (`patrolling` in the status renderer), action 14 to state 6
 (`blockading`), and action 16 to state 5 (invasion). State 6 does not qualify for
-the port predicate; state 4 does, but its player-facing meaning remains open.
-The navy refresh at `0x00557560` assigns state 4 only after rebuilding a
-per-country task force, pruning members, and receiving false from a virtual
-predicate on the task force target; the opposite branch assigns state 7. State
-4 is therefore a resolution outcome, not a recovered player command.
+the port predicate. State 4 is not a player-facing mission: the navy refresh at
+`0x00557560` rebuilds a per-country task force, prunes members, and invokes the
+target's virtual `+0x38` predicate. The base `UOcean` implementation at
+`0x0055E840` returns false and selects state 4 for ordinary sea zones, whereas
+the `TPortZone` override at `0x00561680` returns true and selects state 7.
+Thus state 4 is an automatic target-type resolution outcome, not a recovered
+Modern command.
 
 The phase routine at `0x0057F280` performs per-power updates, calls the navy
 manager refresh `0x005577B0`/`0x00557560`, then calls `0x005578A0`. That follow-on
