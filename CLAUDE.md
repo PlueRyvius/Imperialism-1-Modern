@@ -18,6 +18,8 @@ documentation and tests are authoritative when a summary here becomes stale.
 | Which cell bytes are computed, not authored? | Forge's `docs/derived-bytes.md` |
 | How does legacy content become `.iworld`? | `docs/legacy-importer.md` |
 | How does the Godot map viewer work? | `docs/map-viewer.md` |
+| How does the interface shell work? | `docs/gui-shell.md` |
+| Where does the original art come from? | `docs/asset-pipeline.md` |
 | What fills the warehouse from the map? | `docs/formulas/extraction.md` |
 | Who eats it, and what labour they supply | `docs/formulas/feeding.md` |
 | How a workforce grows | `docs/formulas/migration.md` |
@@ -43,11 +45,21 @@ committed there so its mechanics can be searched and cited rather than
 rediscovered. It settled the Resource Development Table, the technology gates on
 improvement levels and the fishing rule, all of which had been guesses.
 
-Binary game data — `.map`, `.scn`, `.inf`, `.gob`, the `.alf` disassembly,
-extracted art — still has no reason to be in the tree: the tests read it from
+Binary game data — `.map`, `.scn`, `.inf`, `.gob`, the `.alf` disassembly —
+still has no reason to be in the tree: the tests read it from
 `IMP_SCENARIO_DIR` / `IMPERIALISM_SCENARIO_DIR`, and `fixtures/local_only/` is
 gitignored for local copies. There is no longer an automated guard, so this is a
 convention rather than a check.
+
+**Extracted art is the one deliberate exception, and it is narrow.** The
+interface chrome, icons and fonts named in
+`assets/manifest/imperialism-art.json` are committed under
+`src/Imperialism.Client/art/` so the shell runs from a clone; nothing the
+manifest does not name is extracted, and no full-screen background or map tile
+is committed at all. A test asserts that every file under `art/` is named by the
+manifest, so this one *is* a check. `docs/asset-pipeline.md` records the
+decision, the evidence behind the transparency rule, and the separate and weaker
+position of the four bundled TrueType fonts.
 
 **The `.map` trailer is a province table.** 384 slots indexed by province id,
 each holding that province's town cell as a big-endian u16 at offset 4, 65535

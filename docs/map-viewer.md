@@ -53,12 +53,22 @@ state reaches the ownership and feature layers independently of gameplay orders.
 
 ## Asset policy
 
-The procedural palette and vector markers are the guaranteed fallback. Original
-art may be extracted from a local installation into a gitignored cache and
-shown with integer nearest-neighbor scaling, but missing assets must never stop
-content loading, simulation, tests, or debug rendering. Hex geometry and input
-remain independent of source sprite dimensions. Asset cleanup and replacement
-art are intentionally deferred until gameplay systems need polish.
+**Map art and interface art are now governed separately**, because their failure
+modes are not the same. A map with procedural terrain colors is legible; a
+window with no chrome is not a degraded interface but an absent one.
+
+For the *map*, nothing has changed. The procedural palette and vector markers
+are the guaranteed fallback. Original tile art may be extracted from a local
+installation into a gitignored cache and shown with integer nearest-neighbor
+scaling, but missing assets must never stop content loading, simulation, tests,
+or debug rendering. Hex geometry and input remain independent of source sprite
+dimensions. Tile art and replacement art are intentionally deferred until
+gameplay systems need polish.
+
+For the *interface*, the chrome, icons and fonts named in
+`assets/manifest/imperialism-art.json` are extracted once and committed. See
+`docs/asset-pipeline.md` for the extractor and `docs/gui-shell.md` for what
+consumes them.
 
 ## Run and verify
 
