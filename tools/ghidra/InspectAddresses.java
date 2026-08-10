@@ -1,6 +1,7 @@
 // Prints Ghidra's symbols, references, and containing functions for a comma-separated
 // IMP_GHIDRA_ADDRESSES environment variable. IMP_GHIDRA_SKIP_RAW avoids the byte dump;
-// IMP_GHIDRA_DECOMPILE_GREP filters decompiled C lines (use | between terms). Derived
+// IMP_GHIDRA_DECOMPILE_GREP filters decompiled C lines (use | between terms), and
+// IMP_GHIDRA_INSTRUCTION_RANGE prints a bounded start:end assembly range. Derived
 // decompilation output stays outside the repository; this script is only the repeatable
 // inspection tool.
 //
@@ -67,6 +68,29 @@ public class InspectAddresses extends GhidraScript {
                 println("  " + reference.getFromAddress() + " " + reference.getReferenceType());
             }
         }
+        }
+
+        String instructionRange = System.getenv("IMP_GHIDRA_INSTRUCTION_RANGE");
+        if (instructionRange != null && !instructionRange.trim().isEmpty()) {
+            String[] parts = instructionRange.split(":");
+            if (parts.length != 2) {
+                println("[InspectAddresses] IMP_GHIDRA_INSTRUCTION_RANGE must be start:end");
+            } else {
+                long startRaw = Long.parseLong(parts[0].trim().replace("0x", ""), 16);
+                long endRaw = Long.parseLong(parts[1].trim().replace("0x", ""), 16);
+                Address start = toAddr(startRaw);
+                Address end = toAddr(endRaw);
+                println(String.format("=== INSTRUCTIONS %08X:%08X ===", startRaw, endRaw));
+                InstructionIterator instructions = currentProgram.getListing()
+                    .getInstructions(start, true);
+                while (instructions.hasNext()) {
+                    Instruction instruction = instructions.next();
+                    if (instruction.getAddress().compareTo(end) > 0) {
+                        break;
+                    }
+                    println(instruction.toString());
+                }
+            }
         }
 
         String decompile = System.getenv("IMP_GHIDRA_DECOMPILE");
