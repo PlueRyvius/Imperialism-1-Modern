@@ -371,6 +371,42 @@ public sealed class ExtractionTests
     }
 
     [Fact]
+    public void PersistedHostilePortControlReplaysDeterministically()
+    {
+        InitialRelationState[] relationStates =
+        [
+            new InitialRelationState(
+                new CountryId(1), new CountryId(0), (short)CountryRelationMode.Hostile, 0),
+        ];
+        var ships = new[] { new InitialShip(new CountryId(1), new ShipTypeId(0), 0, 1) };
+        var first = CreatePortState(
+            ports: [2],
+            initialShips: ships,
+            initialRelationStates: relationStates,
+            initialRelationSequence: 1);
+        var second = CreatePortState(
+            ports: [2],
+            initialShips: ships,
+            initialRelationStates: relationStates,
+            initialRelationSequence: 1);
+
+        first.PatrolTaskForce(new CountryId(1),
+            first.AssembleTaskForce(new CountryId(1), [new FleetId(1)]).Id);
+        second.PatrolTaskForce(new CountryId(1),
+            second.AssembleTaskForce(new CountryId(1), [new FleetId(1)]).Id);
+
+        var firstExtraction = TurnResolver.Resolve(first, TurnOrders.Empty(2), 0)
+            .Events.OfType<ResourceExtractedEvent>().Single();
+        var secondExtraction = TurnResolver.Resolve(second, TurnOrders.Empty(2), 0)
+            .Events.OfType<ResourceExtractedEvent>().Single();
+
+        Assert.Equal(firstExtraction.Collected, secondExtraction.Collected);
+        Assert.Equal(firstExtraction.FishingPortCount, secondExtraction.FishingPortCount);
+        Assert.Equal(firstExtraction.StrandedPortCount, secondExtraction.StrandedPortCount);
+        Assert.Equal(1, firstExtraction.StrandedPortCount);
+    }
+
+    [Fact]
     public void ADownstreamProvinceLossStrandsARiverPortsCatch()
     {
         var state = CreateRiverPortState();
@@ -659,7 +695,9 @@ public sealed class ExtractionTests
         (int First, int Second)[]? extraRails = null,
         bool withFishing = true,
         bool capitalBesideSea = false,
-        IEnumerable<InitialShip>? initialShips = null)
+        IEnumerable<InitialShip>? initialShips = null,
+        IEnumerable<InitialRelationState>? initialRelationStates = null,
+        short initialRelationSequence = 0)
     {
         const int width = 4;
         var dimensions = new MapDimensions(width, 1);
@@ -708,7 +746,9 @@ public sealed class ExtractionTests
             null,
             null,
             ports.Select(static cell => new CellIndex(cell)),
-            initialShips: initialShips);
+            initialShips: initialShips,
+            initialRelationStates: initialRelationStates,
+            initialRelationSequence: initialRelationSequence);
 
         var definition = new WorldDefinition(
             map,

@@ -108,6 +108,9 @@ public sealed class WorldContentTests
             [(new CountryId(1), new CountryId(0), (short)6, (short)16)],
             scenario.InitialRelationStates.Select(static item =>
                 (item.First, item.Second, item.Mode, item.Token)));
+
+        var state = new WorldState(WorldContentCompiler.Compile(decoded).World);
+        Assert.True(state.HasEffectiveHostility(new CountryId(0), new CountryId(1)));
     }
 
     [Fact]
