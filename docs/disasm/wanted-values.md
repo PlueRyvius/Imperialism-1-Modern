@@ -169,6 +169,18 @@ a **separate** 23 by 23
 signed-16-bit effective-token table at `+0xFE0` with the value from global
 object vtable slot `+0x3C` (`0x0057D8B0` returns its `+0x2C` field).
 
+The prerequisite pair predicate is now recovered: vtable `+0x44` resolves to
+`0x004EF540`, which requires both countries to be active and their relation-mode
+matrix entry at `+0xBBE` to equal `6`. The mode matrix is initialized to `4` and
+the effective-token matrix to `-1`. Its symmetric setter, `0x004F1B70`, writes
+the chosen mode to both directions and stamps both effective tokens with the
+current global sequence. Its case-`6` branch applies the original hostile
+300-point effects. Consequently the sea-port rule is exact: block only when a
+foreign qualifying state-3/4 fleet is present, no qualifying fleet of the port
+owner is present, the pair is in mode `6`, and that pair's effective token is
+different from the current sequence. A newly set mode-`6` relationship is
+therefore not effective until the sequence subsequently advances.
+
 Shipped `rela` records are the 253 unordered pairs among 23 countries and carry
 raw values such as 80 through 150 and 255. A controlled live run of the
 recovered original executable (MD5 `7dc20de2f44b9425be072f360e614157`) observed

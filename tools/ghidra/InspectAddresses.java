@@ -14,6 +14,7 @@ import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.listing.InstructionIterator;
 import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.lang.OperandType;
+import ghidra.program.model.scalar.Scalar;
 import ghidra.program.model.symbol.Reference;
 import ghidra.program.model.symbol.Symbol;
 import java.util.HashSet;
@@ -218,6 +219,31 @@ public class InspectAddresses extends GhidraScript {
                             .toLowerCase();
                         if (representation.contains(offsetText) || representation.contains(hexadecimalText)) {
                             println(function.getEntryPoint() + " " + instruction);
+                        }
+                    }
+                }
+            }
+        }
+
+        String scalarValue = System.getenv("IMP_GHIDRA_SCALAR");
+        if (scalarValue != null && !scalarValue.trim().isEmpty()) {
+            long scalar = Long.parseLong(scalarValue.trim().replace("0x", ""), 16);
+            println(String.format("=== INSTRUCTIONS WITH SCALAR %X ===", scalar));
+            FunctionIterator functions = currentProgram.getFunctionManager().getFunctions(true);
+            while (functions.hasNext()) {
+                Function function = functions.next();
+                InstructionIterator instructions = currentProgram.getListing()
+                    .getInstructions(function.getBody(), true);
+                while (instructions.hasNext()) {
+                    Instruction instruction = instructions.next();
+                    boolean found = false;
+                    for (int operand = 0; operand < instruction.getNumOperands() && !found; operand++) {
+                        for (Object object : instruction.getOpObjects(operand)) {
+                            if (object instanceof Scalar && ((Scalar)object).getUnsignedValue() == scalar) {
+                                println(function.getEntryPoint() + " " + instruction);
+                                found = true;
+                                break;
+                            }
                         }
                     }
                 }
