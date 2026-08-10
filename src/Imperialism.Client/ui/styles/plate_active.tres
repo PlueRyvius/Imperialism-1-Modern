@@ -1,0 +1,17 @@
+[gd_resource type="StyleBoxTexture" load_steps=2 format=3]
+
+; The same plate with a green field. This is the original's own selected state,
+; which is why it is used here instead of a tinted copy of the first.
+
+[ext_resource type="Texture2D" path="res://art/chrome/plate_active_9p.png" id="1_plate_active"]
+
+[resource]
+texture = ExtResource("1_plate_active")
+texture_margin_left = 5.0
+texture_margin_top = 5.0
+texture_margin_right = 5.0
+texture_margin_bottom = 5.0
+content_margin_left = 8.0
+content_margin_top = 5.0
+content_margin_right = 8.0
+content_margin_bottom = 5.0

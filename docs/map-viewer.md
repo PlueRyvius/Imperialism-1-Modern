@@ -5,6 +5,11 @@
 reference to the legacy codecs or importer. Convert legacy inputs separately,
 then open the resulting modern package.
 
+**This document covers the map itself.** The map is now one screen inside a
+shell rather than the whole client, and the shell's screens, theme, status
+border and smoke gates are in `docs/gui-shell.md`. Where the two disagree about
+the client's structure, that one is newer.
+
 ## Architecture
 
 The viewer is split at an intentionally narrow engine boundary:
@@ -44,21 +49,36 @@ play presentation and for later economy, transport, AI, and editor inspection.
 | Home | Fit the whole map |
 | Left click | Pin a cell in the inspector |
 | Hover | Temporarily inspect a cell |
-| Probe state (debug mode) | Cycle sample ownership and rail state |
+| Probe state | Cycle sample ownership and rail state |
 
-The scenario picker switches among every scenario embedded in one `.iworld`
-package without rebuilding or reimporting its shared map. The debug state probe
-is a development harness, not a gameplay command; it proves that mutable Core
-state reaches the ownership and feature layers independently of gameplay orders.
+The debug state probe is a development harness, not a gameplay command; it
+proves that mutable Core state reaches the ownership layer, the feature layer
+and now the status border, independently of any gameplay order existing.
+
+The scenario picker is gone. A scenario is chosen once at startup with
+`--scenario <key>`, because a session now carries a country as well as a
+scenario and switching one mid-game would silently discard the other. A picker
+belongs on a start screen, which this slice does not build; see the open
+questions in `docs/gui-shell.md`.
 
 ## Asset policy
 
-The procedural palette and vector markers are the guaranteed fallback. Original
-art may be extracted from a local installation into a gitignored cache and
-shown with integer nearest-neighbor scaling, but missing assets must never stop
-content loading, simulation, tests, or debug rendering. Hex geometry and input
-remain independent of source sprite dimensions. Asset cleanup and replacement
-art are intentionally deferred until gameplay systems need polish.
+**Map art and interface art are now governed separately**, because their failure
+modes are not the same. A map with procedural terrain colors is legible; a
+window with no chrome is not a degraded interface but an absent one.
+
+For the *map*, nothing has changed. The procedural palette and vector markers
+are the guaranteed fallback. Original tile art may be extracted from a local
+installation into a gitignored cache and shown with integer nearest-neighbor
+scaling, but missing assets must never stop content loading, simulation, tests,
+or debug rendering. Hex geometry and input remain independent of source sprite
+dimensions. Tile art and replacement art are intentionally deferred until
+gameplay systems need polish.
+
+For the *interface*, the chrome, icons and fonts named in
+`assets/manifest/imperialism-art.json` are extracted once and committed. See
+`docs/asset-pipeline.md` for the extractor and `docs/gui-shell.md` for what
+consumes them.
 
 ## Run and verify
 

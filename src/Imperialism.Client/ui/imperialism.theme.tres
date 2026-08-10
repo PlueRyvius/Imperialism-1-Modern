@@ -1,0 +1,79 @@
+[gd_resource type="Theme" load_steps=7 format=3]
+
+; Applied project-wide through project.godot's gui/theme/custom, and never
+; loaded by a script. That is deliberate: when the art has not been imported the
+; project setting silently falls back to Godot's default theme, whereas a script
+; calling GD.Load would throw and take the headless smoke gate down with it.
+;
+; Sizes are in original art pixels, because the base viewport is. See
+; docs/gui-shell.md.
+
+[ext_resource type="StyleBox" path="res://ui/styles/plate.tres" id="1_plate"]
+[ext_resource type="StyleBox" path="res://ui/styles/plate_active.tres" id="2_plate_active"]
+[ext_resource type="StyleBox" path="res://ui/styles/wood_panel.tres" id="3_wood"]
+[ext_resource type="StyleBox" path="res://ui/styles/wood_column.tres" id="4_wood_column"]
+[ext_resource type="FontFile" path="res://art/fonts/antiqua.ttf" id="5_body"]
+[ext_resource type="FontFile" path="res://art/fonts/display_bold.ttf" id="6_display"]
+
+[resource]
+default_font = ExtResource("5_body")
+default_font_size = 11
+Button/colors/font_color = Color(0.16, 0.12, 0.07, 1)
+Button/colors/font_hover_color = Color(0.09, 0.07, 0.04, 1)
+Button/colors/font_pressed_color = Color(0.09, 0.07, 0.04, 1)
+Button/colors/font_disabled_color = Color(0.45, 0.41, 0.35, 1)
+Button/font_sizes/font_size = 11
+Button/styles/normal = ExtResource("1_plate")
+Button/styles/hover = ExtResource("2_plate_active")
+Button/styles/pressed = ExtResource("2_plate_active")
+Button/styles/focus = ExtResource("2_plate_active")
+Button/styles/disabled = ExtResource("1_plate")
+CheckButton/colors/font_color = Color(0.16, 0.12, 0.07, 1)
+CheckButton/colors/font_hover_color = Color(0.09, 0.07, 0.04, 1)
+CheckButton/colors/font_pressed_color = Color(0.09, 0.07, 0.04, 1)
+CheckButton/font_sizes/font_size = 11
+CheckButton/styles/normal = ExtResource("1_plate")
+CheckButton/styles/hover = ExtResource("1_plate")
+CheckButton/styles/pressed = ExtResource("1_plate")
+CheckButton/styles/focus = ExtResource("2_plate_active")
+Label/colors/font_color = Color(0.16, 0.12, 0.07, 1)
+Label/font_sizes/font_size = 11
+OptionButton/styles/normal = ExtResource("1_plate")
+OptionButton/styles/hover = ExtResource("2_plate_active")
+OptionButton/styles/pressed = ExtResource("2_plate_active")
+OptionButton/styles/focus = ExtResource("2_plate_active")
+PanelContainer/styles/panel = ExtResource("1_plate")
+RichTextLabel/colors/default_color = Color(0.16, 0.12, 0.07, 1)
+RichTextLabel/font_sizes/normal_font_size = 11
+
+ImperialismScreenFrame/base_type = &"PanelContainer"
+ImperialismScreenFrame/styles/panel = ExtResource("3_wood")
+
+ImperialismSideColumn/base_type = &"PanelContainer"
+ImperialismSideColumn/styles/panel = ExtResource("4_wood_column")
+
+ImperialismStatusBorder/base_type = &"PanelContainer"
+ImperialismStatusBorder/styles/panel = ExtResource("3_wood")
+
+ImperialismReadout/base_type = &"Label"
+ImperialismReadout/colors/font_color = Color(0.95, 0.91, 0.78, 1)
+ImperialismReadout/colors/font_shadow_color = Color(0, 0, 0, 0.7)
+ImperialismReadout/constants/shadow_offset_x = 1
+ImperialismReadout/constants/shadow_offset_y = 1
+ImperialismReadout/font_sizes/font_size = 11
+
+ImperialismReadoutLabel/base_type = &"Label"
+ImperialismReadoutLabel/colors/font_color = Color(0.74, 0.68, 0.54, 1)
+ImperialismReadoutLabel/font_sizes/font_size = 8
+
+ImperialismScreenTitle/base_type = &"Label"
+ImperialismScreenTitle/fonts/font = ExtResource("6_display")
+ImperialismScreenTitle/colors/font_color = Color(0.18, 0.13, 0.07, 1)
+ImperialismScreenTitle/font_sizes/font_size = 18
+
+ImperialismHotText/base_type = &"Label"
+ImperialismHotText/colors/font_color = Color(0.95, 0.91, 0.78, 1)
+ImperialismHotText/colors/font_shadow_color = Color(0, 0, 0, 0.7)
+ImperialismHotText/constants/shadow_offset_x = 1
+ImperialismHotText/constants/shadow_offset_y = 1
+ImperialismHotText/font_sizes/font_size = 10

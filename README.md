@@ -34,13 +34,16 @@ mechanics can be searched and cited. Everything else in `docs/` is written in
 our own words from what we have decoded, not copied from any third-party format
 write-up.
 
-No binary game data is committed: `.map`/`.scn`/`.inf` files, the disassembly
-listing and game graphics are read from a local install at test time, and
-`fixtures/local_only/` is gitignored for local copies.
+Bulk binary game data stays out of the tree — `.map`/`.scn`/`.inf` files, the
+`.gob` resource archives and the disassembly listing are read from a local
+install at test time, and `fixtures/local_only/` is gitignored for local copies.
+The interface art named in `assets/manifest/imperialism-art.json` is committed
+so the shell runs from a clone; `docs/asset-pipeline.md` records where each
+piece came from.
 
-Playing requires your own copy of the original game: assets are extracted
-from your installation at import time and cached locally. We ship tools,
-never content.
+Scenario content still requires your own copy of the original game: `.map`,
+`.scn` and `.inf` files are converted from your installation into `.iworld`
+packages locally.
 
 ## Target stack
 
@@ -88,10 +91,12 @@ whenever it's wanted.
 - [x] Local viewer verification across all ten original scenario triples
 
 The viewer updates current ownership, rails, capitals, and quarterly date without
-rebuilding immutable terrain or resetting camera and selection. Original art is
-an optional local presentation source; the procedural fallback keeps assets
-from blocking simulation work. The next shortest-path milestone is the Phase 3
-transport graph and deterministic turn skeleton.
+rebuilding immutable terrain or resetting camera and selection. The client is now
+a shell in the original's own artwork — six screens, tabs down both edges, and a
+status border reading a country's treasury, labour, workforce and network; see
+`docs/gui-shell.md`. Map tile art is still an optional local source with the
+procedural palette as its fallback. The next shortest-path milestone is the
+Phase 3 transport graph and deterministic turn skeleton.
 
 **Phase 3 status: in progress.**
 

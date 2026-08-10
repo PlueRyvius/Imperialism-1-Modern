@@ -18,6 +18,8 @@ documentation and tests are authoritative when a summary here becomes stale.
 | Which cell bytes are computed, not authored? | Forge's `docs/derived-bytes.md` |
 | How does legacy content become `.iworld`? | `docs/legacy-importer.md` |
 | How does the Godot map viewer work? | `docs/map-viewer.md` |
+| How does the interface shell work? | `docs/gui-shell.md` |
+| Where does the original art come from? | `docs/asset-pipeline.md` |
 | What fills the warehouse from the map? | `docs/formulas/extraction.md` |
 | Who eats it, and what labour they supply | `docs/formulas/feeding.md` |
 | How a workforce grows | `docs/formulas/migration.md` |
@@ -43,11 +45,17 @@ committed there so its mechanics can be searched and cited rather than
 rediscovered. It settled the Resource Development Table, the technology gates on
 improvement levels and the fishing rule, all of which had been guesses.
 
-Binary game data — `.map`, `.scn`, `.inf`, `.gob`, the `.alf` disassembly,
-extracted art — still has no reason to be in the tree: the tests read it from
+Binary game data — `.map`, `.scn`, `.inf`, `.gob`, the `.alf` disassembly —
+still has no reason to be in the tree: the tests read it from
 `IMP_SCENARIO_DIR` / `IMPERIALISM_SCENARIO_DIR`, and `fixtures/local_only/` is
 gitignored for local copies. There is no longer an automated guard, so this is a
 convention rather than a check.
+
+**Interface art is committed**, under `src/Imperialism.Client/art/`, so the shell
+runs from a clone. The constraint that remains is bookkeeping, not policy: every
+file there must be named by `assets/manifest/imperialism-art.json`, and a test
+enforces it, so nothing arrives without a recorded source and a re-run of the
+extractor reproduces it byte for byte. See `docs/asset-pipeline.md`.
 
 **The `.map` trailer is a province table.** 384 slots indexed by province id,
 each holding that province's town cell as a big-endian u16 at offset 4, 65535

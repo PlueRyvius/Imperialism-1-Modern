@@ -1,0 +1,18 @@
+[gd_resource type="StyleBoxTexture" load_steps=2 format=3]
+
+; The original's gold-framed plate. Its cream field starts exactly five pixels
+; in on every side, measured with the extractor's --probe rather than chosen, so
+; the margins below are the artwork's own and not a guess that looked right.
+
+[ext_resource type="Texture2D" path="res://art/chrome/plate_9p.png" id="1_plate"]
+
+[resource]
+texture = ExtResource("1_plate")
+texture_margin_left = 5.0
+texture_margin_top = 5.0
+texture_margin_right = 5.0
+texture_margin_bottom = 5.0
+content_margin_left = 8.0
+content_margin_top = 5.0
+content_margin_right = 8.0
+content_margin_bottom = 5.0

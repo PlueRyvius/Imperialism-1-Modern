@@ -19,6 +19,15 @@ TestResults/
 fixtures/local_only/*
 !fixtures/local_only/.gitkeep
 
+# Extractor working output: per-archive reports and contact sheets used to
+# catalogue the original art. Only what the manifest names is committed, and it
+# lands under src/Imperialism.Client/art/ instead.
+assets/staging/
+
+# Godot's .import sidecars under src/Imperialism.Client/art/ ARE committed, on
+# purpose: without them a fresh clone regenerates every one and hands the next
+# contributor a dirty tree. Do not add *.import here.
+
 # The disassembly index is derived from Imperialism.exe and embeds the original
 # instruction stream verbatim. It is also large and rebuildable, so build it
 # locally; tools/alf/index.py defaults to a path outside the repo anyway.
