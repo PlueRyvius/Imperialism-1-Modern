@@ -174,6 +174,15 @@ and flag fields, the battle termination test, and the ownership/capture update
 are still unproven. Do not expose this loop as a finished tactical resolver or
 use it to infer those rules.
 
+After the loss loop, `0x004A82B0` visits positive `+0x34` entries on both
+sides. Its flag argument selects an exact `+20` or `+35` adjustment to the
+stored `+0x38` quantity, capped at 400. The scenario writer divides that
+quantity by 100 when emitting the third `army` field; the original corpus
+confirms those imported fields are the small stack counts (typically 1--4).
+This proves the hundredths representation and post-battle adjustment, but not
+which adjustment corresponds to victory, a player-facing experience label, or
+a completed capture outcome.
+
 The unattributed function at `0x005C4C60` is not the tactical resolver: its
 strings and caller form randomized battle-report prose. Do not use that range
 as evidence for tactical mechanics.
