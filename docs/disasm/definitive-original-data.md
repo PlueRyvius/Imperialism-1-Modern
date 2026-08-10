@@ -169,20 +169,25 @@ array is exactly `[70, 80, 90, 90]`; the final integer loss is subtracted from
 the `+0x34` field and capped at zero.
 
 This is executable-backed evidence for ordering, PRNG use, artillery handling,
-and zero-capped strategic losses. The semantic names of the `+0x34`, `+0x3c`,
-and flag fields, the battle termination test, and the ownership/capture update
-are still unproven. Do not expose this loop as a finished tactical resolver or
-use it to infer those rules.
+and zero-capped strategic losses. The loop continues only while **both** sides
+retain an entry whose `+0x34` is strictly greater than half its `+0x3c` snapshot
+and whose `+0x3a` bit 1 is clear. When either side has no such entry, it exits:
+if the first checked side still has one it receives the `+35` post-battle
+increment, otherwise the second side receives it; the other side receives
+`+20`. This is the exact termination and increment-selection control flow, not
+a player-facing interpretation of the fields. Their semantic names and the
+ownership/capture update are still unproven. Do not expose this loop as a
+finished tactical resolver or use it to infer those rules.
 
 Before the loss loop, `0x004A3800` snapshots each entry's `+0x34` value into
 `+0x3c`. After the loop, `0x004A82B0` visits positive `+0x34` entries on both
 sides. Its flag argument selects an exact `+20` or `+35` adjustment to the
-stored `+0x38` experience, capped at 400. The surviving side takes the `+35`
-branch and the other takes `+20`. The scenario writer divides that experience
-by 100 when emitting the third `army` field; the original corpus holds small
+stored `+0x38` experience, capped at 400. The `+35`/`+20` selection follows the
+qualifying-entry branch above. The scenario writer divides that experience by
+100 when emitting the third `army` field; the original corpus holds small
 values (typically 1--4), and the manual's one-medal-per-three-victories/
 five-defeats cadence independently matches the recovered adjustments. This
-proves the hundredths representation, survivor selection, and experience
+proves the hundredths representation, termination control flow, and experience
 adjustment, but not a completed capture outcome.
 
 The unattributed function at `0x005C4C60` is not the tactical resolver: its
