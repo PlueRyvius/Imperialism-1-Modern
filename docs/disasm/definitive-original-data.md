@@ -150,11 +150,15 @@ its state-specific helpers. This proves a headless tactical-AI/roster boundary
 and attacker-first setup order, but not deployment, legal movement, damage,
 victory, or province-capture rules. Those remain deferred.
 
-The army manager selects a non-empty opposing stack before it calls the battle
-entry. Its alternate non-tactical path writes a source-side country byte into a
-target-indexed 16-bit manager field; the immediate tactical-launch path skips
-that write. The field has not yet been tied to province ownership or a later
-tactical completion callback, so it is not evidence for a capture rule.
+The army manager initializes its target-indexed 16-bit field from the map at
+`0x004A229D`: the map routine `0x00514290` reads the source province's owner
+byte and maps it to the manager's effective country/control code. The automatic
+battle path writes the selected side's country code to that field, and the
+tactical-completion path at `0x004A5CA0` does the same. This proves that battle
+resolution updates the army manager's dynamic province-control state. The
+source map-owner byte's corresponding update and the complete player-facing
+capture consequences remain unrecovered, so this is not yet a complete capture
+rule.
 
 ## Verified regiment health and recovery
 
@@ -206,8 +210,9 @@ qualifying-entry branch above. The scenario writer divides that experience by
 100 when emitting the third `army` field; the original corpus holds small
 values (typically 1--4), and the manual's one-medal-per-three-victories/
 five-defeats cadence independently matches the recovered adjustments. This
-proves the hundredths representation, termination control flow, and experience
-adjustment, but not a completed capture outcome.
+proves the hundredths representation, termination control flow, experience
+adjustment, and the dynamic control-field update, but not a completed capture
+outcome.
 
 The unattributed function at `0x005C4C60` is not the tactical resolver: its
 strings and caller form randomized battle-report prose. Do not use that range
