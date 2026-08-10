@@ -330,6 +330,14 @@ manager state. This establishes the local naval-resolution order, but not the
 relative order of a specific production/extraction query or a modern equivalence
 for original naval combat.
 
+The global phase-name table at `0x005421E0` names the surrounding high-level
+turn phases as diplomacy, trade, city, civilians, military, money lenders,
+deal book, and strategic battle report. It establishes that city/civilian and
+military work are distinct original phases, while `kOptPhTransport` is an
+optional UI phase. Since the table formats enum values rather than advancing
+the phase state, it does not establish the exact extraction-versus-navy
+interleaving; that ordering remains deferred.
+
 ### Fleet movement and range
 
 The strategic movement record is `TTaskForce`: construction records the current

@@ -279,6 +279,17 @@ resolution pass and its local order; it does not yet place a particular
 production/extraction call relative to that pass or a modern equivalence for
 original naval combat.
 
+The global phase-name table at `0x005421E0` independently identifies the
+original high-level turn phases: `kPhEverybodyDoDiplomacy`,
+`kPhEverybodyDoTrade`, `kPhEverybodyDoCity`, `kPhEverybodyDoCivilians`,
+`kPhEverybodyDoMilitary`, `kPhMoneyLenders`, `kPhDealBook`, and
+`kPhStratBatReport`, followed by start-turn/technology/map states. Its enum
+ordering confirms that city, civilian, and military work are separate named
+phases; `kOptPhTransport` is instead an optional UI phase. The table is a
+name formatter, however, not the state-transition loop, so it does not prove
+the interleaving of the individual city collection operation with naval
+resolution. The modern pipeline therefore remains unchanged.
+
 ### Fleet movement: shortest path, slowest hull, one resolved leg
 
 Strategic movement is now recovered. A task force stores its current zone at
