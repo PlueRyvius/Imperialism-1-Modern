@@ -698,6 +698,34 @@ public static class WorldContentCompiler
                 entry.Value));
         }
 
+        if (scenarioContent.RelationSequence is < short.MinValue or > short.MaxValue)
+        {
+            throw Error($"{path}.relationSequence", "Value must fit in a signed 16-bit integer.");
+        }
+
+        var relationStates = new List<InitialRelationState>();
+        var relationStateEntries = RequireArray(scenarioContent.RelationStates, $"{path}.relationStates");
+        for (var index = 0; index < relationStateEntries.Length; index++)
+        {
+            var entryPath = $"{path}.relationStates[{index}]";
+            var entry = relationStateEntries[index] ?? throw Error(entryPath, "Value is required.");
+            if (entry.Mode is < short.MinValue or > short.MaxValue)
+            {
+                throw Error($"{entryPath}.mode", "Value must fit in a signed 16-bit integer.");
+            }
+
+            if (entry.Token is < short.MinValue or > short.MaxValue)
+            {
+                throw Error($"{entryPath}.token", "Value must fit in a signed 16-bit integer.");
+            }
+
+            relationStates.Add(new InitialRelationState(
+                new CountryId(FindKey(countryIds, entry.First, $"{entryPath}.first")),
+                new CountryId(FindKey(countryIds, entry.Second, $"{entryPath}.second")),
+                (short)entry.Mode,
+                (short)entry.Token));
+        }
+
         if (string.IsNullOrWhiteSpace(scenarioContent.Name))
         {
             throw Error($"{path}.name", "Value cannot be blank.");
@@ -723,7 +751,9 @@ public static class WorldContentCompiler
                 transportCapacity,
                 cash,
                 ships,
-                relations);
+                relations,
+                relationStates,
+                (short)scenarioContent.RelationSequence);
             return new WorldDefinition(
                 map,
                 countries,

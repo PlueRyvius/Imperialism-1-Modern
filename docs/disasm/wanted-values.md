@@ -192,13 +192,20 @@ treating the global field as a `rela` threshold. The same live session found
 `+0xFE0` samples of 271 and -1 while the comparison field was 281, confirming
 that it is a separate, initialized table; its non-constructor writer remains
 to be recovered. This is the executable form of
-undisputed enemy control: it is not a simple
-hostile-ship-presence rule. More precisely, the routine scans
+undisputed enemy control: it is not a simple hostile-ship-presence rule. More
+precisely, the routine scans
 the global `TShip` list at `0x006A3EDC`; a ship qualifies only when its `UOcean`
 at `+0x08` is the target, its `TTaskForce*` at `+0x0C` is non-null and active
 (`TTaskForce+0x26 == 0`), and that task force's state at `+0x08` is 3 or 4. It
 then sets the bit for `TShip+0x14` (owner), so a qualifying friendly force
 prevents a hostile force from blocking the port.
+
+Modern world-content version 23 represents this active state separately from
+the imported raw `rela` list: an optional `relationSequence` plus ordered
+`relationStates` entries preserve the signed 16-bit mode and token values.
+Older packages migrate to sequence 0 with no entries, which reconstructs the
+EXE defaults (mode 4, token -1) without assigning a meaning to historical raw
+relation scores.
 
 For river access, the same predicate calls `0x00563B70`. That routine follows the
 original river-code transition tables for up to 100 cells and flags a change in

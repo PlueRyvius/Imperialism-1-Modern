@@ -863,6 +863,11 @@ public sealed class WorldState
         _relationTokens = new short[relationSlots];
         Array.Fill(_relationModes, (short)CountryRelationMode.Standard);
         Array.Fill(_relationTokens, (short)-1);
+        _relationSequence = definition.Scenario.InitialRelationSequence;
+        foreach (var relationState in definition.Scenario.InitialRelationStates)
+        {
+            SetInitialRelationState(relationState);
+        }
 
         if (definition.StartingDefaults?.Ships is { Count: > 0 } fleet)
         {
@@ -950,6 +955,18 @@ public sealed class WorldState
         _relationModes[secondOffset] = (short)mode;
         _relationTokens[firstOffset] = _relationSequence;
         _relationTokens[secondOffset] = _relationSequence;
+    }
+
+    private void SetInitialRelationState(InitialRelationState state)
+    {
+        ValidateCountry(state.First);
+        ValidateCountry(state.Second);
+        var firstOffset = GetRelationOffset(state.First, state.Second);
+        var secondOffset = GetRelationOffset(state.Second, state.First);
+        _relationModes[firstOffset] = state.Mode;
+        _relationModes[secondOffset] = state.Mode;
+        _relationTokens[firstOffset] = state.Token;
+        _relationTokens[secondOffset] = state.Token;
     }
 
     /// <summary>Whether the original sea-port predicate treats this pair as hostile.</summary>

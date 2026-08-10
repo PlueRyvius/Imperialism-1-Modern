@@ -18,6 +18,7 @@ public sealed class ScenarioDefinition
     private readonly IReadOnlyList<InitialCash> _initialCash;
     private readonly IReadOnlyList<InitialShip> _initialShips;
     private readonly IReadOnlyList<InitialRelation> _initialRelations;
+    private readonly IReadOnlyList<InitialRelationState> _initialRelationStates;
 
     public ScenarioDefinition(
         string name,
@@ -37,7 +38,9 @@ public sealed class ScenarioDefinition
         IEnumerable<InitialTransportCapacity>? initialTransportCapacity = null,
         IEnumerable<InitialCash>? initialCash = null,
         IEnumerable<InitialShip>? initialShips = null,
-        IEnumerable<InitialRelation>? initialRelations = null)
+        IEnumerable<InitialRelation>? initialRelations = null,
+        IEnumerable<InitialRelationState>? initialRelationStates = null,
+        short initialRelationSequence = 0)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(initialProvinceOwners);
@@ -172,6 +175,12 @@ public sealed class ScenarioDefinition
         // silently choosing a duplicate policy here.
         _initialRelations = Array.AsReadOnly(initialRelations?.ToArray() ?? []);
 
+        // Like the raw records, preserve state records in source order. The
+        // original setter mirrors a pair, so later entries may intentionally
+        // replace an earlier pair in a saved or diagnostic snapshot.
+        _initialRelationStates = Array.AsReadOnly(initialRelationStates?.ToArray() ?? []);
+        InitialRelationSequence = initialRelationSequence;
+
         // Civilians are deliberately not made unique by cell. The original
         // stacks them freely — `s1` gives one power two Miners — and nothing in
         // the manual says a tile holds only one.
@@ -243,9 +252,23 @@ public sealed class ScenarioDefinition
 
     /// <summary>
     /// Raw relationship records the scenario starts with: the 1997 <c>rela</c>
-    /// records. They have no gameplay consumer yet.
+    /// records. They are retained separately from the active relation state
+    /// used by strategic port access.
     /// </summary>
     public IReadOnlyList<InitialRelation> InitialRelations => _initialRelations;
+
+    /// <summary>
+    /// Active relation mode/token entries at the start of the scenario.
+    /// Omitted entries use the original defaults: standard mode and token -1.
+    /// </summary>
+    public IReadOnlyList<InitialRelationState> InitialRelationStates => _initialRelationStates;
+
+    /// <summary>
+    /// Active relation generation at the start of the scenario. This is needed
+    /// with <see cref="InitialRelationStates"/> to preserve whether a hostile
+    /// mode is immediately effective.
+    /// </summary>
+    public short InitialRelationSequence { get; }
 
     /// <summary>
     /// Civilians on the map at the start, in the order they will be issued ids.

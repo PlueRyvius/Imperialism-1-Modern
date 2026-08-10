@@ -116,6 +116,11 @@ internal static class WorldContentMigrator
             MigrateVersionTwentyOneToTwentyTwo(document);
         }
 
+        if (document.FormatVersion == 22)
+        {
+            MigrateVersionTwentyTwoToTwentyThree(document);
+        }
+
         return document;
     }
 
@@ -958,6 +963,31 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 22;
+    }
+
+    /// <summary>
+    /// Version 23 can carry active relation mode/token state. A version 22
+    /// package had no such authored state, so standard mode, token -1 and
+    /// generation zero are the exact compatibility defaults.
+    /// </summary>
+    private static void MigrateVersionTwentyTwoToTwentyThree(WorldContentDocument document)
+    {
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.RelationStates is { Length: > 0 } || scenario?.RelationSequence != 0)
+            {
+                throw new ContentValidationException(
+                    "formatVersion", "Version 22 cannot declare active relation state.");
+            }
+
+            if (scenario is not null)
+            {
+                scenario.RelationSequence = 0;
+                scenario.RelationStates = [];
+            }
+        }
+
+        document.FormatVersion = 23;
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

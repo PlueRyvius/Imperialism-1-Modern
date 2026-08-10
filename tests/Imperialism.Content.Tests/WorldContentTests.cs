@@ -86,6 +86,31 @@ public sealed class WorldContentTests
     }
 
     [Fact]
+    public void ActiveRelationStatesCompileAndRoundTripWithTheirGeneration()
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].RelationSequence = 17;
+        document.Scenarios[0].RelationStates =
+        [
+            new RelationStateContent
+            {
+                First = "empire.a", Second = "empire.b", Mode = 6, Token = 16,
+            },
+        ];
+
+        var encoded = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(encoded);
+        var scenario = WorldContentCompiler.Compile(decoded).World.Scenario;
+
+        Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
+        Assert.Equal((short)17, scenario.InitialRelationSequence);
+        Assert.Equal(
+            [(new CountryId(1), new CountryId(0), (short)6, (short)16)],
+            scenario.InitialRelationStates.Select(static item =>
+                (item.First, item.Second, item.Mode, item.Token)));
+    }
+
+    [Fact]
     public void OnePackageCompilesMultipleScenariosOverTheSameMap()
     {
         var document = CreateValidDocument();
@@ -294,7 +319,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(23)]
+    [InlineData(24)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1588,6 +1613,21 @@ public sealed class WorldContentTests
 
         Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
         Assert.All(migrated.Scenarios, static scenario => Assert.Empty(scenario.Relations));
+    }
+
+    [Fact]
+    public void VersionTwentyTwoMigratesToDefaultActiveRelationState()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 22);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.All(migrated.Scenarios, static scenario =>
+        {
+            Assert.Equal(0, scenario.RelationSequence);
+            Assert.Empty(scenario.RelationStates);
+        });
     }
 
     [Theory]

@@ -173,9 +173,21 @@ public sealed class ScenarioContentDocument
 
     /// <summary>
     /// Raw diplomatic relationship records in their source order: the 1997
-    /// <c>rela</c> records. The headless navy does not interpret them yet.
+    /// <c>rela</c> records. They remain distinct from active relation state.
     /// </summary>
     public RelationContent[] Relations { get; set; } = [];
+
+    /// <summary>
+    /// Active country-manager generation used with <see cref="RelationStates"/>.
+    /// The compatibility default is zero.
+    /// </summary>
+    public int RelationSequence { get; set; }
+
+    /// <summary>
+    /// Optional active relation mode/token snapshot for strategic port access.
+    /// Missing entries retain the original standard/-1 defaults.
+    /// </summary>
+    public RelationStateContent[] RelationStates { get; set; } = [];
 
     public CountryTechnologyContent[] CountryTechnologies { get; set; } = [];
 
@@ -322,6 +334,18 @@ public sealed class RelationContent
     public string Second { get; set; } = string.Empty;
 
     public int Value { get; set; }
+}
+
+/// <summary>One active country-manager mode/token relation entry.</summary>
+public sealed class RelationStateContent
+{
+    public string First { get; set; } = string.Empty;
+
+    public string Second { get; set; } = string.Empty;
+
+    public int Mode { get; set; }
+
+    public int Token { get; set; }
 }
 
 /// <summary>One fleet: a country, a class of ship, a sea zone and a count.</summary>
