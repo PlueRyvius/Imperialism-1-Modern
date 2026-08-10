@@ -7,8 +7,9 @@ namespace Imperialism.RuntimeProbe;
 /// <summary>
 /// Read-only observer for the original 32-bit Imperialism process. It never writes
 /// process memory, never changes a scenario, and deliberately samples only the
-/// relation comparison value and a few raw relation-matrix entries recovered from
-/// the EXE. See docs/disasm/wanted-values.md.
+/// relation comparison value, raw scenario relation entries, and the separate
+/// effective relation tokens consulted by the sea-port predicate. See
+/// docs/disasm/wanted-values.md.
 /// </summary>
 internal static class Program
 {
@@ -17,7 +18,8 @@ internal static class Program
     private const uint GlobalStateAddress = 0x006A_20F8;
     private const uint CountryManagerAddress = 0x006A_43D0;
     private const int GlobalRelationComparisonOffset = 0x2C;
-    private const int CountryRelationMatrixOffset = 0x79C;
+    private const int RawRelationMatrixOffset = 0x79C;
+    private const int EffectiveRelationMatrixOffset = 0xFE0;
     private const int CountryCount = 23;
     private const int PollMilliseconds = 250;
 
@@ -65,13 +67,25 @@ internal static class Program
 
         ushort? previousComparison = null;
         uint? previousGlobalState = null;
-        var previousPairs = new Dictionary<(int First, int Second), ushort>();
+        var previousRawPairs = new Dictionary<(int First, int Second), ushort>();
+        var previousEffectivePairs = new Dictionary<(int First, int Second), ushort>();
         var until = DateTimeOffset.UtcNow.AddMinutes(options.DurationMinutes);
 
         while (!process.HasExited && DateTimeOffset.UtcNow < until)
         {
             ObserveGlobalState(handle, globalStatePointerAddress, ref previousGlobalState, ref previousComparison);
-            ObserveRelationMatrix(handle, countryManagerPointerAddress, previousPairs);
+            ObserveRelationMatrix(
+                handle,
+                countryManagerPointerAddress,
+                RawRelationMatrixOffset,
+                "rela",
+                previousRawPairs);
+            ObserveRelationMatrix(
+                handle,
+                countryManagerPointerAddress,
+                EffectiveRelationMatrixOffset,
+                "port-access token",
+                previousEffectivePairs);
             Thread.Sleep(PollMilliseconds);
         }
 
@@ -115,6 +129,8 @@ internal static class Program
     private static void ObserveRelationMatrix(
         SafeProcessHandle process,
         uint countryManagerPointerAddress,
+        int matrixOffset,
+        string label,
         IDictionary<(int First, int Second), ushort> previousPairs)
     {
         if (!TryReadUInt32(process, countryManagerPointerAddress, out var manager) || manager == 0)
@@ -125,7 +141,7 @@ internal static class Program
         foreach (var pair in SamplePairs)
         {
             var index = checked(pair.First * CountryCount + pair.Second);
-            var address = checked(manager + CountryRelationMatrixOffset + (uint)(index * sizeof(ushort)));
+            var address = checked(manager + (uint)matrixOffset + (uint)(index * sizeof(ushort)));
             if (!TryReadUInt16(process, address, out var value) ||
                 (previousPairs.TryGetValue(pair, out var previous) && previous == value))
             {
@@ -134,8 +150,8 @@ internal static class Program
 
             previousPairs[pair] = value;
             Console.WriteLine(
-                $"{Stamp()} rela[{pair.First},{pair.Second}] raw={value} signed={(short)value} " +
-                $"(country-manager+0x{CountryRelationMatrixOffset:X})");
+                $"{Stamp()} {label}[{pair.First},{pair.Second}] raw={value} signed={(short)value} " +
+                $"(country-manager+0x{matrixOffset:X})");
         }
     }
 

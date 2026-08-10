@@ -158,27 +158,28 @@ The decisive consumer is `UMap`'s `0x00513CA0`, called by the town/connection
 path at `0x005B7830`. It checks each of the six neighbouring cells. For adjacent
 ocean it calls `0x00561510`, which builds a country bit mask from qualifying
 task-force ships at that target and returns blocked only when an opposing eligible
-country is present **and the port owner's bit is absent** (with the diplomacy test
-at the same call site). More exactly, its country test resolves through
-`0x004EF590`: after validating the pair, it compares the signed 16-bit entry at
-`countryA * 23 + countryB` in the country's raw relation matrix against the
-runtime value returned by `0x0057D8B0` (global-state offset `+0x2C`). It blocks
-when those values differ. The loader setter is `0x004EFCB0`: it stores each
-record symmetrically at `[first * 23 + second]` and `[second * 23 + first]` in
-the signed 16-bit matrix at country manager `+0x79C`; values above 255 are
-clamped (and values below 50 take an additional eligibility path). Shipped `rela` records are the 253 unordered pairs
-among 23 countries and carry raw values such as 80 through 150 and 255; the
-runtime comparison value is **not** a diplomatic threshold. A controlled live
-run of the recovered original executable (MD5
-`7dc20de2f44b9425be072f360e614157`) observed that field at zero before scenario
-load, then 269 on reaching the map. It advanced independently through
-270–277 as map actions and blockade-resolution turns occurred, while the raw
-relation entries changed on their own timeline (for example, 100 to 49 and 129
-to 134). That agrees with the adjacent vtable method `0x0057D950`, which
-increments the field, and rules out treating it as a `rela` value or a guessed
-friendly/hostile threshold. Its exact owner and the call sites that assign the
-comparison identity remain open, so this predicate cannot yet be safely
-translated into modern port-access gameplay. This is the executable form of
+country is present **and the port owner's bit is absent**. It calls the country
+manager at `0x006A43D0` through vtable slot `+0x48` for each present foreign
+country and the port owner; a nonzero answer blocks the port. The raw scenario
+`rela` loader (`0x004EFCB0`) stores its 23 by 23 symmetric, signed-16-bit table
+at country manager `+0x79C`; values above 255 are clamped and values below 50
+take an additional eligibility path. The port virtual call resolves exactly to
+`0x004EF590`; it first invokes another pair predicate at `+0x44`, then compares
+a **separate** 23 by 23
+signed-16-bit effective-token table at `+0xFE0` with the value from global
+object vtable slot `+0x3C` (`0x0057D8B0` returns its `+0x2C` field).
+
+Shipped `rela` records are the 253 unordered pairs among 23 countries and carry
+raw values such as 80 through 150 and 255. A controlled live run of the
+recovered original executable (MD5 `7dc20de2f44b9425be072f360e614157`) observed
+the global comparison field at zero before scenario load, then 269 on reaching
+the map. It advanced independently through 270 to 277 as map actions and
+blockade-resolution turns occurred, while the raw `+0x79C` entries changed on
+their own timeline (for example, 100 to 49 and 129 to 134). That rules out
+treating the global field as a `rela` threshold. The same live session found
+`+0xFE0` samples of 271 and -1 while the comparison field was 281, confirming
+that it is a separate, initialized table; its non-constructor writer remains
+to be recovered. This is the executable form of
 undisputed enemy control: it is not a simple
 hostile-ship-presence rule. More precisely, the routine scans
 the global `TShip` list at `0x006A3EDC`; a ship qualifies only when its `UOcean`
