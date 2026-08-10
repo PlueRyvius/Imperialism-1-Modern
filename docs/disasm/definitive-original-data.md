@@ -156,6 +156,24 @@ target-indexed 16-bit manager field; the immediate tactical-launch path skips
 that write. The field has not yet been tied to province ownership or a later
 tactical completion callback, so it is not evidence for a capture rule.
 
+## Verified regiment health and recovery
+
+The source regiment's signed word at `+0x34` is its health. The tactical roster
+constructor at `0x005A5F20` copies that value into the tactical unit's two
+initial combat values, the automatic resolver reduces it and floors it at zero,
+and the battle report manual text identifies health as the persistent
+per-regiment value shown after a battle. This identifies the source field; it
+does **not** collapse the tactical damage and morale subfields into one value.
+
+The turn-processing pass at `0x004A1F80` iterates the original 384 province
+slots and their regiment lists. For a regiment whose source `+0x0c` word is
+`-1`, it adds exactly 100 to `+0x34`, capped at 500. The manual says that
+regiments which are not moving heal during their turn, which is consistent with
+this sentinel branch. The writer and full semantic name of `+0x0c` have not yet
+been recovered, so the exact executable-backed statement is the sentinel,
+amount, cap, and scheduling pass rather than a reconstructed movement-order
+model.
+
 ## Verified strategic auto-resolution loss loop
 
 The non-tactical branch in `0x004A2900` calls `0x004A8040` once for each side
@@ -175,9 +193,10 @@ and whose `+0x3a` bit 1 is clear. When either side has no such entry, it exits:
 if the first checked side still has one it receives the `+35` post-battle
 increment, otherwise the second side receives it; the other side receives
 `+20`. This is the exact termination and increment-selection control flow, not
-a player-facing interpretation of the fields. Their semantic names and the
-ownership/capture update are still unproven. Do not expose this loop as a
-finished tactical resolver or use it to infer those rules.
+a completed player-facing battle outcome. The `+0x34` field is regiment health,
+but the `+0x3a` bit 1 semantics and the ownership/capture update are still
+unproven. Do not expose this loop as a finished tactical resolver or use it to
+infer those rules.
 
 Before the loss loop, `0x004A3800` snapshots each entry's `+0x34` value into
 `+0x3c`. After the loop, `0x004A82B0` visits positive `+0x34` entries on both
