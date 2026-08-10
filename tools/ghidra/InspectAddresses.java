@@ -1,9 +1,10 @@
 // Prints Ghidra's symbols, references, and containing functions for a comma-separated
 // IMP_GHIDRA_ADDRESSES environment variable. IMP_GHIDRA_SKIP_RAW avoids the byte dump;
 // IMP_GHIDRA_DECOMPILE_GREP filters decompiled C lines (use | between terms), and
-// IMP_GHIDRA_INSTRUCTION_RANGE prints a bounded start:end assembly range. Derived
-// decompilation output stays outside the repository; this script is only the repeatable
-// inspection tool.
+// IMP_GHIDRA_INSTRUCTION_RANGE prints a bounded start:end assembly range, and
+// IMP_GHIDRA_FUNCTION_INSTRUCTION_GREP prints matching instructions in one function
+// (use | between terms). Derived decompilation output stays outside the repository;
+// this script is only the repeatable inspection tool.
 //
 // @category Imperialism
 
@@ -89,6 +90,36 @@ public class InspectAddresses extends GhidraScript {
                         break;
                     }
                     println(instruction.toString());
+                }
+            }
+        }
+
+        String functionInstructionGrep = System.getenv("IMP_GHIDRA_FUNCTION_INSTRUCTION_GREP");
+        if (functionInstructionGrep != null && !functionInstructionGrep.trim().isEmpty()) {
+            String[] parts = functionInstructionGrep.split(":", 2);
+            if (parts.length != 2) {
+                println("[InspectAddresses] IMP_GHIDRA_FUNCTION_INSTRUCTION_GREP must be address:term|term");
+            } else {
+                long raw = Long.parseLong(parts[0].trim().replace("0x", ""), 16);
+                Function function = getFunctionContaining(toAddr(raw));
+                if (function == null) {
+                    println(String.format("[InspectAddresses] no function contains %08X", raw));
+                } else {
+                    String[] patterns = parts[1].toLowerCase().split("\\|");
+                    println(String.format("=== FUNCTION INSTRUCTION GREP %08X: %s ===", raw, parts[1]));
+                    InstructionIterator instructions = currentProgram.getListing()
+                        .getInstructions(function.getBody(), true);
+                    while (instructions.hasNext()) {
+                        Instruction instruction = instructions.next();
+                        String text = instruction.toString();
+                        String normalized = text.toLowerCase();
+                        for (String pattern : patterns) {
+                            if (!pattern.isEmpty() && normalized.contains(pattern)) {
+                                println(text);
+                                break;
+                            }
+                        }
+                    }
                 }
             }
         }

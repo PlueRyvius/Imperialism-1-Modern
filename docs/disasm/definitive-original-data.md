@@ -156,6 +156,24 @@ target-indexed 16-bit manager field; the immediate tactical-launch path skips
 that write. The field has not yet been tied to province ownership or a later
 tactical completion callback, so it is not evidence for a capture rule.
 
+## Verified strategic auto-resolution loss loop
+
+The non-tactical branch in `0x004A2900` calls `0x004A8040` once for each side
+inside its battle loop. That routine first weights every eligible source stack
+by one or two according to its positive `+0x34` field relative to half of its
+`+0x3c` field. It then visits each eligible stack, advances the original PRNG,
+derives a small integer multiplier from the result modulo seven, and combines
+it with the unit's firepower table entry. The artillery flag at `0x00695428`
+takes the alternate half-multiplier branch. A flag-controlled round-scale
+array is exactly `[70, 80, 90, 90]`; the final integer loss is subtracted from
+the `+0x34` field and capped at zero.
+
+This is executable-backed evidence for ordering, PRNG use, artillery handling,
+and zero-capped strategic losses. The semantic names of the `+0x34`, `+0x3c`,
+and flag fields, the battle termination test, and the ownership/capture update
+are still unproven. Do not expose this loop as a finished tactical resolver or
+use it to infer those rules.
+
 The unattributed function at `0x005C4C60` is not the tactical resolver: its
 strings and caller form randomized battle-report prose. Do not use that range
 as evidence for tactical mechanics.
