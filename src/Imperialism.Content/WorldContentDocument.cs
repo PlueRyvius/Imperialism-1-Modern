@@ -372,14 +372,23 @@ public sealed class ShipContent
     public long Count { get; set; }
 }
 
-/// <summary>One army stack: a province, an original army-table type and a count.</summary>
+/// <summary>One regiment: a province, an original army-table type and experience.</summary>
 public sealed class ArmyContent
 {
     public string Province { get; set; } = string.Empty;
 
     public int Type { get; set; }
 
-    public long Count { get; set; }
+    /// <summary>
+    /// The original record's third field. The executable retains it in
+    /// hundredths, awards 20 or 35 after battle, and caps it at four medals.
+    /// </summary>
+    public long Experience { get; set; }
+
+    /// <summary>Version 24's incorrect public name for <see cref="Experience"/>.</summary>
+    [JsonPropertyName("count")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? LegacyCount { get; set; }
 }
 
 /// <summary>

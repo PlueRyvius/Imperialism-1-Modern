@@ -6,7 +6,7 @@ namespace Imperialism.Core.Tests;
 public sealed class TacticalBattleRosterTests
 {
     [Fact]
-    public void RosterPreservesSidesAndTheirStackOrder()
+    public void RosterPreservesSidesAndTheirRegimentOrder()
     {
         var roster = new TacticalBattleRoster(
             new ProvinceId(4),
@@ -27,20 +27,22 @@ public sealed class TacticalBattleRosterTests
     }
 
     [Fact]
-    public void RosterRejectsAnEmptySideSharedCountryOrEmptyStack()
+    public void RosterRejectsAnEmptySideSharedCountryOrWrongProvince()
     {
-        var stack = new InitialArmy(new ProvinceId(0), new ArmyTypeId(0), 1);
+        var regiment = new InitialArmy(new ProvinceId(0), new ArmyTypeId(0), 1);
 
         Assert.Throws<ArgumentException>(() => new TacticalBattleRoster(
-            new ProvinceId(0), new CountryId(0), new CountryId(0), [stack], [stack]));
+            new ProvinceId(0), new CountryId(0), new CountryId(0), [regiment], [regiment]));
         Assert.Throws<ArgumentException>(() => new TacticalBattleRoster(
-            new ProvinceId(0), new CountryId(0), new CountryId(1), [], [stack]));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new TacticalBattleRoster(
+            new ProvinceId(0), new CountryId(0), new CountryId(1), [], [regiment]));
+        var inexperiencedRegiment = new InitialArmy(new ProvinceId(0), new ArmyTypeId(0), 0);
+        var roster = new TacticalBattleRoster(
             new ProvinceId(0), new CountryId(0), new CountryId(1),
-            [new InitialArmy(new ProvinceId(0), new ArmyTypeId(0), 0)], [stack]));
+            [inexperiencedRegiment], [regiment]);
+        Assert.Single(roster.Attackers);
         Assert.Throws<ArgumentException>(() => new TacticalBattleRoster(
             new ProvinceId(0), new CountryId(0), new CountryId(1),
-            [new InitialArmy(new ProvinceId(1), new ArmyTypeId(0), 1)], [stack]));
+            [new InitialArmy(new ProvinceId(1), new ArmyTypeId(0), 1)], [regiment]));
     }
 
     [Theory]

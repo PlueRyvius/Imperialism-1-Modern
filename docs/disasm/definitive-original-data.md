@@ -128,9 +128,9 @@ The artillery flag is set exactly for the six artillery records. The role-slot t
 
 ## Verified tactical roster and AI boundary
 
-The original scenario `army` record is `[province, type, count]`, with `type`
-zero-based into the 30-row table above. It supplies a province stack; it does
-not carry a duplicate owner. The original battle setup at `0x005A4790` creates
+The original scenario `army` record is `[province, type, experience]`, with
+`type` zero-based into the 30-row table above. Each record is one regiment; it
+does not carry a duplicate owner. The original battle setup at `0x005A4790` creates
 two side controllers in fixed input order: its first side is marked `1` and
 its second side `0`. For each side it invokes `0x0059B1B0`, which iterates the
 source army list and allocates one 0x58-byte tactical unit object per source
@@ -139,9 +139,9 @@ creates the parent battle object, calls that setup, then hands control to the
 parent's virtual lifecycle entry at `0x0059FC20`.
 
 `0x005A5F20` preserves the source stack's type field and converts its stored
-quantity by integer division by 100 for the tactical unit. The scenario writer
-at `0x004A2900` uses the same conversion when it emits the `army` count. A
-stack therefore stays one tactical unit object with a quantity; it is not
+experience by integer division by 100 for the tactical unit. The scenario
+writer at `0x004A2900` uses the same conversion when it emits the third `army`
+field. A regiment therefore stays one tactical unit object; it is not
 expanded into one object per soldier.
 
 `UTacPlayer`'s decision callback at `0x0059C440` consumes those side rosters,
@@ -177,12 +177,13 @@ use it to infer those rules.
 Before the loss loop, `0x004A3800` snapshots each entry's `+0x34` value into
 `+0x3c`. After the loop, `0x004A82B0` visits positive `+0x34` entries on both
 sides. Its flag argument selects an exact `+20` or `+35` adjustment to the
-stored `+0x38` quantity, capped at 400. The surviving side takes the `+35`
-branch and the other takes `+20`. The scenario writer divides that quantity by
-100 when emitting the third `army` field; the original corpus confirms those
-imported fields are the small stack counts (typically 1--4). This proves the
-hundredths representation, survivor selection, and post-battle adjustment,
-but not a player-facing experience label or a completed capture outcome.
+stored `+0x38` experience, capped at 400. The surviving side takes the `+35`
+branch and the other takes `+20`. The scenario writer divides that experience
+by 100 when emitting the third `army` field; the original corpus holds small
+values (typically 1--4), and the manual's one-medal-per-three-victories/
+five-defeats cadence independently matches the recovered adjustments. This
+proves the hundredths representation, survivor selection, and experience
+adjustment, but not a completed capture outcome.
 
 The unattributed function at `0x005C4C60` is not the tactical resolver: its
 strings and caller form randomized battle-report prose. Do not use that range

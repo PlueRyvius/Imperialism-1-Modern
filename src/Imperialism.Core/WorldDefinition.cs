@@ -493,7 +493,7 @@ public sealed class WorldDefinition
                     nameof(scenario));
             }
 
-            ArgumentOutOfRangeException.ThrowIfNegative(army.Count);
+            ArgumentOutOfRangeException.ThrowIfNegative(army.Experience);
         }
 
         foreach (var ship in startingDefaults?.Ships ?? [])

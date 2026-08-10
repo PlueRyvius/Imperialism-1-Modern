@@ -687,9 +687,9 @@ public static class WorldContentCompiler
         {
             var entryPath = $"{path}.armies[{index}]";
             var entry = armyEntries[index] ?? throw Error(entryPath, "Value is required.");
-            if (entry.Count <= 0)
+            if (entry.Experience < 0)
             {
-                throw Error($"{entryPath}.count", "An army stack of nothing is the absence of a record.");
+                throw Error($"{entryPath}.experience", "Army experience cannot be negative.");
             }
 
             try
@@ -697,7 +697,7 @@ public static class WorldContentCompiler
                 armies.Add(new InitialArmy(
                     new ProvinceId(FindKey(provinceIds, entry.Province, $"{entryPath}.province")),
                     new ArmyTypeId(entry.Type),
-                    entry.Count));
+                    entry.Experience));
             }
             catch (ArgumentOutOfRangeException exception)
             {

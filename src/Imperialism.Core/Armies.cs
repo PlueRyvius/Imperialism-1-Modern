@@ -1,14 +1,14 @@
 namespace Imperialism.Core;
 
 /// <summary>
-/// One army stack placed by a scenario. The original <c>army</c> record is
-/// <c>[province, type, count]</c>; ownership is deliberately read from the
-/// province rather than duplicated here.
+/// One regiment placed by a scenario. The original <c>army</c> record is
+/// <c>[province, type, experience]</c>; ownership is deliberately read from
+/// the province rather than duplicated here.
 /// </summary>
 public readonly record struct InitialArmy(
     ProvinceId Province,
     ArmyTypeId Type,
-    long Count);
+    long Experience);
 
 /// <summary>
 /// A validated, headless tactical-battle input. It deliberately contains no
@@ -71,16 +71,10 @@ public sealed class TacticalBattleRoster
             if (army.Province != province)
             {
                 throw new ArgumentException(
-                    "Every tactical battle stack must be in the battle province.",
+                    "Every tactical battle regiment must be in the battle province.",
                     parameterName);
             }
 
-            if (army.Count <= 0)
-            {
-                throw new ArgumentOutOfRangeException(
-                    parameterName,
-                    "A tactical battle stack must contain at least one unit.");
-            }
         }
     }
 }

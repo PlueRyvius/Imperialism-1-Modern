@@ -1070,7 +1070,7 @@ public sealed class LegacyWorldConverterTests
 
     /// <summary>
     /// <c>army</c> records convert without inventing an owner, unit name, or
-    /// battle rule. The record is <c>[province, type, count]</c>; the type is
+    /// battle rule. The record is <c>[province, type, experience]</c>; the type is
     /// the executable's zero-based 30-row army-table index.
     /// </summary>
     [Fact]
@@ -1093,9 +1093,10 @@ public sealed class LegacyWorldConverterTests
 
         Assert.True(result.Success, result.Report.ToHumanReadable());
         Assert.Equal(
-            [("province.legacy.00000", 0, 4L), ("province.legacy.00000", 8, 2L)],
+            [("province.legacy.00000", 0, 4L), ("province.legacy.00000", 8, 2L),
+             ("province.legacy.00000", 7, 0L)],
             result.Document!.Scenarios[0].Armies
-                .Select(static item => (item.Province, item.Type, item.Count)));
+                .Select(static item => (item.Province, item.Type, item.Experience)));
         Assert.Contains(
             result.Report.Diagnostics,
             static item => item.Code == "scenario.unknown-army-type");
@@ -1103,8 +1104,9 @@ public sealed class LegacyWorldConverterTests
 
         var armies = WorldContentCompiler.Compile(result.Document).World.Scenario.InitialArmies;
         Assert.Equal(
-            [(new ProvinceId(0), new ArmyTypeId(0), 4L), (new ProvinceId(0), new ArmyTypeId(8), 2L)],
-            armies.Select(static item => (item.Province, item.Type, item.Count)));
+            [(new ProvinceId(0), new ArmyTypeId(0), 4L), (new ProvinceId(0), new ArmyTypeId(8), 2L),
+             (new ProvinceId(0), new ArmyTypeId(7), 0L)],
+            armies.Select(static item => (item.Province, item.Type, item.Experience)));
     }
 
     [Fact]

@@ -239,7 +239,9 @@ country receives one of each type, and every Forester stands on forest, every
 Rancher on wool hill or cattle ranch. **A civilian's owner is whoever owns the
 cell it stands on**, which means moving one across a border changes its side.
 
-`army` is `[province, type, count]` and `ship` is `[country, type, zone, count]`.
+`army` is `[province, type, experience]`: each record is one regiment and the
+third field is its experience/medal progression value. `ship` is `[country,
+type, zone, count]`.
 
 **A `ship` record's type is a 1-based index into the game's ship array, verified.** Read as
 0-based it grants a Clipper — which needs Streamlined Hulls — to an 1816 skirmish power

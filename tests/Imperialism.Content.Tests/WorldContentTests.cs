@@ -322,7 +322,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(25)]
+    [InlineData(26)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1645,13 +1645,45 @@ public sealed class WorldContentTests
     }
 
     [Fact]
-    public void ScenarioArmiesPreserveTheOriginalZeroBasedTypeAndSourceOrder()
+    public void VersionTwentyFourArmyCountMigratesToExperience()
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].Armies =
+        [new ArmyContent { Province = "province.west", Type = 0, Experience = 4 }];
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 24)
+            .Replace("\"experience\": 4", "\"count\": 4", StringComparison.Ordinal);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.Equal(4, migrated.Scenarios[0].Armies[0].Experience);
+        Assert.Null(migrated.Scenarios[0].Armies[0].LegacyCount);
+        Assert.DoesNotContain("\"count\"", Encoding.UTF8.GetString(WorldContentCodec.Encode(migrated)));
+    }
+
+    [Fact]
+    public void CurrentVersionRejectsTheRetiredArmyCountName()
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].Armies =
+        [new ArmyContent { Province = "province.west", Type = 0, Experience = 4 }];
+        var json = Encoding.UTF8.GetString(WorldContentCodec.Encode(document))
+            .Replace("\"experience\": 4", "\"count\": 4", StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+
+        Assert.Equal("scenarios[0].armies[0].count", exception.Path);
+    }
+
+    [Fact]
+    public void ScenarioArmiesPreserveTheOriginalZeroBasedTypeExperienceAndSourceOrder()
     {
         var document = CreateValidDocument();
         document.Scenarios[0].Armies =
         [
-            new ArmyContent { Province = "province.east", Type = 8, Count = 4 },
-            new ArmyContent { Province = "province.west", Type = 0, Count = 7 },
+            new ArmyContent { Province = "province.east", Type = 8, Experience = 4 },
+            new ArmyContent { Province = "province.west", Type = 0, Experience = 0 },
         ];
 
         var encoded = WorldContentCodec.Encode(document);
@@ -1659,8 +1691,18 @@ public sealed class WorldContentTests
         var armies = WorldContentCompiler.Compile(decoded).World.Scenario.InitialArmies;
 
         Assert.Equal(
-            [(new ProvinceId(1), new ArmyTypeId(8), 4L), (new ProvinceId(0), new ArmyTypeId(0), 7L)],
-            armies.Select(static item => (item.Province, item.Type, item.Count)));
+            [(new ProvinceId(1), new ArmyTypeId(8), 4L), (new ProvinceId(0), new ArmyTypeId(0), 0L)],
+            armies.Select(static item => (item.Province, item.Type, item.Experience)));
+    }
+
+    [Fact]
+    public void ScenarioArmyRejectsNegativeExperience()
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].Armies =
+        [new ArmyContent { Province = "province.west", Type = 0, Experience = -1 }];
+
+        AssertPath("scenarios[0].armies[0].experience", document);
     }
 
     [Theory]
@@ -1670,7 +1712,7 @@ public sealed class WorldContentTests
     {
         var document = CreateValidDocument();
         document.Scenarios[0].Armies =
-        [new ArmyContent { Province = "province.west", Type = type, Count = 1 }];
+        [new ArmyContent { Province = "province.west", Type = type, Experience = 1 }];
 
         AssertPath("scenarios[0].armies[0].type", document);
     }

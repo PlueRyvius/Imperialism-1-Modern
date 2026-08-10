@@ -1493,7 +1493,7 @@ public static class LegacyWorldConverter
     }
 
     /// <summary>
-    /// Preserves original <c>army</c> records as <c>[province, type, count]</c>.
+    /// Preserves original <c>army</c> records as <c>[province, type, experience]</c>.
     /// The type is zero-based and indexes the executable's verified 30-row
     /// army table; ownership is intentionally not copied, because it is the
     /// province-owner record that supplies it.
@@ -1518,13 +1518,13 @@ public static class LegacyWorldConverter
                     LegacyImportSeverity.Error,
                     "scenario.invalid-army",
                     path,
-                    "An army record must contain a province, a type and a count.");
+                    "An army record must contain a province, a type and an experience value.");
                 continue;
             }
 
             var province = record.Fields[0];
             var type = record.Fields[1];
-            var count = record.Fields[2];
+            var experience = record.Fields[2];
             if (!provinceKeys.TryGetValue(province, out var provinceKey))
             {
                 report.Add(
@@ -1542,12 +1542,7 @@ public static class LegacyWorldConverter
                     "scenario.unknown-army-type",
                     path,
                     $"Army type {type} is outside the table of {ArmyTypeId.OriginalTypeCount}; " +
-                    "no army stack was placed.");
-                continue;
-            }
-
-            if (count == 0)
-            {
+                    "no army regiment was placed.");
                 continue;
             }
 
@@ -1555,7 +1550,7 @@ public static class LegacyWorldConverter
             {
                 Province = provinceKey,
                 Type = (int)type,
-                Count = count,
+                Experience = experience,
             });
         }
 

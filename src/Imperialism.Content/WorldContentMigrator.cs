@@ -126,6 +126,16 @@ internal static class WorldContentMigrator
             MigrateVersionTwentyThreeToTwentyFour(document);
         }
 
+        if (document.FormatVersion == 24)
+        {
+            MigrateVersionTwentyFourToTwentyFive(document);
+        }
+
+        if (document.FormatVersion == WorldContentCodec.CurrentVersion)
+        {
+            RejectLegacyArmyCount(document);
+        }
+
         return document;
     }
 
@@ -1017,6 +1027,63 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 24;
+    }
+
+    /// <summary>
+    /// Version 25 corrects the third original <c>army</c> field from count to
+    /// experience. The version 24 importer retained the raw value exactly, so
+    /// migration is a rename only; it does not alter an army or invent a
+    /// regiment quantity.
+    /// </summary>
+    private static void MigrateVersionTwentyFourToTwentyFive(WorldContentDocument document)
+    {
+        for (var scenarioIndex = 0; scenarioIndex < (document.Scenarios?.Length ?? 0); scenarioIndex++)
+        {
+            var scenario = document.Scenarios![scenarioIndex];
+            if (scenario?.Armies is not { } armies)
+            {
+                continue;
+            }
+
+            for (var index = 0; index < armies.Length; index++)
+            {
+                var army = armies[index] ?? throw new ContentValidationException(
+                    $"scenarios[{scenarioIndex}].armies[{index}]", "Value cannot be null.");
+                if (army.LegacyCount is not { } experience)
+                {
+                    throw new ContentValidationException(
+                        $"scenarios[{scenarioIndex}].armies[{index}].count",
+                        "Version 24 army records require a count value.");
+                }
+
+                army.Experience = experience;
+                army.LegacyCount = null;
+            }
+        }
+
+        document.FormatVersion = 25;
+    }
+
+    private static void RejectLegacyArmyCount(WorldContentDocument document)
+    {
+        for (var scenarioIndex = 0; scenarioIndex < (document.Scenarios?.Length ?? 0); scenarioIndex++)
+        {
+            var scenario = document.Scenarios![scenarioIndex];
+            if (scenario?.Armies is not { } armies)
+            {
+                continue;
+            }
+
+            for (var index = 0; index < armies.Length; index++)
+            {
+                if (armies[index]?.LegacyCount is not null)
+                {
+                    throw new ContentValidationException(
+                        $"scenarios[{scenarioIndex}].armies[{index}].count",
+                        "Version 25 army records use experience, not count.");
+                }
+            }
+        }
     }
 
     private static string CreateCommodityKey(string resourceKey) =>
