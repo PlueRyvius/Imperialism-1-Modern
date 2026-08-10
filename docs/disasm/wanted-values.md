@@ -223,6 +223,20 @@ state 3 as `patrolling` and state 6 as `blockading`; notably, the port predicate
 accepts states 3 and 4, not state 6. State 4 is produced by the manager refresh
 at `0x00557560`, but its player-facing semantic remains unproven.
 
+Actions 14 and 16 are now separated more sharply than their UI names alone
+suggest. Action 14 resolves the selected target through `0x005633B0`, which
+returns either a `TPortZone` for eligible port geometry or an ocean node for a
+sea-region cell, then assigns state 6. Action 16 instead resolves the selected
+land target through `0x00563360` and assigns state 5. During navy resolution,
+`0x005578A0` sends every state-5 task force through `0x00556100`, which marks
+one owner bit at the selected target's `+0xA1`, and then immediately invokes
+`0x00558960` twice. That is a separate, large land-conflict resolver; no direct
+ownership write occurs in the naval state-5 handler. State 6 is likewise not a
+simple port switch: `0x005578A0` feeds blockaders into the randomized naval
+interaction helpers `0x00555720`, `0x00555920`, and `0x00555D10`. Therefore
+landing outcomes and blockade effects remain deferred with naval combat, while
+the state assignments themselves are recovered.
+
 The same phase routine at `0x0057F280` performs its per-power updates, then calls
 the `TNavyMgr` refresh at `0x005577B0` (which calls `0x00557560`), followed by
 `0x005578A0`. The latter resolves interactions among task forces, includes a
