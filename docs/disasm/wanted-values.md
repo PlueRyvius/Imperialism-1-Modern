@@ -168,11 +168,18 @@ record symmetrically at `[first * 23 + second]` and `[second * 23 + first]` in
 the signed 16-bit matrix at country manager `+0x79C`; values above 255 are
 clamped (and values below 50 take an additional eligibility path). Shipped `rela` records are the 253 unordered pairs
 among 23 countries and carry raw values such as 80 through 150 and 255; the
-runtime comparison value's lifecycle is still open: its constructor does not
-explicitly assign the field, while the adjacent vtable method `0x0057D950`
-increments it. Its callers are not yet recovered, so the comparison must not
-be simplified to a guessed friendly/hostile threshold. This is the
-executable form of undisputed enemy control: it is not a simple
+runtime comparison value is **not** a diplomatic threshold. A controlled live
+run of the recovered original executable (MD5
+`7dc20de2f44b9425be072f360e614157`) observed that field at zero before scenario
+load, then 269 on reaching the map. It advanced independently through
+270–277 as map actions and blockade-resolution turns occurred, while the raw
+relation entries changed on their own timeline (for example, 100 to 49 and 129
+to 134). That agrees with the adjacent vtable method `0x0057D950`, which
+increments the field, and rules out treating it as a `rela` value or a guessed
+friendly/hostile threshold. Its exact owner and the call sites that assign the
+comparison identity remain open, so this predicate cannot yet be safely
+translated into modern port-access gameplay. This is the executable form of
+undisputed enemy control: it is not a simple
 hostile-ship-presence rule. More precisely, the routine scans
 the global `TShip` list at `0x006A3EDC`; a ship qualifies only when its `UOcean`
 at `+0x08` is the target, its `TTaskForce*` at `+0x0C` is non-null and active
