@@ -5,6 +5,11 @@
 reference to the legacy codecs or importer. Convert legacy inputs separately,
 then open the resulting modern package.
 
+**This document covers the map itself.** The map is now one screen inside a
+shell rather than the whole client, and the shell's screens, theme, status
+border and smoke gates are in `docs/gui-shell.md`. Where the two disagree about
+the client's structure, that one is newer.
+
 ## Architecture
 
 The viewer is split at an intentionally narrow engine boundary:
@@ -44,12 +49,17 @@ play presentation and for later economy, transport, AI, and editor inspection.
 | Home | Fit the whole map |
 | Left click | Pin a cell in the inspector |
 | Hover | Temporarily inspect a cell |
-| Probe state (debug mode) | Cycle sample ownership and rail state |
+| Probe state | Cycle sample ownership and rail state |
 
-The scenario picker switches among every scenario embedded in one `.iworld`
-package without rebuilding or reimporting its shared map. The debug state probe
-is a development harness, not a gameplay command; it proves that mutable Core
-state reaches the ownership and feature layers independently of gameplay orders.
+The debug state probe is a development harness, not a gameplay command; it
+proves that mutable Core state reaches the ownership layer, the feature layer
+and now the status border, independently of any gameplay order existing.
+
+The scenario picker is gone. A scenario is chosen once at startup with
+`--scenario <key>`, because a session now carries a country as well as a
+scenario and switching one mid-game would silently discard the other. A picker
+belongs on a start screen, which this slice does not build; see the open
+questions in `docs/gui-shell.md`.
 
 ## Asset policy
 
