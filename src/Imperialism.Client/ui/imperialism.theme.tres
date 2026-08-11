@@ -21,6 +21,7 @@ default_font_size = 11
 Button/colors/font_color = Color(0.16, 0.12, 0.07, 1)
 Button/colors/font_hover_color = Color(0.09, 0.07, 0.04, 1)
 Button/colors/font_pressed_color = Color(0.09, 0.07, 0.04, 1)
+Button/colors/font_focus_color = Color(0.16, 0.12, 0.07, 1)
 Button/colors/font_disabled_color = Color(0.45, 0.41, 0.35, 1)
 Button/font_sizes/font_size = 11
 Button/styles/normal = ExtResource("1_plate")
@@ -70,6 +71,15 @@ ImperialismScreenTitle/base_type = &"Label"
 ImperialismScreenTitle/fonts/font = ExtResource("6_display")
 ImperialismScreenTitle/colors/font_color = Color(0.18, 0.13, 0.07, 1)
 ImperialismScreenTitle/font_sizes/font_size = 18
+
+ImperialismSectionHeading/base_type = &"Label"
+ImperialismSectionHeading/fonts/font = ExtResource("6_display")
+ImperialismSectionHeading/colors/font_color = Color(0.2, 0.14, 0.07, 1)
+ImperialismSectionHeading/font_sizes/font_size = 12
+
+ImperialismQuiet/base_type = &"Label"
+ImperialismQuiet/colors/font_color = Color(0.42, 0.36, 0.27, 1)
+ImperialismQuiet/font_sizes/font_size = 9
 
 ImperialismHotText/base_type = &"Label"
 ImperialismHotText/colors/font_color = Color(0.95, 0.91, 0.78, 1)

@@ -28,9 +28,11 @@ public sealed partial class GameShell : Control
     private Label? _screenTitle;
     private VBoxContainer? _leftTabs;
     private VBoxContainer? _rightTabs;
+    private TurnReportScreen? _turnReport;
     private ShellScreen _current = ShellScreen.TerrainMap;
     private bool _smokeTest;
     private bool _smokeScreens;
+    private bool _smokeTurn;
     private string? _screenshotDirectory;
 
     public override void _Ready()
@@ -39,6 +41,7 @@ public sealed partial class GameShell : Control
         var arguments = OS.GetCmdlineUserArgs();
         _smokeTest = arguments.Contains("--smoke-test", StringComparer.Ordinal);
         _smokeScreens = arguments.Contains("--smoke-screens", StringComparer.Ordinal);
+        _smokeTurn = arguments.Contains("--smoke-turn", StringComparer.Ordinal);
         _screenshotDirectory = ReadArgument(arguments, "--screenshot");
         var worldPath = ReadArgument(arguments, "--world") ?? DefaultWorldPath;
 
@@ -53,7 +56,7 @@ public sealed partial class GameShell : Control
             StartSession(
                 ReadArgument(arguments, "--scenario") ?? _package.ScenarioKeys[0],
                 ReadArgument(arguments, "--country"));
-            if (_smokeTest || _smokeScreens || _screenshotDirectory is not null)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _screenshotDirectory is not null)
             {
                 CallDeferred(nameof(FinishSmoke));
             }
@@ -61,7 +64,7 @@ public sealed partial class GameShell : Control
         catch (Exception exception)
         {
             GD.PushError($"Could not load world package '{worldPath}': {exception.Message}");
-            if (_smokeTest || _smokeScreens)
+            if (_smokeTest || _smokeScreens || _smokeTurn)
             {
                 GetTree().Quit(1);
                 return;
@@ -73,6 +76,21 @@ public sealed partial class GameShell : Control
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        // While the report is up, the only key that does anything is the one
+        // that closes it. Without this the function keys navigate the stack
+        // behind the modal, and the player dismisses into a screen they never
+        // chose.
+        if (_turnReport is { Visible: true })
+        {
+            if (@event.IsActionPressed("shell_back"))
+            {
+                _turnReport.Dismiss();
+                AcceptEvent();
+            }
+
+            return;
+        }
+
         foreach (var screen in ShellScreens.All)
         {
             if (@event.IsActionPressed(ShellScreens.ActionName(screen)))
@@ -149,13 +167,25 @@ public sealed partial class GameShell : Control
 
         BuildScreens();
         BuildTabs();
+
+        // Added after the frame so it covers the status border too. While a
+        // report is up, nothing behind it is worth interacting with.
+        _turnReport = new TurnReportScreen();
+        _turnReport.Dismissed += () =>
+        {
+            ((TerrainMapScreen)_screens[ShellScreen.TerrainMap]).AllowAnotherTurn();
+            Navigate(ShellScreen.TerrainMap);
+        };
+        AddChild(_turnReport);
     }
 
     private void BuildScreens()
     {
         // The manual specifies each of these; the stubs quote where, so the next
         // person to implement one starts from the rules rather than from a guess.
-        _screens[ShellScreen.TerrainMap] = new TerrainMapScreen();
+        var terrainMap = new TerrainMapScreen();
+        terrainMap.TurnEndRequested += EndTurn;
+        _screens[ShellScreen.TerrainMap] = terrainMap;
         _screens[ShellScreen.Transport] = StubScreen.Create(
             "Transport",
             "Commodity sliders against one shared capacity bar, in the order the player sets them. " +
@@ -281,6 +311,16 @@ public sealed partial class GameShell : Control
         SetHotText(string.Empty);
     }
 
+    private void EndTurn()
+    {
+        if (_session is null || _turnReport is null)
+        {
+            return;
+        }
+
+        _turnReport.Present(_session.EndTurn());
+    }
+
     private void SetHotText(string text)
     {
         if (_hotText is not null)
@@ -305,8 +345,62 @@ public sealed partial class GameShell : Control
             await CaptureEveryScreen(_screenshotDirectory);
         }
 
+        if (_smokeTurn || _screenshotDirectory is not null)
+        {
+            // Resolving moves the world, so it happens after the six screen
+            // shots or they would disagree with each other.
+            var turnOk = await ReportTurnSmoke(_screenshotDirectory);
+            if (_smokeTurn)
+            {
+                GetTree().Quit(turnOk ? 0 : 1);
+                return;
+            }
+        }
+
         var ok = _smokeScreens ? ReportScreenSmoke() : ReportViewerSmoke();
         GetTree().Quit(ok ? 0 : 1);
+    }
+
+    /// <summary>
+    /// Ends a turn the way the button does and checks that something happened.
+    /// </summary>
+    /// <remarks>
+    /// <c>events=0</c> is the assertion that matters. A turn nobody gave an
+    /// order in still gathers, carries, feeds and delivers, so a pipeline that
+    /// resolves and reports nothing is broken rather than quiet.
+    ///
+    /// This is its own mode with its own prefix. Folding it into
+    /// <c>--smoke-test</c> would move that line's <c>statusCash</c> and
+    /// <c>statusWorkers</c>, and those are published.
+    /// </remarks>
+    private async Task<bool> ReportTurnSmoke(string? screenshotDirectory)
+    {
+        Navigate(ShellScreen.TerrainMap);
+        EndTurn();
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+
+        var report = _session!.LastReport;
+        var shown = _turnReport is { Visible: true } && _turnReport.Size.X > 0;
+        if (screenshotDirectory is not null && shown)
+        {
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            GetViewport().GetTexture().GetImage().SavePng($"{screenshotDirectory}/turnreport.png");
+        }
+
+        _turnReport?.Dismiss();
+        var dismissed = _turnReport is { Visible: false } && _current == ShellScreen.TerrainMap;
+
+        GD.Print(string.Create(
+            CultureInfo.InvariantCulture,
+            $"TURN_SMOKE_OK turn={report?.TurnNumber} from={report?.StartedAt} to={report?.EndedAt} " +
+            $"events={report?.EventCount} phases={report?.Phases.Count} lines={report?.LineCount} " +
+            $"reportVisible={(shown ? "yes" : "no")} dismissed={(dismissed ? "yes" : "no")} " +
+            $"country={_session.Status.CountryKey} seed={report?.Seed}"));
+
+        return report is { EventCount: > 0, LineCount: > 0 } &&
+            report.Phases.Count == 14 &&
+            shown &&
+            dismissed;
     }
 
     /// <summary>

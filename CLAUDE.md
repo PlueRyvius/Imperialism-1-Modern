@@ -202,10 +202,18 @@ a per-cell path-shape code, not an edge mask; see `docs/legacy-importer.md`.
 
 `src/Imperialism.Presentation/` keeps map projection, deterministic picking,
 immutable map presentation, and detached mutable-state snapshots testable
-without Godot. `src/Imperialism.Client/` is the single Godot 4.7.1 project. It
-reads only `.iworld`, uses batched cell rendering, updates ownership and dynamic
-features without rebuilding terrain, and offers normal and debug-overlay modes;
-see `docs/map-viewer.md`.
+without Godot. It also renders a resolved turn's events into the sentences a
+player reads, because `HexMapProjectionTests` forbids Godot there and
+`architecture.md` forbids a client script computing a game number.
+`src/Imperialism.Client/` is the single Godot 4.7.1 project. It reads only
+`.iworld`, uses batched cell rendering, updates ownership and dynamic features
+without rebuilding terrain, and offers normal and debug-overlay modes; see
+`docs/map-viewer.md`.
+
+**The client ends turns now, and every country submits empty orders.** No orders
+screen exists and nothing plays the other powers, so a rival that gathered its
+harvest and did nothing else is the engine as it stands rather than a bug. The
+turn report says so on its own face. See `docs/gui-shell.md`.
 
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an

@@ -92,11 +92,12 @@ whenever it's wanted.
 
 The viewer updates current ownership, rails, capitals, and quarterly date without
 rebuilding immutable terrain or resetting camera and selection. The client is now
-a shell in the original's own artwork — six screens, tabs down both edges, and a
-status border reading a country's treasury, labour, workforce and network; see
-`docs/gui-shell.md`. Map tile art is still an optional local source with the
-procedural palette as its fallback. The next shortest-path milestone is the
-Phase 3 transport graph and deterministic turn skeleton.
+a shell in the original's own artwork — six screens, tabs down both edges, a
+status border reading a country's treasury, labour, workforce and network, and an
+End Turn button that resolves a turn and reports what every phase did. No orders
+screen exists yet, so every country including the player's submits empty orders
+and nothing plays the other powers; see `docs/gui-shell.md`. Map tile art is
+still an optional local source with the procedural palette as its fallback.
 
 **Phase 3 status: in progress.**
 
