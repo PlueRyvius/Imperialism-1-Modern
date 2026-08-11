@@ -20,6 +20,7 @@ public sealed partial class TerrainMapScreen : Control, IShellScreen
     private SubViewport? _viewport;
     private RichTextLabel? _cellInfo;
     private CheckButton? _debugToggle;
+    private Button? _endTurn;
     private CellIndex? _hovered;
     private CellIndex? _selected;
 
@@ -28,6 +29,12 @@ public sealed partial class TerrainMapScreen : Control, IShellScreen
         Name = "TerrainMapScreen";
         SetAnchorsPreset(LayoutPreset.FullRect);
     }
+
+    /// <summary>
+    /// Raised when the player commits the turn. The screen does not resolve it
+    /// and does not know a report exists; modality is the shell's business.
+    /// </summary>
+    public event Action? TurnEndRequested;
 
     public string Title => "Terrain Map";
 
@@ -188,7 +195,32 @@ public sealed partial class TerrainMapScreen : Control, IShellScreen
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
             Text = "Pan: middle/right drag or arrows · Zoom: wheel · Fit: Home · Select: left click",
         });
+
+        // The manual puts this control in one place and only one: "The End Turn
+        // button appears only on the Terrain Map screen at the bottom of the
+        // toolbar", and elsewhere, "in the lower right".
+        _endTurn = new Button
+        {
+            Text = "End Turn",
+            SizeFlagsVertical = SizeFlags.ShrinkEnd,
+            TooltipText = "When you click here, you are committed.",
+        };
+        _endTurn.Pressed += () =>
+        {
+            _endTurn.Disabled = true;
+            TurnEndRequested?.Invoke();
+        };
+        column.AddChild(_endTurn);
         return column;
+    }
+
+    /// <summary>Lets the shell hand the turn back to the player once the report is read.</summary>
+    public void AllowAnotherTurn()
+    {
+        if (_endTurn is not null)
+        {
+            _endTurn.Disabled = false;
+        }
     }
 
     private void ApplyState()
