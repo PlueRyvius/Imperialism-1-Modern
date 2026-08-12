@@ -16,6 +16,7 @@ public sealed class ExtractionTests
 
     /// <summary>Commodity index inside the port fixture, which has only fish.</summary>
     private const int Fish = 0;
+    private const int RiverGrain = 1;
 
     [Fact]
     public void DepositsOnTheCapitalRailNetworkAreGatheredWithinTheCatchment()
@@ -320,19 +321,151 @@ public sealed class ExtractionTests
     [Fact]
     public void ARiverPortFishesJustLikeACoastalOne()
     {
-        // Cell 1 touches no sea at all; its only water is the river on cell 2.
-        // 45 of the corpus's 124 ports are inland like this, so a rule that gave
-        // them nothing would quietly waste a third of the ports ever authored.
-        var state = CreatePortState(ports: [1], extraRails: [(0, 1)]);
+        // Cell 1 touches no sea at all. Its river reaches the mouth at cell 3
+        // through cell 2, which is the real condition for an inland port.
+        var state = CreateRiverPortState();
 
         var extraction = Assert.Single(
             TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
                 .Events.OfType<ResourceExtractedEvent>());
 
+        // The capital is an implicit harbour too, so its adjacent river counts
+        // separately from the actual inland port.
+        Assert.Equal(2, extraction.FishingPortCount);
+        Assert.Contains(
+            new CommodityQuantity(new CommodityId(Fish), 2),
+            extraction.Collected);
+        Assert.Contains(
+            new CommodityQuantity(new CommodityId(RiverGrain), 1),
+            extraction.Collected);
+    }
+
+    [Fact]
+    public void AnEffectiveHostilePatrolStrandsACoastalPortUnlessAFriendlyPatrolIsPresent()
+    {
+        var state = CreatePortState(
+            ports: [2],
+            initialShips:
+            [
+                new InitialShip(new CountryId(1), new ShipTypeId(0), 0, 1),
+                new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1),
+            ]);
+        var hostile = state.AssembleTaskForce(new CountryId(1), [new FleetId(1)]);
+        _ = state.AssembleTaskForce(new CountryId(0), [new FleetId(2)]);
+        state.PatrolTaskForce(new CountryId(1), hostile.Id);
+        state.SetRelationMode(new CountryId(1), new CountryId(0), CountryRelationMode.Hostile);
+
+        // The original setter stamps the current sequence; its hostile effect
+        // starts only after a turn advances that sequence.
+        _ = TurnResolver.Resolve(state, TurnOrders.Empty(2), 0);
+        var blocked = TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+            .Events.OfType<ResourceExtractedEvent>().Single();
+        Assert.Equal(0, blocked.FishingPortCount);
+        Assert.Equal(1, blocked.StrandedPortCount);
+
+        state.PatrolTaskForce(new CountryId(0), new TaskForceId(2));
+        var protectedPort = TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+            .Events.OfType<ResourceExtractedEvent>().Single();
+        Assert.Equal(1, protectedPort.FishingPortCount);
+        Assert.Equal(0, protectedPort.StrandedPortCount);
+    }
+
+    [Fact]
+    public void PersistedHostilePortControlReplaysDeterministically()
+    {
+        InitialRelationState[] relationStates =
+        [
+            new InitialRelationState(
+                new CountryId(1), new CountryId(0), (short)CountryRelationMode.Hostile, 0),
+        ];
+        var ships = new[] { new InitialShip(new CountryId(1), new ShipTypeId(0), 0, 1) };
+        var first = CreatePortState(
+            ports: [2],
+            initialShips: ships,
+            initialRelationStates: relationStates,
+            initialRelationSequence: 1);
+        var second = CreatePortState(
+            ports: [2],
+            initialShips: ships,
+            initialRelationStates: relationStates,
+            initialRelationSequence: 1);
+
+        first.PatrolTaskForce(new CountryId(1),
+            first.AssembleTaskForce(new CountryId(1), [new FleetId(1)]).Id);
+        second.PatrolTaskForce(new CountryId(1),
+            second.AssembleTaskForce(new CountryId(1), [new FleetId(1)]).Id);
+
+        var firstExtraction = TurnResolver.Resolve(first, TurnOrders.Empty(2), 0)
+            .Events.OfType<ResourceExtractedEvent>().Single();
+        var secondExtraction = TurnResolver.Resolve(second, TurnOrders.Empty(2), 0)
+            .Events.OfType<ResourceExtractedEvent>().Single();
+
+        Assert.Equal(firstExtraction.Collected, secondExtraction.Collected);
+        Assert.Equal(firstExtraction.FishingPortCount, secondExtraction.FishingPortCount);
+        Assert.Equal(firstExtraction.StrandedPortCount, secondExtraction.StrandedPortCount);
+        Assert.Equal(1, firstExtraction.StrandedPortCount);
+    }
+
+    [Fact]
+    public void ADownstreamProvinceLossStrandsARiverPortsCatch()
+    {
+        var state = CreateRiverPortState();
+
+        // Cell 2 is between the port and the mouth. The original trace rejects
+        // the port as soon as that downstream land is no longer ours.
+        state.SetProvinceOwner(new ProvinceId(2), new CountryId(1));
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(2), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(new CountryId(0), extraction.Country);
         Assert.Equal(1, extraction.FishingPortCount);
+        Assert.Equal(1, extraction.StrandedPortCount);
         Assert.Equal(
             new CommodityQuantity(new CommodityId(Fish), 1),
             Assert.Single(extraction.Collected));
+        Assert.Equal(
+            [
+                new CommodityQuantity(new CommodityId(Fish), 1),
+                new CommodityQuantity(new CommodityId(RiverGrain), 1),
+            ],
+            extraction.Stranded);
+        Assert.Equal(0, state.GetAvailableQuantity(new CountryId(0), new CommodityId(RiverGrain)));
+    }
+
+    [Fact]
+    public void ARiverPortLossStaysLostThroughAHundredQuarterEconomySoak()
+    {
+        var state = CreateRiverPortState();
+        long collected = 0;
+        long stranded = 0;
+
+        // Fifty intact quarters establish the normal flow; the following fifty
+        // retain the port province but take the one downstream province. This
+        // is deliberately a long-running extraction/delivery check rather than
+        // a one-turn connectivity assertion.
+        for (var turn = 0; turn < 100; turn++)
+        {
+            if (turn == 50)
+            {
+                state.SetProvinceOwner(new ProvinceId(2), new CountryId(1));
+            }
+
+            var extraction = TurnResolver.Resolve(state, TurnOrders.Empty(2), (ulong)turn)
+                .Events.OfType<ResourceExtractedEvent>()
+                .Single(static item => item.Country == new CountryId(0));
+            collected += extraction.Collected
+                .SingleOrDefault(static item => item.Commodity == new CommodityId(RiverGrain))
+                .Quantity;
+            stranded += extraction.Stranded
+                .SingleOrDefault(static item => item.Commodity == new CommodityId(RiverGrain))
+                .Quantity;
+        }
+
+        Assert.Equal(50, collected);
+        Assert.Equal(50, stranded);
+        Assert.Equal(50, state.GetAvailableQuantity(new CountryId(0), new CommodityId(RiverGrain)));
     }
 
     [Fact]
@@ -561,7 +694,10 @@ public sealed class ExtractionTests
         int[] ports,
         (int First, int Second)[]? extraRails = null,
         bool withFishing = true,
-        bool capitalBesideSea = false)
+        bool capitalBesideSea = false,
+        IEnumerable<InitialShip>? initialShips = null,
+        IEnumerable<InitialRelationState>? initialRelationStates = null,
+        short initialRelationSequence = 0)
     {
         const int width = 4;
         var dimensions = new MapDimensions(width, 1);
@@ -609,7 +745,10 @@ public sealed class ExtractionTests
             null,
             null,
             null,
-            ports.Select(static cell => new CellIndex(cell)));
+            ports.Select(static cell => new CellIndex(cell)),
+            initialShips: initialShips,
+            initialRelationStates: initialRelationStates,
+            initialRelationSequence: initialRelationSequence);
 
         var definition = new WorldDefinition(
             map,
@@ -623,7 +762,76 @@ public sealed class ExtractionTests
             null,
             new ExtractionSettings(
                 1,
-                withFishing ? new PortFishing(new CommodityId(Fish), 1) : null));
+                withFishing ? new PortFishing(new CommodityId(Fish), 1) : null),
+            shipTypes: [new ShipTypeDefinition(new ShipTypeId(0), "Test ship")]);
+        return new WorldState(definition);
+    }
+
+    /// <summary>
+    /// A source-to-mouth river strip: capital, inland port/source, land river,
+    /// mouth/ocean, ocean. It has no coastal shortcut for the port.
+    /// </summary>
+    private static WorldState CreateRiverPortState()
+    {
+        const int width = 5;
+        var dimensions = new MapDimensions(width, 1);
+        var cells = new CellDefinition[width];
+        for (var index = 0; index < width; index++)
+        {
+            var river = index switch
+            {
+                1 => new RiverPath(RiverEndpoint.EastUpper, RiverEndpoint.Source),
+                2 => new RiverPath(RiverEndpoint.EastUpper, RiverEndpoint.WestUpper),
+                3 => new RiverPath(RiverEndpoint.WestUpper, RiverEndpoint.Mouth),
+                _ => (RiverPath?)null,
+            };
+            cells[index] = new CellDefinition(
+                new CellIndex(index),
+                dimensions.GetCoordinate(new CellIndex(index)),
+                new TerrainId(0),
+                index >= 3
+                    ? CellRegion.ForSeaZone(new SeaZoneId(0))
+                    : CellRegion.ForProvince(new ProvinceId(index)),
+                index == 1 ? [new ResourceId(1)] : null,
+                index == 0 ? SettlementSiteKind.Urban : SettlementSiteKind.None,
+                river);
+        }
+
+        var map = new MapDefinition(
+            dimensions,
+            cells,
+            Enumerable.Range(0, 3)
+                .Select(static index => new ProvinceDefinition(new ProvinceId(index), $"Province {index}")),
+            [new SeaZoneDefinition(new SeaZoneId(0), "River Mouth")],
+            [
+                new ResourceDefinition(new ResourceId(0), new CommodityId(Fish), [1]),
+                new ResourceDefinition(new ResourceId(1), new CommodityId(RiverGrain), [1]),
+            ]);
+        var scenario = new ScenarioDefinition(
+            "River Port",
+            1815,
+            [new CountryId(0), new CountryId(0), new CountryId(0)],
+            null,
+            [new CountryCapital(new CountryId(0), new CellIndex(0))],
+            null,
+            null,
+            null,
+            null,
+            [new CellIndex(1)]);
+        var definition = new WorldDefinition(
+            map,
+            [
+                new CountryDefinition(new CountryId(0), "Country 0"),
+                new CountryDefinition(new CountryId(1), "Country 1"),
+            ],
+            scenario,
+            [
+                new CommodityDefinition(new CommodityId(Fish), "Fish", CommodityCategory.Raw),
+                new CommodityDefinition(new CommodityId(RiverGrain), "Grain", CommodityCategory.Raw),
+            ],
+            null,
+            null,
+            new ExtractionSettings(0, new PortFishing(new CommodityId(Fish), 1)));
         return new WorldState(definition);
     }
 

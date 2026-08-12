@@ -484,6 +484,18 @@ public sealed class WorldDefinition
             // against. See docs/scenario-semantics.md.
         }
 
+        foreach (var army in scenario.InitialArmies)
+        {
+            if ((uint)army.Province.Value >= (uint)map.Provinces.Count)
+            {
+                throw new ArgumentException(
+                    $"Initial army refers to missing province {army.Province.Value}.",
+                    nameof(scenario));
+            }
+
+            ArgumentOutOfRangeException.ThrowIfNegative(army.Experience);
+        }
+
         foreach (var ship in startingDefaults?.Ships ?? [])
         {
             if ((uint)ship.Type.Value >= (uint)shipTypeArray.Length)
@@ -685,10 +697,15 @@ public sealed class WorldState
     private readonly long[] _cash;
     private readonly long[] _worldPrice;
     private readonly long[] _ships;
+    private readonly short[] _relationModes;
+    private readonly short[] _relationTokens;
+    private readonly IReadOnlyList<FleetState> _fleets;
+    private readonly List<TaskForceState> _taskForces = [];
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private readonly Dictionary<CivilianUnitId, CivilianUnit> _civilians = [];
     private long _nextDeliveryId = 1;
     private long _nextCivilianId = 1;
+    private short _relationSequence;
 
     public WorldState(WorldDefinition definition)
     {
@@ -829,11 +846,39 @@ public sealed class WorldState
         // knowledge follow; the difference is only that it takes a whole fleet at a time,
         // since adding a default Trader to an authored navy would invent a ship.
         var equipped = new bool[definition.Countries.Count];
+        var fleets = new List<FleetState>();
+        var nextFleetId = 1L;
         foreach (var ship in definition.Scenario.InitialShips)
         {
             equipped[ship.Country.Value] = true;
             var offset = (ship.Country.Value * definition.ShipTypes.Count) + ship.Type.Value;
             _ships[offset] = checked(_ships[offset] + ship.Count);
+            SeaZoneId? seaZone = (uint)ship.SeaZone < (uint)definition.Map.SeaZones.Count
+                ? new SeaZoneId(ship.SeaZone)
+                : null;
+            fleets.Add(new FleetState(
+                new FleetId(nextFleetId++),
+                ship.Country,
+                ship.Type,
+                ship.Count,
+                seaZone));
+        }
+
+        _fleets = Array.AsReadOnly(fleets.ToArray());
+
+        // The original country manager initializes its 23-by-23 mode table to
+        // 4 and its separate effective-token table to -1. Scenario `rela`
+        // records populate a third, raw-score table and do not replace either
+        // of these runtime values.
+        var relationSlots = checked(definition.Countries.Count * definition.Countries.Count);
+        _relationModes = new short[relationSlots];
+        _relationTokens = new short[relationSlots];
+        Array.Fill(_relationModes, (short)CountryRelationMode.Standard);
+        Array.Fill(_relationTokens, (short)-1);
+        _relationSequence = definition.Scenario.InitialRelationSequence;
+        foreach (var relationState in definition.Scenario.InitialRelationStates)
+        {
+            SetInitialRelationState(relationState);
         }
 
         if (definition.StartingDefaults?.Ships is { Count: > 0 } fleet)
@@ -892,6 +937,54 @@ public sealed class WorldState
     public TurnDate CurrentDate { get; private set; }
 
     public int CurrentYear => CurrentDate.Year;
+
+    /// <summary>Current effective-relation generation used by port access.</summary>
+    public short RelationSequence => _relationSequence;
+
+    public CountryRelationMode GetRelationMode(CountryId first, CountryId second) =>
+        (CountryRelationMode)_relationModes[GetRelationOffset(first, second)];
+
+    public short GetRelationToken(CountryId first, CountryId second) =>
+        _relationTokens[GetRelationOffset(first, second)];
+
+    /// <summary>
+    /// Applies the original symmetric relation-mode setter. The mode's token is
+    /// stamped with the current generation, so a hostile mode becomes effective
+    /// after the next completed turn advances that generation.
+    /// </summary>
+    public void SetRelationMode(CountryId first, CountryId second, CountryRelationMode mode)
+    {
+        ValidateCountry(first);
+        ValidateCountry(second);
+        if (!Enum.IsDefined(mode))
+        {
+            throw new ArgumentOutOfRangeException(nameof(mode));
+        }
+
+        var firstOffset = GetRelationOffset(first, second);
+        var secondOffset = GetRelationOffset(second, first);
+        _relationModes[firstOffset] = (short)mode;
+        _relationModes[secondOffset] = (short)mode;
+        _relationTokens[firstOffset] = _relationSequence;
+        _relationTokens[secondOffset] = _relationSequence;
+    }
+
+    private void SetInitialRelationState(InitialRelationState state)
+    {
+        ValidateCountry(state.First);
+        ValidateCountry(state.Second);
+        var firstOffset = GetRelationOffset(state.First, state.Second);
+        var secondOffset = GetRelationOffset(state.Second, state.First);
+        _relationModes[firstOffset] = state.Mode;
+        _relationModes[secondOffset] = state.Mode;
+        _relationTokens[firstOffset] = state.Token;
+        _relationTokens[secondOffset] = state.Token;
+    }
+
+    /// <summary>Whether the original sea-port predicate treats this pair as hostile.</summary>
+    public bool HasEffectiveHostility(CountryId first, CountryId second) =>
+        GetRelationMode(first, second) == CountryRelationMode.Hostile &&
+        GetRelationToken(first, second) != _relationSequence;
 
     public long GetAvailableQuantity(CountryId country, CommodityId commodity) =>
         _availableInventory[GetInventoryOffset(country, commodity)];
@@ -1123,6 +1216,232 @@ public sealed class WorldState
         ValidateShipType(type);
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         _ships[(country.Value * Definition.ShipTypes.Count) + type.Value] = count;
+    }
+
+    /// <summary>
+    /// Scenario-authored fleets in deterministic record order. Default merchant
+    /// ships remain abstract cargo capacity until their placement rule is known.
+    /// </summary>
+    public IReadOnlyList<FleetState> Fleets => _fleets;
+
+    public FleetState GetFleet(FleetId fleet)
+    {
+        var index = fleet.Value - 1;
+        return (ulong)index < (ulong)_fleets.Count
+            ? _fleets[(int)index]
+            : throw new ArgumentOutOfRangeException(nameof(fleet));
+    }
+
+    /// <summary>
+    /// Assembles whole, co-located fleet records into a task force. The original
+    /// keeps ship attachment separate from its patrol, blockade, landing, and
+    /// sailing state, so assembly has no mission side effect.
+    /// </summary>
+    public TaskForceState AssembleTaskForce(CountryId country, IEnumerable<FleetId> fleets)
+    {
+        ValidateCountry(country);
+        ArgumentNullException.ThrowIfNull(fleets);
+        var members = fleets.OrderBy(static fleet => fleet.Value).ToArray();
+        if (members.Length == 0)
+        {
+            throw new ArgumentException("A task force needs at least one fleet.", nameof(fleets));
+        }
+
+        if (members.Distinct().Count() != members.Length)
+        {
+            throw new ArgumentException("A fleet can be selected only once.", nameof(fleets));
+        }
+
+        SeaZoneId? seaZone = null;
+        foreach (var id in members)
+        {
+            var fleet = GetFleet(id);
+            if (fleet.Country != country)
+            {
+                throw new InvalidOperationException("A task force cannot include a foreign fleet.");
+            }
+
+            if (fleet.SeaZone is not { } position)
+            {
+                throw new InvalidOperationException("An unpositioned fleet cannot join a task force.");
+            }
+
+            if (fleet.TaskForce is not null)
+            {
+                throw new InvalidOperationException("A fleet already belongs to a task force.");
+            }
+
+            if (seaZone is { } known && known != position)
+            {
+                throw new InvalidOperationException("Task-force fleets must occupy the same sea zone.");
+            }
+
+            seaZone = position;
+        }
+
+        var taskForce = new TaskForceState(
+            new TaskForceId(checked(_taskForces.Count + 1L)),
+            country,
+            seaZone!.Value,
+            members);
+        foreach (var id in members)
+        {
+            GetFleet(id).TaskForce = taskForce.Id;
+        }
+
+        _taskForces.Add(taskForce);
+        return taskForce;
+    }
+
+    /// <summary>Task forces in deterministic assembly order.</summary>
+    public IReadOnlyList<TaskForceState> TaskForces => _taskForces;
+
+    public TaskForceState GetTaskForce(TaskForceId taskForce)
+    {
+        var index = taskForce.Value - 1;
+        return (ulong)index < (ulong)_taskForces.Count
+            ? _taskForces[(int)index]
+            : throw new ArgumentOutOfRangeException(nameof(taskForce));
+    }
+
+    /// <summary>
+    /// Places a task force into the original's port-control qualifying patrol
+    /// state. This alone has no tactical-combat or port-access side effect.
+    /// </summary>
+    public void PatrolTaskForce(CountryId country, TaskForceId taskForce)
+    {
+        ValidateCountry(country);
+        var force = GetTaskForce(taskForce);
+        if (force.Country != country)
+        {
+            throw new InvalidOperationException("A country cannot patrol with a foreign task force.");
+        }
+
+        if (force.PlannedSeaZone is not null)
+        {
+            throw new InvalidOperationException("A sailing leg must resolve before a task force can patrol.");
+        }
+
+        force.Activity = TaskForceActivity.Patrolling;
+    }
+
+    /// <summary>
+    /// Plans one original-style strategic sailing leg. The destination is
+    /// reduced to a shortest-path leg no longer than the slowest selected hull,
+    /// then <see cref="ResolveTaskForceMoves"/> applies it separately.
+    /// </summary>
+    /// <remarks>
+    /// The executable keeps planning (state 1) and the member-position update
+    /// in distinct routines. Their relative place in the wider simultaneous
+    /// turn is still unproven, so this headless boundary remains explicit.
+    /// </remarks>
+    public TaskForceMovePlan PlanTaskForceMove(
+        CountryId country,
+        TaskForceId taskForce,
+        SeaZoneId destination)
+    {
+        ValidateCountry(country);
+        if ((uint)destination.Value >= (uint)Definition.Map.SeaZones.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(destination));
+        }
+
+        var force = GetTaskForce(taskForce);
+        if (force.Country != country)
+        {
+            throw new InvalidOperationException("A country cannot sail a foreign task force.");
+        }
+
+        if (force.PlannedSeaZone is not null)
+        {
+            throw new InvalidOperationException("A task force already has a sailing leg awaiting resolution.");
+        }
+
+        var maximumSeaZones = force.Fleets
+            .Select(id => Definition.ShipTypes[GetFleet(id).Type.Value].SeaZones)
+            .Min();
+        var resolved = ResolveSailingLeg(force.SeaZone, destination, maximumSeaZones);
+        force.PlannedSeaZone = resolved;
+        // The original sailing planner switches the task force to state 1, so
+        // it no longer qualifies as state-3 patrol control while in transit.
+        force.Activity = TaskForceActivity.Idle;
+        return new TaskForceMovePlan(
+            force.Id,
+            force.SeaZone,
+            destination,
+            resolved,
+            maximumSeaZones);
+    }
+
+    /// <summary>
+    /// Applies all planned sailing legs in deterministic task-force ID order.
+    /// No combat, interception, or continuation order is implied.
+    /// </summary>
+    public IReadOnlyList<TaskForceMoveResolution> ResolveTaskForceMoves()
+    {
+        var resolutions = new List<TaskForceMoveResolution>();
+        foreach (var force in _taskForces)
+        {
+            if (force.PlannedSeaZone is not { } destination)
+            {
+                continue;
+            }
+
+            var from = force.SeaZone;
+            foreach (var fleetId in force.Fleets)
+            {
+                GetFleet(fleetId).SeaZone = destination;
+            }
+
+            force.SeaZone = destination;
+            force.PlannedSeaZone = null;
+            resolutions.Add(new TaskForceMoveResolution(force.Id, from, destination));
+        }
+
+        return resolutions.AsReadOnly();
+    }
+
+    private SeaZoneId ResolveSailingLeg(
+        SeaZoneId origin,
+        SeaZoneId destination,
+        long maximumSeaZones)
+    {
+        if (maximumSeaZones <= 0 || origin == destination)
+        {
+            return origin;
+        }
+
+        var distance = new Dictionary<SeaZoneId, int> { [destination] = 0 };
+        var frontier = new Queue<SeaZoneId>();
+        frontier.Enqueue(destination);
+        while (frontier.TryDequeue(out var current))
+        {
+            foreach (var neighbor in Definition.Map.SeaTopology.GetNeighbors(current))
+            {
+                if (distance.TryAdd(neighbor, checked(distance[current] + 1)))
+                {
+                    frontier.Enqueue(neighbor);
+                }
+            }
+        }
+
+        // An unreachable request produces a zero-length resolved leg, matching
+        // the original planner's decreasing-distance walk without inventing a
+        // modern refusal rule.
+        if (!distance.TryGetValue(origin, out var remaining))
+        {
+            return origin;
+        }
+
+        var currentZone = origin;
+        for (var step = 0L; step < maximumSeaZones && remaining > 0; step++)
+        {
+            currentZone = Definition.Map.SeaTopology.GetNeighbors(currentZone)
+                .First(neighbor => distance.TryGetValue(neighbor, out var next) && next < remaining);
+            remaining--;
+        }
+
+        return currentZone;
     }
 
     /// <summary>
@@ -1646,8 +1965,16 @@ public sealed class WorldState
 
     internal void CompleteTurn()
     {
+        _relationSequence = checked((short)(_relationSequence + 1));
         CurrentDate = CurrentDate.Next();
         CompletedTurnCount = checked(CompletedTurnCount + 1);
+    }
+
+    private int GetRelationOffset(CountryId first, CountryId second)
+    {
+        ValidateCountry(first);
+        ValidateCountry(second);
+        return checked((first.Value * Definition.Countries.Count) + second.Value);
     }
 
     internal IReadOnlyList<PendingDelivery> CommitPendingDeliveries()

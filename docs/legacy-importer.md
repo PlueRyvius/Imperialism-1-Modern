@@ -144,6 +144,13 @@ there is no research system, so swamp, desert and tundra can never be prospected
 That is the manual's own rule rather than a gap. See `formulas/technology.md` and
 `formulas/prospecting.md`, which record the corpus counts the tests now pin.
 
+`army` records are converted rather than deferred. The record is `[province, type,
+experience]`; the province supplies ownership, and type is the executable's zero-based
+index into its fixed 30-row army table. Each record is one regiment; repeated records
+retain their source order. An unknown province is an error; an unknown type is warned
+and dropped; zero experience is preserved. This preserves the tactical roster without guessing
+deployment, movement, losses, capture, or combat resolution.
+
 `civi` records are converted rather than deferred. The record is `[type, cell]`
 and names **no owner** — the original reads it off the province the cell sits
 in, and the corpus supports that without exception: all 210 records across the
@@ -223,7 +230,9 @@ against every nonzero value in the ten-map corpus. Paths are undirected.
 The source table contains sequential-label typos at 49 and 55. Their corrected
 values are `WestLower–Source` and `SouthWest–Mouth`, respectively. The sequence
 on either side and the complete eight-position source/mouth runs establish the
-correction. Cross-cell river connectivity is intentionally deferred.
+correction. The core now derives source-to-mouth connectivity from these paths;
+the importer continues to preserve the raw local geometry rather than writing a
+second, derived graph into content.
 
 ## Command line
 

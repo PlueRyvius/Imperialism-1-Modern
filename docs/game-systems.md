@@ -137,9 +137,13 @@ move. A depot needs an unbroken rail path to the capital, **or** rail to a
 tile holding both a port and a depot (goods then travel by sea). Ports need
 coast or river. Three edge cases matter:
 
-- A **river port** is disconnected if you lose a province *downstream*.
-- A **sea port** is lost only under *undisputed* enemy naval control — a
-  single friendly warship anywhere in the zone preserves it.
+- A **river port** is disconnected when the original river-code trace reaches a
+  different land-owner (`NationZoneA`) before ocean. This is a path rule, not a
+  property of every river tile.
+- A **sea port** is disconnected under **undisputed hostile control** of its
+  adjacent sea target: the executable blocks only if an eligible hostile strategic
+  record exists and the owner's record is absent. Mere hostile presence is not
+  enough.
 - A tile's output is gathered only if it is **on or within one tile** of a
   connected depot or port. Overlapping catchments waste coverage.
 
@@ -147,13 +151,14 @@ Towns industrialise on their own once served by a connected depot or port —
 first materials, then consumer goods capped at half the material output,
 gated on your matching factory reaching a capacity threshold.
 
-**Current implementation boundary.** Phase 3 begins with country-specific
-rail components: only rail edges whose two province cells are currently owned
-by that country are usable. The component index is cached and rebuilt lazily
-after conquest or rail changes. Extraction now consumes that graph: a deposit
-pays its owner only when it sits within the catchment radius of the capital's
-own rail component. River continuity, naval control, and sea-zone traversal
-remain explicit later layers; the graph still does not guess those.
+**Current implementation boundary.** Phase 3 uses country-specific rail
+components: only rail edges whose two province cells are currently owned by that
+country are usable. The component index is cached and rebuilt lazily after conquest
+or rail changes. A component reaches the capital either directly or through an owned
+cell carrying both a depot and a port; that static water gateway is the manual's
+second depot route. River ports now use the recovered source-to-mouth trace and
+are disabled when a downstream province changes owner. Strategic-record state for
+the naval branch is still not implemented.
 
 Depots and ports are now modelled as sites, imported from the `rail` and `port`
 records. Gathering happens at **connected depots, connected ports and the
@@ -162,10 +167,10 @@ to the capital; a port needs no rail at all, since its goods leave by water; and
 the capital is always both. Replacing the old placeholder, where every railed
 cell gathered, cut `s1` from 319 collection points to 134.
 
-Still missing: the route that lets a depot reach the capital by rail to a
-port-plus-depot tile and then by sea, and the two ways a port loses its
-connection (losing the province downstream of a river port, and undisputed enemy
-naval command). See `reference/manual-mechanics.md`.
+Still missing: dynamic naval port state. River access now follows the recovered
+transition geometry; the scenario fleet loader and phase ordering still need to
+identify the active strategic records used by the naval branch. See
+`disasm/wanted-values.md`.
 
 ## Trade
 

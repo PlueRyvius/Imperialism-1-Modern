@@ -173,7 +173,27 @@ contains no duplicate country/commodity pair or invalid reference.
   `s1`. Every scenario has one `flag`; most have one `year`, while `s10` and
   `s15` each contain two identical `year` records.
 
-## A ship's sea zone is not the map's ocean zone byte
+## A ship's sea zone is the map's ocean zone byte, offset by the country namespace
+
+**Verified from the EXE.** The generic `.scn` loader at `0x00581E60` dispatches
+the `ship` tag to `0x00582720` and the `zone` tag to `0x00582FA0`. Both readers
+resolve the encoded zone id through `0x0055F100`. The `ship` record is
+`[country, type, zone, count]`; its created `TShip` stores that resolved runtime
+`UOcean` entry at `+0x08`.
+
+`UOcean` resolves raw map-ocean byte `r` as `records[r - 0x17]`
+(`0x00563300`). The zone handler uses the scenario zone id directly in that
+same lookup. Therefore a scenario `zone`/`ship` id `z` is raw map-ocean byte
+`z + 23`. The earlier neighbour-based identification of several named seas was
+incorrect and is superseded by this executable-backed chain.
+
+The scenario loader runs in setup state 2 at `0x0057DA70`, after the state-3
+map/zone preparation and before per-power post-load initialization. Tools can
+locate an imported fleet on the map. Fleet range and state-1 sailing are traced
+separately; the movement graph itself is generated from the map's base sea
+regions and eligible port geometry, not serialized in the fleet records.
+
+<!-- Historical corpus-only analysis, superseded by the executable trace above.
 
 **Verified, and it corrects the claim above that the ocean nation byte is "a
 sea-zone id".** It is *a* sea-region id, but not the one `zone` records and
@@ -196,9 +216,20 @@ Nothing in the four files maps one space onto the other. The consequence for
 tooling is concrete: **a fleet can be named but not located.** The editor lists
 ships by zone name and does not draw them.
 
-Recovering the correspondence is open work. The most promising route is the
-`port` records, since `zone` ids 40-62 are port cities and `port` records point
-at coastal cells, which would at least tie the port zones down.
+The executable now narrows the missing bridge without closing it. Its persisted
+fleet reader at `0x00582720` consumes fields in the documented
+`[country, type, zone, count]` order, resolves `zone` via `0x0055F100`, and
+creates a `TShip` at `0x0054F8E0`. The resulting ship stores the resolved
+runtime ocean object at `+0x08` and its owner country id at `+0x14`. Separately,
+`UOcean` maps a raw map-ocean value `r` to its 0x48-byte runtime entry at
+`r - 0x17` (`0x00563300`).
+
+What remains open is the scenario-specific conversion from a named `zone`
+record to that runtime ocean entry. The EXE code that performs it is behind the
+generic scenario loader, so the importer must continue to preserve ship zone
+ids without using them to locate or control ports.
+
+-->
 
 ## Unit records
 
@@ -208,7 +239,9 @@ country receives one of each type, and every Forester stands on forest, every
 Rancher on wool hill or cattle ranch. **A civilian's owner is whoever owns the
 cell it stands on**, which means moving one across a border changes its side.
 
-`army` is `[province, type, count]` and `ship` is `[country, type, zone, count]`.
+`army` is `[province, type, experience]`: each record is one regiment and the
+third field is its experience/medal progression value. `ship` is `[country,
+type, zone, count]`.
 
 **A `ship` record's type is a 1-based index into the game's ship array, verified.** Read as
 0-based it grants a Clipper — which needs Streamlined Hulls — to an 1816 skirmish power
@@ -329,7 +362,6 @@ codebase (`McAppUI`, `UMacViewMgr` appear in the binary's leaked filenames).
 
 - The other 196 bytes of each province-table record. Its town-cell field is
   decoded — see `file-formats.md`.
-- How a `ship` record's `zone` id relates to the map's ocean zone byte.
 - Save games (`.imp`, magic `IBMA`, ~412 KB) — a serialized game state, so
   decoding it reveals what the original actually tracks.
 - `.gob` resource archives — these are PE resource containers, so standard

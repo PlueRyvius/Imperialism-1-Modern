@@ -1,0 +1,69 @@
+namespace Imperialism.Core;
+
+/// <summary>
+/// Task-force activities with an executable-backed modern behaviour.
+/// </summary>
+public enum TaskForceActivity
+{
+    Idle,
+    Patrolling,
+}
+
+/// <summary>
+/// A group of co-located fleet records awaiting a strategic naval command.
+/// </summary>
+/// <remarks>
+/// This is the modern equivalent of the original `TTaskForce` attachment: it
+/// groups selected ships but does not infer a patrol, blockade, invasion, or
+/// sailing order. Those original state paths remain distinct.
+/// </remarks>
+public sealed class TaskForceState
+{
+    private readonly IReadOnlyList<FleetId> _fleets;
+
+    internal TaskForceState(
+        TaskForceId id,
+        CountryId country,
+        SeaZoneId seaZone,
+        IEnumerable<FleetId> fleets)
+    {
+        var members = fleets.ToArray();
+        if (members.Length == 0)
+        {
+            throw new ArgumentException("A task force needs at least one fleet.", nameof(fleets));
+        }
+
+        if (members.Distinct().Count() != members.Length)
+        {
+            throw new ArgumentException("A task force cannot contain the same fleet twice.", nameof(fleets));
+        }
+
+        Id = id;
+        Country = country;
+        SeaZone = seaZone;
+        _fleets = Array.AsReadOnly(members);
+    }
+
+    public TaskForceId Id { get; }
+
+    public CountryId Country { get; }
+
+    public SeaZoneId SeaZone { get; internal set; }
+
+    /// <summary>
+    /// The end of the currently planned sailing leg, if one awaits resolution.
+    /// The original overwrites its requested destination with this resolved leg,
+    /// so the long-range request is intentionally not retained here.
+    /// </summary>
+    public SeaZoneId? PlannedSeaZone { get; internal set; }
+
+    /// <summary>
+    /// The original port predicate qualifies the equivalent of this activity
+    /// (task-force state 3). Other original state values are not represented
+    /// until their target and resolution behaviour are recovered.
+    /// </summary>
+    public TaskForceActivity Activity { get; internal set; }
+
+    /// <summary>Fleet records in deterministic ascending ID order.</summary>
+    public IReadOnlyList<FleetId> Fleets => _fleets;
+}

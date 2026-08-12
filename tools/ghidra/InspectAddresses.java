@@ -1,0 +1,383 @@
+// Prints Ghidra's symbols, references, and containing functions for a comma-separated
+// IMP_GHIDRA_ADDRESSES environment variable. IMP_GHIDRA_SKIP_RAW avoids the byte dump;
+// IMP_GHIDRA_DECOMPILE_GREP filters decompiled C lines (use | between terms), and
+// IMP_GHIDRA_INSTRUCTION_RANGE prints a bounded start:end assembly range, and
+// IMP_GHIDRA_FUNCTION_INSTRUCTION_GREP prints matching instructions in one function
+// (use | between terms). Derived decompilation output stays outside the repository;
+// this script is only the repeatable inspection tool.
+//
+// @category Imperialism
+
+import ghidra.app.script.GhidraScript;
+import ghidra.app.decompiler.DecompInterface;
+import ghidra.app.decompiler.DecompileResults;
+import ghidra.program.model.address.Address;
+import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.FunctionIterator;
+import ghidra.program.model.listing.Instruction;
+import ghidra.program.model.listing.InstructionIterator;
+import ghidra.program.model.mem.MemoryBlock;
+import ghidra.program.model.lang.OperandType;
+import ghidra.program.model.scalar.Scalar;
+import ghidra.program.model.symbol.Reference;
+import ghidra.program.model.symbol.Symbol;
+import java.util.HashSet;
+import java.util.Set;
+
+public class InspectAddresses extends GhidraScript {
+    @Override
+    public void run() throws Exception {
+        String values = System.getenv("IMP_GHIDRA_ADDRESSES");
+        if (values == null || values.trim().isEmpty()) {
+            println("[InspectAddresses] set IMP_GHIDRA_ADDRESSES to comma-separated hexadecimal addresses");
+            return;
+        }
+
+        boolean skipRaw = Boolean.parseBoolean(System.getenv("IMP_GHIDRA_SKIP_RAW"));
+        if (!skipRaw) {
+        for (String value : values.split(",")) {
+            long raw = Long.parseLong(value.trim().replace("0x", ""), 16);
+            Address address = toAddr(raw);
+            println(String.format("=== %08X ===", raw));
+
+            Symbol primary = getSymbolAt(address);
+            if (primary != null) {
+                println("symbol: " + primary.getName(true));
+            }
+
+            Function function = getFunctionContaining(address);
+            if (function != null) {
+                println("function: " + function.getName() + " " + function.getEntryPoint());
+            }
+
+            // This also exposes vtable entries and other pointer arrays, for which the
+            // W32Dasm-derived SQLite index has no data rows.  Keep it deliberately
+            // small: callers supply the exact address they are investigating.
+            println("first 40 dwords:");
+            for (int offset = 0; offset < 160; offset += 4) {
+                try {
+                    long word = Integer.toUnsignedLong(getInt(address.add(offset)));
+                    println(String.format("  %s: %08X", address.add(offset), word));
+                } catch (Exception ignored) {
+                    break;
+                }
+            }
+
+            Reference[] references = getReferencesTo(address);
+            println("incoming references: " + references.length);
+            for (Reference reference : references) {
+                println("  " + reference.getFromAddress() + " " + reference.getReferenceType());
+            }
+        }
+        }
+
+        String instructionRange = System.getenv("IMP_GHIDRA_INSTRUCTION_RANGE");
+        if (instructionRange != null && !instructionRange.trim().isEmpty()) {
+            String[] parts = instructionRange.split(":");
+            if (parts.length != 2) {
+                println("[InspectAddresses] IMP_GHIDRA_INSTRUCTION_RANGE must be start:end");
+            } else {
+                long startRaw = Long.parseLong(parts[0].trim().replace("0x", ""), 16);
+                long endRaw = Long.parseLong(parts[1].trim().replace("0x", ""), 16);
+                Address start = toAddr(startRaw);
+                Address end = toAddr(endRaw);
+                println(String.format("=== INSTRUCTIONS %08X:%08X ===", startRaw, endRaw));
+                InstructionIterator instructions = currentProgram.getListing()
+                    .getInstructions(start, true);
+                while (instructions.hasNext()) {
+                    Instruction instruction = instructions.next();
+                    if (instruction.getAddress().compareTo(end) > 0) {
+                        break;
+                    }
+                    println(instruction.toString());
+                }
+            }
+        }
+
+        String functionInstructionGrep = System.getenv("IMP_GHIDRA_FUNCTION_INSTRUCTION_GREP");
+        if (functionInstructionGrep != null && !functionInstructionGrep.trim().isEmpty()) {
+            String[] parts = functionInstructionGrep.split(":", 2);
+            if (parts.length != 2) {
+                println("[InspectAddresses] IMP_GHIDRA_FUNCTION_INSTRUCTION_GREP must be address:term|term");
+            } else {
+                long raw = Long.parseLong(parts[0].trim().replace("0x", ""), 16);
+                Function function = getFunctionContaining(toAddr(raw));
+                if (function == null) {
+                    println(String.format("[InspectAddresses] no function contains %08X", raw));
+                } else {
+                    String[] patterns = parts[1].toLowerCase().split("\\|");
+                    println(String.format("=== FUNCTION INSTRUCTION GREP %08X: %s ===", raw, parts[1]));
+                    InstructionIterator instructions = currentProgram.getListing()
+                        .getInstructions(function.getBody(), true);
+                    while (instructions.hasNext()) {
+                        Instruction instruction = instructions.next();
+                        String text = instruction.toString();
+                        String normalized = text.toLowerCase();
+                        for (String pattern : patterns) {
+                            if (!pattern.isEmpty() && normalized.contains(pattern)) {
+                                println(text);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        String decompile = System.getenv("IMP_GHIDRA_DECOMPILE");
+        String decompileGrep = System.getenv("IMP_GHIDRA_DECOMPILE_GREP");
+        if (decompile != null && !decompile.trim().isEmpty()) {
+            DecompInterface decompiler = new DecompInterface();
+            decompiler.openProgram(currentProgram);
+            try {
+            for (String value : decompile.split(",")) {
+                long raw = Long.parseLong(value.trim().replace("0x", ""), 16);
+                Address address = toAddr(raw);
+                Function function = getFunctionContaining(address);
+                if (function == null) {
+                    // Some C++ virtual-table entries are bare jump thunks that
+                    // the imported program has not promoted to functions.
+                    // Creating the requested function lets the same narrow,
+                    // address-driven inspection decompile those entries.
+                    function = createFunction(address, null);
+                }
+                println(String.format("=== DECOMPILE %08X ===", raw));
+                if (function == null) {
+                    println("no containing function");
+                    continue;
+                }
+
+                DecompileResults result = decompiler.decompileFunction(function, 180, monitor);
+                if (result.decompileCompleted()) {
+                    String source = result.getDecompiledFunction().getC();
+                    if (decompileGrep == null || decompileGrep.trim().isEmpty()) {
+                        println(source);
+                    } else {
+                        String[] patterns = decompileGrep.toLowerCase().split("\\|");
+                        String[] lines = source.split("\\r?\\n");
+                        boolean[] selected = new boolean[lines.length];
+                        boolean found = false;
+                        for (int index = 0; index < lines.length; index++) {
+                            String line = lines[index].toLowerCase();
+                            boolean matches = false;
+                            for (String pattern : patterns) {
+                                if (!pattern.isEmpty() && line.contains(pattern)) {
+                                    matches = true;
+                                    found = true;
+                                }
+                            }
+                            if (matches) {
+                                for (int context = Math.max(0, index - 3);
+                                     context <= Math.min(lines.length - 1, index + 3);
+                                     context++) {
+                                    selected[context] = true;
+                                }
+                            }
+                        }
+                        if (!found) {
+                            println("no decompiled lines matched: " + decompileGrep);
+                        } else {
+                            for (int index = 0; index < lines.length; index++) {
+                                if (selected[index]) {
+                                    println(String.format("%04d: %s", index + 1, lines[index]));
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    println("DECOMPILE FAILED: " + result.getErrorMessage());
+                }
+            }
+            } finally {
+                decompiler.dispose();
+            }
+        }
+
+        String globalField = System.getenv("IMP_GHIDRA_GLOBAL_FIELD");
+        if (globalField != null && !globalField.trim().isEmpty()) {
+            String[] parts = globalField.split(":");
+            if (parts.length != 2) {
+                println("[InspectAddresses] IMP_GHIDRA_GLOBAL_FIELD must be globalAddress:fieldOffset");
+            } else {
+                long globalRaw = Long.parseLong(parts[0].trim().replace("0x", ""), 16);
+                long fieldOffset = Long.parseLong(parts[1].trim().replace("0x", ""), 16);
+                Address globalAddress = toAddr(globalRaw);
+                Set<Address> inspected = new HashSet<>();
+                println(String.format("=== GLOBAL FIELD %08X+%X ===", globalRaw, fieldOffset));
+                for (Reference reference : getReferencesTo(globalAddress)) {
+                    Function function = getFunctionContaining(reference.getFromAddress());
+                    if (function == null || !inspected.add(function.getEntryPoint())) {
+                        continue;
+                    }
+
+                    InstructionIterator instructions = currentProgram.getListing()
+                        .getInstructions(function.getBody(), true);
+                    while (instructions.hasNext()) {
+                        Instruction instruction = instructions.next();
+                        for (int operand = 0; operand < instruction.getNumOperands(); operand++) {
+                            if ((instruction.getOperandType(operand) & OperandType.WRITE) == 0) {
+                                continue;
+                            }
+                            String representation = instruction.getDefaultOperandRepresentation(operand);
+                            if (representation.contains(String.format("0x%X", fieldOffset))) {
+                                println(function.getEntryPoint() + " " + instruction);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        String globalVcall = System.getenv("IMP_GHIDRA_GLOBAL_VCALL");
+        if (globalVcall != null && !globalVcall.trim().isEmpty()) {
+            String[] parts = globalVcall.split(":");
+            if (parts.length != 2) {
+                println("[InspectAddresses] IMP_GHIDRA_GLOBAL_VCALL must be globalAddress:vtableOffset");
+            } else {
+                long globalRaw = Long.parseLong(parts[0].trim().replace("0x", ""), 16);
+                long vtableOffset = Long.parseLong(parts[1].trim().replace("0x", ""), 16);
+                Address globalAddress = toAddr(globalRaw);
+                Set<Address> inspected = new HashSet<>();
+                String offsetText = String.format("0x%X", vtableOffset).toLowerCase();
+                String hexadecimalText = String.format("%Xh", vtableOffset).toLowerCase();
+                println(String.format("=== GLOBAL VCALL %08X+%X ===", globalRaw, vtableOffset));
+                for (Reference reference : getReferencesTo(globalAddress)) {
+                    Function function = getFunctionContaining(reference.getFromAddress());
+                    if (function == null || !inspected.add(function.getEntryPoint())) {
+                        continue;
+                    }
+
+                    InstructionIterator instructions = currentProgram.getListing()
+                        .getInstructions(function.getBody(), true);
+                    while (instructions.hasNext()) {
+                        Instruction instruction = instructions.next();
+                        if (!"CALL".equals(instruction.getMnemonicString())) {
+                            continue;
+                        }
+                        for (int operand = 0; operand < instruction.getNumOperands(); operand++) {
+                            String representation = instruction.getDefaultOperandRepresentation(operand)
+                                .toLowerCase();
+                            if (representation.contains(offsetText) || representation.contains(hexadecimalText)) {
+                                println(function.getEntryPoint() + " " + instruction);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        String vcallOffset = System.getenv("IMP_GHIDRA_VCALL_OFFSET");
+        if (vcallOffset != null && !vcallOffset.trim().isEmpty()) {
+            long offset = Long.parseLong(vcallOffset.trim().replace("0x", ""), 16);
+            String offsetText = String.format("0x%X", offset).toLowerCase();
+            String hexadecimalText = String.format("%Xh", offset).toLowerCase();
+            println(String.format("=== VCALL OFFSET %X ===", offset));
+            FunctionIterator functions = currentProgram.getFunctionManager().getFunctions(true);
+            while (functions.hasNext()) {
+                Function function = functions.next();
+                InstructionIterator instructions = currentProgram.getListing()
+                    .getInstructions(function.getBody(), true);
+                while (instructions.hasNext()) {
+                    Instruction instruction = instructions.next();
+                    if (!"CALL".equals(instruction.getMnemonicString())) {
+                        continue;
+                    }
+                    for (int operand = 0; operand < instruction.getNumOperands(); operand++) {
+                        String representation = instruction.getDefaultOperandRepresentation(operand)
+                            .toLowerCase();
+                        if (representation.contains(offsetText) || representation.contains(hexadecimalText)) {
+                            println(function.getEntryPoint() + " " + instruction);
+                        }
+                    }
+                }
+            }
+        }
+
+        String writeOffset = System.getenv("IMP_GHIDRA_WRITE_OFFSET");
+        if (writeOffset != null && !writeOffset.trim().isEmpty()) {
+            long offset = Long.parseLong(writeOffset.trim().replace("0x", ""), 16);
+            String offsetText = String.format("0x%X", offset).toLowerCase();
+            String hexadecimalText = String.format("%Xh", offset).toLowerCase();
+            println(String.format("=== MEMORY WRITES AT OFFSET %X ===", offset));
+            FunctionIterator functions = currentProgram.getFunctionManager().getFunctions(true);
+            while (functions.hasNext()) {
+                Function function = functions.next();
+                InstructionIterator instructions = currentProgram.getListing()
+                    .getInstructions(function.getBody(), true);
+                while (instructions.hasNext()) {
+                    Instruction instruction = instructions.next();
+                    for (int operand = 0; operand < instruction.getNumOperands(); operand++) {
+                        if ((instruction.getOperandType(operand) & OperandType.WRITE) == 0) {
+                            continue;
+                        }
+                        String representation = instruction.getDefaultOperandRepresentation(operand)
+                            .toLowerCase();
+                        if (representation.contains(offsetText) || representation.contains(hexadecimalText)) {
+                            println(function.getEntryPoint() + " " + instruction);
+                        }
+                    }
+                }
+            }
+        }
+
+        String scalarValue = System.getenv("IMP_GHIDRA_SCALAR");
+        if (scalarValue != null && !scalarValue.trim().isEmpty()) {
+            long scalar = Long.parseLong(scalarValue.trim().replace("0x", ""), 16);
+            println(String.format("=== INSTRUCTIONS WITH SCALAR %X ===", scalar));
+            FunctionIterator functions = currentProgram.getFunctionManager().getFunctions(true);
+            while (functions.hasNext()) {
+                Function function = functions.next();
+                InstructionIterator instructions = currentProgram.getListing()
+                    .getInstructions(function.getBody(), true);
+                while (instructions.hasNext()) {
+                    Instruction instruction = instructions.next();
+                    boolean found = false;
+                    for (int operand = 0; operand < instruction.getNumOperands() && !found; operand++) {
+                        for (Object object : instruction.getOpObjects(operand)) {
+                            if (object instanceof Scalar && ((Scalar)object).getUnsignedValue() == scalar) {
+                                println(function.getEntryPoint() + " " + instruction);
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        String text = System.getenv("IMP_GHIDRA_TEXT");
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+
+        byte[] needle = text.getBytes("US-ASCII");
+        for (MemoryBlock block : currentProgram.getMemory().getBlocks()) {
+            if (!block.isInitialized() || block.getSize() < needle.length) {
+                continue;
+            }
+
+            byte[] bytes = new byte[(int)block.getSize()];
+            currentProgram.getMemory().getBytes(block.getStart(), bytes);
+            for (int offset = 0; offset <= bytes.length - needle.length; offset++) {
+                boolean matches = true;
+                for (int index = 0; index < needle.length; index++) {
+                    if (bytes[offset + index] != needle[index]) {
+                        matches = false;
+                        break;
+                    }
+                }
+                if (!matches) {
+                    continue;
+                }
+
+                Address found = block.getStart().add(offset);
+                println("=== TEXT " + text + " at " + found + " ===");
+                Reference[] references = getReferencesTo(found);
+                println("incoming references: " + references.length);
+                for (Reference reference : references) {
+                    println("  " + reference.getFromAddress() + " " + reference.getReferenceType());
+                }
+            }
+        }
+    }
+}

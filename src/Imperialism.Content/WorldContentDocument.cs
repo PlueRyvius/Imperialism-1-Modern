@@ -114,6 +114,12 @@ public sealed class MapContentDocument
 
     public int Height { get; set; }
 
+    /// <summary>
+    /// Whether east and west map edges touch. This is explicit so modern maps
+    /// of any size can choose a seam without inheriting the legacy 108x60 rule.
+    /// </summary>
+    public bool WrapsHorizontally { get; set; }
+
     public NamedContentDefinition[] Provinces { get; set; } = [];
 
     public NamedContentDefinition[] SeaZones { get; set; } = [];
@@ -160,10 +166,34 @@ public sealed class ScenarioContentDocument
     public CivilianContent[] Civilians { get; set; } = [];
 
     /// <summary>
+    /// Army stacks placed at the start: the original <c>army</c> record. The
+    /// type is the zero-based index of the executable's fixed 30-row table.
+    /// </summary>
+    public ArmyContent[] Armies { get; set; } = [];
+
+    /// <summary>
     /// Fleets each country starts with: the 1997 <c>ship</c> record. A country listed here
     /// ignores <c>startingDefaults.ships</c> entirely, rather than adding to it.
     /// </summary>
     public ShipContent[] Ships { get; set; } = [];
+
+    /// <summary>
+    /// Raw diplomatic relationship records in their source order: the 1997
+    /// <c>rela</c> records. They remain distinct from active relation state.
+    /// </summary>
+    public RelationContent[] Relations { get; set; } = [];
+
+    /// <summary>
+    /// Active country-manager generation used with <see cref="RelationStates"/>.
+    /// The compatibility default is zero.
+    /// </summary>
+    public int RelationSequence { get; set; }
+
+    /// <summary>
+    /// Optional active relation mode/token snapshot for strategic port access.
+    /// Missing entries retain the original standard/-1 defaults.
+    /// </summary>
+    public RelationStateContent[] RelationStates { get; set; } = [];
 
     public CountryTechnologyContent[] CountryTechnologies { get; set; } = [];
 
@@ -302,6 +332,28 @@ public sealed class CountryCashContent
     public long Amount { get; set; }
 }
 
+/// <summary>One raw 1997 <c>rela</c> record.</summary>
+public sealed class RelationContent
+{
+    public string First { get; set; } = string.Empty;
+
+    public string Second { get; set; } = string.Empty;
+
+    public int Value { get; set; }
+}
+
+/// <summary>One active country-manager mode/token relation entry.</summary>
+public sealed class RelationStateContent
+{
+    public string First { get; set; } = string.Empty;
+
+    public string Second { get; set; } = string.Empty;
+
+    public int Mode { get; set; }
+
+    public int Token { get; set; }
+}
+
 /// <summary>One fleet: a country, a class of ship, a sea zone and a count.</summary>
 /// <remarks>
 /// <b><see cref="SeaZone"/> is carried and never interpreted.</b> A ship's zone is not the
@@ -318,6 +370,25 @@ public sealed class ShipContent
     public int SeaZone { get; set; }
 
     public long Count { get; set; }
+}
+
+/// <summary>One regiment: a province, an original army-table type and experience.</summary>
+public sealed class ArmyContent
+{
+    public string Province { get; set; } = string.Empty;
+
+    public int Type { get; set; }
+
+    /// <summary>
+    /// The original record's third field. The executable retains it in
+    /// hundredths, awards 20 or 35 after battle, and caps it at four medals.
+    /// </summary>
+    public long Experience { get; set; }
+
+    /// <summary>Version 24's incorrect public name for <see cref="Experience"/>.</summary>
+    [JsonPropertyName("count")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? LegacyCount { get; set; }
 }
 
 /// <summary>

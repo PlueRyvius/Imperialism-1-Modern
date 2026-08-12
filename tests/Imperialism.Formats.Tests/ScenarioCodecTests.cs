@@ -196,14 +196,10 @@ public sealed class ScenarioCodecTests
         Assert.Contains(message, exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [CorpusFact]
     public void OriginalBinaryAndTextScenariosRoundTripWhenCorpusIsConfigured()
     {
-        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return;
-        }
+        var directory = CorpusFactAttribute.RequireScenarioDirectory();
 
         var binaries = Directory.GetFiles(directory, "*.scn")
             .Where(IsNumberedScenarioFile)

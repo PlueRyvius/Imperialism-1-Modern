@@ -103,7 +103,7 @@ than by guessing: the game inlines a Borland LCG whose multiplier `015A4E35`
 | 16 | `UMapper.cpp` |
 | 4 | `UOcean.cpp` |
 | 3 | `UArmyMgr.cpp` |
-| 144 | unattributed, mostly `005C4C60`-`005D4200` (a second cluster, likely battle AI) |
+| 144 | unattributed, including `005C4C60`-`005D4200` (the first entry is randomized report prose, not tactical AI) |
 
 Within `UMap.cpp` they concentrate in a handful of large functions —
 `005267F0`-`00528B5F` (9,072 bytes, 25 RNG sites) is the biggest, with

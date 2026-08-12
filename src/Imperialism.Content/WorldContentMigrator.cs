@@ -106,6 +106,36 @@ internal static class WorldContentMigrator
             MigrateVersionNineteenToTwenty(document);
         }
 
+        if (document.FormatVersion == 20)
+        {
+            MigrateVersionTwentyToTwentyOne(document);
+        }
+
+        if (document.FormatVersion == 21)
+        {
+            MigrateVersionTwentyOneToTwentyTwo(document);
+        }
+
+        if (document.FormatVersion == 22)
+        {
+            MigrateVersionTwentyTwoToTwentyThree(document);
+        }
+
+        if (document.FormatVersion == 23)
+        {
+            MigrateVersionTwentyThreeToTwentyFour(document);
+        }
+
+        if (document.FormatVersion == 24)
+        {
+            MigrateVersionTwentyFourToTwentyFive(document);
+        }
+
+        if (document.FormatVersion == WorldContentCodec.CurrentVersion)
+        {
+            RejectLegacyArmyCount(document);
+        }
+
         return document;
     }
 
@@ -912,6 +942,148 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 20;
+    }
+
+    /// <summary>
+    /// Version 21 records whether the map has an east/west seam. Old packages
+    /// had no sea-zone movement graph, so they have no behaviour to preserve
+    /// here and land as non-wrapping modern maps. The legacy converter supplies
+    /// the original seam explicitly when it creates a new package.
+    /// </summary>
+    private static void MigrateVersionTwentyToTwentyOne(WorldContentDocument document)
+    {
+        document.FormatVersion = 21;
+    }
+
+    /// <summary>
+    /// Version 22 preserves raw scenario relationship records. Older worlds had
+    /// no diplomacy consumer, so an empty list is the only behaviour-preserving
+    /// migration; importing an authored legacy scenario is the path that supplies
+    /// its original values.
+    /// </summary>
+    private static void MigrateVersionTwentyOneToTwentyTwo(WorldContentDocument document)
+    {
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.Relations is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion", "Version 21 cannot declare relationship records.");
+            }
+
+            if (scenario is not null)
+            {
+                scenario.Relations = [];
+            }
+        }
+
+        document.FormatVersion = 22;
+    }
+
+    /// <summary>
+    /// Version 23 can carry active relation mode/token state. A version 22
+    /// package had no such authored state, so standard mode, token -1 and
+    /// generation zero are the exact compatibility defaults.
+    /// </summary>
+    private static void MigrateVersionTwentyTwoToTwentyThree(WorldContentDocument document)
+    {
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.RelationStates is { Length: > 0 } || scenario?.RelationSequence != 0)
+            {
+                throw new ContentValidationException(
+                    "formatVersion", "Version 22 cannot declare active relation state.");
+            }
+
+            if (scenario is not null)
+            {
+                scenario.RelationSequence = 0;
+                scenario.RelationStates = [];
+            }
+        }
+
+        document.FormatVersion = 23;
+    }
+
+    /// <summary>
+    /// Version 24 preserves original scenario army records. A version 23
+    /// package had no army consumer, so an empty list is the only compatible
+    /// migration; legacy import is the evidence-backed path that supplies them.
+    /// </summary>
+    private static void MigrateVersionTwentyThreeToTwentyFour(WorldContentDocument document)
+    {
+        foreach (var scenario in document.Scenarios ?? [])
+        {
+            if (scenario?.Armies is { Length: > 0 })
+            {
+                throw new ContentValidationException(
+                    "formatVersion", "Version 23 cannot declare army records.");
+            }
+
+            if (scenario is not null)
+            {
+                scenario.Armies = [];
+            }
+        }
+
+        document.FormatVersion = 24;
+    }
+
+    /// <summary>
+    /// Version 25 corrects the third original <c>army</c> field from count to
+    /// experience. The version 24 importer retained the raw value exactly, so
+    /// migration is a rename only; it does not alter an army or invent a
+    /// regiment quantity.
+    /// </summary>
+    private static void MigrateVersionTwentyFourToTwentyFive(WorldContentDocument document)
+    {
+        for (var scenarioIndex = 0; scenarioIndex < (document.Scenarios?.Length ?? 0); scenarioIndex++)
+        {
+            var scenario = document.Scenarios![scenarioIndex];
+            if (scenario?.Armies is not { } armies)
+            {
+                continue;
+            }
+
+            for (var index = 0; index < armies.Length; index++)
+            {
+                var army = armies[index] ?? throw new ContentValidationException(
+                    $"scenarios[{scenarioIndex}].armies[{index}]", "Value cannot be null.");
+                if (army.LegacyCount is not { } experience)
+                {
+                    throw new ContentValidationException(
+                        $"scenarios[{scenarioIndex}].armies[{index}].count",
+                        "Version 24 army records require a count value.");
+                }
+
+                army.Experience = experience;
+                army.LegacyCount = null;
+            }
+        }
+
+        document.FormatVersion = 25;
+    }
+
+    private static void RejectLegacyArmyCount(WorldContentDocument document)
+    {
+        for (var scenarioIndex = 0; scenarioIndex < (document.Scenarios?.Length ?? 0); scenarioIndex++)
+        {
+            var scenario = document.Scenarios![scenarioIndex];
+            if (scenario?.Armies is not { } armies)
+            {
+                continue;
+            }
+
+            for (var index = 0; index < armies.Length; index++)
+            {
+                if (armies[index]?.LegacyCount is not null)
+                {
+                    throw new ContentValidationException(
+                        $"scenarios[{scenarioIndex}].armies[{index}].count",
+                        "Version 25 army records use experience, not count.");
+                }
+            }
+        }
     }
 
     private static string CreateCommodityKey(string resourceKey) =>

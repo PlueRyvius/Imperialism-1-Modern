@@ -447,7 +447,14 @@ public static class WorldContentCompiler
         MapDefinition map;
         try
         {
-            map = new MapDefinition(dimensions, cells, provinces, seaZones, resources, terrains);
+            map = new MapDefinition(
+                dimensions,
+                cells,
+                provinces,
+                seaZones,
+                resources,
+                terrains,
+                mapContent.WrapsHorizontally);
         }
         catch (ArgumentException exception)
         {
@@ -664,13 +671,83 @@ public static class WorldContentCompiler
                 throw Error($"{entryPath}.seaZone", "A sea zone cannot be negative.");
             }
 
-            // The zone is carried and never resolved: a ship's zone is not the map's
-            // ocean zone byte. See docs/scenario-semantics.md.
+            // The world state resolves this legacy index when its map has the
+            // corresponding base sea-zone entry. Keeping unmapped values accepts
+            // partial/diagnostic legacy content without inventing a location.
             ships.Add(new InitialShip(
                 new CountryId(FindKey(countryIds, entry.Country, $"{entryPath}.country")),
                 new ShipTypeId(FindKey(shipTypeIds, entry.Type, $"{entryPath}.type")),
                 entry.SeaZone,
                 entry.Count));
+        }
+
+        var armies = new List<InitialArmy>();
+        var armyEntries = RequireArray(scenarioContent.Armies, $"{path}.armies");
+        for (var index = 0; index < armyEntries.Length; index++)
+        {
+            var entryPath = $"{path}.armies[{index}]";
+            var entry = armyEntries[index] ?? throw Error(entryPath, "Value is required.");
+            if (entry.Experience < 0)
+            {
+                throw Error($"{entryPath}.experience", "Army experience cannot be negative.");
+            }
+
+            try
+            {
+                armies.Add(new InitialArmy(
+                    new ProvinceId(FindKey(provinceIds, entry.Province, $"{entryPath}.province")),
+                    new ArmyTypeId(entry.Type),
+                    entry.Experience));
+            }
+            catch (ArgumentOutOfRangeException exception)
+            {
+                throw Error($"{entryPath}.type", exception.Message, exception);
+            }
+        }
+
+        var relations = new List<InitialRelation>();
+        var relationEntries = RequireArray(scenarioContent.Relations, $"{path}.relations");
+        for (var index = 0; index < relationEntries.Length; index++)
+        {
+            var entryPath = $"{path}.relations[{index}]";
+            var entry = relationEntries[index] ?? throw Error(entryPath, "Value is required.");
+            if (entry.Value is < 0 or > byte.MaxValue)
+            {
+                throw Error($"{entryPath}.value", "A raw relation value must be between 0 and 255.");
+            }
+
+            relations.Add(new InitialRelation(
+                new CountryId(FindKey(countryIds, entry.First, $"{entryPath}.first")),
+                new CountryId(FindKey(countryIds, entry.Second, $"{entryPath}.second")),
+                entry.Value));
+        }
+
+        if (scenarioContent.RelationSequence is < short.MinValue or > short.MaxValue)
+        {
+            throw Error($"{path}.relationSequence", "Value must fit in a signed 16-bit integer.");
+        }
+
+        var relationStates = new List<InitialRelationState>();
+        var relationStateEntries = RequireArray(scenarioContent.RelationStates, $"{path}.relationStates");
+        for (var index = 0; index < relationStateEntries.Length; index++)
+        {
+            var entryPath = $"{path}.relationStates[{index}]";
+            var entry = relationStateEntries[index] ?? throw Error(entryPath, "Value is required.");
+            if (entry.Mode is < short.MinValue or > short.MaxValue)
+            {
+                throw Error($"{entryPath}.mode", "Value must fit in a signed 16-bit integer.");
+            }
+
+            if (entry.Token is < short.MinValue or > short.MaxValue)
+            {
+                throw Error($"{entryPath}.token", "Value must fit in a signed 16-bit integer.");
+            }
+
+            relationStates.Add(new InitialRelationState(
+                new CountryId(FindKey(countryIds, entry.First, $"{entryPath}.first")),
+                new CountryId(FindKey(countryIds, entry.Second, $"{entryPath}.second")),
+                (short)entry.Mode,
+                (short)entry.Token));
         }
 
         if (string.IsNullOrWhiteSpace(scenarioContent.Name))
@@ -697,7 +774,11 @@ public static class WorldContentCompiler
                 civilians,
                 transportCapacity,
                 cash,
-                ships);
+                ships,
+                relations,
+                relationStates,
+                (short)scenarioContent.RelationSequence,
+                armies);
             return new WorldDefinition(
                 map,
                 countries,
