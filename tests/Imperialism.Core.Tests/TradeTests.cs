@@ -262,6 +262,28 @@ public sealed class TradeTests
             item => item.Country == Buyer && item.Reason == TradeRefusal.NotEnoughCash);
     }
 
+    [Fact]
+    public void TheTradeSchoolIsPaidBeforeTheMarketSpendsTheTreasury()
+    {
+        // A chosen rule: training is paid on the Industry screen, so trade bids with
+        // what it leaves. $250 less $100 for one trainee buys one coal at 100, not two —
+        // and the trainee is still paid for when Production commits after Trade.
+        var state = CreateState(stock: [(Seller, Coal, 10)], cash: 250, withTraining: true);
+
+        var result = Resolve(
+            state,
+            Offer(Seller, Coal, 10),
+            new CountryTurnOrders(
+                Buyer,
+                tradeBids: [new TradeOrder(new CommodityId(Coal), 10)],
+                training: new WorkerTrainingOrder(1, 0)));
+
+        Assert.Equal(1, Assert.Single(result.Events.OfType<CommodityTradedEvent>()).Quantity);
+        Assert.Equal(100, Assert.Single(result.Events.OfType<WorkersTrainedEvent>()).CashPaid);
+        Assert.Equal(50, state.GetCash(Buyer));
+        Assert.Equal(1, state.GetWorkers(Buyer, WorkerGrade.Trained));
+    }
+
     /// <summary>
     /// "You can buy nothing if you have no merchant marine to move the cargo", and a
     /// bidder without a hold free "is not permitted to accept the deal, and the items are
@@ -534,7 +556,8 @@ public sealed class TradeTests
         long cash = 10_000,
         bool withMarket = true,
         bool untradableWorld = false,
-        bool sharedTradeOrder = false)
+        bool sharedTradeOrder = false,
+        bool withTraining = false)
     {
         const int countries = 4;
         var dimensions = new MapDimensions(countries, 1);
@@ -639,6 +662,9 @@ public sealed class TradeTests
                 new ShipTypeDefinition(new ShipTypeId(Trader), "Trader", cargo: 2),
                 new ShipTypeDefinition(new ShipTypeId(Frigate), "Frigate"),
             ],
-            trade: withMarket ? new ProportionalTradeMarket() : null));
+            trade: withMarket ? new ProportionalTradeMarket() : null,
+            workerTraining: withTraining
+                ? new WorkerTrainingSettings([new WorkerTrainingRule(WorkerGrade.Untrained, [], 100)])
+                : null));
     }
 }
