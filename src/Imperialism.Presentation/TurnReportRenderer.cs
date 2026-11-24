@@ -114,6 +114,7 @@ public sealed class TurnReportRenderer
             PowerGeneratedEvent generated => Powered(generated),
             PowerRefusedEvent refused => [PowerRefused(refused)],
             FacilityExpandedEvent expanded => [Expanded(expanded)],
+            FacilityExpansionRefusedEvent refused => [ExpansionRefused(refused)],
             TransportCapacityBuiltEvent built => [NetworkBuilt(built)],
             CellDevelopedEvent developed => [Developed(developed)],
             CellProspectedEvent prospected => [Prospected(prospected)],
@@ -270,6 +271,14 @@ public sealed class TurnReportRenderer
         $"{Country(expanded.Country)} expanded {Facility(expanded.Facility)} from " +
         $"{Count(expanded.FromCapacity)} to {Count(expanded.ToCapacity)}, " +
         $"paying {Quantities(expanded.Paid)}.");
+
+    private TurnReportLine ExpansionRefused(FacilityExpansionRefusedEvent refused) => Line(
+        refused,
+        TurnReportKind.Refusal,
+        refused.Country,
+        null,
+        $"{Country(refused.Country)} could not expand {Facility(refused.Facility)}: " +
+        $"{TurnReportText.Describe(refused.Reason)}.");
 
     private TurnReportLine NetworkBuilt(TransportCapacityBuiltEvent built) => Line(
         built,

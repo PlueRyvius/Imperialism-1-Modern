@@ -812,6 +812,13 @@ public sealed class ProductionFacilityContentDefinition
     /// expanded; an uncapped facility must not carry one.
     /// </summary>
     public CapacityLadderContent? CapacityLadder { get; set; }
+
+    /// <summary>
+    /// The technology key a country must hold before it may expand this facility.
+    /// Absent means anyone may. Gates building only: authored capacity loads, and
+    /// recipes run, without it. Added in version 28.
+    /// </summary>
+    public string? RequiredTechnology { get; set; }
 }
 
 /// <summary>

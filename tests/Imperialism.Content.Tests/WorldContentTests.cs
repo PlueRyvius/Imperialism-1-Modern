@@ -322,7 +322,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(28)]
+    [InlineData(29)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1770,6 +1770,95 @@ public sealed class WorldContentTests
         var exception = Assert.Throws<ContentValidationException>(() =>
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
         Assert.Equal(block, exception.Path);
+    }
+
+    [Fact]
+    public void VersionTwentySevenMigratesToAWorldWithNoGatedFacility()
+    {
+        // Absent means ungated, so a migrated package builds exactly as it did.
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 27);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+        var world = WorldContentCompiler.Compile(migrated).World;
+
+        Assert.Equal(28, WorldContentCodec.CurrentVersion);
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.All(migrated.ProductionFacilities, static facility => Assert.Null(facility.RequiredTechnology));
+        Assert.All(world.ProductionFacilities, static facility => Assert.Null(facility.RequiredTechnology));
+    }
+
+    [Fact]
+    public void VersionTwentySevenCannotGateAFacility()
+    {
+        var json = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(WithGatedSteelMill(CreateValidDocument()))), 27);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+        Assert.Equal("productionFacilities[0].requiredTechnology", exception.Path);
+    }
+
+    [Fact]
+    public void AFacilityGateRoundTripsAndCompilesByKey()
+    {
+        var document = WithGatedSteelMill(CreateValidDocument());
+
+        var encoded = WorldContentCodec.Encode(document);
+        var json = Encoding.UTF8.GetString(encoded);
+        var decoded = WorldContentCodec.Decode(encoded);
+        var world = WorldContentCompiler.Compile(decoded).World;
+
+        Assert.Contains("\"requiredTechnology\": \"technology.drilling\"", json, StringComparison.Ordinal);
+        Assert.Equal("technology.drilling", decoded.ProductionFacilities[0].RequiredTechnology);
+        Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
+        var required = Assert.IsType<TechnologyId>(world.ProductionFacilities[0].RequiredTechnology);
+        Assert.Equal("Oil Drilling", world.Technologies[required.Value].Name);
+    }
+
+    [Fact]
+    public void AuthoredCapacityOfAGatedFacilityLoadsWithoutTheTechnology()
+    {
+        // The gate governs building, never storing: a scenario may author a
+        // refinery for a power that could not have built one.
+        var document = WithGatedSteelMill(CreateValidDocument());
+        var country = document.Countries[0].Key;
+        document.Scenarios[0].CountryTechnologies = [];
+        document.Scenarios[0].ProductionCapacities =
+        [
+            new InitialProductionCapacityContent { Country = country, Facility = "facility.steel-mill", Quantity = 5 },
+        ];
+
+        var world = WorldContentCompiler.Compile(WorldContentCodec.Decode(WorldContentCodec.Encode(document))).World;
+        var state = new WorldState(world);
+
+        var countryId = new CountryId(0);
+        Assert.False(state.HasTechnology(countryId, world.ProductionFacilities[0].RequiredTechnology!.Value));
+        Assert.Equal(5, state.GetProductionCapacity(countryId, new ProductionFacilityId(0)));
+    }
+
+    [Fact]
+    public void AFacilityGateMustNameAKnownTechnology()
+    {
+        var document = WithGatedSteelMill(CreateValidDocument());
+        document.ProductionFacilities[0].RequiredTechnology = "technology.missing";
+
+        AssertPath("productionFacilities[0].requiredTechnology", document);
+    }
+
+    [Fact]
+    public void AFacilityThatCannotBeExpandedCannotBeGated()
+    {
+        var document = CreateValidDocument();
+        document.ProductionFacilities[0].RequiredTechnology = "technology.drilling";
+
+        AssertPath("productionFacilities[0].requiredTechnology", document);
+    }
+
+    private static WorldContentDocument WithGatedSteelMill(WorldContentDocument document)
+    {
+        document.ProductionFacilities[0].CapacityLadder = new CapacityLadderContent { Rungs = [2, 4], Increment = 4 };
+        document.ProductionFacilities[0].RequiredTechnology = "technology.drilling";
+        return document;
     }
 
     [Fact]

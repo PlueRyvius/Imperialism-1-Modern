@@ -90,6 +90,12 @@ public static class TurnReportText
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 
+    public static string Describe(FacilityExpansionRefusal reason) => reason switch
+    {
+        FacilityExpansionRefusal.TechnologyNotKnown => "we have not invested in the technology it needs",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason)),
+    };
+
     public static string Describe(WorkerTrainingRefusal reason) => reason switch
     {
         WorkerTrainingRefusal.NotOffered => "the Trade School offers no training from that grade",

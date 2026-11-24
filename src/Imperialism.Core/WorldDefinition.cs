@@ -201,6 +201,17 @@ public sealed class WorldDefinition
             }
         }
 
+        foreach (var facility in facilityArray)
+        {
+            if (facility.RequiredTechnology is { } required &&
+                (uint)required.Value >= (uint)technologyArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Production facility {facility.Id.Value} requires missing technology {required.Value}.",
+                    nameof(productionFacilities));
+            }
+        }
+
         foreach (var resource in map.Resources)
         {
             if ((uint)resource.Commodity.Value >= (uint)commodityArray.Length)

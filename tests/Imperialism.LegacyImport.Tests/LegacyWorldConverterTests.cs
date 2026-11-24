@@ -420,6 +420,82 @@ public sealed class LegacyWorldConverterTests
     }
 
     [Fact]
+    public void TheRefineryAndThePowerPlantAreGatedBehindOilDrillingAndNothingElseIs()
+    {
+        // "available once Oil Drilling technology is purchased" — the manual opens
+        // both on the same screen with the same technology.
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(1, 1, LandCell(0, 0)),
+            new ScenarioDocument(
+            [
+                Record("year", 1815),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "gates");
+
+        var document = result.Document!;
+        Assert.Equal(
+            ["facility.oil-refinery", "facility.power-plant"],
+            document.ProductionFacilities
+                .Where(static item => item.RequiredTechnology is not null)
+                .Select(static item => item.Key));
+        Assert.All(
+            document.ProductionFacilities.Where(static item => item.RequiredTechnology is not null),
+            static item => Assert.Equal("technology.oil-drilling", item.RequiredTechnology));
+
+        var compiled = WorldContentCompiler.Compile(document);
+        foreach (var key in new[] { "facility.oil-refinery", "facility.power-plant" })
+        {
+            var facility = compiled.World.ProductionFacilities.Single(
+                item => compiled.Catalog.GetKey(item.Id) == key);
+            var required = Assert.IsType<TechnologyId>(facility.RequiredTechnology);
+            Assert.Equal("Oil Drilling", compiled.World.Technologies[required.Value].Name);
+        }
+    }
+
+    [Fact]
+    public void AnAuthoredRefineryLoadsForAPowerWithoutOilDrillingAndCannotBeExpanded()
+    {
+        // The gate governs building, never storing: capa industry 6 is the refinery,
+        // and an 1815 power holds no technology at all.
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(1, 1, LandCell(0, 0)),
+            new ScenarioDocument(
+            [
+                Record("year", 1815),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+                Record("capa", 0, 6, 3),
+            ]),
+            null,
+            "authored-refinery");
+
+        Assert.True(result.Success);
+        var compiled = WorldContentCompiler.Compile(result.Document!);
+        var refinery = compiled.World.ProductionFacilities.Single(
+            item => compiled.Catalog.GetKey(item.Id) == "facility.oil-refinery");
+        var state = new WorldState(compiled.World);
+        var country = new CountryId(0);
+
+        Assert.False(state.HasTechnology(country, refinery.RequiredTechnology!.Value));
+        Assert.Equal(3, state.GetProductionCapacity(country, refinery.Id));
+
+        var orders = Enumerable.Range(0, compiled.World.Countries.Count)
+            .Select(index => new CountryTurnOrders(
+                new CountryId(index),
+                expansions: index == 0 ? [new ProductionExpansionOrder(refinery.Id)] : null))
+            .ToArray();
+        var resolution = TurnResolver.Resolve(state, new TurnOrders(orders), 0);
+
+        Assert.Equal(
+            FacilityExpansionRefusal.TechnologyNotKnown,
+            Assert.Single(resolution.Events.OfType<FacilityExpansionRefusedEvent>()).Reason);
+        Assert.Equal(3, state.GetProductionCapacity(country, refinery.Id));
+    }
+
+    [Fact]
     public void AsymmetricRailEndpointIsDroppedWithOneWarning()
     {
         var map = CreateMap(

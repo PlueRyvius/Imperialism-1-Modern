@@ -204,7 +204,9 @@ which `extraction.md` transcribes.
 Fish and horses are absent because no civilian improves either.
 
 The table's other columns are for systems that do not exist here — regiments,
-ships, the Refinery, rail through particular terrain. All twenty-eight names are
+ships, rail through particular terrain. (The Refinery and the Power Plant have
+since gained their Oil Drilling gate; see *A facility gate refuses building only*
+below.) All twenty-eight names are
 transcribed anyway, in printed order, because **the order is what a `tech` record
 is indexed against**.
 
@@ -448,6 +450,21 @@ The soak shows this is not a formality: a power that improves whenever it can
 never accumulates the twelve thousand a Mechanical Reaper wants. See
 [below](#what-a-hundred-turns-looks-like).
 
+### A facility gate refuses building only
+
+From v28 a production facility may name a `requiredTechnology`; the importer gives
+the Oil Refinery and the Power Plant `technology.oil-drilling`, on the manual's
+"the option to build a Power Plant and an Oil Refinery becomes available once Oil
+Drilling technology is purchased". Like every gate here it is name-keyed and
+resolved through the technology catalog, never a table position.
+
+It refuses an **expansion order** — `FacilityExpansionRefusal.TechnologyNotKnown`,
+charged nothing — and nothing else. **Authored capacity loads without it and a
+held facility runs without it; both are chosen rules**, the same split as the
+improvement ladder and the rail gates: the gate governs building, never storing.
+Knowledge is read as the turn opens, so Oil Drilling bought this turn opens both
+facilities next turn. See `production.md`.
+
 ### Refusals get their own enum
 
 `TechnologyPurchaseRefusal` rather than folding into `CivilianOrderRefusal`, which
@@ -516,6 +533,14 @@ Investment, last in the turn, per country:
 - `LegacyWorldConverter.TechnologyTable`, `ResourceTechnologyLadders`,
   `ReadCountryTechnologies`, and the starting-defaults block. `tech` is no longer
   deferred.
+
+Facilities, from v28:
+
+- `ProductionFacilityDefinition.RequiredTechnology`, checked in `ExpansionPlanner`.
+- `FacilityExpansionRefusal`, `FacilityExpansionRefusedEvent`.
+- `.iworld` **v28**: `productionFacilities[].requiredTechnology`, with a v27→v28
+  migration to an ungated world. `LegacyWorldConverter` gates `oil-refinery` and
+  `power-plant` through `TechnologyKey(OilDrilling)`.
 
 Buying it, from v19:
 
@@ -638,7 +663,8 @@ recorded above.
 - **Rail through terrain** is done, and **oil is now reachable**: an imported world
   can buy Oil Drilling for 12,000 from 1856, so the prospecting gate
   `prospecting.md` called permanently shut is open. Nothing has run a soak on it.
-- **The Refinery and the Power Plant**, both behind Oil Drilling.
+- **The Refinery and the Power Plant**, both behind Oil Drilling. **Closed with
+  v28**: expansion is refused without it; authored capacity and running are not.
 - **Research progress.** The manual has purchase as instant and this models it that
   way; nothing accumulates points.
 - **The newspaper**, which is how the original tells you a technology has arrived.

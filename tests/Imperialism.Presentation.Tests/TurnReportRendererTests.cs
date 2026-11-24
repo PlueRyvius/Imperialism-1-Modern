@@ -117,6 +117,22 @@ public sealed class TurnReportRendererTests
     }
 
     [Fact]
+    public void ARefusedExpansionNamesTheFacilityAndWhy()
+    {
+        var renderer = CreateRenderer();
+
+        var line = Assert.Single(renderer.Render(new FacilityExpansionRefusedEvent(
+            1, Blue, new ProductionFacilityId(0), FacilityExpansionRefusal.TechnologyNotKnown)));
+
+        Assert.Equal(TurnReportKind.Refusal, line.Kind);
+        Assert.Contains("could not expand Lumber Mill", line.Text, StringComparison.Ordinal);
+        Assert.Contains(
+            TurnReportText.Describe(FacilityExpansionRefusal.TechnologyNotKnown),
+            line.Text,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ACellInASeaZoneRendersWithoutThrowing()
     {
         // CellRegion.Province throws for anything that is not a province, so a
@@ -259,6 +275,8 @@ public sealed class TurnReportRendererTests
             new WorldPriceChangedEvent(1, lumber, 300, 320, 4, 9),
             new ProductionCompletedEvent(1, Blue, new ProductionRecipeId(0), 2, 2, 2, 4, some, some),
             new FacilityExpandedEvent(1, Blue, new ProductionFacilityId(0), 2, 3, some),
+            new FacilityExpansionRefusedEvent(
+                1, Blue, new ProductionFacilityId(0), FacilityExpansionRefusal.TechnologyNotKnown),
             new TransportCapacityBuiltEvent(1, Blue, 20, 24, 8, some),
             new CellDevelopedEvent(1, Blue, unit, Land, 0, 1),
             new CellProspectedEvent(1, Blue, unit, Land, [new ResourceId(0)]),

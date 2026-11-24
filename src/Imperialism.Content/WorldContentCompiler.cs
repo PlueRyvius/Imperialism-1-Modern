@@ -323,13 +323,29 @@ public static class WorldContentCompiler
                 }
             }
 
+            // Name-keyed like every other gate, so reordering the technology
+            // table can never silently rewire which facility it opens.
+            TechnologyId? required = definition.RequiredTechnology is null
+                ? null
+                : new TechnologyId(FindKey(
+                    technologyIds,
+                    definition.RequiredTechnology,
+                    $"{path}.requiredTechnology"));
+            if (required is not null && ladder is null)
+            {
+                throw Error(
+                    $"{path}.requiredTechnology",
+                    "A facility that cannot be expanded has nothing for a technology to gate.");
+            }
+
             try
             {
                 return new ProductionFacilityDefinition(
                     new ProductionFacilityId(index),
                     definition.Name,
                     definition.CapacityMode,
-                    ladder);
+                    ladder,
+                    required);
             }
             catch (ArgumentException exception)
             {
