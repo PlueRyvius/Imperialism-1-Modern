@@ -196,8 +196,12 @@ validation rule for imported state. Tutorial scenarios contain capacities 3,
 Keys are deterministic. Known terrain and resources use semantic keys;
 countries, provinces, and sea zones retain padded numeric legacy IDs. Only
 `zone` IDs referenced by ocean cells become modern sea zones. The ocean byte
-uses a combined region namespace, so its scenario zone ID is decoded by
-subtracting the country namespace size. Other zone
+uses a combined region namespace whose ocean part begins at `0x17`: the
+executable's `UOcean` resolves byte `r` as `records[r - 0x17]`
+(`0x00563300`), so a scenario `zone` or `ship` id `z` is ocean byte `z + 23`.
+The importer subtracts that constant. It used to subtract the highest country
+id the file names plus one, which agrees only when that id is 22 (#41); an
+ocean byte below `0x17` is reported as `map.invalid-sea-zone-reference`. Other zone
 records, all unsupported scenario tags (including legacy `rail` records), INF
 briefings and metadata, scenario trailing bytes, and map trailer records are
 reported as deferred information.
