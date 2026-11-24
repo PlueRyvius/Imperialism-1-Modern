@@ -388,6 +388,36 @@ public sealed class LegacyWorldConverterTests
                 .Sum(static item => item.Count));
     }
 
+    /// <summary>
+    /// The 1997 grid wraps east-west and the converted map says so, so a line
+    /// laid across the seam is one link like any other. Reading it on a flat
+    /// grid dropped both ends as "asymmetric" (issue #45).
+    /// </summary>
+    [Fact]
+    public void RailAcrossTheSeamBecomesOneLinkTheWorldAccepts()
+    {
+        var map = CreateMap(
+            3,
+            1,
+            LandCell(1, 0) with { Rail = 16 },
+            LandCell(2, 0),
+            LandCell(3, 0) with { Rail = 2 });
+
+        var result = LegacyWorldConverter.Convert(map, Scenario(1815), null, "rail-seam");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var link = Assert.Single(result.Document!.Scenarios[0].Rails);
+        Assert.Equal((0, 2), (link.First, link.Second));
+        Assert.DoesNotContain(
+            result.Report.Diagnostics,
+            static item => item.Code == "map.asymmetric-rail-endpoint");
+
+        var world = WorldContentCompiler.Compile(result.Document).World;
+        Assert.Contains(
+            new CellLink(new CellIndex(0), new CellIndex(2)),
+            world.Scenario.InitialRailLinks);
+    }
+
     [Fact]
     public void UnknownCodesWarnWithoutInventingFeatures()
     {

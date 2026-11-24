@@ -2201,6 +2201,12 @@ public static class LegacyWorldConverter
         return links.ToArray();
     }
 
+    /// <summary>
+    /// The neighbour a rail bit points at, wrapping east-west because the 1997
+    /// grid does and because the converted map declares the same seam. Without
+    /// the wrap, a line across the seam lost both ends as "asymmetric" and then
+    /// the world it was written into would have accepted it.
+    /// </summary>
     private static int? GetNeighbour(int index, int width, int height, byte bit)
     {
         var x = index % width;
@@ -2216,11 +2222,15 @@ public static class LegacyWorldConverter
             32 => (odd ? 0 : -1, -1),
             _ => throw new ArgumentOutOfRangeException(nameof(bit)),
         };
-        var targetX = x + dx;
+        var targetX = (x + dx + width) % width;
         var targetY = y + dy;
-        return (uint)targetX < (uint)width && (uint)targetY < (uint)height
-            ? checked((targetY * width) + targetX)
-            : null;
+        if ((uint)targetY >= (uint)height)
+        {
+            return null;
+        }
+
+        var target = checked((targetY * width) + targetX);
+        return target == index ? null : target;
     }
 
     private static void WarnUnknownCodes(MapDocument map, LegacyImportReport report)

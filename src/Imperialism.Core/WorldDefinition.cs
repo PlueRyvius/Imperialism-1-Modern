@@ -246,7 +246,7 @@ public sealed class WorldDefinition
 
         MapDefinition.ValidateLinks(
             scenario.InitialRailLinks,
-            map.Dimensions,
+            map,
             "Rail",
             nameof(scenario));
         foreach (var rail in scenario.InitialRailLinks)
@@ -1858,7 +1858,7 @@ public sealed class WorldState
 
     public bool BuildRail(CellLink link)
     {
-        link.Validate(Definition.Map.Dimensions, "Rail");
+        link.Validate(Definition.Map, "Rail");
         WorldDefinition.ValidateLandLink(Definition.Map, link, "Rail", nameof(link));
         var changed = _railLinks.Add(link);
         if (changed)

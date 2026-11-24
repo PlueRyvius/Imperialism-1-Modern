@@ -175,6 +175,22 @@ public sealed class MapDefinition
         return true;
     }
 
+    /// <summary>
+    /// Whether two cells share an edge, across the seam where the map has one.
+    /// </summary>
+    public bool AreAdjacent(CellIndex first, CellIndex second)
+    {
+        foreach (var direction in HexDirections.All)
+        {
+            if (TryGetNeighbor(first, direction, out var neighbor) && neighbor == second)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public IReadOnlyList<ProvinceDefinition> Provinces => _provinces;
 
     public IReadOnlyList<SeaZoneDefinition> SeaZones => _seaZones;
@@ -236,7 +252,7 @@ public sealed class MapDefinition
 
     internal static void ValidateLinks(
         IReadOnlyCollection<CellLink> links,
-        MapDimensions dimensions,
+        MapDefinition map,
         string description,
         string parameterName)
     {
@@ -249,7 +265,7 @@ public sealed class MapDefinition
         {
             try
             {
-                link.Validate(dimensions, description);
+                link.Validate(map, description);
             }
             catch (ArgumentException exception)
             {
