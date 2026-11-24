@@ -838,6 +838,8 @@ public static class LegacyWorldConverter
             ProductionRecipes = CreateStandardProductionRecipes(),
             ExpansionCostPerCapacityPoint = CreateStandardExpansionCost(),
             Migration = CreateStandardMigration(),
+            WorkerTraining = CreateStandardWorkerTraining(),
+            Power = CreateStandardPower(),
             Resources = resourceCodes.Select(code => new ResourceContentDefinition
             {
                 Key = resourceKeys[code],
@@ -2635,7 +2637,15 @@ public static class LegacyWorldConverter
         Facility("furniture-factory", "Furniture Factory", ProductionCapacityMode.Limited, FactoryLadder),
         Facility("oil-refinery", "Oil Refinery", ProductionCapacityMode.Limited, FactoryLadder),
         Facility("food-processing", "Food Processing", ProductionCapacityMode.Unlimited),
+
+        // Last, so every facility id before it keeps the number it had. Built and
+        // laddered exactly as the refinery is, because the manual opens both with
+        // the same technology on the same screen. Neither is gated in code: a
+        // facility carries no technology requirement yet. See production.md.
+        Facility(PowerPlant, "Power Plant", ProductionCapacityMode.Limited, FactoryLadder),
     ];
+
+    private const string PowerPlant = "power-plant";
 
     /// <summary>
     /// "For mills, which start at capacity 2, the improvement levels are 4, 8,
@@ -2669,12 +2679,8 @@ public static class LegacyWorldConverter
     /// make one untrained worker. The guess was right, which is worth recording precisely
     /// because it so easily might not have been. See <c>docs/formulas/migration.md</c>.
     /// <para>
-    /// The same resource block prices the two conversions above this one — an untrained
-    /// worker plus one paper and $100 becomes trained, a trained worker plus two paper and
-    /// $1,000 becomes expert — and **neither is modelled**. The Capitol recruits untrained
-    /// workers and nothing promotes them, so the numbers sit in
-    /// <c>docs/disasm/definitive-original-data.md</c> waiting for the Trade School and the
-    /// University.
+    /// The same resource block prices the two conversions above this one, and they are
+    /// the Trade School's terms in <see cref="CreateStandardWorkerTraining"/>.
     /// </para>
     /// </remarks>
     private static MigrationContent CreateStandardMigration() => new()
@@ -2686,6 +2692,49 @@ public static class LegacyWorldConverter
             Quantity("furniture", 1),
         ],
         ProvincesPerRecruit = 4,
+    };
+
+    /// <summary>
+    /// The Trade School: an untrained worker plus one paper and $100 becomes trained, a
+    /// trained worker plus two paper and $1,000 becomes expert.
+    /// </summary>
+    /// <remarks>
+    /// <b>Recovered, not guessed.</b> The manual says only "training costs paper and
+    /// cash"; the original's help resources state both conversions outright, in the
+    /// same block that prices the Capitol's recruit. See
+    /// <c>docs/disasm/definitive-original-data.md</c>.
+    /// </remarks>
+    private static WorkerTrainingContent[] CreateStandardWorkerTraining() =>
+    [
+        new()
+        {
+            From = WorkerGrade.Untrained,
+            Cost = [Quantity("paper", 1)],
+            CashCost = 100,
+        },
+        new()
+        {
+            From = WorkerGrade.Trained,
+            Cost = [Quantity("paper", 2)],
+            CashCost = 1000,
+        },
+    ];
+
+    /// <summary>
+    /// The Power Plant: "1 fuel → 6 power, with up to 100 fuel per turn".
+    /// </summary>
+    /// <remarks>
+    /// <b>Both numbers are recovered</b> from the original's help resources. The 100 is
+    /// read as a flat cap per country per turn, independent of the plant's capacity —
+    /// the resource gives one figure and mentions no size. See
+    /// <c>docs/formulas/production.md</c>.
+    /// </remarks>
+    private static PowerContentSettings CreateStandardPower() => new()
+    {
+        Fuel = "commodity.fuel",
+        Facility = $"facility.{PowerPlant}",
+        PowerPerFuel = 6,
+        MaxFuelPerTurn = 100,
     };
 
     /// <summary>

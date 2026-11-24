@@ -28,9 +28,12 @@ public sealed class CountryTurnOrders
         IEnumerable<EngineerOrder>? engineerWork = null,
         IEnumerable<TechnologyId>? buyTechnology = null,
         IEnumerable<TradeOrder>? tradeOffers = null,
-        IEnumerable<TradeOrder>? tradeBids = null)
+        IEnumerable<TradeOrder>? tradeBids = null,
+        long burnFuel = 0,
+        WorkerTrainingOrder training = default)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(recruitWorkers);
+        ArgumentOutOfRangeException.ThrowIfNegative(burnFuel);
         ArgumentOutOfRangeException.ThrowIfNegative(buildTransportCapacity);
         var productionArray = production?.ToArray() ?? [];
         if (productionArray.Any(static item => item.RequestedCycles <= 0))
@@ -123,6 +126,8 @@ public sealed class CountryTurnOrders
 
         Country = country;
         RecruitWorkers = recruitWorkers;
+        BurnFuel = burnFuel;
+        Training = training;
         BuildTransportCapacity = buildTransportCapacity;
         _buyTechnology = Array.AsReadOnly(buyArray);
         _tradeOffers = Array.AsReadOnly(offerArray);
@@ -207,6 +212,53 @@ public sealed class CountryTurnOrders
     /// coal that turn."
     /// </summary>
     public IReadOnlyList<TradeOrder> TradeBids => _tradeBids;
+
+    /// <summary>
+    /// Fuel to burn in the Power Plant this turn. Zero is the ordinary case.
+    /// </summary>
+    /// <remarks>
+    /// <b>All or nothing.</b> An order the country cannot carry out in full — no plant,
+    /// not enough fuel, or more than the world's per-turn limit — is refused with a
+    /// <see cref="PowerRefusedEvent"/> and burns nothing. The limit lives in content,
+    /// so it is checked when the turn resolves rather than here. See
+    /// <c>docs/formulas/production.md</c>.
+    /// </remarks>
+    public long BurnFuel { get; }
+
+    /// <summary>Workers to send to the Trade School this turn.</summary>
+    public WorkerTrainingOrder Training { get; }
+}
+
+/// <summary>
+/// The Trade School dialog: how many workers to raise each grade this turn.
+/// </summary>
+/// <remarks>
+/// Each count is counted against the workforce the turn opened with, so a worker
+/// cannot be raised two grades in one turn. Each step is all or nothing and is
+/// refused with a <see cref="WorkerTrainingRefusedEvent"/> when the country cannot
+/// pay for or supply all of it.
+/// </remarks>
+public readonly record struct WorkerTrainingOrder
+{
+    public WorkerTrainingOrder(long untrainedToTrained, long trainedToExpert)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(untrainedToTrained);
+        ArgumentOutOfRangeException.ThrowIfNegative(trainedToExpert);
+        UntrainedToTrained = untrainedToTrained;
+        TrainedToExpert = trainedToExpert;
+    }
+
+    public long UntrainedToTrained { get; }
+
+    public long TrainedToExpert { get; }
+
+    /// <summary>How many workers of this grade are to be raised one grade.</summary>
+    public long this[WorkerGrade from] => from switch
+    {
+        WorkerGrade.Untrained => UntrainedToTrained,
+        WorkerGrade.Trained => TrainedToExpert,
+        _ => 0,
+    };
 }
 
 /// <summary>

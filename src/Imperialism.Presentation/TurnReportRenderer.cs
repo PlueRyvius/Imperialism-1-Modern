@@ -109,6 +109,10 @@ public sealed class TurnReportRenderer
             TradeUnfilledEvent unfilled => [Unfilled(unfilled)],
             WorldPriceChangedEvent price => [PriceMoved(price)],
             ProductionCompletedEvent produced => [Produced(produced)],
+            WorkersTrainedEvent trained => [Trained(trained)],
+            WorkerTrainingRefusedEvent refused => [TrainingRefused(refused)],
+            PowerGeneratedEvent generated => Powered(generated),
+            PowerRefusedEvent refused => [PowerRefused(refused)],
             FacilityExpandedEvent expanded => [Expanded(expanded)],
             TransportCapacityBuiltEvent built => [NetworkBuilt(built)],
             CellDevelopedEvent developed => [Developed(developed)],
@@ -187,6 +191,76 @@ public sealed class TurnReportRenderer
             $"making {Quantities(produced.Produced)} from {Quantities(produced.Consumed)} " +
             $"and {Count(produced.LabourUsed)} labour.");
     }
+
+    private TurnReportLine Trained(WorkersTrainedEvent trained)
+    {
+        var cost = new List<string>();
+        if (trained.Paid.Count > 0)
+        {
+            cost.Add(Quantities(trained.Paid));
+        }
+
+        if (trained.CashPaid > 0)
+        {
+            cost.Add(Money(trained.CashPaid));
+        }
+
+        var paying = cost.Count == 0 ? string.Empty : $", paying {string.Join(" and ", cost)}";
+        return Line(
+            trained,
+            TurnReportKind.Outcome,
+            trained.Country,
+            null,
+            $"{Country(trained.Country)} trained {Workers(trained.Trained, trained.From)} " +
+            $"to {TurnReportText.Describe(trained.To)}{paying}; they work at their new grade from next turn.");
+    }
+
+    private TurnReportLine TrainingRefused(WorkerTrainingRefusedEvent refused) => Line(
+        refused,
+        TurnReportKind.Refusal,
+        refused.Country,
+        null,
+        $"{Country(refused.Country)} could not train {Workers(refused.Requested, refused.From)}: " +
+        $"{TurnReportText.Describe(refused.Reason)}.");
+
+    private IReadOnlyList<TurnReportLine> Powered(PowerGeneratedEvent generated)
+    {
+        var lines = new List<TurnReportLine>
+        {
+            Line(
+                generated,
+                TurnReportKind.Outcome,
+                generated.Country,
+                null,
+                $"{Country(generated.Country)} burned {Count(generated.FuelBurned)} " +
+                $"{Commodity(generated.Fuel)} for {Count(generated.PowerMade)} power, " +
+                $"and production used {Count(generated.PowerSpent)} of it ahead of its workers."),
+        };
+
+        if (generated.PowerWasted > 0)
+        {
+            lines.Add(Line(
+                generated,
+                TurnReportKind.Loss,
+                generated.Country,
+                null,
+                $"{Country(generated.Country)} wasted {Count(generated.PowerWasted)} power, " +
+                "which cannot be stored."));
+        }
+
+        return lines;
+    }
+
+    private TurnReportLine PowerRefused(PowerRefusedEvent refused) => Line(
+        refused,
+        TurnReportKind.Refusal,
+        refused.Country,
+        null,
+        $"{Country(refused.Country)} could not burn {Count(refused.FuelRequested)} fuel: " +
+        $"{TurnReportText.Describe(refused.Reason)}.");
+
+    private static string Workers(long count, WorkerGrade grade) =>
+        $"{Count(count)} {TurnReportText.Describe(grade)} {(count == 1 ? "worker" : "workers")}";
 
     private TurnReportLine Expanded(FacilityExpandedEvent expanded) => Line(
         expanded,

@@ -1128,6 +1128,182 @@ public sealed record TechnologyPurchaseRefusedEvent : TurnEvent
     public TechnologyPurchaseRefusal Reason { get; }
 }
 
+/// <summary>Why a country's Power Plant burned nothing this turn.</summary>
+public enum PowerRefusal : byte
+{
+    /// <summary>The world has no power block, so there is no plant to build.</summary>
+    NotModelled,
+
+    /// <summary>The country holds no Power Plant.</summary>
+    NoPowerPlant,
+
+    /// <summary>The order asked for more than the world's per-turn limit.</summary>
+    OverTurnLimit,
+
+    /// <summary>The warehouse does not hold that much fuel.</summary>
+    NotEnoughFuel,
+}
+
+/// <summary>Why the Trade School did not take the workers it was sent.</summary>
+public enum WorkerTrainingRefusal : byte
+{
+    /// <summary>The world offers no training out of this grade.</summary>
+    NotOffered,
+
+    /// <summary>Fewer healthy workers of this grade than were sent.</summary>
+    NotEnoughWorkers,
+
+    /// <summary>The warehouse does not hold the paper, or whatever else it costs.</summary>
+    NotEnoughCommodities,
+
+    /// <summary>The treasury will not cover it.</summary>
+    NotEnoughCash,
+}
+
+/// <summary>
+/// Records one country's Power Plant for one turn: what it burned, what that made,
+/// and how much of it production used.
+/// </summary>
+/// <remarks>
+/// <b>What is wasted is gone.</b> Power "cannot be sold or stored", so whatever the
+/// country's recipes did not draw is lost at the end of
+/// <see cref="TurnPhase.Production"/> and never reaches the next turn.
+/// </remarks>
+public sealed record PowerGeneratedEvent : TurnEvent
+{
+    public PowerGeneratedEvent(
+        int turnNumber,
+        CountryId country,
+        CommodityId fuel,
+        long fuelBurned,
+        long powerMade,
+        long powerSpent)
+        : base(turnNumber, TurnPhase.Production)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(fuelBurned);
+        ArgumentOutOfRangeException.ThrowIfNegative(powerSpent);
+        if (powerSpent > powerMade)
+        {
+            throw new ArgumentOutOfRangeException(nameof(powerSpent));
+        }
+
+        Country = country;
+        Fuel = fuel;
+        FuelBurned = fuelBurned;
+        PowerMade = powerMade;
+        PowerSpent = powerSpent;
+    }
+
+    public CountryId Country { get; }
+
+    public CommodityId Fuel { get; }
+
+    public long FuelBurned { get; }
+
+    /// <summary>Labour the burn added to this turn's pool.</summary>
+    public long PowerMade { get; }
+
+    /// <summary>The part of it production drew, ahead of any human labour.</summary>
+    public long PowerSpent { get; }
+
+    /// <summary>What nothing drew. Lost, never carried forward.</summary>
+    public long PowerWasted => PowerMade - PowerSpent;
+}
+
+/// <summary>Records one country's Power Plant order being refused. Nothing was burned.</summary>
+public sealed record PowerRefusedEvent : TurnEvent
+{
+    public PowerRefusedEvent(
+        int turnNumber,
+        CountryId country,
+        long fuelRequested,
+        PowerRefusal reason)
+        : base(turnNumber, TurnPhase.Production)
+    {
+        Country = country;
+        FuelRequested = fuelRequested;
+        Reason = reason;
+    }
+
+    public CountryId Country { get; }
+
+    public long FuelRequested { get; }
+
+    public PowerRefusal Reason { get; }
+}
+
+/// <summary>
+/// Records workers raised one grade at the Trade School.
+/// </summary>
+/// <remarks>
+/// They supplied no labour this turn and supply their new grade's from the next.
+/// They still ate. See <c>docs/formulas/migration.md</c>.
+/// </remarks>
+public sealed record WorkersTrainedEvent : TurnEvent
+{
+    private readonly IReadOnlyList<CommodityQuantity> _paid;
+
+    public WorkersTrainedEvent(
+        int turnNumber,
+        CountryId country,
+        WorkerGrade from,
+        WorkerGrade to,
+        long trained,
+        IEnumerable<CommodityQuantity> paid,
+        long cashPaid)
+        : base(turnNumber, TurnPhase.Production)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(trained);
+        ArgumentOutOfRangeException.ThrowIfNegative(cashPaid);
+        Country = country;
+        From = from;
+        To = to;
+        Trained = trained;
+        _paid = Array.AsReadOnly(paid.ToArray());
+        CashPaid = cashPaid;
+    }
+
+    public CountryId Country { get; }
+
+    public WorkerGrade From { get; }
+
+    public WorkerGrade To { get; }
+
+    public long Trained { get; }
+
+    /// <summary>Commodities charged, for all of them together.</summary>
+    public IReadOnlyList<CommodityQuantity> Paid => _paid;
+
+    /// <summary>Cash charged, for all of them together.</summary>
+    public long CashPaid { get; }
+}
+
+/// <summary>Records one Trade School order being refused. Nothing was charged.</summary>
+public sealed record WorkerTrainingRefusedEvent : TurnEvent
+{
+    public WorkerTrainingRefusedEvent(
+        int turnNumber,
+        CountryId country,
+        WorkerGrade from,
+        long requested,
+        WorkerTrainingRefusal reason)
+        : base(turnNumber, TurnPhase.Production)
+    {
+        Country = country;
+        From = from;
+        Requested = requested;
+        Reason = reason;
+    }
+
+    public CountryId Country { get; }
+
+    public WorkerGrade From { get; }
+
+    public long Requested { get; }
+
+    public WorkerTrainingRefusal Reason { get; }
+}
+
 public sealed class TurnResolution
 {
     private readonly IReadOnlyList<TurnEvent> _events;

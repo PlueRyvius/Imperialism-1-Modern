@@ -28,7 +28,9 @@ public sealed class WorldDefinition
         ConstructionSettings? construction = null,
         ImprovementSettings? improvement = null,
         IEnumerable<ShipTypeDefinition>? shipTypes = null,
-        ITradeMarket? trade = null)
+        ITradeMarket? trade = null,
+        WorkerTrainingSettings? workerTraining = null,
+        PowerSettings? power = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
@@ -506,6 +508,36 @@ public sealed class WorldDefinition
             }
         }
 
+        foreach (var cost in workerTraining?.Rules.SelectMany(static rule => rule.Cost) ?? [])
+        {
+            if ((uint)cost.Commodity.Value >= (uint)commodityArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Worker training refers to missing commodity {cost.Commodity.Value}.",
+                    nameof(workerTraining));
+            }
+        }
+
+        if (power is not null)
+        {
+            if ((uint)power.Fuel.Value >= (uint)commodityArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Power refers to missing commodity {power.Fuel.Value}.", nameof(power));
+            }
+
+            // A plant is held or not by its capacity, so an uncapped facility —
+            // which every country holds without building — would hand every
+            // country power for free. The refinery it is modelled on is capped.
+            if ((uint)power.Plant.Value >= (uint)facilityArray.Length ||
+                facilityArray[power.Plant.Value].CapacityMode != ProductionCapacityMode.Limited)
+            {
+                throw new ArgumentException(
+                    $"Power needs a capacity-limited plant facility; {power.Plant.Value} is not one.",
+                    nameof(power));
+            }
+        }
+
         Map = map;
         Scenario = scenario;
         Extraction = extractionSettings;
@@ -517,6 +549,8 @@ public sealed class WorldDefinition
         Construction = construction;
         Improvement = improvement;
         Trade = trade;
+        WorkerTraining = workerTraining;
+        Power = power;
         _technologies = Array.AsReadOnly(technologyArray);
         _civilianTypes = Array.AsReadOnly(civilianTypeArray);
         _shipTypes = Array.AsReadOnly(shipTypeArray);
@@ -609,6 +643,18 @@ public sealed class WorldDefinition
     /// for their work.
     /// </summary>
     public ImprovementSettings? Improvement { get; }
+
+    /// <summary>
+    /// What the Trade School charges to raise a worker a grade, or null where
+    /// nobody can be trained — which is how every world behaved before version 27.
+    /// </summary>
+    public WorkerTrainingSettings? WorkerTraining { get; }
+
+    /// <summary>
+    /// How a Power Plant turns fuel into labour, or null where there is no power —
+    /// which is how every world behaved before version 27.
+    /// </summary>
+    public PowerSettings? Power { get; }
 
     /// <summary>
     /// A port stands on land. Verified against every <c>port</c> record in the

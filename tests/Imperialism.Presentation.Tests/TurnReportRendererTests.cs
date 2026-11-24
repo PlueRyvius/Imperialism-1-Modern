@@ -176,6 +176,36 @@ public sealed class TurnReportRendererTests
     }
 
     [Fact]
+    public void PowerNobodyUsedIsReportedAsALossOnItsOwnLine()
+    {
+        var renderer = CreateRenderer();
+
+        var lines = renderer.Render(new PowerGeneratedEvent(1, Blue, new CommodityId(1), 10, 60, 40));
+        var allUsed = renderer.Render(new PowerGeneratedEvent(1, Blue, new CommodityId(1), 10, 60, 60));
+
+        Assert.Equal(2, lines.Count);
+        Assert.Equal(TurnReportKind.Outcome, lines[0].Kind);
+        Assert.Contains("60 power", lines[0].Text, StringComparison.Ordinal);
+        Assert.Equal(TurnReportKind.Loss, lines[1].Kind);
+        Assert.Contains("wasted 20 power", lines[1].Text, StringComparison.Ordinal);
+        Assert.Single(allUsed);
+    }
+
+    [Fact]
+    public void TrainingSaysWhatItCostAndWhenTheWorkersStart()
+    {
+        var renderer = CreateRenderer();
+
+        var line = Assert.Single(renderer.Render(new WorkersTrainedEvent(
+            1, Blue, WorkerGrade.Trained, WorkerGrade.Expert, 1, [new CommodityQuantity(new CommodityId(1), 2)], 1000)));
+
+        Assert.Equal(TurnReportKind.Outcome, line.Kind);
+        Assert.Contains("1 trained worker to expert", line.Text, StringComparison.Ordinal);
+        Assert.Contains("2 Lumber and $1,000", line.Text, StringComparison.Ordinal);
+        Assert.Contains("next turn", line.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ALineCarriesTheCountryItIsAboutSoTheClientNeedNotReadIt()
     {
         var renderer = CreateRenderer();
@@ -246,6 +276,11 @@ public sealed class TurnReportRendererTests
             new TechnologyPurchasedEvent(1, Blue, new TechnologyId(0), 1200),
             new TechnologyPurchaseRefusedEvent(
                 1, Blue, new TechnologyId(1), TechnologyPurchaseRefusal.NotEnoughCash),
+            new WorkersTrainedEvent(1, Blue, WorkerGrade.Untrained, WorkerGrade.Trained, 2, some, 200),
+            new WorkerTrainingRefusedEvent(
+                1, Blue, WorkerGrade.Trained, 1, WorkerTrainingRefusal.NotEnoughCash),
+            new PowerGeneratedEvent(1, Blue, lumber, 10, 60, 40),
+            new PowerRefusedEvent(1, Blue, 101, PowerRefusal.OverTurnLimit),
         ];
     }
 }

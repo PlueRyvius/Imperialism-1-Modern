@@ -99,9 +99,59 @@ public sealed class WorldContentDocument
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public TradeContentSettings? Trade { get; set; }
 
+    /// <summary>
+    /// The Trade School's prices, one entry per promotion, or absent where nobody can
+    /// be trained — which is how every world behaved before version 27.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public WorkerTrainingContent[]? WorkerTraining { get; set; }
+
+    /// <summary>
+    /// How a Power Plant turns fuel into labour, or absent where there is no power —
+    /// which is how every world behaved before version 27.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PowerContentSettings? Power { get; set; }
+
     public CountryContentDefinition[] Countries { get; set; } = [];
 
     public ScenarioContentDocument[] Scenarios { get; set; } = [];
+}
+
+/// <summary>
+/// One Trade School promotion: a worker of grade <see cref="From"/> plus the cost
+/// becomes a worker of the next grade up. The original charges one paper and $100
+/// from untrained, two paper and $1,000 from trained — its own help resources, see
+/// <c>docs/disasm/definitive-original-data.md</c>.
+/// </summary>
+public sealed class WorkerTrainingContent
+{
+    /// <summary><c>untrained</c> or <c>trained</c>; the trainee ends one grade higher.</summary>
+    public WorkerGrade From { get; set; }
+
+    /// <summary>Commodities charged per worker.</summary>
+    public CommodityQuantityContent[] Cost { get; set; } = [];
+
+    /// <summary>Cash charged per worker.</summary>
+    public long CashCost { get; set; }
+}
+
+/// <summary>
+/// The Power Plant. The original's help resources give "1 fuel → 6 power, with up
+/// to 100 fuel per turn"; the 100 is read as a flat cap per country, not scaled by
+/// the plant's capacity. See <c>docs/formulas/production.md</c>.
+/// </summary>
+public sealed class PowerContentSettings
+{
+    /// <summary>Commodity key the plant burns.</summary>
+    public string Fuel { get; set; } = string.Empty;
+
+    /// <summary>Facility key a country must hold, at any capacity, to burn anything.</summary>
+    public string Facility { get; set; } = string.Empty;
+
+    public long PowerPerFuel { get; set; }
+
+    public long MaxFuelPerTurn { get; set; }
 }
 
 public sealed class MapContentDocument

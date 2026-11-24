@@ -249,7 +249,7 @@ public sealed class LegacyWorldConverterTests
 
         Assert.True(result.Success);
         var document = result.Document!;
-        Assert.Equal(8, document.ProductionFacilities.Length);
+        Assert.Equal(9, document.ProductionFacilities.Length);
         Assert.Equal(12, document.ProductionRecipes.Length);
         Assert.Equal(2, document.Scenarios[0].InitialInventory.Length);
         Assert.Equal(3, document.Scenarios[0].ProductionCapacities.Length);
@@ -366,6 +366,57 @@ public sealed class LegacyWorldConverterTests
             (cannedFood.Inputs.Sum(static item => item.Quantity),
                 cannedFood.Outputs.Sum(static item => item.Quantity),
                 cannedFood.LabourCost));
+    }
+
+    [Fact]
+    public void TheTradeSchoolAndThePowerPlantCarryTheRecoveredTerms()
+    {
+        // "untrained worker + 1 paper + $100 → trained worker; trained worker + 2 paper
+        // + $1,000 → expert worker", and "1 fuel → 6 power, with up to 100 fuel per
+        // turn" — the original's help resources, in docs/disasm/definitive-original-data.md.
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(1, 1, LandCell(0, 0)),
+            new ScenarioDocument(
+            [
+                Record("year", 1815),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "industry");
+
+        var document = result.Document!;
+        Assert.Equal(
+            [
+                (WorkerGrade.Untrained, "commodity.paper:1", 100L),
+                (WorkerGrade.Trained, "commodity.paper:2", 1000L),
+            ],
+            document.WorkerTraining!.Select(static step => (
+                step.From,
+                string.Join(",", step.Cost.Select(static item => $"{item.Commodity}:{item.Quantity}")),
+                step.CashCost)));
+
+        var power = document.Power!;
+        Assert.Equal("commodity.fuel", power.Fuel);
+        Assert.Equal("facility.power-plant", power.Facility);
+        Assert.Equal(6, power.PowerPerFuel);
+        Assert.Equal(100, power.MaxFuelPerTurn);
+
+        // Built and laddered like the refinery, and appended so no earlier facility
+        // changes id. No country starts holding one.
+        var refinery = document.ProductionFacilities.Single(static item => item.Key == "facility.oil-refinery");
+        var plant = document.ProductionFacilities[^1];
+        Assert.Equal("facility.power-plant", plant.Key);
+        Assert.Equal(refinery.CapacityMode, plant.CapacityMode);
+        Assert.Equal(refinery.CapacityLadder!.Rungs, plant.CapacityLadder!.Rungs);
+        Assert.Equal(refinery.CapacityLadder.Increment, plant.CapacityLadder.Increment);
+        Assert.DoesNotContain(
+            document.StartingDefaults!.ProductionCapacities,
+            static item => item.Facility == "facility.power-plant");
+
+        var world = WorldContentCompiler.Compile(document).World;
+        Assert.Equal(6, world.Power!.PowerPerFuel);
+        Assert.Equal(1000, world.WorkerTraining!.GetRule(WorkerGrade.Trained)!.CashCost);
     }
 
     [Fact]
