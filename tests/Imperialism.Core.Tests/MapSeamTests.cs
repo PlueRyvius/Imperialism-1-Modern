@@ -12,8 +12,8 @@ namespace Imperialism.Core.Tests;
 /// Port access is measured through the deposit on the port's own tile: with a
 /// catchment radius of zero, that tile is collected only if the port itself is
 /// a collection point, so the count moves exactly with whether access was
-/// granted. Fishing-port counts cannot discriminate here because fishing water
-/// is counted on the unwrapped grid either way.
+/// granted. Fishing goes through the same seam rule (issue #40), so fishing
+/// counts discriminate too; the fishing tests below check that directly.
 /// </remarks>
 public sealed class MapSeamTests
 {
