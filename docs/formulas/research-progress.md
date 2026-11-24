@@ -22,8 +22,10 @@ built.**
 - It **takes effect the next turn**. Nothing in the manual or the extracted
   binary describes a delay longer than that.
 - The only part of technology that unfolds over time is **when each technology
-  becomes available**. That is a date, the same for every power, drawn once from a
-  window in the executable. It is not progress that a player builds up.
+  becomes available**. That is a date, the same for every power (manual 4079),
+  given a pseudo-random offset from a window in the executable. When and how often
+  the executable draws it is not traced. Either way it is not progress that a
+  player builds up.
 - **Neither the University nor the newspaper accumulates anything toward a
   technology.** The University builds civilians. The newspaper announces new
   inventions.
@@ -163,9 +165,19 @@ executable's random window: the date is drawn, not fixed.
 Technology gates what the University can build. The University does not produce
 technology. The manual says nothing anywhere about research points, a research
 budget, scientists, or a progress bar. Searching
-`technolog|invest|research|universit|newspaper|progress` turns up only the passages
-quoted here. The few uses of "progress" are about the game or the Industrial
-Revolution moving on (744, 4078, 4113). None is about research.
+`technolog|invest|research|universit|newspaper|progress` gives over a hundred hit
+lines. Besides the passages quoted here, they cover:
+
+- what a purchase unlocks: the Power Plant and Oil Refinery on Oil Drilling
+  (2660), and a new regiment type on Bessemer Converter (2748–2752);
+- University units arriving the next turn (1168–1170, 4858–4872);
+- University information that depends on current technology (2716–2721);
+- strategy advice to buy technologies from trade income, as soon as they are
+  available (5186–5187, 5202–5204).
+
+None of them describes research built up over turns. The few uses of "progress"
+are about the game or the Industrial Revolution moving on (744, 4078, 4113).
+None is about research.
 
 **Where game time does gate technology, it is through the arrival date.**
 
@@ -229,9 +241,14 @@ listed so this document does not become the place they get lost.
 
 ### A. The arrival date is drawn, not fixed (optional)
 
-The executable draws one offset per technology from its window at game start
-(exe 195). Two games of the original see Oil Drilling arrive in different years.
-We use the minimum every time, which is a labelled simplification.
+The executable gives each of the 26 non-starting technologies an inclusive
+pseudo-random offset from its window, initialized by `0x005AF330` (exe 195).
+
+**Unverified: when that initializer runs, and how often.** Nothing traced so far
+shows that it runs once per game, or that two games of the original see Oil
+Drilling arrive in different years. Settling that means tracing its callers.
+
+We use the window minimum every time, which is a labelled simplification.
 
 If this is ever built:
 
