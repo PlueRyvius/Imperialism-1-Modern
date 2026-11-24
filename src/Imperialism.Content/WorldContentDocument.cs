@@ -356,10 +356,10 @@ public sealed class RelationStateContent
 
 /// <summary>One fleet: a country, a class of ship, a sea zone and a count.</summary>
 /// <remarks>
-/// <b><see cref="SeaZone"/> is carried and never interpreted.</b> A ship's zone is not the
-/// map's ocean zone byte — the numberings are unrelated, no offset fits, and 23 of the zone
-/// ids appear on no ocean cell at all. So a fleet can be named but not located, and nothing
-/// here places one. See <c>docs/scenario-semantics.md</c>.
+/// <see cref="SeaZone"/> is the scenario's raw legacy zone number, carried and never
+/// read as a location. <see cref="SeaZoneKey"/> names a <c>map.seaZones</c> entry and is
+/// the only thing that places the fleet; absent, the fleet is unplaced. Version 26
+/// introduced the key. See <c>docs/scenario-semantics.md</c>.
 /// </remarks>
 public sealed class ShipContent
 {
@@ -368,6 +368,9 @@ public sealed class ShipContent
     public string Type { get; set; } = string.Empty;
 
     public int SeaZone { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SeaZoneKey { get; set; }
 
     public long Count { get; set; }
 }

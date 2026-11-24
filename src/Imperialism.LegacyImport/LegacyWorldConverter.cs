@@ -787,7 +787,7 @@ public static class LegacyWorldConverter
         var transportCapacity = ReadTransportCapacity(scenario, countryKeys, report);
         var countryCash = ReadCountryCash(scenario, countryKeys, report);
         var civilians = ReadCivilians(scenario, map, countryKeys, report);
-        var ships = ReadShips(scenario, countryKeys, report);
+        var ships = ReadShips(scenario, countryKeys, seaZoneKeys, report);
         var armies = ReadArmies(scenario, provinceKeys, report);
         var relations = ReadRelations(scenario, countryKeys, report);
 
@@ -1427,9 +1427,11 @@ public static class LegacyWorldConverter
     private static ShipContent[] ReadShips(
         ScenarioDocument scenario,
         IReadOnlyDictionary<uint, string> countryKeys,
+        IReadOnlyDictionary<uint, string> seaZoneKeys,
         LegacyImportReport report)
     {
         var result = new List<ShipContent>();
+        var unplaced = 0;
         foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
         {
             if (record.Tag != "ship")
@@ -1485,10 +1487,19 @@ public static class LegacyWorldConverter
                 Country = countryKey,
                 Type = ShipTypeKey(ShipTypes[(int)type - 1].Key),
                 SeaZone = (int)zone,
+                // A ship's zone z is the same number the map's ocean byte
+                // z + 23 reduces to, so the map's own key for it places the
+                // fleet. A zone with no ocean cell stays unplaced and counted.
+                SeaZoneKey = seaZoneKeys.TryGetValue(zone, out var seaZoneKey) ? seaZoneKey : null,
                 Count = count,
             });
+            if (!seaZoneKeys.ContainsKey(zone))
+            {
+                unplaced++;
+            }
         }
 
+        report.Defer("scenario.unplaced-ship-zones", unplaced);
         return result.ToArray();
     }
 

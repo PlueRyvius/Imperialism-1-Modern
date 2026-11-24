@@ -46,30 +46,14 @@ internal static class PortAccess
 
     private static IEnumerable<SeaZoneId> AdjacentSeaZones(MapDefinition map, CellIndex port)
     {
-        var coordinate = map[port].Coordinate;
         foreach (var direction in HexDirections.All.ToArray())
         {
-            var neighbor = coordinate.Neighbor(direction);
-            if ((uint)neighbor.Row >= (uint)map.Dimensions.Height)
+            if (!map.TryGetNeighbor(port, direction, out var neighbor))
             {
                 continue;
             }
 
-            var column = neighbor.Column;
-            if (map.WrapsHorizontally)
-            {
-                column %= map.Dimensions.Width;
-                if (column < 0)
-                {
-                    column += map.Dimensions.Width;
-                }
-            }
-            else if ((uint)column >= (uint)map.Dimensions.Width)
-            {
-                continue;
-            }
-
-            var cell = map[new HexCoord(column, neighbor.Row)];
+            var cell = map[neighbor];
             if (cell.Region.Kind == CellRegionKind.SeaZone)
             {
                 yield return cell.Region.SeaZone;

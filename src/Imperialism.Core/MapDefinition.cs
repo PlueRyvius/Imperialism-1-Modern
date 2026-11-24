@@ -153,6 +153,28 @@ public sealed class MapDefinition
 
     public IReadOnlyList<CellDefinition> Cells => _cells;
 
+    /// <summary>
+    /// The neighbouring cell in one direction, honouring
+    /// <see cref="WrapsHorizontally"/>: false off the top or bottom edge, and
+    /// off the east or west edge of a map without a seam.
+    /// </summary>
+    public bool TryGetNeighbor(CellIndex cell, HexDirection direction, out CellIndex neighbor)
+    {
+        if (!SeaZoneTopology.TryGetNeighbor(
+                this[cell].Coordinate,
+                direction,
+                Dimensions,
+                WrapsHorizontally,
+                out var coordinate))
+        {
+            neighbor = default;
+            return false;
+        }
+
+        neighbor = Dimensions.GetIndex(coordinate);
+        return true;
+    }
+
     public IReadOnlyList<ProvinceDefinition> Provinces => _provinces;
 
     public IReadOnlyList<SeaZoneDefinition> SeaZones => _seaZones;

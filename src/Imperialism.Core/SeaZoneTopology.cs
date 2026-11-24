@@ -72,11 +72,16 @@ public sealed class SeaZoneTopology
         }
 
         return new SeaZoneTopology(links
-            .Select(static link => (IReadOnlyList<SeaZoneId>)link.ToArray())
+            .Select(static link => (IReadOnlyList<SeaZoneId>)Array.AsReadOnly(link.ToArray()))
             .ToArray());
     }
 
-    private static bool TryGetNeighbor(
+    /// <summary>
+    /// The one place a neighbour across the east/west edge is decided. Every
+    /// map rule that walks hexes goes through here so a non-wrapping map can
+    /// never be wrapped by one caller and clipped by another.
+    /// </summary>
+    internal static bool TryGetNeighbor(
         HexCoord coordinate,
         HexDirection direction,
         MapDimensions dimensions,

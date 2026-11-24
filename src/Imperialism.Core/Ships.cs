@@ -205,20 +205,21 @@ public sealed record ShipCombatStats
 /// <c>[country, type, zone, count]</c>.
 /// </summary>
 /// <remarks>
-/// <b><paramref name="SeaZone"/> is carried and never interpreted.</b>
-/// <c>docs/scenario-semantics.md</c> establishes that a ship's zone is <em>not</em> the
-/// map's ocean zone byte — the two numberings are unrelated, no constant offset fits,
-/// and 23 of the zone ids appear on no ocean cell at all. So a fleet can be named but
-/// not located. Nothing here places a ship on the map, and nothing should until that
-/// correspondence is recovered.
 /// <para>
-/// It is kept rather than dropped because losing it would make the information
-/// unrecoverable from a round trip, and because merchant marine capacity does not care
-/// where the ships are.
+/// <paramref name="LegacyZone"/> is the scenario's raw zone number, carried so a
+/// round trip loses nothing. It is <b>not</b> a runtime id: the original's zone
+/// <c>z</c> is map ocean byte <c>z + 23</c> (see <c>docs/scenario-semantics.md</c>),
+/// while runtime sea zones are dense. <paramref name="SeaZone"/> is the resolved
+/// runtime zone and the only thing that places a fleet; null leaves it unplaced.
+/// </para>
+/// <para>
+/// Merchant marine capacity does not care where the ships are, so an unplaced
+/// fleet still carries cargo.
 /// </para>
 /// </remarks>
 public readonly record struct InitialShip(
     CountryId Country,
     ShipTypeId Type,
-    int SeaZone,
-    long Count);
+    int LegacyZone,
+    long Count,
+    SeaZoneId? SeaZone = null);

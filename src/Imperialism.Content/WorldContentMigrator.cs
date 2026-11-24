@@ -131,6 +131,11 @@ internal static class WorldContentMigrator
             MigrateVersionTwentyFourToTwentyFive(document);
         }
 
+        if (document.FormatVersion == 25)
+        {
+            MigrateVersionTwentyFiveToTwentySix(document);
+        }
+
         if (document.FormatVersion == WorldContentCodec.CurrentVersion)
         {
             RejectLegacyArmyCount(document);
@@ -952,6 +957,12 @@ internal static class WorldContentMigrator
     /// </summary>
     private static void MigrateVersionTwentyToTwentyOne(WorldContentDocument document)
     {
+        if (document.Map?.WrapsHorizontally == true)
+        {
+            throw new ContentValidationException(
+                "map.wrapsHorizontally", "Version 20 cannot declare a horizontal seam.");
+        }
+
         document.FormatVersion = 21;
     }
 
@@ -1062,6 +1073,31 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 25;
+    }
+
+    /// <summary>
+    /// Version 26 places a fleet by sea-zone key. Earlier versions read the raw
+    /// legacy zone number as a runtime id, which is a different numbering, so
+    /// their positions are not carried forward: a migrated fleet is unplaced
+    /// until re-imported, rather than placed in a sea it may never have been in.
+    /// </summary>
+    private static void MigrateVersionTwentyFiveToTwentySix(WorldContentDocument document)
+    {
+        for (var scenarioIndex = 0; scenarioIndex < (document.Scenarios?.Length ?? 0); scenarioIndex++)
+        {
+            var ships = document.Scenarios![scenarioIndex]?.Ships ?? [];
+            for (var index = 0; index < ships.Length; index++)
+            {
+                if (ships[index]?.SeaZoneKey is not null)
+                {
+                    throw new ContentValidationException(
+                        $"scenarios[{scenarioIndex}].ships[{index}].seaZoneKey",
+                        "Version 25 cannot place a fleet by sea-zone key.");
+                }
+            }
+        }
+
+        document.FormatVersion = 26;
     }
 
     private static void RejectLegacyArmyCount(WorldContentDocument document)

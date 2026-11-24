@@ -319,6 +319,20 @@ public sealed class ExtractionTests
     }
 
     [Fact]
+    public void TheRelationGenerationWrapsInsteadOfFailingATurn()
+    {
+        // The compiler accepts any signed 16-bit generation. Overflowing it
+        // used to throw after every phase had already changed the world.
+        var state = CreatePortState(ports: [], initialRelationSequence: short.MaxValue);
+        var before = state.CurrentDate;
+
+        _ = TurnResolver.Resolve(state, TurnOrders.Empty(2), 0);
+
+        Assert.Equal(short.MinValue, state.RelationSequence);
+        Assert.Equal(before.Next(), state.CurrentDate);
+    }
+
+    [Fact]
     public void ARiverPortFishesJustLikeACoastalOne()
     {
         // Cell 1 touches no sea at all. Its river reaches the mouth at cell 3
@@ -347,8 +361,8 @@ public sealed class ExtractionTests
             ports: [2],
             initialShips:
             [
-                new InitialShip(new CountryId(1), new ShipTypeId(0), 0, 1),
-                new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1),
+                new InitialShip(new CountryId(1), new ShipTypeId(0), 0, 1, new SeaZoneId(0)),
+                new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1, new SeaZoneId(0)),
             ]);
         var hostile = state.AssembleTaskForce(new CountryId(1), [new FleetId(1)]);
         _ = state.AssembleTaskForce(new CountryId(0), [new FleetId(2)]);
@@ -378,7 +392,7 @@ public sealed class ExtractionTests
             new InitialRelationState(
                 new CountryId(1), new CountryId(0), (short)CountryRelationMode.Hostile, 0),
         ];
-        var ships = new[] { new InitialShip(new CountryId(1), new ShipTypeId(0), 0, 1) };
+        var ships = new[] { new InitialShip(new CountryId(1), new ShipTypeId(0), 0, 1, new SeaZoneId(0)) };
         var first = CreatePortState(
             ports: [2],
             initialShips: ships,

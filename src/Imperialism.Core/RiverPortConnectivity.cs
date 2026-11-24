@@ -39,7 +39,7 @@ internal static class RiverPortConnectivity
     {
         foreach (var direction in HexDirections.All)
         {
-            if (TryGetWrappedNeighbor(map, port, direction, out var neighbor) &&
+            if (map.TryGetNeighbor(port, direction, out var neighbor) &&
                 map[neighbor].Region.Kind == CellRegionKind.SeaZone)
             {
                 return true;
@@ -134,7 +134,7 @@ internal static class RiverPortConnectivity
         foreach (var endpoint in Endpoints(path.Value))
         {
             if (!TryGetDirection(endpoint, out var direction) ||
-                !TryGetWrappedNeighbor(map, cell, direction, out var neighbor))
+                !map.TryGetNeighbor(cell, direction, out var neighbor))
             {
                 continue;
             }
@@ -146,30 +146,6 @@ internal static class RiverPortConnectivity
                 yield return neighbor;
             }
         }
-    }
-
-    private static bool TryGetWrappedNeighbor(
-        MapDefinition map,
-        CellIndex cell,
-        HexDirection direction,
-        out CellIndex neighbor)
-    {
-        var coordinate = map[cell].Coordinate.Neighbor(direction);
-        var dimensions = map.Dimensions;
-        if ((uint)coordinate.Row >= (uint)dimensions.Height)
-        {
-            neighbor = default;
-            return false;
-        }
-
-        var column = coordinate.Column % dimensions.Width;
-        if (column < 0)
-        {
-            column += dimensions.Width;
-        }
-
-        neighbor = dimensions.GetIndex(new HexCoord(column, coordinate.Row));
-        return true;
     }
 
     private static IReadOnlyList<RiverEndpoint> Endpoints(RiverPath path) =>

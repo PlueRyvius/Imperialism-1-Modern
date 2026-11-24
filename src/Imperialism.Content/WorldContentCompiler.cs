@@ -498,6 +498,7 @@ public static class WorldContentCompiler
                     recipes,
                     provinceContent,
                     provinceIds,
+                    seaZoneIds,
                     countryIds,
                     commodityIds,
                     facilityIds,
@@ -531,6 +532,7 @@ public static class WorldContentCompiler
         ProductionRecipeDefinition[] recipes,
         NamedContentDefinition[] provinceContent,
         IReadOnlyDictionary<string, int> provinceIds,
+        IReadOnlyDictionary<string, int> seaZoneIds,
         IReadOnlyDictionary<string, int> countryIds,
         IReadOnlyDictionary<string, int> commodityIds,
         IReadOnlyDictionary<string, int> facilityIds,
@@ -671,14 +673,18 @@ public static class WorldContentCompiler
                 throw Error($"{entryPath}.seaZone", "A sea zone cannot be negative.");
             }
 
-            // The world state resolves this legacy index when its map has the
-            // corresponding base sea-zone entry. Keeping unmapped values accepts
-            // partial/diagnostic legacy content without inventing a location.
+            // Only the key places a fleet. The raw number is carried for round
+            // trips and is never read as a runtime id, which would be a
+            // different numbering wherever the legacy zone ids skip.
+            SeaZoneId? seaZone = entry.SeaZoneKey is null
+                ? null
+                : new SeaZoneId(FindKey(seaZoneIds, entry.SeaZoneKey, $"{entryPath}.seaZoneKey"));
             ships.Add(new InitialShip(
                 new CountryId(FindKey(countryIds, entry.Country, $"{entryPath}.country")),
                 new ShipTypeId(FindKey(shipTypeIds, entry.Type, $"{entryPath}.type")),
                 entry.SeaZone,
-                entry.Count));
+                entry.Count,
+                seaZone));
         }
 
         var armies = new List<InitialArmy>();

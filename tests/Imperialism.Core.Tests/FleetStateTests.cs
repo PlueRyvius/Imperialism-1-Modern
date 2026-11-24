@@ -10,7 +10,7 @@ public sealed class FleetStateTests
     {
         var state = CreateState(
         [
-            new InitialShip(new CountryId(0), new ShipTypeId(0), 1, 3),
+            new InitialShip(new CountryId(0), new ShipTypeId(0), 1, 3, new SeaZoneId(1)),
             new InitialShip(new CountryId(0), new ShipTypeId(0), 7, 2),
         ]);
 
@@ -46,14 +46,19 @@ public sealed class FleetStateTests
     {
         var state = CreateState(
         [
-            new InitialShip(new CountryId(0), new ShipTypeId(0), 1, 3),
-            new InitialShip(new CountryId(0), new ShipTypeId(0), 1, 2),
-            new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1),
+            new InitialShip(new CountryId(0), new ShipTypeId(0), 1, 3, new SeaZoneId(1)),
+            new InitialShip(new CountryId(0), new ShipTypeId(0), 1, 2, new SeaZoneId(1)),
+            new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1, new SeaZoneId(0)),
             new InitialShip(new CountryId(0), new ShipTypeId(0), 7, 1),
-            new InitialShip(new CountryId(1), new ShipTypeId(0), 1, 1),
+            new InitialShip(new CountryId(1), new ShipTypeId(0), 1, 1, new SeaZoneId(1)),
         ]);
 
         var taskForce = state.AssembleTaskForce(new CountryId(0), [new FleetId(2), new FleetId(1)]);
+
+        // The roster is the state's own; a caller holding it cannot detach a
+        // task force its fleets still point at.
+        Assert.Throws<NotSupportedException>(() =>
+            ((IList<TaskForceState>)state.TaskForces).Clear());
 
         Assert.Equal(new TaskForceId(1), taskForce.Id);
         Assert.Equal(new SeaZoneId(1), taskForce.SeaZone);

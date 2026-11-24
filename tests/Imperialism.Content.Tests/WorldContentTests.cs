@@ -322,7 +322,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(26)]
+    [InlineData(27)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1605,6 +1605,76 @@ public sealed class WorldContentTests
         Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
         Assert.False(migrated.Map.WrapsHorizontally);
         Assert.False(WorldContentCompiler.Compile(migrated).World.Map.WrapsHorizontally);
+    }
+
+    [Fact]
+    public void VersionTwentyCannotDeclareAHorizontalSeam()
+    {
+        var document = CreateValidDocument();
+        document.Map.WrapsHorizontally = true;
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 20);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+        Assert.Equal("map.wrapsHorizontally", exception.Path);
+    }
+
+    [Fact]
+    public void AFleetIsPlacedByItsSeaZoneKeyAndNeverByItsRawNumber()
+    {
+        var document = WithOneShipType(CreateValidDocument());
+        var country = document.Countries[0].Key;
+        document.Scenarios[0].Ships =
+        [
+            // A raw number that is no runtime id at all, keyed to a real sea.
+            new ShipContent { Country = country, Type = "ship.trader", SeaZone = 5, SeaZoneKey = "sea.west", Count = 1 },
+            // A raw number that happens to equal a runtime id, with no key.
+            new ShipContent { Country = country, Type = "ship.trader", SeaZone = 0, Count = 1 },
+        ];
+
+        var encoded = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(encoded);
+        Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
+
+        var state = new WorldState(WorldContentCompiler.Compile(decoded).World);
+        Assert.Collection(
+            state.Fleets,
+            fleet => Assert.Equal(new SeaZoneId(0), fleet.SeaZone),
+            fleet => Assert.Null(fleet.SeaZone));
+    }
+
+    [Fact]
+    public void AFleetKeyedToAnUnknownSeaIsRejected()
+    {
+        var document = WithOneShipType(CreateValidDocument());
+        document.Scenarios[0].Ships =
+        [
+            new ShipContent { Country = document.Countries[0].Key, Type = "ship.trader", SeaZoneKey = "sea.nowhere", Count = 1 },
+        ];
+
+        AssertPath("scenarios[0].ships[0].seaZoneKey", document);
+    }
+
+    [Fact]
+    public void VersionTwentyFiveCannotPlaceAFleetByKey()
+    {
+        var document = WithOneShipType(CreateValidDocument());
+        document.Scenarios[0].Ships =
+        [
+            new ShipContent { Country = document.Countries[0].Key, Type = "ship.trader", SeaZoneKey = "sea.west", Count = 1 },
+        ];
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 25);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+        Assert.Equal("scenarios[0].ships[0].seaZoneKey", exception.Path);
+    }
+
+    private static WorldContentDocument WithOneShipType(WorldContentDocument document)
+    {
+        document.ShipTypes =
+            [new ShipTypeContentDefinition { Key = "ship.trader", Name = "Trader", Cargo = 2, SeaZones = 1 }];
+        return document;
     }
 
     [Fact]

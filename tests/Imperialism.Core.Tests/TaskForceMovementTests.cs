@@ -11,8 +11,8 @@ public sealed class TaskForceMovementTests
         var state = CreateState(
             new MapDimensions(5, 1),
             [0, 1, 2, 3, 4],
-            [new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1),
-             new InitialShip(new CountryId(0), new ShipTypeId(1), 0, 1)]);
+            [new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1, new SeaZoneId(0)),
+             new InitialShip(new CountryId(0), new ShipTypeId(1), 0, 1, new SeaZoneId(0))]);
         var force = state.AssembleTaskForce(new CountryId(0), [new FleetId(1), new FleetId(2)]);
         state.PatrolTaskForce(new CountryId(0), force.Id);
         Assert.Equal(TaskForceActivity.Patrolling, force.Activity);
@@ -41,7 +41,7 @@ public sealed class TaskForceMovementTests
         var state = CreateState(
             new MapDimensions(2, 1),
             [0, 1],
-            [new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1)]);
+            [new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1, new SeaZoneId(0))]);
         var force = state.AssembleTaskForce(new CountryId(0), [new FleetId(1)]);
 
         state.PatrolTaskForce(new CountryId(0), force.Id);
@@ -57,7 +57,7 @@ public sealed class TaskForceMovementTests
         var state = CreateState(
             new MapDimensions(2, 2),
             [0, 2, 1, 3],
-            [new InitialShip(new CountryId(0), new ShipTypeId(2), 0, 1)]);
+            [new InitialShip(new CountryId(0), new ShipTypeId(2), 0, 1, new SeaZoneId(0))]);
         var force = state.AssembleTaskForce(new CountryId(0), [new FleetId(1)]);
 
         var plan = state.PlanTaskForceMove(new CountryId(0), force.Id, new SeaZoneId(3));
@@ -71,7 +71,7 @@ public sealed class TaskForceMovementTests
         var state = CreateState(
             new MapDimensions(3, 1),
             [0, -1, 1],
-            [new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1)]);
+            [new InitialShip(new CountryId(0), new ShipTypeId(0), 0, 1, new SeaZoneId(0))]);
         var force = state.AssembleTaskForce(new CountryId(0), [new FleetId(1)]);
 
         var plan = state.PlanTaskForceMove(new CountryId(0), force.Id, new SeaZoneId(1));

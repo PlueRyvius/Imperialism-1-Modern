@@ -701,6 +701,7 @@ public sealed class WorldState
     private readonly short[] _relationTokens;
     private readonly IReadOnlyList<FleetState> _fleets;
     private readonly List<TaskForceState> _taskForces = [];
+    private System.Collections.ObjectModel.ReadOnlyCollection<TaskForceState>? _taskForcesView;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private readonly Dictionary<CivilianUnitId, CivilianUnit> _civilians = [];
     private long _nextDeliveryId = 1;
@@ -853,9 +854,17 @@ public sealed class WorldState
             equipped[ship.Country.Value] = true;
             var offset = (ship.Country.Value * definition.ShipTypes.Count) + ship.Type.Value;
             _ships[offset] = checked(_ships[offset] + ship.Count);
-            SeaZoneId? seaZone = (uint)ship.SeaZone < (uint)definition.Map.SeaZones.Count
-                ? new SeaZoneId(ship.SeaZone)
-                : null;
+            // Only a resolved zone places a fleet. The raw legacy number is a
+            // different numbering from the dense runtime id, so reading it as
+            // one puts ships in the wrong sea wherever the legacy ids skip.
+            var seaZone = ship.SeaZone;
+            if (seaZone is { } zone && (uint)zone.Value >= (uint)definition.Map.SeaZones.Count)
+            {
+                throw new ArgumentException(
+                    $"Ship record names sea zone {zone.Value}, but the map has {definition.Map.SeaZones.Count}.",
+                    nameof(definition));
+            }
+
             fleets.Add(new FleetState(
                 new FleetId(nextFleetId++),
                 ship.Country,
@@ -1294,7 +1303,7 @@ public sealed class WorldState
     }
 
     /// <summary>Task forces in deterministic assembly order.</summary>
-    public IReadOnlyList<TaskForceState> TaskForces => _taskForces;
+    public IReadOnlyList<TaskForceState> TaskForces => _taskForcesView ??= _taskForces.AsReadOnly();
 
     public TaskForceState GetTaskForce(TaskForceId taskForce)
     {
@@ -1965,7 +1974,10 @@ public sealed class WorldState
 
     internal void CompleteTurn()
     {
-        _relationSequence = checked((short)(_relationSequence + 1));
+        // The original keeps this as a signed 16-bit generation and only ever
+        // compares it for equality with a stamped token, so it wraps. Throwing
+        // here would abort a turn after every phase had already mutated state.
+        _relationSequence = unchecked((short)(_relationSequence + 1));
         CurrentDate = CurrentDate.Next();
         CompletedTurnCount = checked(CompletedTurnCount + 1);
     }
