@@ -7,7 +7,9 @@ starting from the game's own `.map`/`.scn` scenario file formats.
 
 The original game's file formats have been reverse-engineered by the
 community (cell-by-cell `.map` layout, tagged-record `.scn` layout). This
-repo starts from a Python re-implementation of that decoding. The parsers
+repo began from a Python re-implementation of that decoding, which now lives
+in [Imperialism-1-Forge](https://github.com/PlueRyvius/Imperialism-1-Forge);
+the parsers here are the C# `Imperialism.Formats` library. They
 preserve uninterpreted bytes and round-trip every original file
 byte-for-byte, so the engine can load real scenario data from day one
 instead of needing new assets from scratch.
@@ -76,8 +78,8 @@ whenever it's wanted.
 
 **Phase 0 status: complete.**
 
-- [x] Python research readers/writers for `.map`, `.scn`, editable `.inf`, and plaintext scenarios
-- [x] Python plaintext-scenario reader/writer and corpus relationship audit
+- [x] Python research readers/writers for `.map`, `.scn`, editable `.inf`, and plaintext scenarios — *historical:* moved to Forge in 807caa7
+- [x] Python plaintext-scenario reader/writer and corpus relationship audit — *historical:* moved to Forge in 807caa7
 - [x] Production .NET 8 `Imperialism.Formats` codecs with arbitrary map dimensions
 - [x] Byte-exact local verification of all 10 maps, 10 binary scenarios, and 10 INF files
 - [x] Semantic local verification of all seven extensionless scenario sources
@@ -104,15 +106,15 @@ still an optional local source with the procedural palette as its fallback.
 
 **Phase 3 status: in progress.**
 
-- [x] Packed, deterministic rail-connectivity snapshots filtered by current ownership
-- [x] Lazy connectivity rebuild after rail construction, removal, or conquest
-- [x] Generated 64,800-cell scale regression (ten times the original map area)
-- [x] Deterministic quarterly turn pipeline and immutable event log
-- [x] Content-defined commodity catalog, checked inventory, and deferred-delivery intents
-- [x] Content-defined facilities/recipes, shared capacity, staged output, and legacy economy import
+- [x] Packed, deterministic rail-connectivity snapshots filtered by current ownership (`RailConnectivityIndexTests`)
+- [x] Lazy connectivity rebuild after rail construction, removal, or conquest (`RailConnectivityIndexTests`)
+- [x] Generated 64,800-cell scale regression (ten times the original map area) (`RailConnectivityIndexTests`)
+- [x] Deterministic quarterly turn pipeline and immutable event log (`TurnResolverTests`)
+- [x] Content-defined commodity catalog, checked inventory, and deferred-delivery intents (`CommodityInventoryTests`)
+- [x] Content-defined facilities/recipes, shared capacity, staged output, and legacy economy import (`ProductionTests`, `LegacyWorldConverterTests`)
 - [x] Collection at the capital, connected depots and ports, including port-and-depot sea gateways (`ExtractionTests`)
 - [x] Worker feeding, and labour priced per recipe and spent by production (`FeedingTests`, `LabourTests`)
-- [x] Starvation and sickness cutting the labour pool from the following turn
+- [x] Starvation and sickness cutting the labour pool from the following turn (`FeedingTests`, `LabourTests`)
 - [x] Fair-start defaults for named powers (`SkirmishStartTests`)
 - [x] Industry capacity ladder and construction (`CapacityConstructionTests`)
 - [x] Capitol recruitment and workforce growth (`MigrationTests`)
