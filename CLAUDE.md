@@ -709,6 +709,8 @@ read as a **flat cap** per country, not scaled by the plant's size. An order ove
 **refused, not trimmed**. And power goes to recipes only, never the railyard. Two smaller
 ones ride along: the cheap promotion is paid for before the dear one, and training is paid
 **before the market clears**, so trade cannot spend money already promised to the school.
+Each promotion step is **all or nothing**, and **only healthy workers** may be sent; both
+are chosen too. A bill too large to count is refused like any other, never an overflow.
 
 **The Power Plant is the refinery's twin, gap included.** Same facility machinery, same
 ladder, appended last so no imported id moves. The manual opens both with Oil Drilling, and

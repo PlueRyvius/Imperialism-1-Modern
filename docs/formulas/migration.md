@@ -75,10 +75,12 @@ out for two.
 **Trainees still eat.** They are still workers, and `Feeding` counts the whole
 workforce.
 
-Each step is all or nothing — the manual's red "X" marks an item the player cannot
-afford rather than offering part of it — and is counted against the workforce the
-turn opened with, so a worker cannot be raised two grades in one turn. Only healthy
-workers can be sent. **Untrained→trained is priced before trained→expert**, a chosen
+**Each step is all or nothing, a chosen rule.** The manual's red "X", which marks an
+item the player cannot afford rather than offering part of it, is consistent with it
+but does not settle it. Each step is counted against the workforce the turn opened
+with, so a worker cannot be raised two grades in one turn. **Only healthy workers can
+be sent, also a chosen rule**: the manual never mentions sickness at the school, and a
+sick worker supplies no labour this turn for training to take away. **Untrained→trained is priced before trained→expert**, a chosen
 order, so when cash covers one and not both it is the cheap step that happens. A
 refusal is a `WorkerTrainingRefusedEvent` and charges nothing.
 

@@ -290,21 +290,27 @@ internal static class ProductionPlanner
             return WorkerTrainingRefusal.NotEnoughWorkers;
         }
 
+        // Affordability is decided by division before anything is multiplied, so an
+        // order whose total would overflow a long is simply unaffordable and refused
+        // like any other, rather than aborting the turn.
         var commodityCount = state.Definition.Commodities.Count;
-        var paid = rule.Cost
-            .Select(item => new CommodityQuantity(item.Commodity, checked(item.Quantity * requested)))
-            .ToArray();
-        if (paid.Any(item =>
-                available[(country.Value * commodityCount) + item.Commodity.Value] < item.Quantity))
+        if (rule.Cost.Any(item => !CanAfford(
+                item.Quantity, requested,
+                available[(country.Value * commodityCount) + item.Commodity.Value])))
         {
             return WorkerTrainingRefusal.NotEnoughCommodities;
         }
 
-        var cashCost = checked(rule.CashCost * requested);
-        if (cashCost > cash)
+        if (!CanAfford(rule.CashCost, requested, cash))
         {
             return WorkerTrainingRefusal.NotEnoughCash;
         }
+
+        // Both totals are now bounded by what the country holds, so neither overflows.
+        var paid = rule.Cost
+            .Select(item => new CommodityQuantity(item.Commodity, item.Quantity * requested))
+            .ToArray();
+        var cashCost = rule.CashCost * requested;
 
         foreach (var item in paid)
         {
@@ -317,6 +323,14 @@ internal static class ProductionPlanner
         planned.Add(new PlannedTraining(country, rule, requested, Array.AsReadOnly(paid), cashCost));
         return null;
     }
+
+    /// <summary>
+    /// Whether <paramref name="count"/> lots at <paramref name="perUnit"/> each fit in
+    /// <paramref name="held"/>, decided without forming the product, which may not fit
+    /// in a long.
+    /// </summary>
+    private static bool CanAfford(long perUnit, long count, long held) =>
+        held >= 0 && (perUnit <= 0 || count <= held / perUnit);
 
     private static PowerRefusal? PlanPower(
         WorldState state,

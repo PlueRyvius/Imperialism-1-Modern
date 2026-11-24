@@ -173,12 +173,13 @@ worker.
 Both run inside `Production`, ahead of every recipe, and in this order. There is
 no new turn phase.
 
-1. **The Trade School.** Each promotion step is all or nothing: it charges its
+1. **The Trade School.** Each promotion step is all or nothing (a **chosen rule**): it charges its
    paper and cash and takes its trainees out of this turn's human labour — "training
    a worker takes him out of the labour pool for the turn". Untrained→trained is
    priced before trained→expert, so when money runs short the cheaper step is the
    one that happens. That order is a **chosen rule**. Only healthy workers can be
-   sent, because a sick one supplies nothing to take away. The terms and when the
+   sent, because a sick one supplies nothing to take away; that too is a **chosen
+   rule**. The terms and when the
    trainee starts working at the new grade are in `migration.md`.
 2. **The Power Plant.** A country holding a Power Plant of any capacity may burn
    up to the world's limit of fuel from Available inventory. Each unit adds

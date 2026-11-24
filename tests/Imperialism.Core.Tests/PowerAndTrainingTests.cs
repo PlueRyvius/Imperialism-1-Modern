@@ -312,6 +312,46 @@ public sealed class PowerAndTrainingTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new CountryTurnOrders(Home, burnFuel: -1));
     }
 
+    [Fact]
+    public void ACashBillTooLargeToCountIsRefusedRatherThanAbortingTheTurn()
+    {
+        // The total, two workers at long.MaxValue each, does not fit in a long. It is
+        // still just more than the country has, and is refused like any other.
+        var state = CreateState(
+            untrained: 4, paper: 10, cash: 1000, fabric: 100, untrainedCashCost: long.MaxValue);
+
+        var events = Resolve(state, Orders(training: new(2, 0), production: [new(ClothingRecipe, 10)]));
+
+        AssertRefusedAndUncharged(
+            state, events, WorkerTrainingRefusal.NotEnoughCash, paper: 10, cash: 1000, untrained: 4);
+    }
+
+    [Fact]
+    public void APaperBillTooLargeToCountIsRefusedRatherThanAbortingTheTurn()
+    {
+        var state = CreateState(
+            untrained: 4, paper: 10, cash: 1000, fabric: 100, untrainedPaperCost: long.MaxValue);
+
+        var events = Resolve(state, Orders(training: new(2, 0), production: [new(ClothingRecipe, 10)]));
+
+        AssertRefusedAndUncharged(
+            state, events, WorkerTrainingRefusal.NotEnoughCommodities, paper: 10, cash: 1000, untrained: 4);
+    }
+
+    [Fact]
+    public void ExactlyAffordableTrainingIsStillAccepted()
+    {
+        // The division that replaced the multiplication must not refuse the boundary.
+        var state = CreateState(untrained: 4, paper: 2, cash: 200);
+
+        var events = Resolve(state, Orders(training: new(2, 0)));
+
+        Assert.Empty(events.OfType<WorkerTrainingRefusedEvent>());
+        Assert.Equal(0, Stock(state, Paper));
+        Assert.Equal(0, state.GetCash(Home));
+        Assert.Equal(2, state.GetWorkers(Home, WorkerGrade.Trained));
+    }
+
     private static void AssertRefusedAndUncharged(
         WorldState state,
         IReadOnlyList<TurnEvent> events,
@@ -361,7 +401,9 @@ public sealed class PowerAndTrainingTests
         long plantCapacity = 1,
         bool withPower = true,
         bool withTraining = true,
-        bool withRailyard = false)
+        bool withRailyard = false,
+        long untrainedCashCost = 100,
+        long untrainedPaperCost = 1)
     {
         var map = new MapDefinition(
             new MapDimensions(1, 1),
@@ -441,7 +483,9 @@ public sealed class PowerAndTrainingTests
                 ? new WorkerTrainingSettings(
                 [
                     new WorkerTrainingRule(
-                        WorkerGrade.Untrained, [new CommodityQuantity(new CommodityId(Paper), 1)], 100),
+                        WorkerGrade.Untrained,
+                        [new CommodityQuantity(new CommodityId(Paper), untrainedPaperCost)],
+                        untrainedCashCost),
                     new WorkerTrainingRule(
                         WorkerGrade.Trained, [new CommodityQuantity(new CommodityId(Paper), 2)], 1000),
                 ])
