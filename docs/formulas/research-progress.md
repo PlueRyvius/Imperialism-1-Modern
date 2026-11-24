@@ -248,7 +248,8 @@ If this is ever built:
   inside. That reading should be confirmed from `0x005AF330` before anyone draws
   from it.
 - **Unknown: whether a scenario start fixes the draw.** Corpus `tech` grants already
-  run ahead of the minimum in places (technology.md:272), so a mission evidently
+  run ahead of their arrival year in places: 56 of 491, a count not re-measured
+  since the table order was reverted (technology.md:272). So a mission evidently
   does not respect the windows. That is authoring, and authoring is not design.
 
 ### B. When the cash leaves the treasury (a divergence to record, not to fix here)
