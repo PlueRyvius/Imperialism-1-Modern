@@ -1,0 +1,94 @@
+{
+  "//": "Which of the original's bitmaps become interface art, how each is cropped, and how its transparency resolves. Regenerate with: dotnet run --project tools/Imperialism.AssetExtractor -- --manifest assets/manifest/imperialism-art.json --data-dir <install>/Data --output src/Imperialism.Client/art. See docs/asset-pipeline.md.",
+
+  "source": [
+    { "archive": "pictuniv.gob", "sha256": "", "resourceCount": 1098 }
+  ],
+
+  "entries": [
+    {
+      "archive": "pictuniv.gob",
+      "resource": "2303.BMP",
+      "group": "chrome",
+      "path": "chrome/plate_9p.png",
+      "ninePatch": { "left": 5, "top": 5, "right": 5, "bottom": 5 },
+      "axisStretch": "stretch",
+      "transparency": "index:16",
+      "evidence": "83x24 gold-framed plate; the cream field runs x 5..77, y 5..18, so the frame is a uniform five pixels on every side. Measured with --probe, not chosen.",
+      "confidence": "confirmed"
+    },
+    {
+      "archive": "pictuniv.gob",
+      "resource": "2304.BMP",
+      "group": "chrome",
+      "path": "chrome/plate_active_9p.png",
+      "ninePatch": { "left": 5, "top": 5, "right": 5, "bottom": 5 },
+      "axisStretch": "stretch",
+      "transparency": "index:16",
+      "evidence": "The same plate with a green field. The pair is the original's own available/selected state, which is why the theme's pressed style is this rather than a tinted copy of the first.",
+      "confidence": "confirmed"
+    },
+    {
+      "archive": "pictuniv.gob",
+      "resource": "3800.BMP",
+      "group": "chrome",
+      "path": "chrome/wood_fill.png",
+      "crop": { "x": 104, "y": 5, "width": 96, "height": 18 },
+      "axisStretch": "tile",
+      "transparency": "none",
+      "evidence": "A band of the Terrain Map frame's top rail, away from both corners and above the gold inlay at y 24. Horizontal grain, so it tiles across a wide border and is never stretched.",
+      "confidence": "inferred"
+    },
+    {
+      "archive": "pictuniv.gob",
+      "resource": "3800.BMP",
+      "group": "chrome",
+      "path": "chrome/wood_column.png",
+      "crop": { "x": 596, "y": 60, "width": 32, "height": 96 },
+      "axisStretch": "tile",
+      "transparency": "none",
+      "evidence": "The right toolbar column of the same frame, whose grain runs vertically. Kept separate from wood_fill because tiling a horizontal grain down a column reads as a stack of planks.",
+      "confidence": "inferred"
+    },
+
+    { "archive": "pictuniv.gob", "resource": "4301.BMP", "group": "tab", "path": "tab/tab_01.png", "transparency": "index:16", "evidence": "One of ten 60x56 tabs the original cut itself, seen assembled down both columns of screen frame 4300.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "4302.BMP", "group": "tab", "path": "tab/tab_02.png", "transparency": "index:16", "evidence": "Tab strip of screen frame 4300.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "4303.BMP", "group": "tab", "path": "tab/tab_03.png", "transparency": "index:16", "evidence": "Tab strip of screen frame 4300.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "4304.BMP", "group": "tab", "path": "tab/tab_04.png", "transparency": "index:16", "evidence": "Tab strip of screen frame 4300.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "4305.BMP", "group": "tab", "path": "tab/tab_05.png", "transparency": "index:16", "evidence": "Tab strip of screen frame 4300.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "4306.BMP", "group": "tab", "path": "tab/tab_06.png", "transparency": "index:16", "evidence": "Tab strip of screen frame 4300.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "4307.BMP", "group": "tab", "path": "tab/tab_07.png", "transparency": "index:16", "evidence": "Tab strip of screen frame 4300.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "4308.BMP", "group": "tab", "path": "tab/tab_08.png", "transparency": "index:16", "evidence": "Tab strip of screen frame 4300.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "4309.BMP", "group": "tab", "path": "tab/tab_09.png", "transparency": "index:16", "evidence": "Tab strip of screen frame 4300.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "4310.BMP", "group": "tab", "path": "tab/tab_10.png", "transparency": "index:16", "evidence": "Tab strip of screen frame 4300.", "confidence": "confirmed" },
+
+    { "archive": "pictuniv.gob", "resource": "4107.BMP", "group": "button", "path": "button/help.png", "transparency": "index:16", "evidence": "The question mark the manual puts in the upper right of every decision screen (manual :388-401).", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "4106.BMP", "group": "button", "path": "button/back.png", "transparency": "index:16", "evidence": "The corner arrow the manual calls the Left Arrow, which closes the current screen (manual :388-401).", "confidence": "inferred" },
+    { "archive": "pictuniv.gob", "resource": "4108.BMP", "group": "button", "path": "button/info.png", "transparency": "index:16", "evidence": "Circular information button on wood; paired with 4109 as its lit state.", "confidence": "inferred" },
+    { "archive": "pictuniv.gob", "resource": "4109.BMP", "group": "button", "path": "button/info_lit.png", "transparency": "index:16", "evidence": "The lit twin of 4108, matching the manual's description of a control that 'appears lighter than the surrounding wood' when it wants attention (manual :994-1052).", "confidence": "inferred" },
+
+    { "archive": "pictuniv.gob", "resource": "6001.BMP", "group": "icon", "path": "icon/commodity_01.png", "transparency": "index:16", "evidence": "One of thirteen 39x35 commodity plaques on wood, the set the Bid and Offers screen border draws from (manual :3045-3055).", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "6002.BMP", "group": "icon", "path": "icon/commodity_02.png", "transparency": "index:16", "evidence": "Commodity plaque set.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "6003.BMP", "group": "icon", "path": "icon/commodity_03.png", "transparency": "index:16", "evidence": "Commodity plaque set.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "6004.BMP", "group": "icon", "path": "icon/commodity_04.png", "transparency": "index:16", "evidence": "Commodity plaque set.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "6005.BMP", "group": "icon", "path": "icon/commodity_05.png", "transparency": "index:16", "evidence": "Commodity plaque set.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "6006.BMP", "group": "icon", "path": "icon/commodity_06.png", "transparency": "index:16", "evidence": "Commodity plaque set.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "6007.BMP", "group": "icon", "path": "icon/commodity_07.png", "transparency": "index:16", "evidence": "Commodity plaque set.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "6008.BMP", "group": "icon", "path": "icon/commodity_08.png", "transparency": "index:16", "evidence": "Commodity plaque set.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "6009.BMP", "group": "icon", "path": "icon/commodity_09.png", "transparency": "index:16", "evidence": "Commodity plaque set.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "6010.BMP", "group": "icon", "path": "icon/commodity_10.png", "transparency": "index:16", "evidence": "Commodity plaque set.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "6011.BMP", "group": "icon", "path": "icon/commodity_11.png", "transparency": "index:16", "evidence": "Commodity plaque set.", "confidence": "confirmed" },
+    { "archive": "pictuniv.gob", "resource": "6013.BMP", "group": "icon", "path": "icon/commodity_13.png", "transparency": "index:16", "evidence": "Commodity plaque set.", "confidence": "confirmed" },
+
+    { "archive": "pictuniv.gob", "resource": "415.BMP", "group": "icon", "path": "icon/civilian_farmer.png", "transparency": "index:16", "evidence": "A map civilian on the magenta key. Named for what it depicts and nothing more: the manual's workforce icons encode grade by coverall colour (manual :2493-2510), and this set is figures standing on terrain, not that set. The three coverall icons are still unidentified; see docs/asset-pipeline.md.", "confidence": "inferred" },
+    { "archive": "pictuniv.gob", "resource": "417.BMP", "group": "icon", "path": "icon/civilian_engineer.png", "transparency": "index:16", "evidence": "A map civilian standing on rail, so an Engineer rather than a workforce grade.", "confidence": "inferred" },
+    { "archive": "pictuniv.gob", "resource": "4201.BMP", "group": "icon", "path": "icon/globe.png", "transparency": "index:16", "evidence": "The globe the main menu uses to reach the Map Room (manual :209).", "confidence": "inferred" }
+  ],
+
+  "fonts": [
+    { "source": "Antqua.ttf", "path": "fonts/antiqua.ttf", "role": "body" },
+    { "source": "Antquab.ttf", "path": "fonts/antiqua_bold.ttf", "role": "body-bold" },
+    { "source": "WeBeLt__.ttf", "path": "fonts/display.ttf", "role": "display" },
+    { "source": "WeBeBd__.ttf", "path": "fonts/display_bold.ttf", "role": "display-bold" }
+  ]
+}

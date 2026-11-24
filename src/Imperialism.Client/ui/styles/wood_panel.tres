@@ -1,0 +1,16 @@
+[gd_resource type="StyleBoxTexture" load_steps=2 format=3]
+
+; Wood is tiled, never stretched. Stretching a grain drawn for a 640-pixel rail
+; across a modern window smears it into streaks; tiling it reads as more of the
+; same plank, which is what the original looks like anyway.
+
+[ext_resource type="Texture2D" path="res://art/chrome/wood_fill.png" id="1_wood"]
+
+[resource]
+texture = ExtResource("1_wood")
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
