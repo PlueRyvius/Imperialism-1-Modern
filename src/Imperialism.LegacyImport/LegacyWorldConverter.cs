@@ -2149,6 +2149,10 @@ public static class LegacyWorldConverter
     private static CellLinkContent[] ReadReciprocalRails(MapDocument map, LegacyImportReport report)
     {
         var links = new List<CellLinkContent>();
+
+        // Pairs are canonical (lower index first) because only the lower end
+        // emits, so a set of pairs is enough to keep each link once.
+        var emitted = new HashSet<(int First, int Second)>();
         for (var index = 0; index < map.Cells.Count; index++)
         {
             var source = map.Cells[index];
@@ -2191,6 +2195,14 @@ public static class LegacyWorldConverter
                         "map.invalid-rail-reference",
                         $"map.cells[{index}].rail.{direction.Name}",
                         "A reciprocal rail link refers to an ocean cell.");
+                    continue;
+                }
+
+                // On a two-column map east and west reach the same cell, so
+                // one pair of cells can be named by two reciprocal directions.
+                // It is still one link.
+                if (!emitted.Add((index, neighbour.Value)))
+                {
                     continue;
                 }
 
