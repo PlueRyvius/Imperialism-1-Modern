@@ -105,6 +105,158 @@ public sealed class MapSeamTests
             ((IList<SeaZoneId>)neighbours).Add(new SeaZoneId(0)));
     }
 
+    [Theory]
+    [InlineData(2, false, 1)]
+    [InlineData(2, true, 1)]
+    [InlineData(4, false, 1)]
+    [InlineData(4, true, 2)]
+    public void ACapitalFishesEachAdjacentWaterTileOnceHoweverManyDirectionsReachIt(
+        int width,
+        bool wrapsHorizontally,
+        int expectedFish)
+    {
+        // One row: the capital on column 0 and water everywhere else. At width
+        // 2 with a seam, east and west both reach column 1 — one tile, not two.
+        // At width 4 with a seam, west reaches column 3, a second tile.
+        var state = CreateNarrowState(
+            width,
+            height: 1,
+            wrapsHorizontally,
+            index => index != 0,
+            capitalRiver: null,
+            depositOn: static _ => false,
+            catchmentRadius: 0);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(1), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(
+            new CommodityQuantity(new CommodityId(Fish), expectedFish),
+            Assert.Single(extraction.Collected));
+    }
+
+    [Fact]
+    public void ACapitalOnAOneColumnMapFishesTheWaterBelowItOnce()
+    {
+        // At width 1 south-east and south-west are the same tile, and east and
+        // west are the capital itself. Its own river is not a neighbour.
+        var state = CreateNarrowState(
+            width: 1,
+            height: 2,
+            wrapsHorizontally: true,
+            static index => index == 1,
+            new RiverPath(RiverEndpoint.EastUpper, RiverEndpoint.Source),
+            depositOn: static _ => false,
+            catchmentRadius: 0);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(1), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(
+            new CommodityQuantity(new CommodityId(Fish), 1),
+            Assert.Single(extraction.Collected));
+    }
+
+    [Fact]
+    public void ACapitalNeverFishesTheRiverOnItsOwnTile()
+    {
+        // A single wrapping cell is every one of its own east/west neighbours.
+        var state = CreateNarrowState(
+            width: 1,
+            height: 1,
+            wrapsHorizontally: true,
+            static _ => false,
+            new RiverPath(RiverEndpoint.EastUpper, RiverEndpoint.Source),
+            depositOn: static _ => false,
+            catchmentRadius: 0);
+
+        // A country that gathers nothing reports no extraction at all.
+        Assert.Empty(
+            TurnResolver.Resolve(state, TurnOrders.Empty(1), 0)
+                .Events.OfType<ResourceExtractedEvent>()
+                .SelectMany(static extraction => extraction.Collected));
+    }
+
+    [Theory]
+    [InlineData(2, 1)]
+    [InlineData(1, 2)]
+    public void ACatchmentCollectsEachTileOnceOnANarrowWrappingMap(int width, int height)
+    {
+        // Every land tile carries a deposit and the capital gathers radius one,
+        // which on these maps covers the whole world: two tiles, two units,
+        // however many directions reach the second one.
+        var state = CreateNarrowState(
+            width,
+            height,
+            wrapsHorizontally: true,
+            static _ => false,
+            capitalRiver: null,
+            depositOn: static _ => true,
+            catchmentRadius: 1);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(1), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(2, extraction.CollectedCellCount);
+        Assert.Equal(
+            new CommodityQuantity(new CommodityId(Fish), 2),
+            Assert.Single(extraction.Collected));
+    }
+
+    private static WorldState CreateNarrowState(
+        int width,
+        int height,
+        bool wrapsHorizontally,
+        Func<int, bool> isWater,
+        RiverPath? capitalRiver,
+        Func<int, bool> depositOn,
+        int catchmentRadius)
+    {
+        var dimensions = new MapDimensions(width, height);
+        var count = width * height;
+        var cells = new CellDefinition[count];
+        for (var index = 0; index < count; index++)
+        {
+            var water = isWater(index);
+            cells[index] = new CellDefinition(
+                new CellIndex(index),
+                dimensions.GetCoordinate(new CellIndex(index)),
+                new TerrainId(0),
+                water
+                    ? CellRegion.ForSeaZone(new SeaZoneId(0))
+                    : CellRegion.ForProvince(new ProvinceId(0)),
+                !water && depositOn(index) ? [new ResourceId(0)] : null,
+                index == 0 ? SettlementSiteKind.Urban : SettlementSiteKind.None,
+                index == 0 ? capitalRiver : null);
+        }
+
+        var map = new MapDefinition(
+            dimensions,
+            cells,
+            [new ProvinceDefinition(new ProvinceId(0), "Capital")],
+            [new SeaZoneDefinition(new SeaZoneId(0), "Water")],
+            [new ResourceDefinition(new ResourceId(0), new CommodityId(Fish), [1])],
+            wrapsHorizontally: wrapsHorizontally);
+        var scenario = new ScenarioDefinition(
+            "Narrow",
+            1815,
+            [new CountryId(0)],
+            null,
+            [new CountryCapital(new CountryId(0), new CellIndex(0))]);
+        var definition = new WorldDefinition(
+            map,
+            [new CountryDefinition(new CountryId(0), "Country 0")],
+            scenario,
+            [new CommodityDefinition(new CommodityId(Fish), "Fish", CommodityCategory.Raw)],
+            null,
+            null,
+            new ExtractionSettings(catchmentRadius, new PortFishing(new CommodityId(Fish), 1)));
+        return new WorldState(definition);
+    }
+
     private static WorldState CreateState(bool wrapsHorizontally)
     {
         const int width = 4;

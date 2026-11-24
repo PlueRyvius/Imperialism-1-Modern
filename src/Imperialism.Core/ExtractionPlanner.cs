@@ -159,16 +159,27 @@ internal static class ExtractionPlanner
     /// Each neighbour counts once even if it somehow qualifies both ways, and
     /// a neighbour across the east/west seam counts only where the map has one.
     /// </summary>
+    /// <remarks>
+    /// Six directions are not six cells on a narrow wrapping map: at width 2
+    /// east and west reach the same tile, and at width 1 every direction along
+    /// the row reaches the port itself. So a tile counts once however many
+    /// directions name it, and the port's own tile never counts.
+    /// </remarks>
     private static int CountAdjacentWater(MapDefinition map, CellDefinition port)
     {
         var water = 0;
+        Span<int> counted = stackalloc int[6];
+        var countedLength = 0;
         foreach (var direction in HexDirections.All)
         {
-            if (!map.TryGetNeighbor(port.Index, direction, out var neighbor))
+            if (!map.TryGetNeighbor(port.Index, direction, out var neighbor) ||
+                neighbor == port.Index ||
+                counted[..countedLength].Contains(neighbor.Value))
             {
                 continue;
             }
 
+            counted[countedLength++] = neighbor.Value;
             var cell = map[neighbor];
             if (cell.Region.Kind == CellRegionKind.SeaZone || cell.River is not null)
             {
