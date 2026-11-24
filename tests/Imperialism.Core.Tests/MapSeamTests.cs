@@ -54,6 +54,46 @@ public sealed class MapSeamTests
         Assert.Equal(expectedStrandedCells, extraction.StrandedCellCount);
     }
 
+    [Theory]
+    [InlineData(true, 2)]
+    [InlineData(false, 1)]
+    public void APortFishesWaterAcrossTheEdgeOnlyWhereTheMapHasASeam(
+        bool wrapsHorizontally,
+        int expectedFishingPorts)
+    {
+        // The capital fishes the river on cell 0 either way. The port on cell 0
+        // has no water on its own side, so it fishes only if the sea on cell 3
+        // counts as its neighbour.
+        var state = CreateState(wrapsHorizontally);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(1), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(expectedFishingPorts, extraction.FishingPortCount);
+        Assert.Equal(0, extraction.StrandedPortCount);
+    }
+
+    [Theory]
+    [InlineData(true, 1, 0)]
+    [InlineData(false, 0, 1)]
+    public void ACatchmentReachesAcrossTheEdgeOnlyWhereTheMapHasASeam(
+        bool wrapsHorizontally,
+        int expectedCollectedCells,
+        int expectedStrandedCells)
+    {
+        // The capital sits on column 0 with a radius of one; the only deposit
+        // is on the last column, one step west across the edge.
+        var state = CreateCatchmentState(wrapsHorizontally);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(1), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(expectedCollectedCells, extraction.CollectedCellCount);
+        Assert.Equal(expectedStrandedCells, extraction.StrandedCellCount);
+    }
+
     [Fact]
     public void SeaTopologyNeighbourListsCannotBeWrittenThrough()
     {
@@ -113,6 +153,47 @@ public sealed class MapSeamTests
             null,
             null,
             new ExtractionSettings(0, new PortFishing(new CommodityId(Fish), 1)));
+        return new WorldState(definition);
+    }
+
+    private static WorldState CreateCatchmentState(bool wrapsHorizontally)
+    {
+        const int width = 4;
+        var dimensions = new MapDimensions(width, 1);
+        var cells = new CellDefinition[width];
+        for (var index = 0; index < width; index++)
+        {
+            cells[index] = new CellDefinition(
+                new CellIndex(index),
+                dimensions.GetCoordinate(new CellIndex(index)),
+                new TerrainId(0),
+                CellRegion.ForProvince(new ProvinceId(index)),
+                index == width - 1 ? [new ResourceId(0)] : null,
+                index == 0 ? SettlementSiteKind.Urban : SettlementSiteKind.None);
+        }
+
+        var map = new MapDefinition(
+            dimensions,
+            cells,
+            Enumerable.Range(0, width)
+                .Select(static index => new ProvinceDefinition(new ProvinceId(index), $"Province {index}")),
+            [],
+            [new ResourceDefinition(new ResourceId(0), new CommodityId(Fish), [1])],
+            wrapsHorizontally: wrapsHorizontally);
+        var scenario = new ScenarioDefinition(
+            "Seam catchment",
+            1815,
+            Enumerable.Repeat<CountryId?>(new CountryId(0), width),
+            null,
+            [new CountryCapital(new CountryId(0), new CellIndex(0))]);
+        var definition = new WorldDefinition(
+            map,
+            [new CountryDefinition(new CountryId(0), "Country 0")],
+            scenario,
+            [new CommodityDefinition(new CommodityId(Fish), "Fish", CommodityCategory.Raw)],
+            null,
+            null,
+            new ExtractionSettings(1));
         return new WorldState(definition);
     }
 }
