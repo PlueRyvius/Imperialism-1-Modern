@@ -19,6 +19,10 @@ civilian units that do not exist yet.
 | It may be done every turn the commodities are there | **manual** |
 | **How much of each commodity per worker** | **resource-backed** — one of each, and the guess was right |
 | Recruits eat on the turn they arrive | follows from the phase order; see below |
+| Training costs **paper and cash** and takes the trainee out of the pool for the turn | **manual** — Trade School |
+| **One paper + $100** untrained→trained, **two paper + $1,000** trained→expert | **resource-backed** — the same block as the recruit's price |
+| A trainee works at its new grade **from the next turn** | **chosen rule** — the manual says only "out of the labour pool for the turn" |
+| Untrained→trained is paid for before trained→expert | **chosen rule** |
 
 ## Evidence
 
@@ -51,11 +55,40 @@ this project had no number for at all, and there was no way to know in advance w
 of the three the manual's silence was hiding. The warning label was correct while it
 stood, and removing it now is the point of having had one.
 
-**The same block prices worker training, and nothing models it.** An untrained worker
-plus one paper and $100 becomes trained; a trained worker plus two paper and $1,000
-becomes expert. The Capitol recruits untrained workers and nothing promotes them, so
-these two numbers are recorded and unused — waiting on the Trade School and the
-University.
+**The same block prices worker training, and the Trade School now spends it**
+(`.iworld` v27). An untrained worker plus one paper and $100 becomes trained; a
+trained worker plus two paper and $1,000 becomes expert. The manual supplies the
+rest of the shape:
+
+> Training costs paper and cash. [...] Training a worker takes him out of the
+> labour pool for the turn.
+
+So inside `Production`, before any recipe runs, each step charges its paper and
+cash and withholds its trainees' labour. The trainees are **promoted at the end of
+`Production`**, after every recipe has drawn on the pool, and so **supply their new
+grade's labour from the next turn**. That timing is a **chosen rule**: the manual
+says the worker is out of the pool "for the turn" and nothing about when he comes
+back. Promoting at the start would have him work at the new grade on the very turn
+he is "out", which contradicts the sentence; promoting a turn later would leave him
+out for two.
+
+**Trainees still eat.** They are still workers, and `Feeding` counts the whole
+workforce.
+
+Each step is all or nothing — the manual's red "X" marks an item the player cannot
+afford rather than offering part of it — and is counted against the workforce the
+turn opened with, so a worker cannot be raised two grades in one turn. Only healthy
+workers can be sent. **Untrained→trained is priced before trained→expert**, a chosen
+order, so when cash covers one and not both it is the cheap step that happens. A
+refusal is a `WorkerTrainingRefusedEvent` and charges nothing.
+
+**Training is paid before the world market clears**, also a chosen rule: the Trade
+School is on the Industry screen, and industry already has first claim on the
+warehouse, so trade bids only with the cash training leaves. Without that the
+`Trade` phase, which runs before `Production`, could spend money the planner had
+already promised the school.
+
+The University, which spends an expert to build a civilian, is still not modelled.
 
 **The Capitol upgrade to one-third is not implemented.** There is no upgrade
 mechanic and the manual gives no trigger beyond "successful foreign policies",
@@ -162,8 +195,10 @@ faster than you can feed, and it is reported rather than tuned away. See
 ## Open questions
 
 - ~~What a worker actually costs.~~ **Recovered**, and the placeholder was right.
-- **Worker training**, priced above and unmodelled: the Trade School and the
-  University are what would spend it.
+- ~~**Worker training**.~~ **Modelled** at v27; see above. The University, which
+  spends an expert, is not.
+- Whether a trainee really returns at the new grade on the next turn. Chosen, not
+  observed.
 - The Capitol upgrade to one-third, and what triggers it.
 - Whether recruits should eat on their arrival turn. The phase order forces it
   and the manual's warning agrees, but nothing observed confirms it.

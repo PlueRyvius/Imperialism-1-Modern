@@ -112,7 +112,9 @@ still an optional local source with the procedural palette as its fallback.
 - [x] Starvation and sickness cutting the labour pool from the following turn
 - [x] Transport capacity construction and per-turn allocation
 - [x] River downstream connectivity
-- [x] Headless naval control of sea ports and transient power
+- [x] Headless naval control of sea ports
+- [x] Transient power and worker training (`PowerAndTrainingTests`)
+- [ ] Research progress
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's

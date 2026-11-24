@@ -25,7 +25,12 @@ Labour carries its own evidence, tabulated rather than averaged:
 | **Labour per cycle is two, flat, for every recipe** | **resource-backed** — all nine of the original's recipe help strings say "2 labor", including the four-input food cycle |
 | ~~Therefore labour per cycle = total input units~~ | **retracted.** Held on the shipped set only, and food processing was miscounted as agreeing |
 | Labour is one pool per country, not per facility | **manual** — one arm icon on the border, drawn down by every dialog |
-| Power is spent before human labour | **manual** — not modelled yet |
+| Power is spent before human labour | **manual** — "used in advance of any of your human labour" |
+| One fuel makes six power, at most 100 fuel a turn | **resource-backed** — "1 fuel → 6 power, with up to 100 fuel per turn" |
+| The 100 is a flat cap per country, whatever the plant's size | **chosen reading** — the resource gives one figure and no capacity |
+| An order over the cap is refused, not trimmed | **chosen rule** |
+| Power left at the end of `Production` is lost | **manual** — power "cannot be sold or stored"; it exists "on the turn when it is created" |
+| Power is offered to recipes only, never the railyard | **chosen rule** |
 
 ## Evidence
 
@@ -158,10 +163,53 @@ after `Production`, so a bad harvest shows up in the pool one turn later — see
 `feeding.md`, which also records the one chosen rule in the model: which grade
 takes the damage.
 
-Three things the manual states that are **not modelled yet**: power adds to the
-labour pool on the turn it is generated and is spent before any human labour;
-the Trade School takes a worker out of the pool for the turn it trains; and
-building a civilian in the University permanently removes an expert worker.
+Power and the Trade School are both modelled now (`.iworld` v27), and both
+change the pool before any recipe draws on it; see the next section. Still **not
+modelled**: building a civilian in the University permanently removes an expert
+worker.
+
+### Power and the Trade School
+
+Both run inside `Production`, ahead of every recipe, and in this order. There is
+no new turn phase.
+
+1. **The Trade School.** Each promotion step is all or nothing: it charges its
+   paper and cash and takes its trainees out of this turn's human labour — "training
+   a worker takes him out of the labour pool for the turn". Untrained→trained is
+   priced before trained→expert, so when money runs short the cheaper step is the
+   one that happens. That order is a **chosen rule**. Only healthy workers can be
+   sent, because a sick one supplies nothing to take away. The terms and when the
+   trainee starts working at the new grade are in `migration.md`.
+2. **The Power Plant.** A country holding a Power Plant of any capacity may burn
+   up to the world's limit of fuel from Available inventory. Each unit adds
+   `powerPerFuel` to a pool that exists for this turn only. The original's figures
+   are **six power per fuel and a hundred fuel a turn**, from its help resources
+   (`docs/disasm/definitive-original-data.md`). The hundred is **the recovered
+   figure read as a flat cap**: it does not scale with the plant's capacity, because
+   the resource names one number and no size. **An order over the cap is refused
+   whole rather than trimmed** — a chosen rule, the same all-or-nothing shape a
+   technology purchase has — and so is an order with no plant or too little fuel.
+   A refusal burns nothing and is reported as a `PowerRefusedEvent`.
+3. **Recipes**, drawing power before people: "it is used in advance of any of your
+   human labour". The two are one total for deciding how many cycles run — six
+   power and three workers buy four two-labour cycles — and power is debited first.
+4. **What power is left is lost.** It is never stored and never carried into the
+   next turn; `PowerGeneratedEvent.PowerWasted` reports it.
+
+**The railyard does not get power.** It is the one other thing that draws labour,
+and the manual's sentence about power is about production dialogs ("power is used
+automatically when you allocate labour in a production dialog"). Offering it the
+leftover would be a reasonable reading too; this one is **chosen** and keeps power
+a production-only pool. The railyard prices against human labour less trainees
+less what recipes drew after power ran out.
+
+**The Power Plant is a facility exactly like the Oil Refinery**: limited capacity,
+the factory ladder, built through the ordinary expansion order, and appended as
+the last facility so no imported id moves. The manual opens both "once Oil Drilling
+technology is purchased". **Neither is gated in code** — a facility carries no
+technology requirement, so the refinery is buildable without Oil Drilling today and
+the plant inherits that gap rather than papering over it alone. In practice no
+power starts holding either.
 
 ### What the disassembly could not settle — and where it was found instead
 
@@ -197,16 +245,28 @@ for each country by dense id:
     remaining capacity = that country's limited facility capacities
     remaining labour = the healthy workforce's labour, or unbounded with no feeding
     starting inputs = a copy of Available inventory
+    for untrained, then trained:
+        if trainees <= healthy of that grade and paper and cash cover them all:
+            charge paper (from starting inputs) and cash
+            subtract trainees * grade labour from remaining labour
+        else refuse the step and charge nothing
+    if fuel ordered:
+        if a plant is held, fuel <= cap and starting inputs hold it:
+            subtract fuel from starting inputs; power = fuel * power per fuel
+        else refuse and burn nothing
     for each requested recipe in submitted priority order:
         cycles = minimum(requested, shared facility capacity,
-                         remaining labour / recipe labour cost, available inputs)
-        subtract cycles * labour cost from remaining labour
+                         (power + remaining labour) / recipe labour cost, available inputs)
+        spend cycles * labour cost from power first, the rest from remaining labour
         subtract scaled inputs from starting inputs and final inventory delta
         add scaled outputs only to final inventory delta
         emit one result event, including zero or partial completion
 
+    power left over is dropped
+
 preflight final inventory after production and all pending deliveries
-commit production during Production; commit deliveries during Delivery
+commit production, training's cash and the promotions during Production;
+commit deliveries during Delivery
 ```
 
 Produced goods are deliberately excluded from `starting inputs`, so they cannot
@@ -220,7 +280,13 @@ explicit and keeping the content model general.
   `LabourCost`), and `InitialProductionCapacity` in `Imperialism.Core`.
 - `ProductionPlanner` and `TurnResolver` in `Imperialism.Core`, with the pool
   read from `WorldState.GetAvailableLabour`, which excludes the sick.
-- `ProductionCompletedEvent.LabourUsed` reports what each request actually spent.
+- `ProductionCompletedEvent.LabourUsed` reports what each request actually spent,
+  power and people together.
+- `PowerSettings`, `WorkerTrainingSettings`, `CountryTurnOrders.BurnFuel` and
+  `CountryTurnOrders.Training` in `Imperialism.Core`; `PowerGeneratedEvent`,
+  `PowerRefusedEvent`, `WorkersTrainedEvent` and `WorkerTrainingRefusedEvent`
+  report them. `.iworld` v27 adds the world-level `power` and `workerTraining`
+  blocks; the v26 migration adds neither.
 - `.iworld` v3 production definitions and capacities in `Imperialism.Content`;
   v9 adds the per-recipe `labourCost`.
 - Standard catalog plus `capa`/`ware` conversion in
@@ -241,6 +307,16 @@ reverse order giving the opposite answer), labour billed only for cycles that
 ran, a workforce of none producing nothing, a world with no feeding ignoring
 labour entirely, and starvation costing labour on the following turn.
 
+`tests/Imperialism.Core.Tests/PowerAndTrainingTests.cs` pins six power per fuel,
+the hundred-fuel cap refusing 101 and burning exactly 100, no plant / no fuel / no
+power block each refusing and burning nothing, power spent before people (the
+railyard then finds the workforce untouched), power and people summing for one
+recipe, unspent power gone the next turn, both training prices, trainees supplying
+nothing that turn and their new grade's labour the next, trainees still eating,
+each refusal charging nothing and leaving the pool whole, and the two steps paid for
+separately in grade order. `TradeTests.TheTradeSchoolIsPaidBeforeTheMarketSpendsTheTreasury`
+pins the cash ordering against trade.
+
 `LegacyWorldConverterTests` asserts that every standard recipe's labour equals
 both its input total and twice its output total — the two readings the manual
 leaves open, which coincide throughout. `AnImportedScenarioResolvesATurn`
@@ -256,10 +332,9 @@ the workforce does not, which is how a starting position should read.
   stated recipes all cost two, so the value is settled either way; only the
   mechanism is open, and it decides nothing this engine ships. **Closed as a
   gameplay question. See the two retractions below.**
-- Transient power, which the manual says joins the pool on the turn it is
-  generated and is spent before any human labour.
-- The Trade School and the University, which take labour and workers out of the
-  pool respectively.
+- The University, which takes an expert worker out of the pool for good.
+- Whether the original's 100-fuel limit scales with the plant's size. Read here as
+  flat; the resource names no capacity.
 - Whether the UI reserves inputs exactly when an order is entered in every edge
   case, or only presents that behavior while the turn resolver recomputes it.
 ## Retracted: the railyard was not the test
