@@ -5,10 +5,12 @@ namespace Imperialism.Core;
 /// first, and — recorded but read by nothing — what it can do in a fight.
 /// </summary>
 /// <remarks>
-/// <b>Only <see cref="Cargo"/> is modelled.</b> A country's merchant marine is the sum
-/// of the cargo of the ships it owns, and that pool is what limits trade. Everything
-/// else here is transcribed so the numbers exist when there is something to read them:
-/// the build bill wants a shipyard, and the combat stats want the battle engine.
+/// <b><see cref="Cargo"/>, <see cref="BuildCost"/> and <see cref="RequiredTechnology"/>
+/// are modelled.</b> A country's merchant marine is the sum of the cargo of the ships it
+/// owns, and that pool is what limits trade. The Shipyard (<c>ShipyardPlanner</c>) charges
+/// the bill and checks the technology; see <c>docs/formulas/shipbuilding.md</c>. Sea zones
+/// and the combat stats are transcribed so the numbers exist when there is something to
+/// read them: naval movement and the battle engine.
 /// <para>
 /// That is the same treatment the technology table got — all twenty-eight entries
 /// transcribed "so the numbering is right and modelled nowhere" — and for the same
@@ -89,8 +91,9 @@ public sealed record ShipTypeDefinition
     public long SeaZones { get; }
 
     /// <summary>
-    /// What the shipyard consumes to build one. Materials and resources only — never
-    /// cash — and empty where nothing has been transcribed.
+    /// What the Shipyard consumes to build one. Materials and resources only — never
+    /// cash — and empty where nothing has been transcribed. An empty bill builds for
+    /// nothing; every imported hull has one.
     /// </summary>
     public IReadOnlyList<CommodityQuantity> BuildCost => _buildCost;
 
@@ -100,9 +103,16 @@ public sealed record ShipTypeDefinition
     /// Paddlewheels opens the Paddlewheeler and the Raider.
     /// </summary>
     /// <remarks>
-    /// <b>Read by nothing yet</b>, because building ships is not modelled — but it is
-    /// what the corpus check measures against, and it is the reason two entries in the
-    /// technology table that gate nothing else are not dead after all.
+    /// <b>Read by the Shipyard</b>, against knowledge as the turn opens, so a technology
+    /// bought this turn opens the hull next turn. It is also what the corpus check
+    /// measures against, and the reason two entries in the technology table that gate
+    /// nothing else are not dead after all.
+    /// <para>
+    /// <b>Only three hulls carry one in imported content</b>, because only three are gated
+    /// in the executable's naval table. The manual's technology table gates the Ironclad
+    /// and every later class too, and the importer does not yet emit those gates; see
+    /// <c>docs/formulas/shipbuilding.md</c>.
+    /// </para>
     /// </remarks>
     public TechnologyId? RequiredTechnology { get; }
 

@@ -133,6 +133,32 @@ public sealed class TurnReportRendererTests
     }
 
     [Fact]
+    public void ShipsBuiltAndRefusedNameTheHullAndTheBill()
+    {
+        var renderer = CreateRenderer();
+        CommodityQuantity[] bill = [new(new CommodityId(1), 8)];
+
+        var built = Assert.Single(renderer.Render(
+            new ShipsBuiltEvent(1, Blue, new ShipTypeId(0), 2, new FleetId(1), bill)));
+        Assert.Equal(TurnReportKind.Outcome, built.Kind);
+        Assert.Contains("built 2 Trader hulls, paying 8 Lumber", built.Text, StringComparison.Ordinal);
+
+        var refused = Assert.Single(renderer.Render(new ShipBuildRefusedEvent(
+            1, Blue, new ShipTypeId(0), 1, ShipBuildRefusal.TechnologyNotKnown)));
+        Assert.Equal(TurnReportKind.Refusal, refused.Kind);
+        Assert.Contains("could not build 1 Trader hull:", refused.Text, StringComparison.Ordinal);
+        Assert.Contains(
+            TurnReportText.Describe(ShipBuildRefusal.TechnologyNotKnown),
+            refused.Text,
+            StringComparison.Ordinal);
+
+        // A hull the world does not define still renders rather than throwing.
+        var unknown = Assert.Single(renderer.Render(new ShipBuildRefusedEvent(
+            1, Blue, new ShipTypeId(40), 1, ShipBuildRefusal.UnknownType)));
+        Assert.Contains("Ship 40", unknown.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ACellInASeaZoneRendersWithoutThrowing()
     {
         // CellRegion.Province throws for anything that is not a province, so a
@@ -299,6 +325,8 @@ public sealed class TurnReportRendererTests
                 1, Blue, WorkerGrade.Trained, 1, WorkerTrainingRefusal.NotEnoughCash),
             new PowerGeneratedEvent(1, Blue, lumber, 10, 60, 40),
             new PowerRefusedEvent(1, Blue, 101, PowerRefusal.OverTurnLimit),
+            new ShipsBuiltEvent(1, Blue, new ShipTypeId(0), 2, new FleetId(1), some),
+            new ShipBuildRefusedEvent(1, Blue, new ShipTypeId(0), 3, ShipBuildRefusal.NotEnoughCommodities),
         ];
     }
 }

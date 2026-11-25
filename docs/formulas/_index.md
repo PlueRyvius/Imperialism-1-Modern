@@ -184,6 +184,11 @@ bottom of this file.
 | The fleet a power opens with | `inferred` — **all three skirmishes agree**, and the class is the executable's | [trade](trade.md) | Core, Content, LegacyImport | generated + local corpus |
 | What a `ship` type index means | `inferred` — **corpus-corroborated**, 1-based | [trade](trade.md) | — | local corpus |
 | **The ship array's order, cargo, sea zones, build costs and combat stats** | **`verified`** — the executable's naval and cost tables | [trade](trade.md) | Core, Content, LegacyImport | generated |
+| What a ship costs to build: commodities only, no labour, no cash | `inferred` — **the manual states it**, the executable's bills agree | [shipbuilding](shipbuilding.md) | Core | generated |
+| When a new ship's holds first count | `inferred` — the manual's "next turn", by phase order | [shipbuilding](shipbuilding.md) | Core | generated |
+| A Shipyard order the warehouse cannot cover | **a chosen rule** — refused whole, not trimmed | [shipbuilding](shipbuilding.md) | Core | generated |
+| Where a new ship is, and which fleet it joins | **a chosen rule** — unplaced, merged into an unplaced unassembled fleet | [shipbuilding](shipbuilding.md) | Core | generated |
+| Which technologies gate the Ironclad and later hulls | **open** — the manual names them; the importer does not emit them | [shipbuilding](shipbuilding.md) | — | — |
 | The raw-resource yield curves | **`verified`** — the executable's table agrees with the manual row for row | [extraction](extraction.md) | Core, Content, LegacyImport | generated + local corpus |
 | What the Capitol charges per recruit | **`verified`** — the worker-conversion help string | [migration](migration.md) | Core, Content, LegacyImport | generated |
 | What the Trade School charges per promotion | **`verified`** — the same worker-conversion help string | [migration](migration.md) | Core, Content, LegacyImport | generated |

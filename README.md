@@ -126,9 +126,10 @@ still an optional local source with the procedural palette as its fallback.
 - [x] World market and merchant-marine cargo holds (`TradeTests`)
 - [x] River and sea connectivity for ports, sea zones, fleets and task forces (`SeaZoneTopologyTests`, `FleetStateTests`, `TaskForceMovementTests`)
 - [x] Transient power and worker training (`PowerAndTrainingTests`)
+- [x] Building ships (`ShipbuildingTests`)
 - [x] Research progress: the original has none beyond purchase ([`docs/formulas/research-progress.md`](docs/formulas/research-progress.md))
 - [ ] Trade subsidies, sea routes between ports, and blockade
-- [ ] Moving regiments by rail, building ships, the University, the newspaper, fortifications
+- [ ] Moving regiments by rail, the University, the newspaper, fortifications
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's

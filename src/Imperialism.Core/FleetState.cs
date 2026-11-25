@@ -1,12 +1,18 @@
 namespace Imperialism.Core;
 
 /// <summary>
-/// One homogeneous, positioned scenario fleet.
+/// One homogeneous fleet: a scenario record, or ships the Shipyard delivered.
 /// </summary>
 /// <remarks>
 /// A legacy <c>ship</c> record creates ships at a sea-zone reference but does
 /// not attach them to a task force. This object preserves that record-level
 /// placement. Task-force membership, missions, and movement are separate work.
+/// <para>
+/// Ships built during play join an existing fleet of the same country and class
+/// that is unplaced and in no task force, or start a new one; see
+/// <c>docs/formulas/shipbuilding.md</c>. That merge is the only thing that ever
+/// changes <see cref="Count"/>.
+/// </para>
 /// </remarks>
 public sealed class FleetState
 {
@@ -35,7 +41,7 @@ public sealed class FleetState
 
     public ShipTypeId Type { get; }
 
-    public long Count { get; }
+    public long Count { get; internal set; }
 
     /// <summary>
     /// Current base sea zone, or null where legacy content names a zone that

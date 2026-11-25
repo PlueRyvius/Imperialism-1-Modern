@@ -96,6 +96,15 @@ public static class TurnReportText
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 
+    public static string Describe(ShipBuildRefusal reason) => reason switch
+    {
+        ShipBuildRefusal.TechnologyNotKnown => "we have not invested in the technology the hull needs",
+        ShipBuildRefusal.NotEnoughCommodities => "the warehouse does not hold the whole bill",
+        ShipBuildRefusal.UnknownType => "no such class of ship exists",
+        ShipBuildRefusal.NonPositiveCount => "an order must ask for at least one ship",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason)),
+    };
+
     public static string Describe(WorkerTrainingRefusal reason) => reason switch
     {
         WorkerTrainingRefusal.NotOffered => "the Trade School offers no training from that grade",

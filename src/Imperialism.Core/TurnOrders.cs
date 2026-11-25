@@ -15,6 +15,7 @@ public sealed class CountryTurnOrders
     private readonly IReadOnlyList<TechnologyId> _buyTechnology;
     private readonly IReadOnlyList<TradeOrder> _tradeOffers;
     private readonly IReadOnlyList<TradeOrder> _tradeBids;
+    private readonly IReadOnlyList<ShipBuildOrder> _shipBuilds;
 
     public CountryTurnOrders(
         CountryId country,
@@ -30,7 +31,8 @@ public sealed class CountryTurnOrders
         IEnumerable<TradeOrder>? tradeOffers = null,
         IEnumerable<TradeOrder>? tradeBids = null,
         long burnFuel = 0,
-        WorkerTrainingOrder training = default)
+        WorkerTrainingOrder training = default,
+        IEnumerable<ShipBuildOrder>? shipBuilds = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(recruitWorkers);
         ArgumentOutOfRangeException.ThrowIfNegative(burnFuel);
@@ -124,8 +126,14 @@ public sealed class CountryTurnOrders
                 nameof(tradeBids));
         }
 
+        // Not validated here: a non-positive count or a hull the world does not know
+        // is refused with an event when the turn resolves, the way a civilian order
+        // naming a dead civilian is, so the whole list is kept exactly as given.
+        var shipBuildArray = shipBuilds?.ToArray() ?? [];
+
         Country = country;
         RecruitWorkers = recruitWorkers;
+        _shipBuilds = Array.AsReadOnly(shipBuildArray);
         BurnFuel = burnFuel;
         Training = training;
         BuildTransportCapacity = buildTransportCapacity;
@@ -227,7 +235,30 @@ public sealed class CountryTurnOrders
 
     /// <summary>Workers to send to the Trade School this turn.</summary>
     public WorkerTrainingOrder Training { get; }
+
+    /// <summary>
+    /// Ships to lay down at the Shipyard this turn, in the order the warehouse pays for
+    /// them.
+    /// </summary>
+    /// <remarks>
+    /// <b>The order matters only when the materials run out.</b> Each entry is all or
+    /// nothing and is paid in turn; the first one the warehouse cannot cover in full is
+    /// refused whole, and later entries are still tried against what is left. A hull
+    /// may be named more than once, and each entry stands alone. See
+    /// <c>docs/formulas/shipbuilding.md</c>.
+    /// </remarks>
+    public IReadOnlyList<ShipBuildOrder> ShipBuilds => _shipBuilds;
 }
+
+/// <summary>
+/// One Shipyard request: build this many hulls of this class.
+/// </summary>
+/// <remarks>
+/// It carries no cash and no labour because the Shipyard spends neither: ships are
+/// built "at no monetary cost", and "ships do not require workers". The count is not
+/// checked here; a count of zero or less is refused when the turn resolves.
+/// </remarks>
+public readonly record struct ShipBuildOrder(ShipTypeId Type, long Count);
 
 /// <summary>
 /// The Trade School dialog: how many workers to raise each grade this turn.
