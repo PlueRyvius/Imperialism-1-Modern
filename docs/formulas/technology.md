@@ -459,11 +459,11 @@ Drilling technology is purchased". Like every gate here it is name-keyed and
 resolved through the technology catalog, never a table position.
 
 It refuses an **expansion order** — `FacilityExpansionRefusal.TechnologyNotKnown`,
-charged nothing — and nothing else. **Authored capacity loads without it and a
-held facility runs without it; both are chosen rules**, the same split as the
-improvement ladder and the rail gates: the gate governs building, never storing.
-Knowledge is read as the turn opens, so Oil Drilling bought this turn opens both
-facilities next turn. See `production.md`.
+charged nothing — and nothing else. **Three rules around it are chosen.** Authored
+capacity loads without it and a held facility runs without it, the same split as
+the improvement ladder and the rail gates: the gate governs building, never
+storing. And knowledge is read as the turn opens, so Oil Drilling bought this turn
+opens both facilities next turn. See `production.md`.
 
 ### Refusals get their own enum
 
