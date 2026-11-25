@@ -132,6 +132,12 @@ out by country id and then list order. The manual orders none of this.
 mission. Carrying the mission in the same order lets a player group and send a fleet in one
 turn without predicting a `TaskForceId`, as the original's select-then-click does.
 
+Successful Shipyard orders are paid in `Construction` and delivered in `Delivery`, after
+`Trade` and `Conflict`. This is a **chosen rule following** the manual's "at the start of
+the next turn" (see `shipbuilding.md`). An existing fleet can be assembled while another
+hull of its class is being built; the new hull arrives after orders resolve and can be
+assembled starting next turn.
+
 It is refused when:
 
 | Reason | When |
@@ -140,7 +146,7 @@ It is refused when:
 | `FleetSelectedTwice` | a fleet appears twice |
 | `NoSuchFleet` | no fleet carries an id |
 | `FleetNotYours` | a fleet belongs to another country |
-| `FleetNotPlaced` | a fleet has no sea zone — every newly built ship, which waits unplaced (`shipbuilding.md`) |
+| `FleetNotPlaced` | a fleet has no sea zone — a merchant ship, a warship without a capital-adjacent sea zone, or a legacy record naming a zone this map does not have (`shipbuilding.md`) |
 | `FleetAlreadyInTaskForce` | a fleet is already in a task force |
 | `FleetsInDifferentSeaZones` | the fleets do not share one zone |
 
@@ -235,8 +241,9 @@ them. Only a `null` order is malformed, and `CountryTurnOrders` rejects it on co
   else; `TradeCancellation` stays empty. These need combat odds (row 6).
 - **The port blockade mission** (the red "X" cursor, lines 1922–1923). The executable's port
   predicate counts only the patrol state, so patrol is what cuts a port.
-- **Peace and treaties** (row 5), **landings**, and **placing newly built ships**: a new
-  ship is unplaced, so it is refused as `FleetNotPlaced` until placement is modelled.
+- **Peace and treaties** (row 5), **landings**, and **warships built for a country with no
+  capital or capital-adjacent sea zone**: these ships remain unplaced and are refused as
+  `FleetNotPlaced`.
 - **Aggressiveness** (lines 4664–4668). Not stored.
 
 ## Soak
