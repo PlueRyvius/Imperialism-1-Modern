@@ -74,6 +74,56 @@ The preview also warns where the manual sets a limit Core does not enforce: "You
 may bid on only four commodities each turn" (manual 3107), as
 `TradePreview.IsOverBidLimit`. The order still goes through.
 
+### Civilian orders (row 4d-1)
+
+The draft holds **one order per civilian** — `SetDeploy`, `SetWork` (improve or
+search; the type decides which, as the original's one cursor does) or
+`SetEngineer(unit, cell, structure)` — and a new click replaces the old.
+`ClearUnitOrder` takes it back. `Build` maps them one to one onto `Deployments`,
+`CivilianWork` and `EngineerWork`, each in unit-id order. The draft checks only that
+the cell is on the map; whether the unit exists, is ours, or may go there is the
+preview's warning and Core's ruling.
+
+`OrdersPreview.Civilians` lists the drafting country's civilians — type, cell,
+busy and turns left — with each drafted order's expected outcome.
+`OrdersPreview.CreateUnitOrders(…, unit)` is what the map asks when a civilian is
+selected: every own land cell for a deploy and for the type's work, and for an
+Engineer rail to each neighbour plus depot, port and fort on its own tile. Each
+target carries its **verb**, its **cash cost** (shown even when warned) and
+`CivilianOrderRefusal` where Core would refuse. `Evaluate(cell, verb)` answers a
+cell outside the list. A busy civilian warns `AlreadyWorking` everywhere.
+
+**Core's planners are internal, so this is a restatement, labelled a preview.**
+Public rules are read straight from `WorldState` and the map; the legality order
+of `DevelopmentPlanner` and `EngineerPlanner` is repeated in
+`CivilianOrderSimulation`, on an overlay that never touches the state. It follows
+what `TurnResolver` does in `Development`:
+
+1. The busy set is taken first, so a civilian finishing this turn is still
+   refused as already working.
+2. Work under way advances: a job finishing this turn raises its tile, records
+   its search or stands its structure **before** any new order is read — so a
+   Miner may be ordered onto hills a Prospector finishes searching this turn.
+3. Deployments, then **every work order, then every Engineer order**, each in
+   unit-id order. Cash comes off as each is accepted, and an accepted fort counts
+   against its province's cap of three for the next.
+
+**Cash follows Core's spending order.** `Trade` pays for bids before
+`Development`, so `ClaimedByBids` — every bid at world price, as if it fills — comes
+off first; that is the **worst case**, since an unfilled bid costs nothing and
+sales are credited before Development too, so a `NotEnoughCash` warning may be one
+Core does not issue. `Investment` pays for research after Development, so the
+technology preview now affords purchases from cash less `ClaimedByCivilians`.
+Training, the University, the Armoury and overtures also spend before Development
+but are not in the draft yet.
+
+**One disagreement with the manual, and the preview sides with Core.** The manual
+lets a player "cancel or change" a working unit's orders (1065–1069); Core refuses
+any new order to a busy civilian with `AlreadyWorking`, and so does the preview.
+
+`UnitOrdersTests` resolves every listed target of every civilian alone through
+`TurnResolver` and compares the warning, the cost and the begun event.
+
 ## What an order remembers
 
 `GameSession.EndTurn` calls `OrdersDraft.AdvanceTurn` once the turn resolves.
@@ -89,6 +139,7 @@ Where the manual speaks it decides; elsewhere the rule is chosen and labelled.
 | Facility expansion | cleared | **Chosen** — a one-rung order, not a standing one |
 | Capitol recruitment | cleared | **Chosen** — the manual is silent |
 | Trade offers and bids | cleared | **Chosen** — the manual is silent |
+| Civilian unit orders (deploy, work, Engineer jobs) | cleared | **Manual** 1206–1214: a unit told to do nothing "appears normally in the cycle next turn", and "next turn, if circumstances change, you can order the civilian at that time"; 1065–1069: a unit whose orders take more than one turn does not appear in the cycle while working and "returns to the cycle automatically" when done. Core keeps a job running with no new order, so nothing needs carrying |
 
 **Production is kept unclamped on purpose.** A mill asked for more than it can
 make keeps asking, because the manual's building keeps trying to fill the order;

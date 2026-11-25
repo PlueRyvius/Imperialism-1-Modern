@@ -228,6 +228,15 @@ manual where it speaks** — a mill keeps its order as asked, food processing an
 railyard do not — and is labelled chosen elsewhere. See `docs/gui-shell.md`,
 "What an order remembers".
 
+**Row 4d-1 puts civilian orders in the draft.** One order per civilian — deploy,
+work, or an Engineer's job — replaced by a new click and **cleared at End Turn**,
+which is the manual's (1206–1214, 1065–1069). `OrdersPreview.CreateUnitOrders`
+lists each target with its verb, cash and Core's refusal reason, from a
+restatement of the internal planners labelled a preview. Cash is claimed in Core's
+order: bids (worst case), then work orders, then Engineer orders, then research.
+Core refuses a busy civilian's new order where the manual lets it be changed; the
+preview follows Core. No Core change, no content bump, no new phase.
+
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an
 inert dense order bundle, unrestricted quarterly `TurnDate`, fixed fourteen-phase
