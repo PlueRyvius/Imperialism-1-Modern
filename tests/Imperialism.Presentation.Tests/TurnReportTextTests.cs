@@ -73,6 +73,16 @@ public sealed class TurnReportTextTests
     public void EveryRegimentMoveRefusalHasItsOwnWords() =>
         AssertDistinctAndSpoken(Enum.GetValues<RegimentMoveRefusal>(), TurnReportText.Describe);
 
+    // A landing makes a non-adjacent attack possible once a site is ready, so the
+    // refusal must name the missing site rather than claim every attack needs a border.
+    [Fact]
+    public void AnAttackRefusedForDistanceNamesTheMissingLandingSite()
+    {
+        var words = TurnReportText.Describe(RegimentMoveRefusal.NotAdjacent);
+        Assert.Contains("landing site", words);
+        Assert.DoesNotContain("may only be made from a neighbouring province", words);
+    }
+
     [Fact]
     public void EveryArmyCategoryHasItsOwnWords() =>
         AssertDistinctAndSpoken(Enum.GetValues<ArmyCategory>(), TurnReportText.Describe);

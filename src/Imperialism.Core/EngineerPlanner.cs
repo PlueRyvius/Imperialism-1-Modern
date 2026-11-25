@@ -5,7 +5,9 @@ internal sealed record PlannedConstruction(
     CivilianUnitId Unit,
     CellIndex Cell,
     EngineerConstruction Structure,
-    CellIndex Target) : PlannedCivilianOutcome(Country, Unit);
+    CellIndex Target,
+    ProvinceId? FortProvince = null,
+    int? FortLevel = null) : PlannedCivilianOutcome(Country, Unit);
 
 /// <summary>
 /// The Engineer's half of <see cref="TurnPhase.Development"/>: what it may
@@ -224,7 +226,7 @@ internal static class EngineerPlanner
         return level >= WorldState.MaxFortLevel ? CivilianOrderRefusal.FortAtMaximum : null;
     }
 
-    private static ProvinceId ProvinceOf(WorldState state, CellIndex cell) =>
+    internal static ProvinceId ProvinceOf(WorldState state, CellIndex cell) =>
         state.Definition.Map[cell].Region.Province;
 
     /// <summary>

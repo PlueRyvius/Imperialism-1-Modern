@@ -228,8 +228,8 @@ with an event, never an exception, when:
 **Defenders** are every regiment of the province's current owner standing in it, militia
 and regiments that marched in this turn included. A type with **no combat stats** (the
 Generals) is not a combatant: it travels, retreats and surrenders with its side and is never
-fired on. If no defender is a combatant, the province is taken **uncontested**. If no
-attacker is a combatant, the attack loses after 0 rounds.
+fired on. If no defender is a combatant, the province is taken **uncontested**. If the
+defenders include a combatant but the attackers do not, the attack loses after 0 rounds.
 
 `StrategicBattleResolver`, behind the internal `IBattleResolver` in the same way the price
 rule sits behind `ITradeMarket`, works as follows:
@@ -421,7 +421,7 @@ diplomaticTiesClosed, tradePoliciesCleared)`. `WorldState.IsEliminated`,
 | 43 | Elimination is permanent. Ownership is kept, and a province is in anarchy exactly when its owner is eliminated | chosen representation |
 | 44 | From the next turn its orders are set aside before anything is planned, with one `EliminatedCountryOrdersIgnoredEvent` (phase `Diplomacy`) only when they were not empty | chosen |
 | 45 | Eliminated mid-`Conflict`, its later attacks that turn are refused `CountryEliminated`, and `Extraction`, `Transport`, `Feeding`, `Development` and `Investment` skip it. Anarchic provinces "produce no resources" | the production rule is the **manual's**; the skips are chosen |
-| 46 | A regiment or civilian due to it in that turn's `Delivery` is lost, as for a capital already gone | chosen |
+| 46 | A regiment, civilian or ship due to it in that turn's `Delivery` is lost, as for a capital already gone (`ShipDeliveryLostEvent` for hulls) | chosen |
 | 47 | An attack on an anarchic province needs no war, and its local forces defend with 6b's resolver and retreat to a neighbour still their owner's. They still heal | no war and defending are the **manual's** (700–702); healing is chosen. `wanted-values.md` §9(c) |
 | 48 | A war, overture, peace offer or trade policy naming an eliminated country is refused `CountryEliminated`, charged nothing | chosen; there is nobody to treat with, and no war is needed |
 

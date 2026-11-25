@@ -261,6 +261,24 @@ public sealed class EliminationTests
         Assert.Equal(before, state.GetRegiments(Other).Count);
     }
 
+    [Fact]
+    public void HullsTheVictimPaidForTheSameTurnAreLostInDeliveryNotLaunched()
+    {
+        var state = Prepared();
+        var attacker = state.CreateRegiment(Home, Province(2), Type(Regulars));
+
+        var events = Resolve(
+            state,
+            home: Attack(attacker, 3),
+            other: new CountryTurnOrders(Other, shipBuilds: [new ShipBuildOrder(new ShipTypeId(Trader), 2)]));
+
+        Assert.Single(events.OfType<CountryEliminatedEvent>());
+        var lost = Assert.Single(events.OfType<ShipDeliveryLostEvent>());
+        Assert.Equal((Other, new ShipTypeId(Trader), 2L, TurnPhase.Delivery), (lost.Country, lost.Type, lost.Count, lost.Phase));
+        Assert.DoesNotContain(events.OfType<ShipsBuiltEvent>(), static item => item.Country == Other);
+        Assert.DoesNotContain(state.Fleets, static fleet => fleet.Country == Other);
+    }
+
     // ---- 14. Determinism --------------------------------------------------
 
     [Fact]
