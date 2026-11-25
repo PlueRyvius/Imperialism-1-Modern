@@ -54,6 +54,8 @@ public static class NewspaperText
 
     public static string RegimentsLost() => "Regiments Lost for Want of a Capital";
 
+    public static string ShipsLost() => "Ships Lost for Want of a Capital";
+
     public static string TiesCut(string country, string target) =>
         $"Ties Cut Between {country} and {target}";
 

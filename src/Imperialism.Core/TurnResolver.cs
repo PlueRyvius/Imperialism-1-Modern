@@ -459,17 +459,10 @@ public static class TurnResolver
                         turnNumber, entry.Country, entry.Facility, entry.Reason));
                 }
 
-                // Last in Construction, and so after Trade: a hull built now adds its
-                // holds to next turn's market, never this one's. New ships are
-                // unplaced and in no task force; see WorldState.DeliverShips.
+                // Successful Shipyard orders are paid in Construction. Their materials
+                // were reserved before Trade when the plan was created; the ships
+                // themselves arrive in Delivery, after Conflict.
                 state.CommitProduction(shipyard.InventoryDeltas);
-                foreach (var entry in shipyard.Entries)
-                {
-                    var fleet = state.DeliverShips(entry.Country, entry.Type, entry.Count);
-                    events.Add(new ShipsBuiltEvent(
-                        turnNumber, entry.Country, entry.Type, entry.Count, fleet, entry.Paid));
-                }
-
                 foreach (var entry in shipyard.Refusals)
                 {
                     events.Add(new ShipBuildRefusedEvent(
@@ -518,7 +511,9 @@ public static class TurnResolver
                             entry.Unit,
                             entry.Cell,
                             entry.Structure,
-                            entry.Target),
+                            entry.Target,
+                            entry.FortProvince,
+                            entry.FortLevel),
                         PlannedCivilianDeployment entry => new CivilianDeployedEvent(
                             turnNumber, entry.Country, entry.Unit, entry.From, entry.To),
                         PlannedCivilianRefusal entry => new CivilianOrderRefusedEvent(
@@ -683,6 +678,26 @@ public static class TurnResolver
 
                     events.Add(new CiviliansDeliveredEvent(
                         turnNumber, entry.Country, entry.Type, capital, units));
+                }
+
+                // Ship delivery follows Conflict, so existing fleets were available
+                // for orders this turn and newly built hulls become orderable next turn.
+                // Trade ran before Construction, so merchant holds first count next turn.
+                // Row 6e: a country eliminated this turn has had its fleets sunk, and the
+                // hulls it paid for are lost with them rather than founding a new navy.
+                foreach (var entry in shipyard.Entries)
+                {
+                    if (state.IsEliminated(entry.Country))
+                    {
+                        events.Add(new ShipDeliveryLostEvent(
+                            turnNumber, entry.Country, entry.Type, entry.Count));
+                        continue;
+                    }
+
+                    var fleet = state.DeliverShips(entry.Country, entry.Type, entry.Count);
+                    events.Add(new ShipsBuiltEvent(
+                        turnNumber, entry.Country, entry.Type, entry.Count, fleet, entry.Paid,
+                        state.GetFleet(fleet).SeaZone));
                 }
 
                 // Regiments bought at the Armoury arrive in the capital's province:

@@ -50,7 +50,7 @@ Headlines, in priority order:
 5. `NavalBattleFoughtEvent`, `RegimentsLandedEvent`, `BattleFoughtEvent`.
 6. `MerchantInterceptedEvent`.
 7. Warnings to the reader: a `WorkersFedEvent` with workers sick or starved,
-   `CivilianDeliveryLostEvent`, `RegimentDeliveryLostEvent`,
+   `CivilianDeliveryLostEvent`, `RegimentDeliveryLostEvent`, `ShipDeliveryLostEvent`,
    `DiplomaticTiesCutEvent`.
 
 Items, the "doings of the little people": `WorldPriceChangedEvent`, a

@@ -374,6 +374,33 @@ public sealed class TurnReportRendererTests
     }
 
     [Fact]
+    public void AFinishedFortNamesItsProvinceAndTheLevelItReached()
+    {
+        var renderer = CreateRenderer();
+        var province = new ProvinceId(0);
+
+        foreach (var level in new[] { 1, 3 })
+        {
+            var done = Assert.Single(renderer.Render(new ConstructionCompletedEvent(
+                1, Blue, new CivilianUnitId(1), Land, EngineerConstruction.Fort, Land, province, level)));
+            Assert.Equal(TurnReportKind.Outcome, done.Kind);
+            Assert.Contains("raised the fort at ", done.Text, StringComparison.Ordinal);
+            Assert.Contains($" to level {level}.", done.Text, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void HullsDueToAFallenCountryAreReportedLost()
+    {
+        var renderer = CreateRenderer();
+
+        var lost = Assert.Single(renderer.Render(new ShipDeliveryLostEvent(1, Blue, new ShipTypeId(0), 2)));
+        Assert.Equal(TurnReportKind.Loss, lost.Kind);
+        Assert.Equal(Blue, lost.Country);
+        Assert.Contains("lost the 2 Trader hulls it paid for", lost.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ABattleSaysWhoWonWhatWasTakenAndWhatWasLost()
     {
         var renderer = CreateRenderer();
@@ -571,6 +598,7 @@ public sealed class TurnReportRendererTests
             new PowerGeneratedEvent(1, Blue, lumber, 10, 60, 40),
             new PowerRefusedEvent(1, Blue, 101, PowerRefusal.OverTurnLimit),
             new ShipsBuiltEvent(1, Blue, new ShipTypeId(0), 2, new FleetId(1), some),
+            new ShipDeliveryLostEvent(1, Blue, new ShipTypeId(0), 2),
             new ShipBuildRefusedEvent(1, Blue, new ShipTypeId(0), 3, ShipBuildRefusal.NotEnoughCommodities),
             new WarDeclaredEvent(1, Blue, Red),
             new WarDeclarationRefusedEvent(1, Blue, Blue, WarDeclarationRefusal.Itself),

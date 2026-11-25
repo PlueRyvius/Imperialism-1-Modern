@@ -48,6 +48,7 @@ public sealed class FortTests
         var done = Assert.Single(Resolve(state).OfType<ConstructionCompletedEvent>());
         Assert.Equal(EngineerConstruction.Fort, done.Structure);
         Assert.Equal(1, state.GetFortLevel(Province(1)));
+        Assert.Equal((Province(1), 1), (done.FortProvince, done.FortLevel));
 
         // Province-wide: the fort is the province's, read the same from either tile,
         // and no other province is touched. Paid once, at the order.

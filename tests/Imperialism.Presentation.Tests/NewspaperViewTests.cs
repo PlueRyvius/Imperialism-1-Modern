@@ -225,6 +225,28 @@ public sealed class NewspaperViewTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void HullsLostToAFallenCountryAreAWarningToItsOwnReaderOnly()
+    {
+        var (package, state) = Fresh();
+        TurnEvent[] events =
+        [
+            new ShipsBuiltEvent(1, Blue, new ShipTypeId(0), 2, new FleetId(1), []),
+            new ShipDeliveryLostEvent(1, Blue, new ShipTypeId(0), 2),
+        ];
+
+        var blue = NewspaperView.Compose(package, ScenarioKey, state, new TurnDate(1815, 2), events, Blue);
+        var red = NewspaperView.Compose(package, ScenarioKey, state, new TurnDate(1815, 2), events, Red);
+
+        Assert.Equal(
+            [NewspaperStoryKind.ShipsLost, NewspaperStoryKind.ShipsLaunched],
+            blue.Stories.Select(static story => story.Kind));
+        Assert.True(blue.Stories[0].IsHeadline);
+        Assert.Equal("Ships Lost for Want of a Capital", blue.Stories[0].Headline);
+        Assert.Contains("lost the", blue.Stories[0].Body, StringComparison.Ordinal);
+        Assert.DoesNotContain(red.Stories, static story => story.Kind == NewspaperStoryKind.ShipsLost);
+    }
+
+    [Fact]
     public void ThePaperKeepsNoReferenceToTheWorldAndDoesNotChangeWhenItMovesOn()
     {
         var (package, state, resolution) = ResolveTurns(4);

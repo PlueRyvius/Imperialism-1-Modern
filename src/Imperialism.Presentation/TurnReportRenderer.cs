@@ -153,6 +153,7 @@ public sealed class TurnReportRenderer
             FacilityExpandedEvent expanded => [Expanded(expanded)],
             FacilityExpansionRefusedEvent refused => [ExpansionRefused(refused)],
             ShipsBuiltEvent built => [ShipsBuilt(built)],
+            ShipDeliveryLostEvent lost => [ShipDeliveryLost(lost)],
             ShipBuildRefusedEvent refused => [ShipBuildRefused(refused)],
             TransportCapacityBuiltEvent built => [NetworkBuilt(built)],
             CellDevelopedEvent developed => [Developed(developed)],
@@ -818,6 +819,14 @@ public sealed class TurnReportRenderer
         $"{Country(built.Country)} built {Hulls(built.Count, built.Type)}, " +
         $"paying {Quantities(built.Paid)}.");
 
+    private TurnReportLine ShipDeliveryLost(ShipDeliveryLostEvent lost) => Line(
+        lost,
+        TurnReportKind.Loss,
+        lost.Country,
+        null,
+        $"{Country(lost.Country)} lost the {Hulls(lost.Count, lost.Type)} it paid for, " +
+        "because it fell before they could be launched.");
+
     private TurnReportLine ShipBuildRefused(ShipBuildRefusedEvent refused) => Line(
         refused,
         TurnReportKind.Refusal,
@@ -884,8 +893,11 @@ public sealed class TurnReportRenderer
         TurnReportKind.Outcome,
         done.Country,
         done.Target,
-        $"{Country(done.Country)}'s {Civilian(done.Unit)} finished {Structure(done.Structure)} at " +
-        $"{Cell(done.Target)}.");
+        done is { FortProvince: { } province, FortLevel: { } level }
+            ? $"{Country(done.Country)}'s {Civilian(done.Unit)} raised the fort at " +
+              $"{Province(province)} to level {level}."
+            : $"{Country(done.Country)}'s {Civilian(done.Unit)} finished {Structure(done.Structure)} at " +
+              $"{Cell(done.Target)}.");
 
     private TurnReportLine Deployed(CivilianDeployedEvent deployed) => Line(
         deployed,

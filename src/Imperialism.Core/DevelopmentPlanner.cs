@@ -233,12 +233,17 @@ internal static class DevelopmentPlanner
                 }
 
                 EngineerPlanner.Complete(state, job.Cell, construction);
+                ProvinceId? fortProvince = construction.Kind == EngineerConstruction.Fort
+                    ? EngineerPlanner.ProvinceOf(state, construction.Target)
+                    : null;
                 outcomes.Add(new PlannedConstruction(
                     civilian.Country,
                     civilian.Id,
                     job.Cell,
                     construction.Kind,
-                    construction.Target));
+                    construction.Target,
+                    fortProvince,
+                    fortProvince is { } raised ? state.GetFortLevel(raised) : null));
                 continue;
             }
 

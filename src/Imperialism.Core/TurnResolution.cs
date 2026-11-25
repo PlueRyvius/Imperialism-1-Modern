@@ -217,8 +217,8 @@ public sealed record FacilityExpansionRefusedEvent : TurnEvent
 }
 
 /// <summary>
-/// Records ships the Shipyard built. They were counted at the end of Construction, so
-/// they add their holds to the merchant marine from next turn's trade.
+/// Records ships the Shipyard delivered. They add their holds to the merchant marine
+/// from next turn's trade.
 /// </summary>
 public sealed record ShipsBuiltEvent : TurnEvent
 {
@@ -230,8 +230,9 @@ public sealed record ShipsBuiltEvent : TurnEvent
         ShipTypeId type,
         long count,
         FleetId fleet,
-        IEnumerable<CommodityQuantity> paid)
-        : base(turnNumber, TurnPhase.Construction)
+        IEnumerable<CommodityQuantity> paid,
+        SeaZoneId? seaZone = null)
+        : base(turnNumber, TurnPhase.Delivery)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
         ArgumentNullException.ThrowIfNull(paid);
@@ -239,6 +240,7 @@ public sealed record ShipsBuiltEvent : TurnEvent
         Type = type;
         Count = count;
         Fleet = fleet;
+        SeaZone = seaZone;
         _paid = Array.AsReadOnly(paid.ToArray());
     }
 
@@ -251,8 +253,34 @@ public sealed record ShipsBuiltEvent : TurnEvent
     /// <summary>The fleet the new ships joined or started.</summary>
     public FleetId Fleet { get; }
 
+    /// <summary>The delivery sea zone, or null when the fleet remains unplaced.</summary>
+    public SeaZoneId? SeaZone { get; }
+
     /// <summary>The whole bill, for every hull in the order. Never cash.</summary>
     public IReadOnlyList<CommodityQuantity> Paid => _paid;
+}
+
+/// <summary>
+/// Records ships the Shipyard was paid for that never arrived, because their country was
+/// eliminated before <see cref="TurnPhase.Delivery"/>. Nothing is refunded — a chosen rule,
+/// the same as a regiment or civilian due to it (army rule 46).
+/// </summary>
+public sealed record ShipDeliveryLostEvent : TurnEvent
+{
+    public ShipDeliveryLostEvent(int turnNumber, CountryId country, ShipTypeId type, long count)
+        : base(turnNumber, TurnPhase.Delivery)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+        Country = country;
+        Type = type;
+        Count = count;
+    }
+
+    public CountryId Country { get; }
+
+    public ShipTypeId Type { get; }
+
+    public long Count { get; }
 }
 
 /// <summary>Why the Shipyard did not build an order.</summary>
@@ -628,7 +656,9 @@ public sealed record ConstructionCompletedEvent : TurnEvent
         CivilianUnitId unit,
         CellIndex cell,
         EngineerConstruction structure,
-        CellIndex target)
+        CellIndex target,
+        ProvinceId? fortProvince = null,
+        int? fortLevel = null)
         : base(turnNumber, TurnPhase.Development)
     {
         if (!Enum.IsDefined(structure))
@@ -636,12 +666,26 @@ public sealed record ConstructionCompletedEvent : TurnEvent
             throw new ArgumentOutOfRangeException(nameof(structure));
         }
 
+        if (fortLevel is { } level)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(level, nameof(fortLevel));
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(level, WorldState.MaxFortLevel, nameof(fortLevel));
+        }
+
         Country = country;
         Unit = unit;
         Cell = cell;
         Structure = structure;
         Target = target;
+        FortProvince = fortProvince;
+        FortLevel = fortLevel;
     }
+
+    /// <summary>For a fort, the province it raised; null for anything else.</summary>
+    public ProvinceId? FortProvince { get; }
+
+    /// <summary>For a fort, the province's level once this job finished; null for anything else.</summary>
+    public int? FortLevel { get; }
 
     public CountryId Country { get; }
 
