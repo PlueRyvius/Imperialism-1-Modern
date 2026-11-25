@@ -252,7 +252,7 @@ public static class TurnReportText
         RegimentMoveRefusal.NotConnectedByRail => "it is not next door and no line of our own rail joins the two",
         RegimentMoveRefusal.CannotMoveByRail => "a regiment named cannot travel by rail",
         RegimentMoveRefusal.NotEnoughRailCapacity => "the railways cannot carry that many armaments this turn",
-        RegimentMoveRefusal.NotAdjacent => "an attack may only be made from a neighbouring province",
+        RegimentMoveRefusal.NotAdjacent => "the province is not next door and we have no landing site ready there",
         RegimentMoveRefusal.AlreadyOwn => "the province is already ours",
         RegimentMoveRefusal.NotAtWar => "we were not at war with its owner as the turn began",
         RegimentMoveRefusal.NotCoastal => "the regiments' province touches no sea to embark from",

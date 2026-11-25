@@ -36,12 +36,12 @@ internal sealed class ShipyardPlan
 /// not require workers", and the executable's thirteen build bills carry no cash.
 /// </summary>
 /// <remarks>
-/// Planned beside <see cref="ExpansionPlanner"/> and committed in
-/// <see cref="TurnPhase.Construction"/>, which runs after
-/// <see cref="TurnPhase.Trade"/>. That ordering is the whole of "new units … appear at
-/// the start of the next turn": a ship built now is counted at the end of
-/// Construction, after this turn's market has already spent its holds, so its cargo
-/// first counts in next turn's trade.
+/// Planned beside <see cref="ExpansionPlanner"/> before the pipeline so its materials
+/// are reserved before <see cref="TurnPhase.Trade"/>. Successful orders are paid in
+/// <see cref="TurnPhase.Construction"/> and their hulls are delivered in
+/// <see cref="TurnPhase.Delivery"/>. That timing follows "new units … appear at the
+/// start of the next turn": delivery is after this turn's market, so a merchant's holds
+/// first count in next turn's trade.
 /// <para>
 /// <b>Each order is all or nothing — a chosen rule.</b> The Shipyard dialog shows a
 /// shortage "in red text" rather than offering a smaller build, so an order the
