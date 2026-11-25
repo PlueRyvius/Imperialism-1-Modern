@@ -1438,6 +1438,246 @@ public sealed record WorkerTrainingRefusedEvent : TurnEvent
     public WorkerTrainingRefusal Reason { get; }
 }
 
+/// <summary>
+/// Records civilians ordered at the University. The bill and the experts left at
+/// once; the civilians themselves arrive in a later phase, reported by
+/// <see cref="CiviliansDeliveredEvent"/>.
+/// </summary>
+public sealed record CiviliansPurchasedEvent : TurnEvent
+{
+    private readonly IReadOnlyList<CommodityQuantity> _paid;
+
+    public CiviliansPurchasedEvent(
+        int turnNumber,
+        CountryId country,
+        CivilianTypeId type,
+        long count,
+        long expertsTaken,
+        IEnumerable<CommodityQuantity> paid,
+        long cashPaid)
+        : base(turnNumber, TurnPhase.Production)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expertsTaken);
+        ArgumentOutOfRangeException.ThrowIfNegative(cashPaid);
+        ArgumentNullException.ThrowIfNull(paid);
+        Country = country;
+        Type = type;
+        Count = count;
+        ExpertsTaken = expertsTaken;
+        _paid = Array.AsReadOnly(paid.ToArray());
+        CashPaid = cashPaid;
+    }
+
+    public CountryId Country { get; }
+
+    public CivilianTypeId Type { get; }
+
+    public long Count { get; }
+
+    /// <summary>Expert workers taken out of the workforce for good, for all of them.</summary>
+    public long ExpertsTaken { get; }
+
+    /// <summary>Commodities charged, for all of them together.</summary>
+    public IReadOnlyList<CommodityQuantity> Paid => _paid;
+
+    /// <summary>Cash charged, for all of them together.</summary>
+    public long CashPaid { get; }
+}
+
+/// <summary>Why the University did not build an order.</summary>
+/// <remarks>
+/// Every refusal charges nothing and takes no expert. An order is all or nothing, so a
+/// country that can pay for two of three Farmers gets none.
+/// </remarks>
+public enum CivilianPurchaseRefusal : byte
+{
+    /// <summary>The order names a civilian type this world does not define.</summary>
+    UnknownType,
+
+    /// <summary>The order asks for no civilians, or fewer than none.</summary>
+    NonPositiveCount,
+
+    /// <summary>
+    /// The type has no University price — the Developer, which "cannot be built in the
+    /// University", or any type in a package older than version 29.
+    /// </summary>
+    NotPurchasable,
+
+    /// <summary>
+    /// The type needs a technology this country does not know: Feed Grasses for the
+    /// Rancher, Iron Railroad Bridges for the Forester, Oil Drilling for the Driller.
+    /// Read as the turn opens, so buying it this turn opens the type next turn.
+    /// </summary>
+    TechnologyNotKnown,
+
+    /// <summary>
+    /// The country holds no capital, so there is nowhere for a new civilian to appear:
+    /// they "start their first turn on the Terrain Map, in the province of the capital".
+    /// </summary>
+    NoCapital,
+
+    /// <summary>Too few healthy expert workers for every civilian in the order.</summary>
+    NotEnoughExperts,
+
+    /// <summary>The warehouse does not hold the whole bill.</summary>
+    NotEnoughCommodities,
+
+    /// <summary>The treasury does not hold the whole bill.</summary>
+    NotEnoughCash,
+}
+
+/// <summary>Records one University order being refused. Nothing was charged.</summary>
+public sealed record CivilianPurchaseRefusedEvent : TurnEvent
+{
+    public CivilianPurchaseRefusedEvent(
+        int turnNumber,
+        CountryId country,
+        CivilianTypeId type,
+        long requested,
+        CivilianPurchaseRefusal reason)
+        : base(turnNumber, TurnPhase.Production)
+    {
+        Country = country;
+        Type = type;
+        Requested = requested;
+        Reason = reason;
+    }
+
+    public CountryId Country { get; }
+
+    public CivilianTypeId Type { get; }
+
+    public long Requested { get; }
+
+    public CivilianPurchaseRefusal Reason { get; }
+}
+
+/// <summary>
+/// Records civilians bought this turn arriving on the capital. They are idle and take
+/// their first order next turn.
+/// </summary>
+public sealed record CiviliansDeliveredEvent : TurnEvent
+{
+    private readonly IReadOnlyList<CivilianUnitId> _units;
+
+    public CiviliansDeliveredEvent(
+        int turnNumber,
+        CountryId country,
+        CivilianTypeId type,
+        CellIndex cell,
+        IEnumerable<CivilianUnitId> units)
+        : base(turnNumber, TurnPhase.Delivery)
+    {
+        ArgumentNullException.ThrowIfNull(units);
+        Country = country;
+        Type = type;
+        Cell = cell;
+        _units = Array.AsReadOnly(units.ToArray());
+        if (_units.Count == 0)
+        {
+            throw new ArgumentException("A delivery delivers somebody.", nameof(units));
+        }
+    }
+
+    public CountryId Country { get; }
+
+    public CivilianTypeId Type { get; }
+
+    /// <summary>The capital, where every new civilian stands.</summary>
+    public CellIndex Cell { get; }
+
+    public IReadOnlyList<CivilianUnitId> Units => _units;
+}
+
+/// <summary>
+/// Records civilians bought this turn that never arrived, because the country held no
+/// capital by the time they were due. Nothing is refunded — a chosen rule.
+/// </summary>
+public sealed record CivilianDeliveryLostEvent : TurnEvent
+{
+    public CivilianDeliveryLostEvent(
+        int turnNumber,
+        CountryId country,
+        CivilianTypeId type,
+        long count)
+        : base(turnNumber, TurnPhase.Delivery)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+        Country = country;
+        Type = type;
+        Count = count;
+    }
+
+    public CountryId Country { get; }
+
+    public CivilianTypeId Type { get; }
+
+    public long Count { get; }
+}
+
+/// <summary>
+/// Records a civilian disbanded. Its expert returns to industry and works from next
+/// turn; the cash and paper it cost are not recovered.
+/// </summary>
+public sealed record CivilianDisbandedEvent : TurnEvent
+{
+    public CivilianDisbandedEvent(
+        int turnNumber,
+        CountryId country,
+        CivilianUnitId unit,
+        CivilianTypeId type,
+        long expertsReturned)
+        : base(turnNumber, TurnPhase.Production)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expertsReturned);
+        Country = country;
+        Unit = unit;
+        Type = type;
+        ExpertsReturned = expertsReturned;
+    }
+
+    public CountryId Country { get; }
+
+    public CivilianUnitId Unit { get; }
+
+    public CivilianTypeId Type { get; }
+
+    public long ExpertsReturned { get; }
+}
+
+/// <summary>Why a civilian could not be disbanded.</summary>
+public enum CivilianDisbandRefusal : byte
+{
+    /// <summary>No civilian carries that id.</summary>
+    NoSuchCivilian,
+
+    /// <summary>The civilian belongs to another country.</summary>
+    NotYours,
+}
+
+/// <summary>Records one disband order being refused. Nothing changed.</summary>
+public sealed record CivilianDisbandRefusedEvent : TurnEvent
+{
+    public CivilianDisbandRefusedEvent(
+        int turnNumber,
+        CountryId country,
+        CivilianUnitId unit,
+        CivilianDisbandRefusal reason)
+        : base(turnNumber, TurnPhase.Production)
+    {
+        Country = country;
+        Unit = unit;
+        Reason = reason;
+    }
+
+    public CountryId Country { get; }
+
+    public CivilianUnitId Unit { get; }
+
+    public CivilianDisbandRefusal Reason { get; }
+}
+
 public sealed class TurnResolution
 {
     private readonly IReadOnlyList<TurnEvent> _events;

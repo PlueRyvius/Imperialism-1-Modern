@@ -44,7 +44,11 @@ internal sealed class ProductionPlan
         IEnumerable<PlannedPower> power,
         IEnumerable<PlannedPowerRefusal> powerRefusals,
         long[] cashClaimed,
-        long[] humanLabourClaimed)
+        long[] humanLabourClaimed,
+        IEnumerable<PlannedCivilianPurchase> civilianPurchases,
+        IEnumerable<PlannedCivilianPurchaseRefusal> civilianPurchaseRefusals,
+        IEnumerable<PlannedCivilianDisband> civilianDisbands,
+        IEnumerable<PlannedCivilianDisbandRefusal> civilianDisbandRefusals)
     {
         InventoryDeltas = inventoryDeltas;
         Entries = Array.AsReadOnly(entries.ToArray());
@@ -54,7 +58,19 @@ internal sealed class ProductionPlan
         PowerRefusals = Array.AsReadOnly(powerRefusals.ToArray());
         CashClaimed = cashClaimed;
         HumanLabourClaimed = humanLabourClaimed;
+        CivilianPurchases = Array.AsReadOnly(civilianPurchases.ToArray());
+        CivilianPurchaseRefusals = Array.AsReadOnly(civilianPurchaseRefusals.ToArray());
+        CivilianDisbands = Array.AsReadOnly(civilianDisbands.ToArray());
+        CivilianDisbandRefusals = Array.AsReadOnly(civilianDisbandRefusals.ToArray());
     }
+
+    public IReadOnlyList<PlannedCivilianPurchase> CivilianPurchases { get; }
+
+    public IReadOnlyList<PlannedCivilianPurchaseRefusal> CivilianPurchaseRefusals { get; }
+
+    public IReadOnlyList<PlannedCivilianDisband> CivilianDisbands { get; }
+
+    public IReadOnlyList<PlannedCivilianDisbandRefusal> CivilianDisbandRefusals { get; }
 
     /// <summary>
     /// Every recipe's inputs and outputs, and also the paper training costs and the
@@ -72,20 +88,24 @@ internal sealed class ProductionPlan
 
     public IReadOnlyList<PlannedPowerRefusal> PowerRefusals { get; }
 
-    /// <summary>Cash per country the Trade School will charge, so trade cannot spend it first.</summary>
+    /// <summary>
+    /// Cash per country the Trade School and the University will charge, so trade
+    /// cannot spend it first.
+    /// </summary>
     public long[] CashClaimed { get; }
 
     /// <summary>
-    /// Human labour per country already spoken for: what the trainees would have
-    /// supplied and what recipes drew after power ran out. The railyard prices against
+    /// Human labour per country already spoken for: what the trainees and the experts
+    /// sent to the University would have supplied, and what recipes drew after power
+    /// ran out. The railyard prices against
     /// what is left. Power is not in it, because power is production's alone.
     /// </summary>
     public long[] HumanLabourClaimed { get; }
 }
 
 /// <summary>
-/// The Industry screen's turn: the Trade School, then the Power Plant, then every
-/// recipe in the order it was asked for.
+/// The Industry screen's turn: the Trade School, then the University, then the Power
+/// Plant, then every recipe in the order it was asked for.
 /// </summary>
 /// <remarks>
 /// The first two run first because they change what the third can spend. Training
@@ -109,6 +129,10 @@ internal static class ProductionPlanner
         var powerRefusals = new List<PlannedPowerRefusal>();
         var cashClaimed = new long[orders.Count];
         var humanLabourClaimed = new long[orders.Count];
+        var civilianPurchases = new List<PlannedCivilianPurchase>();
+        var civilianPurchaseRefusals = new List<PlannedCivilianPurchaseRefusal>();
+        var civilianDisbands = new List<PlannedCivilianDisband>();
+        var civilianDisbandRefusals = new List<PlannedCivilianDisbandRefusal>();
 
         for (var countryValue = 0; countryValue < orders.Count; countryValue++)
         {
@@ -152,6 +176,33 @@ internal static class ProductionPlanner
                 if (definition.Feeding is { } feeding)
                 {
                     var withheld = checked(requested * feeding.GetLabour(grade));
+                    remainingLabour -= withheld;
+                    humanLabourClaimed[countryValue] = checked(humanLabourClaimed[countryValue] + withheld);
+                }
+            }
+
+            // (a2) The University: disbands, then purchases. An expert bought into a
+            // civilian leaves the pool now, so this turn's recipes cannot use him; one
+            // returned by a disband works only from next turn, so nothing is added.
+            UniversityPlanner.PlanDisbands(
+                state, country, countryOrders.CivilianDisbands, civilianDisbands, civilianDisbandRefusals);
+            var purchasedBefore = civilianPurchases.Count;
+            UniversityPlanner.PlanPurchases(
+                state,
+                country,
+                countryOrders.CivilianPurchases,
+                available,
+                deltas,
+                ref cash,
+                civilianPurchases,
+                civilianPurchaseRefusals);
+            for (var index = purchasedBefore; index < civilianPurchases.Count; index++)
+            {
+                var purchase = civilianPurchases[index];
+                cashClaimed[countryValue] = checked(cashClaimed[countryValue] + purchase.CashPaid);
+                if (definition.Feeding is { } feeding)
+                {
+                    var withheld = checked(purchase.ExpertsTaken * feeding.GetLabour(WorkerGrade.Expert));
                     remainingLabour -= withheld;
                     humanLabourClaimed[countryValue] = checked(humanLabourClaimed[countryValue] + withheld);
                 }
@@ -264,7 +315,11 @@ internal static class ProductionPlanner
             power,
             powerRefusals,
             cashClaimed,
-            humanLabourClaimed);
+            humanLabourClaimed,
+            civilianPurchases,
+            civilianPurchaseRefusals,
+            civilianDisbands,
+            civilianDisbandRefusals);
     }
 
     private static WorkerTrainingRefusal? PlanTraining(

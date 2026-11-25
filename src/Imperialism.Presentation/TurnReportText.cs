@@ -141,6 +141,26 @@ public static class TurnReportText
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 
+    public static string Describe(CivilianPurchaseRefusal reason) => reason switch
+    {
+        CivilianPurchaseRefusal.UnknownType => "no such kind of civilian exists",
+        CivilianPurchaseRefusal.NonPositiveCount => "an order must ask for at least one civilian",
+        CivilianPurchaseRefusal.NotPurchasable => "the University does not train that kind of civilian",
+        CivilianPurchaseRefusal.TechnologyNotKnown => "we have not invested in the technology it needs",
+        CivilianPurchaseRefusal.NoCapital => "there is no capital to receive them",
+        CivilianPurchaseRefusal.NotEnoughExperts => "it has fewer healthy expert workers than they cost",
+        CivilianPurchaseRefusal.NotEnoughCommodities => "the warehouse does not hold the paper it costs",
+        CivilianPurchaseRefusal.NotEnoughCash => "the treasury will not cover it",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason)),
+    };
+
+    public static string Describe(CivilianDisbandRefusal reason) => reason switch
+    {
+        CivilianDisbandRefusal.NoSuchCivilian => "no civilian carries that id, so it has most likely died",
+        CivilianDisbandRefusal.NotYours => "it is not ours to disband",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason)),
+    };
+
     public static string Describe(WorkerGrade grade) => grade switch
     {
         WorkerGrade.Untrained => "untrained",

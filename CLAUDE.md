@@ -31,6 +31,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | How the world market clears, and what carries the cargo | `docs/formulas/trade.md` |
 | What the Shipyard charges, and when a new ship counts | `docs/formulas/shipbuilding.md` |
 | How war is declared, and what a fleet may be ordered to do | `docs/formulas/naval.md` |
+| What the University charges for a civilian | `docs/formulas/university.md` |
 | How a player changes what the network reaches | `docs/formulas/engineer.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
@@ -690,7 +691,7 @@ happens to match our remembered depot cost. **Do not promote a candidate without
 selector.**
 
 Research *progress*, conflict, diplomacy, trade subsidies, sea routes
-between ports, blockade, moving regiments by rail, the University, the
+between ports, blockade, moving regiments by rail, the
 newspaper and fortifications remain explicitly pending. So does
 **whether a civilian's work costs cash generally** — the manual implies it does, and
 `docs/formulas/money.md` records the finding without acting on it, because pricing
@@ -777,6 +778,28 @@ reaches, is **refused** — the manual's, not chosen: "you cannot move the f lee
 turn" (lines 1916–1917). PR #35's planner still trims a long leg for direct callers; the order
 never reaches it. New ships stay unplaced, so they cannot be assembled yet. No soak
 number moved.
+
+`.iworld` **v29** opens the **University**: a civilian type may carry a `purchase` block,
+and a country may buy civilians and disband them. A `CivilianPurchaseOrder(type, count)`
+and a disband list resolve inside `Production`, after the Trade School and before any
+recipe, so **no new phase**. The expert "is deducted from your work force permanently" the
+moment the order is given, so this turn's recipes already see the smaller pool. The
+civilian appears on the capital in **`Delivery`, not `Construction`**: `Development` runs
+between them, and a civilian created earlier would take a work order the turn it was
+bought. Disbanding returns one healthy expert and **refunds nothing**, which is the
+manual's ("You do not recover the cost of cash and paper", lines 1194–1195). **What the
+manual states**: an expert, paper and cash per civilian; the Developer is not for sale;
+four types at the start and Feed Grasses, Iron Railroad Bridges and Oil Drilling opening the
+Rancher, Forester and Driller. **What it does not: the paper and the cash.** The importer's
+2 paper + $1,000 for every type is **a guess**. The `0x00695C50` block looks like the
+University's own table and is **deliberately not used**, because its selector is untraced
+and its first figure is not ours; `wanted-values.md` §5 asks for the trace. Seven rules are
+chosen, each labelled in `docs/formulas/university.md`: the price; paid **before recipes
+and before the market**; **all or nothing** per order, later orders unaffected, a type may
+repeat; **only healthy experts**; delivery on the **capital cell**, with nothing delivered
+and nothing refunded if the capital is gone; a disbanded civilian's expert **works from
+next turn**; knowledge read **as the turn opens**. The v28 migration adds no block, so a
+migrated University sells nothing. No soak number moved.
 
 **Production spends labour: two per cycle, flat**, from one pool per country shared
 across every facility. The manual prices exactly one recipe — a unit of clothing

@@ -221,6 +221,51 @@ public static class TurnResolver
                         turnNumber, entry.Country, entry.From, entry.Requested, entry.Reason));
                 }
 
+                // The University, after the Trade School as it was planned. A disbanded
+                // civilian leaves the map now, so an order given to it this turn finds
+                // nobody; its expert is added after the recipes below.
+                foreach (var entry in production.CivilianDisbands)
+                {
+                    _ = state.RemoveCivilian(entry.Unit);
+                }
+
+                foreach (var entry in production.CivilianDisbandRefusals)
+                {
+                    events.Add(new CivilianDisbandRefusedEvent(
+                        turnNumber, entry.Country, entry.Unit, entry.Reason));
+                }
+
+                // The experts leave for good now — "deducted from your work force
+                // permanently" — and were already withheld from this turn's pool.
+                foreach (var entry in production.CivilianPurchases)
+                {
+                    if (entry.CashPaid > 0 && !state.TrySpendCash(entry.Country, entry.CashPaid))
+                    {
+                        throw new InvalidOperationException(
+                            "The University was planned against cash the treasury no longer holds.");
+                    }
+
+                    state.SetWorkers(
+                        entry.Country,
+                        WorkerGrade.Expert,
+                        state.GetWorkers(entry.Country, WorkerGrade.Expert) - entry.ExpertsTaken);
+                    events.Add(new CiviliansPurchasedEvent(
+                        turnNumber,
+                        entry.Country,
+                        entry.Type,
+                        entry.Count,
+                        entry.ExpertsTaken,
+                        entry.Paid,
+                        entry.CashPaid));
+                }
+
+                foreach (var entry in production.CivilianPurchaseRefusals)
+                {
+                    events.Add(new CivilianPurchaseRefusedEvent(
+                        turnNumber, entry.Country, entry.Type, entry.Requested, entry.Reason));
+                }
+
+
                 foreach (var entry in production.PowerRefusals)
                 {
                     events.Add(new PowerRefusedEvent(
@@ -259,6 +304,24 @@ public static class TurnResolver
                 foreach (var entry in production.Training)
                 {
                     Promote(state, entry.Country, entry.Rule.From, entry.Rule.To, entry.Count);
+                }
+
+                // A disbanded civilian's expert likewise joins after the recipes, so he
+                // supplies labour from next turn — the same chosen timing as a trainee.
+                // He is in the workforce in time to eat at Feeding.
+                foreach (var entry in production.CivilianDisbands)
+                {
+                    state.SetWorkers(
+                        entry.Country,
+                        WorkerGrade.Expert,
+                        checked(state.GetWorkers(entry.Country, WorkerGrade.Expert) +
+                            UniversityPlanner.ExpertsReturnedPerDisband));
+                    events.Add(new CivilianDisbandedEvent(
+                        turnNumber,
+                        entry.Country,
+                        entry.Unit,
+                        entry.Type,
+                        UniversityPlanner.ExpertsReturnedPerDisband));
                 }
             }
             else if (phase == TurnPhase.Construction)
@@ -487,6 +550,30 @@ public static class TurnResolver
                 foreach (var delivery in state.CommitPendingDeliveries())
                 {
                     events.Add(new CommodityDeliveredEvent(turnNumber, delivery));
+                }
+
+                // Civilians bought at the University arrive here, after Development, so
+                // none can be given work the turn it was ordered: they "appear on the
+                // Terrain Map at the start of the next turn", standing "in the province
+                // of the capital". The capital is read now, not when they were paid for;
+                // a country that has lost it receives nobody and gets nothing back.
+                foreach (var entry in production.CivilianPurchases)
+                {
+                    if (state.GetCountryCapital(entry.Country) is not { } capital)
+                    {
+                        events.Add(new CivilianDeliveryLostEvent(
+                            turnNumber, entry.Country, entry.Type, entry.Count));
+                        continue;
+                    }
+
+                    var units = new List<CivilianUnitId>();
+                    for (var index = 0L; index < entry.Count; index++)
+                    {
+                        units.Add(state.CreateCivilian(entry.Country, entry.Type, capital));
+                    }
+
+                    events.Add(new CiviliansDeliveredEvent(
+                        turnNumber, entry.Country, entry.Type, capital, units));
                 }
             }
             else if (phase == TurnPhase.Investment)

@@ -828,6 +828,7 @@ public static class LegacyWorldConverter
                 Name = type.DisplayName,
                 WorkTurns = CivilianWorkTurns,
                 Work = type.Work,
+                Purchase = CreateUniversityPrice(type.Name),
             }).ToArray(),
 
             // The whole table in order, because a tech record is a bare 1-based
@@ -2749,6 +2750,46 @@ public static class LegacyWorldConverter
     /// same block that prices the Capitol's recruit. See
     /// <c>docs/disasm/definitive-original-data.md</c>.
     /// </remarks>
+    /// <summary>
+    /// What the University charges for each civilian type the importer declares.
+    /// </summary>
+    /// <remarks>
+    /// "All civilians, with the exception of the Developer, are constructed using an
+    /// expert worker, paper, and cash" (manual lines 1167–1169), and "each unit
+    /// constructed costs you an expert worker from your industry" (2699–2703). <b>The
+    /// expert is the manual's. The two paper and the $1,000 are guesses</b>: the manual
+    /// names both without a quantity, and they are deliberately <em>not</em> read from
+    /// the nine-record candidate block at <c>0x00695C50</c> in
+    /// <c>docs/disasm/definitive-original-data.md</c>, whose reader is untraced.
+    /// <para>
+    /// Three types are opened by technology (2705–2709): Feed Grasses permits the
+    /// Rancher, Iron Railroad Bridges the Forester, Oil Drilling the Driller. Resolved
+    /// through <see cref="TechnologyKey(string)"/>, never a table position. The
+    /// Developer is not declared here at all, so it has nothing to price.
+    /// </para>
+    /// </remarks>
+    private static CivilianPurchaseContent CreateUniversityPrice(string civilianName) => new()
+    {
+        ExpertWorkers = 1,
+        Commodities = [Quantity("paper", UniversityPaperGuess)],
+        Cash = UniversityCashGuess,
+        RequiredTechnology = civilianName switch
+        {
+            "rancher" => TechnologyKey(FeedGrasses),
+            "forester" => TechnologyKey(IronRailroadBridge),
+            "driller" => TechnologyKey(OilDrilling),
+            "miner" or "prospector" or "farmer" or "engineer" => null,
+            _ => throw new InvalidOperationException(
+                $"Civilian type {civilianName} has no University price; add one deliberately."),
+        },
+    };
+
+    /// <summary>Paper per civilian. <b>A guess</b>; see <see cref="CreateUniversityPrice"/>.</summary>
+    private const long UniversityPaperGuess = 2;
+
+    /// <summary>Cash per civilian. <b>A guess</b>; see <see cref="CreateUniversityPrice"/>.</summary>
+    private const long UniversityCashGuess = 1_000;
+
     private static WorkerTrainingContent[] CreateStandardWorkerTraining() =>
     [
         new()

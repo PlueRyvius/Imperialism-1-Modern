@@ -130,7 +130,8 @@ still an optional local source with the procedural palette as its fallback.
 - [x] Declaring war and commanding fleets (`NavalOrdersTests`)
 - [x] Research progress: the original has none beyond purchase ([`docs/formulas/research-progress.md`](docs/formulas/research-progress.md))
 - [ ] Trade subsidies, sea routes between ports, and blockade
-- [ ] Moving regiments by rail, the University, the newspaper, fortifications
+- [x] The University: buying and disbanding civilians (`UniversityTests`)
+- [ ] Moving regiments by rail, the newspaper, fortifications
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's
