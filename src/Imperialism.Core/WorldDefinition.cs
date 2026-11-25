@@ -1370,18 +1370,17 @@ public sealed class WorldState
         }
 
         var map = Definition.Map;
-        var coordinate = map[capital].Coordinate;
         SeaZoneId? lowest = null;
         foreach (var direction in HexDirections.All)
         {
-            // Ship delivery follows the bounded, non-wrapping Core grid, even for
-            // imported maps whose sea topology also models the legacy map seam.
-            if (!coordinate.TryGetNeighbor(direction, map.Dimensions, out var neighborCoordinate))
+            // The map's own adjacency, so a capital on a wrapping map's east or
+            // west edge sees the water across the seam, as port access does.
+            if (!map.TryGetNeighbor(capital, direction, out var neighborCell))
             {
                 continue;
             }
 
-            var neighbor = map[map.Dimensions.GetIndex(neighborCoordinate)];
+            var neighbor = map[neighborCell];
             if (neighbor.Region.Kind != CellRegionKind.SeaZone)
             {
                 continue;

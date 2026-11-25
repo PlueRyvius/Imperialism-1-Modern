@@ -113,8 +113,9 @@ in the merchant marine when Delivery runs, and they **join the first
 fleet of the same country and class that is unplaced and in no task force**, or start an
 unplaced fleet with the next dense `FleetId`.
 
-A warship is placed in the sea zone of a water cell adjacent to the capital, using Core's
-bounded, non-wrapping neighbor lookup. If multiple sea zones touch the capital, the
+A warship is placed in the sea zone of a water cell adjacent to the capital, using the
+map's own adjacency, so on a map that wraps east–west the water across the seam counts,
+exactly as it does for port access. If multiple sea zones touch the capital, the
 **lowest `SeaZoneId` wins**. If the country has no capital or no sea zone touches it, the
 warship remains unplaced and starts its own unplaced fleet; these are chosen rules because
 the manual does not specify those cases. A placed warship **joins the first fleet of the same country and class in that
