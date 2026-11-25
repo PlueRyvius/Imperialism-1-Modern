@@ -114,6 +114,7 @@ still an optional local source with the procedural palette as its fallback.
 - [x] River downstream connectivity
 - [x] Headless naval control of sea ports
 - [x] Transient power and worker training (`PowerAndTrainingTests`)
+- [x] Building ships (`ShipbuildingTests`)
 - [ ] Research progress
 
 The tactical battle engine is deliberately early: the original runs it for

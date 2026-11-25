@@ -216,6 +216,98 @@ public sealed record FacilityExpansionRefusedEvent : TurnEvent
     public FacilityExpansionRefusal Reason { get; }
 }
 
+/// <summary>
+/// Records ships the Shipyard built. They were counted at the end of Construction, so
+/// they add their holds to the merchant marine from next turn's trade.
+/// </summary>
+public sealed record ShipsBuiltEvent : TurnEvent
+{
+    private readonly IReadOnlyList<CommodityQuantity> _paid;
+
+    public ShipsBuiltEvent(
+        int turnNumber,
+        CountryId country,
+        ShipTypeId type,
+        long count,
+        FleetId fleet,
+        IEnumerable<CommodityQuantity> paid)
+        : base(turnNumber, TurnPhase.Construction)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+        ArgumentNullException.ThrowIfNull(paid);
+        Country = country;
+        Type = type;
+        Count = count;
+        Fleet = fleet;
+        _paid = Array.AsReadOnly(paid.ToArray());
+    }
+
+    public CountryId Country { get; }
+
+    public ShipTypeId Type { get; }
+
+    public long Count { get; }
+
+    /// <summary>The fleet the new ships joined or started.</summary>
+    public FleetId Fleet { get; }
+
+    /// <summary>The whole bill, for every hull in the order. Never cash.</summary>
+    public IReadOnlyList<CommodityQuantity> Paid => _paid;
+}
+
+/// <summary>Why the Shipyard did not build an order.</summary>
+/// <remarks>
+/// Every refusal charges nothing. An order is all or nothing, so there is no partial
+/// build to report: a warehouse that can pay for two of three hulls builds none.
+/// </remarks>
+public enum ShipBuildRefusal : byte
+{
+    /// <summary>
+    /// The hull names a technology this country does not know — Paddlewheels for the
+    /// Paddlewheeler and the Raider, Streamlined Hulls for the Clipper. Read as the turn
+    /// opens, so buying it this turn opens the hull next turn.
+    /// </summary>
+    TechnologyNotKnown,
+
+    /// <summary>
+    /// The warehouse does not hold the whole bill for every hull in the order, after
+    /// production, facility expansion and the railyard have taken their share.
+    /// </summary>
+    NotEnoughCommodities,
+
+    /// <summary>The order names a class of ship this world does not define.</summary>
+    UnknownType,
+
+    /// <summary>The order asks for no ships, or fewer than none.</summary>
+    NonPositiveCount,
+}
+
+/// <summary>Records one Shipyard order being refused. Nothing was charged.</summary>
+public sealed record ShipBuildRefusedEvent : TurnEvent
+{
+    public ShipBuildRefusedEvent(
+        int turnNumber,
+        CountryId country,
+        ShipTypeId type,
+        long requested,
+        ShipBuildRefusal reason)
+        : base(turnNumber, TurnPhase.Construction)
+    {
+        Country = country;
+        Type = type;
+        Requested = requested;
+        Reason = reason;
+    }
+
+    public CountryId Country { get; }
+
+    public ShipTypeId Type { get; }
+
+    public long Requested { get; }
+
+    public ShipBuildRefusal Reason { get; }
+}
+
 /// <summary>Why a civilian could not be given the order it was given.</summary>
 /// <remarks>
 /// Refusals are reported rather than thrown. A civilian can die between the

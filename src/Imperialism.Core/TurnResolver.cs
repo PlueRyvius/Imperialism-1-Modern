@@ -63,6 +63,15 @@ public static class TurnResolver
             spentSoFar[index] += railyard.InventoryDeltas[index];
         }
 
+        // The Shipyard takes what the mills and the railyard leave — a chosen rule,
+        // since the manual orders none of the three. It is planned here, with the
+        // other builds, so trade cannot sell lumber already promised to a hull.
+        var shipyard = ShipyardPlanner.Create(state, orders, spentSoFar);
+        for (var index = 0; index < spentSoFar.Length; index++)
+        {
+            spentSoFar[index] += shipyard.InventoryDeltas[index];
+        }
+
         // Migration is priced last, against what production and building have
         // already committed, so one turn cannot spend the same clothing twice.
         var migration = MigrationPlanner.Create(state, orders, spentSoFar);
@@ -274,6 +283,23 @@ public static class TurnResolver
                 {
                     events.Add(new FacilityExpansionRefusedEvent(
                         turnNumber, entry.Country, entry.Facility, entry.Reason));
+                }
+
+                // Last in Construction, and so after Trade: a hull built now adds its
+                // holds to next turn's market, never this one's. New ships are
+                // unplaced and in no task force; see WorldState.DeliverShips.
+                state.CommitProduction(shipyard.InventoryDeltas);
+                foreach (var entry in shipyard.Entries)
+                {
+                    var fleet = state.DeliverShips(entry.Country, entry.Type, entry.Count);
+                    events.Add(new ShipsBuiltEvent(
+                        turnNumber, entry.Country, entry.Type, entry.Count, fleet, entry.Paid));
+                }
+
+                foreach (var entry in shipyard.Refusals)
+                {
+                    events.Add(new ShipBuildRefusedEvent(
+                        turnNumber, entry.Country, entry.Type, entry.Requested, entry.Reason));
                 }
             }
             else if (phase == TurnPhase.Development)

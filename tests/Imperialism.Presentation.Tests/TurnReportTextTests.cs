@@ -42,6 +42,10 @@ public sealed class TurnReportTextTests
         AssertDistinctAndSpoken(Enum.GetValues<FacilityExpansionRefusal>(), TurnReportText.Describe);
 
     [Fact]
+    public void EveryShipBuildRefusalHasItsOwnWords() =>
+        AssertDistinctAndSpoken(Enum.GetValues<ShipBuildRefusal>(), TurnReportText.Describe);
+
+    [Fact]
     public void EveryTrainingRefusalHasItsOwnWords() =>
         AssertDistinctAndSpoken(Enum.GetValues<WorkerTrainingRefusal>(), TurnReportText.Describe);
 

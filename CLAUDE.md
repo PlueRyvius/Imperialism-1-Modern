@@ -29,6 +29,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | How much the network can carry, and what that costs | `docs/formulas/transport.md` |
 | Where a country's money comes from and goes | `docs/formulas/money.md` |
 | How the world market clears, and what carries the cargo | `docs/formulas/trade.md` |
+| What the Shipyard charges, and when a new ship counts | `docs/formulas/shipbuilding.md` |
 | How a player changes what the network reaches | `docs/formulas/engineer.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
@@ -688,7 +689,7 @@ happens to match our remembered depot cost. **Do not promote a candidate without
 selector.**
 
 Research *progress*, conflict, diplomacy, trade subsidies, sea routes
-between ports, blockade, moving regiments by rail, building ships, the University, the
+between ports, blockade, moving regiments by rail, the University, the
 newspaper and fortifications remain explicitly pending. So does
 **whether a civilian's work costs cash generally** — the manual implies it does, and
 `docs/formulas/money.md` records the finding without acting on it, because pricing
@@ -731,6 +732,23 @@ building, never storing or running**, and both halves are chosen rules: authored
 default capacity load without it, and a held refinery runs without it. Knowledge is read as
 the turn opens, so Oil Drilling bought this turn opens both next turn. No new phase; the
 v27 migration adds no gate; no soak number moved.
+
+**Ships are built, with no version bump**, because the thirteen hulls' bills and gates were
+already content. A `ShipBuildOrder(type, count)` is planned beside facility expansion and
+committed in `Construction`: it charges the hull's bill once per hull and **spends no
+labour and no cash** — "ships do not require workers", and no bill names cash. A hull with
+an unknown technology is refused before it is priced, against knowledge as the turn opens.
+Affordability is checked by division, so an overflowing count is refused, never thrown.
+**Delivery is at the end of `Construction`, after `Trade`**, so a merchant's holds first
+count in next turn's market — the manual's "at the start of the next turn", arrived at by
+phase order. Five chosen rules, each labelled in `docs/formulas/shipbuilding.md`: an order
+is **all or nothing**; the Shipyard is paid **after the mills and the railyard**; new ships
+are **unplaced and in no task force**, because the capital's sea zone is not modelled; they
+**merge into an unplaced, unassembled fleet** of their class or start one with the next
+dense `FleetId`; and there is **no cap but materials**. No soak number moved.
+**One gap is open in content, not code**: the importer gates only the three hulls the
+executable's naval table gates, so an imported power can build an Ironclad or a Freighter
+from 1816 although the manual's technology table gates both.
 
 **Production spends labour: two per cycle, flat**, from one pool per country shared
 across every facility. The manual prices exactly one recipe — a unit of clothing

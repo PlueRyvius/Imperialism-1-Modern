@@ -58,6 +58,10 @@ internal static class TurnReportFixture
             new TechnologyContentDefinition { Key = "technology.seed-drill", Name = "Seed Drill" },
             new TechnologyContentDefinition { Key = "technology.dynamite", Name = "Dynamite" },
         ],
+        ShipTypes =
+        [
+            new ShipTypeContentDefinition { Key = "ship.trader", Name = "Trader", Cargo = 2 },
+        ],
         Extraction = new ExtractionContentSettings { CatchmentRadius = 1 },
         Map = new MapContentDocument
         {

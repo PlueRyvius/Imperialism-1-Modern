@@ -115,6 +115,8 @@ public sealed class TurnReportRenderer
             PowerRefusedEvent refused => [PowerRefused(refused)],
             FacilityExpandedEvent expanded => [Expanded(expanded)],
             FacilityExpansionRefusedEvent refused => [ExpansionRefused(refused)],
+            ShipsBuiltEvent built => [ShipsBuilt(built)],
+            ShipBuildRefusedEvent refused => [ShipBuildRefused(refused)],
             TransportCapacityBuiltEvent built => [NetworkBuilt(built)],
             CellDevelopedEvent developed => [Developed(developed)],
             CellProspectedEvent prospected => [Prospected(prospected)],
@@ -278,6 +280,22 @@ public sealed class TurnReportRenderer
         refused.Country,
         null,
         $"{Country(refused.Country)} could not expand {Facility(refused.Facility)}: " +
+        $"{TurnReportText.Describe(refused.Reason)}.");
+
+    private TurnReportLine ShipsBuilt(ShipsBuiltEvent built) => Line(
+        built,
+        TurnReportKind.Outcome,
+        built.Country,
+        null,
+        $"{Country(built.Country)} built {Hulls(built.Count, built.Type)}, " +
+        $"paying {Quantities(built.Paid)}.");
+
+    private TurnReportLine ShipBuildRefused(ShipBuildRefusedEvent refused) => Line(
+        refused,
+        TurnReportKind.Refusal,
+        refused.Country,
+        null,
+        $"{Country(refused.Country)} could not build {Hulls(refused.Requested, refused.Type)}: " +
         $"{TurnReportText.Describe(refused.Reason)}.");
 
     private TurnReportLine NetworkBuilt(TransportCapacityBuiltEvent built) => Line(
@@ -555,6 +573,14 @@ public sealed class TurnReportRenderer
         (uint)facility.Value < (uint)_world.ProductionFacilities.Count
             ? _world.ProductionFacilities[facility.Value].Name
             : $"Facility {facility.Value}";
+
+    private string Hulls(long count, ShipTypeId type) =>
+        $"{Count(count)} {Ship(type)} {(count == 1 ? "hull" : "hulls")}";
+
+    private string Ship(ShipTypeId type) =>
+        (uint)type.Value < (uint)_world.ShipTypes.Count
+            ? _world.ShipTypes[type.Value].Name
+            : $"Ship {type.Value}";
 
     private string Technology(TechnologyId technology) =>
         (uint)technology.Value < (uint)_world.Technologies.Count

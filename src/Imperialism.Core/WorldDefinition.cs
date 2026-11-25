@@ -756,7 +756,8 @@ public sealed class WorldState
     private readonly long[] _ships;
     private readonly short[] _relationModes;
     private readonly short[] _relationTokens;
-    private readonly IReadOnlyList<FleetState> _fleets;
+    private readonly List<FleetState> _fleets;
+    private System.Collections.ObjectModel.ReadOnlyCollection<FleetState>? _fleetsView;
     private readonly List<TaskForceState> _taskForces = [];
     private System.Collections.ObjectModel.ReadOnlyCollection<TaskForceState>? _taskForcesView;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
@@ -930,7 +931,7 @@ public sealed class WorldState
                 seaZone));
         }
 
-        _fleets = Array.AsReadOnly(fleets.ToArray());
+        _fleets = fleets;
 
         // The original country manager initializes its 23-by-23 mode table to
         // 4 and its separate effective-token table to -1. Scenario `rela`
@@ -1285,10 +1286,54 @@ public sealed class WorldState
     }
 
     /// <summary>
-    /// Scenario-authored fleets in deterministic record order. Default merchant
+    /// Scenario-authored fleets in deterministic record order, followed by fleets
+    /// the Shipyard has started, in the order they were built. Default merchant
     /// ships remain abstract cargo capacity until their placement rule is known.
     /// </summary>
-    public IReadOnlyList<FleetState> Fleets => _fleets;
+    /// <remarks>
+    /// Ids are dense and never reused: fleet <c>n</c> is always at index
+    /// <c>n - 1</c>, and a new fleet takes the next id. The view is the state's own
+    /// and cannot be edited by a caller.
+    /// </remarks>
+    public IReadOnlyList<FleetState> Fleets => _fleetsView ??= _fleets.AsReadOnly();
+
+    /// <summary>
+    /// Delivers newly built ships to a country: they are counted at once, so they add
+    /// their holds to the merchant marine, and they join a fleet.
+    /// </summary>
+    /// <remarks>
+    /// They join the first fleet of this country and class that is unplaced and in no
+    /// task force, or start a new fleet with the next id. <b>Unplaced is a chosen
+    /// rule</b>: the manual puts a new ship "in port at the capital", and neither the
+    /// capital's sea zone nor naval movement is modelled, so naming a zone would invent
+    /// one. A fleet that is placed or assembled is never merged into, because doing so
+    /// would move the new ships with it.
+    /// </remarks>
+    internal FleetId DeliverShips(CountryId country, ShipTypeId type, long count)
+    {
+        ValidateCountry(country);
+        ValidateShipType(type);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+
+        var offset = (country.Value * Definition.ShipTypes.Count) + type.Value;
+        var total = checked(_ships[offset] + count);
+        foreach (var fleet in _fleets)
+        {
+            if (fleet.Country == country && fleet.Type == type &&
+                fleet.SeaZone is null && fleet.TaskForce is null)
+            {
+                fleet.Count = checked(fleet.Count + count);
+                _ships[offset] = total;
+                return fleet.Id;
+            }
+        }
+
+        var created = new FleetState(
+            new FleetId(checked(_fleets.Count + 1L)), country, type, count, seaZone: null);
+        _fleets.Add(created);
+        _ships[offset] = total;
+        return created.Id;
+    }
 
     public FleetState GetFleet(FleetId fleet)
     {
