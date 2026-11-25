@@ -148,7 +148,8 @@ That is the manual's own rule rather than a gap. See `formulas/technology.md` an
 experience]`; the province supplies ownership, and type is the executable's zero-based
 index into its fixed 30-row army table. Each record is one regiment; repeated records
 retain their source order. An unknown province is an error; an unknown type is warned
-and dropped; zero experience is preserved. This preserves the tactical roster without guessing
+and dropped — the 30-row limit is the importer's alone (`OriginalArmyTypeCount`), since
+Core's `ArmyTypeId` accepts any non-negative id; zero experience is preserved. This preserves the tactical roster without guessing
 deployment, movement, losses, capture, or combat resolution.
 
 `civi` records are converted rather than deferred. The record is `[type, cell]`
@@ -196,8 +197,12 @@ validation rule for imported state. Tutorial scenarios contain capacities 3,
 Keys are deterministic. Known terrain and resources use semantic keys;
 countries, provinces, and sea zones retain padded numeric legacy IDs. Only
 `zone` IDs referenced by ocean cells become modern sea zones. The ocean byte
-uses a combined region namespace, so its scenario zone ID is decoded by
-subtracting the country namespace size. Other zone
+uses a combined region namespace whose ocean part begins at `0x17`: the
+executable's `UOcean` resolves byte `r` as `records[r - 0x17]`
+(`0x00563300`), so a scenario `zone` or `ship` id `z` is ocean byte `z + 23`.
+The importer subtracts that constant. It used to subtract the highest country
+id the file names plus one, which agrees only when that id is 22 (#41); an
+ocean byte below `0x17` is reported as `map.invalid-sea-zone-reference`. Other zone
 records, all unsupported scenario tags (including legacy `rail` records), INF
 briefings and metadata, scenario trailing bytes, and map trailer records are
 reported as deferred information.

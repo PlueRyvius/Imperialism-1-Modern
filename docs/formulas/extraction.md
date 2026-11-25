@@ -191,11 +191,20 @@ along the line, the province downstream of a river port falling, and an
 undisputed enemy fleet. All three want conflict, so every owned port is connected
 here.
 
-**Where the missing east-west wrap costs output.** `Imperialism.Core`'s grid does
-not wrap; the 1997 one does. A port or deposit on the first or last column has
-fewer neighbours here than it did in the original, so an edge port catches less
-fish. It affects a handful of cells and is a known consequence of the modern
-grid rather than a bug in this rule.
+**The east-west seam is the map's, and fishing and catchment follow it.** The
+1997 grid wraps; a modern map need not. `MapDefinition.WrapsHorizontally` says
+which, and every hex walk in extraction — the water a port or capital fishes and
+the catchment around a collection point — asks `MapDefinition.TryGetNeighbor`,
+the one place the seam is decided. An imported map therefore fishes and gathers
+across the seam exactly as the original did, and a seamless modern map never
+does.
+
+This section used to call the lost output "a known consequence of the modern
+grid rather than a bug". **That is retracted** (#40): the map already declared
+its seam and port access already honoured it, so a port could be connected
+across the edge while fishing only its own side. The soak's generated worlds do
+not wrap, so no published soak number moves; the cells affected are those on the
+first and last column of imported maps, `s3`'s seam port among them.
 
 ## Technology
 

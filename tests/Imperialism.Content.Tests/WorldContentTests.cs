@@ -1907,16 +1907,29 @@ public sealed class WorldContentTests
         AssertPath("scenarios[0].armies[0].experience", document);
     }
 
-    [Theory]
-    [InlineData(-1)]
-    [InlineData(30)]
-    public void ScenarioArmyRejectsAnUnknownOriginalType(int type)
+    [Fact]
+    public void ScenarioArmyRejectsANegativeType()
     {
         var document = CreateValidDocument();
         document.Scenarios[0].Armies =
-        [new ArmyContent { Province = "province.west", Type = type, Experience = 1 }];
+        [new ArmyContent { Province = "province.west", Type = -1, Experience = 1 }];
 
         AssertPath("scenarios[0].armies[0].type", document);
+    }
+
+    /// <summary>
+    /// The original's 30-row army table is enforced by the importer, not by
+    /// content (issue #47); there is no army type catalogue to check against.
+    /// </summary>
+    [Fact]
+    public void ScenarioArmyAcceptsATypeBeyondTheOriginalTable()
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].Armies =
+        [new ArmyContent { Province = "province.west", Type = 30, Experience = 1 }];
+
+        var army = Assert.Single(WorldContentCompiler.Compile(document).World.Scenario.InitialArmies);
+        Assert.Equal(new ArmyTypeId(30), army.Type);
     }
 
     [Theory]

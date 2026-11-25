@@ -142,8 +142,8 @@ public sealed class LegacyWorldConverterTests
             {
                 Terrain = 0,
                 Province = ushort.MaxValue,
-                NationZoneA = 11,
-                NationZoneB = 11,
+                NationZoneA = 30,
+                NationZoneB = 30,
             },
             new HexCell
             {
@@ -1158,6 +1158,39 @@ public sealed class LegacyWorldConverterTests
             [(new ProvinceId(0), new ArmyTypeId(0), 4L), (new ProvinceId(0), new ArmyTypeId(8), 2L),
              (new ProvinceId(0), new ArmyTypeId(7), 0L)],
             armies.Select(static item => (item.Province, item.Type, item.Experience)));
+    }
+
+    /// <summary>
+    /// The 30-row limit lives in the importer now (issue #47): index 29 is the
+    /// last row and converts, index 30 is warned about and dropped exactly as
+    /// before, even though Core would accept it.
+    /// </summary>
+    [Fact]
+    public void LegacyArmyIndexThirtyIsStillWarnedAndDropped()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+                Record("army", 0, 29, 1),
+                Record("army", 0, 30, 1),
+            ]),
+            null,
+            "army-limit-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Equal([29], result.Document!.Scenarios[0].Armies.Select(static item => item.Type));
+        var warning = Assert.Single(
+            result.Report.Diagnostics,
+            static item => item.Code == "scenario.unknown-army-type");
+        Assert.Equal(LegacyImportSeverity.Warning, warning.Severity);
+        Assert.Equal("scenario.records[4]", warning.Location);
+        Assert.Equal(
+            "Army type 30 is outside the table of 30; no army regiment was placed.",
+            warning.Message);
     }
 
     [Fact]
@@ -2913,6 +2946,61 @@ public sealed class LegacyWorldConverterTests
             item => item.Code == "scenario.invalid-civi");
     }
 
+    [Fact]
+    public void AShipFindsItsSeaByTheExecutablesOceanBaseNotByTheCountriesAFileNames()
+    {
+        // Only countries 0 and 1 are named, so a base derived from the highest
+        // country id would be 2 and read ocean byte 32 as zone 30. The
+        // executable reads it as zone 32 - 0x17 = 9, which is where the ship
+        // record says the fleet is.
+        var ocean = new HexCell
+        {
+            Terrain = 0,
+            Province = ushort.MaxValue,
+            NationZoneA = 32,
+            NationZoneB = 32,
+        };
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(3, 1, LandCell(0, 0), LandCell(1, 1), ocean),
+            new ScenarioDocument(
+            [
+                Record("year", 1),
+                NameRecord("cnam", 0, "First"),
+                NameRecord("cnam", 1, "Second"),
+                NameRecord("pnam", 0, "West"),
+                NameRecord("pnam", 1, "East"),
+                Record("ship", 1, 1, 9, 2),
+            ]),
+            null,
+            "ocean-base");
+
+        Assert.True(result.Success);
+        var document = Assert.IsType<WorldContentDocument>(result.Document);
+        Assert.Equal("sea-zone.legacy.009", Assert.Single(document.Map.SeaZones).Key);
+        var ship = Assert.Single(Assert.Single(document.Scenarios).Ships);
+        Assert.Equal("sea-zone.legacy.009", ship.SeaZoneKey);
+        Assert.Equal(0, result.Report.DeferredCounts.GetValueOrDefault("scenario.unplaced-ship-zones"));
+    }
+
+    [Fact]
+    public void AnOceanByteBelowTheExecutablesOceanBaseIsAnError()
+    {
+        var ocean = new HexCell
+        {
+            Terrain = 0,
+            Province = ushort.MaxValue,
+            NationZoneA = 0x16,
+            NationZoneB = 0x16,
+        };
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), ocean),
+            new ScenarioDocument([Record("year", 1), NameRecord("cnam", 0, "Only")]),
+            null,
+            "below-base");
+
+        Assert.Contains(result.Report.Diagnostics, static item => item.Code == "map.invalid-sea-zone-reference");
+    }
+
     private static string RequireScenarioDirectory()
     {
         var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
@@ -2938,12 +3026,14 @@ public sealed class LegacyWorldConverterTests
         NationZoneB = owner,
     };
 
+    // Ocean byte 33 is scenario zone 10: the executable's ocean regions begin
+    // at 0x17 whatever countries a file names.
     private static HexCell OceanCell() => new()
     {
         Terrain = 0,
         Province = ushort.MaxValue,
-        NationZoneA = 11,
-        NationZoneB = 11,
+        NationZoneA = 33,
+        NationZoneB = 33,
     };
 
     private static ScenarioDocument Scenario(uint year) => new([Record("year", year)]);

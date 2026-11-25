@@ -56,7 +56,7 @@ internal static class ExtractionPlanner
                 connectionStamp[seed] = pass;
             }
 
-            ExpandCatchment(dimensions, radius, pass, stamp, ref frontier, ref next);
+            ExpandCatchment(map, radius, pass, stamp, ref frontier, ref next);
 
             var collectedCells = 0;
             var strandedCells = 0;
@@ -156,18 +156,30 @@ internal static class ExtractionPlanner
 
     /// <summary>
     /// Neighbouring tiles a port can fish: open sea, or land carrying a river.
-    /// Each neighbour counts once even if it somehow qualifies both ways.
+    /// Each neighbour counts once even if it somehow qualifies both ways, and
+    /// a neighbour across the east/west seam counts only where the map has one.
     /// </summary>
+    /// <remarks>
+    /// Six directions are not six cells on a narrow wrapping map: at width 2
+    /// east and west reach the same tile, and at width 1 every direction along
+    /// the row reaches the port itself. So a tile counts once however many
+    /// directions name it, and the port's own tile never counts.
+    /// </remarks>
     private static int CountAdjacentWater(MapDefinition map, CellDefinition port)
     {
         var water = 0;
+        Span<int> counted = stackalloc int[6];
+        var countedLength = 0;
         foreach (var direction in HexDirections.All)
         {
-            if (!port.Coordinate.TryGetNeighbor(direction, map.Dimensions, out var neighbor))
+            if (!map.TryGetNeighbor(port.Index, direction, out var neighbor) ||
+                neighbor == port.Index ||
+                counted[..countedLength].Contains(neighbor.Value))
             {
                 continue;
             }
 
+            counted[countedLength++] = neighbor.Value;
             var cell = map[neighbor];
             if (cell.Region.Kind == CellRegionKind.SeaZone || cell.River is not null)
             {
@@ -301,7 +313,7 @@ internal static class ExtractionPlanner
     }
 
     private static void ExpandCatchment(
-        MapDimensions dimensions,
+        MapDefinition map,
         int radius,
         int pass,
         int[] stamp,
@@ -313,15 +325,17 @@ internal static class ExtractionPlanner
             next.Clear();
             foreach (var cell in frontier)
             {
-                var coordinate = dimensions.GetCoordinate(new CellIndex(cell));
                 foreach (var direction in HexDirections.All)
                 {
-                    if (!coordinate.TryGetNeighbor(direction, dimensions, out var neighbor))
+                    // The map alone decides whether the east and west edges
+                    // touch, so a catchment crosses the seam exactly where the
+                    // map has one.
+                    if (!map.TryGetNeighbor(new CellIndex(cell), direction, out var neighbor))
                     {
                         continue;
                     }
 
-                    var neighborCell = dimensions.GetIndex(neighbor).Value;
+                    var neighborCell = neighbor.Value;
                     if (stamp[neighborCell] == pass)
                     {
                         continue;

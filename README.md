@@ -7,7 +7,9 @@ starting from the game's own `.map`/`.scn` scenario file formats.
 
 The original game's file formats have been reverse-engineered by the
 community (cell-by-cell `.map` layout, tagged-record `.scn` layout). This
-repo starts from a Python re-implementation of that decoding. The parsers
+repo began from a Python re-implementation of that decoding, which now lives
+in [Imperialism-1-Forge](https://github.com/PlueRyvius/Imperialism-1-Forge);
+the parsers here are the C# `Imperialism.Formats` library. They
 preserve uninterpreted bytes and round-trip every original file
 byte-for-byte, so the engine can load real scenario data from day one
 instead of needing new assets from scratch.
@@ -49,9 +51,12 @@ packages locally.
 
 Godot 4 + C#. The simulation lives in a plain, headless, unit-testable C#
 library with no Godot dependency; Godot is only the presentation layer.
-This Python library is retained as research tooling and as an independent
-**structural reference** for the C# parsers. A disagreement identifies a bug
-to investigate; it does not make either implementation correct by definition.
+The only Python left here is `tools/alf/`, which indexes the original
+executable's disassembly. The Python format readers that once served as an
+independent structural reference for the C# parsers now live in
+[Imperialism-1-Forge](https://github.com/PlueRyvius/Imperialism-1-Forge); what
+holds the C# parsers to account here is byte-exact round-trip on all thirty
+original files.
 
 ## Project phases
 
@@ -73,12 +78,12 @@ whenever it's wanted.
 
 **Phase 0 status: complete.**
 
-- [x] Python research readers/writers for `.map`, `.scn`, editable `.inf`, and plaintext scenarios
-- [x] Python plaintext-scenario reader/writer and corpus relationship audit
+- [x] Python research readers/writers for `.map`, `.scn`, editable `.inf`, and plaintext scenarios — *historical:* moved to Forge in 807caa7
+- [x] Python plaintext-scenario reader/writer and corpus relationship audit — *historical:* moved to Forge in 807caa7
 - [x] Production .NET 8 `Imperialism.Formats` codecs with arbitrary map dimensions
 - [x] Byte-exact local verification of all 10 maps, 10 binary scenarios, and 10 INF files
 - [x] Semantic local verification of all seven extensionless scenario sources
-- [x] Independent C#/Python structural-hash comparison over generated and original corpora
+- [x] Independent C#/Python structural-hash comparison over generated and original corpora — *historical:* run before 807caa7 moved the Python parsers to Forge; its script was removed with them, so it cannot be re-run from this repository (#37)
 
 **Phase 1 status: complete.**
 
@@ -101,20 +106,29 @@ still an optional local source with the procedural palette as its fallback.
 
 **Phase 3 status: in progress.**
 
-- [x] Packed, deterministic rail-connectivity snapshots filtered by current ownership
-- [x] Lazy connectivity rebuild after rail construction, removal, or conquest
-- [x] Generated 64,800-cell scale regression (ten times the original map area)
-- [x] Capital/depot collection and static port/depot sea gateways
-- [x] Deterministic quarterly turn pipeline and immutable event log
-- [x] Content-defined commodity catalog, checked inventory, and deferred-delivery intents
-- [x] Content-defined facilities/recipes, shared capacity, staged output, and legacy economy import
-- [x] Worker feeding, and labour priced per recipe and spent by production
-- [x] Starvation and sickness cutting the labour pool from the following turn
-- [x] Transport capacity construction and per-turn allocation
-- [x] River downstream connectivity
-- [x] Headless naval control of sea ports
+- [x] Packed, deterministic rail-connectivity snapshots filtered by current ownership (`RailConnectivityIndexTests`)
+- [x] Lazy connectivity rebuild after rail construction, removal, or conquest (`RailConnectivityIndexTests`)
+- [x] Generated 64,800-cell scale regression (ten times the original map area) (`RailConnectivityIndexTests`)
+- [x] Deterministic quarterly turn pipeline and immutable event log (`TurnResolverTests`)
+- [x] Content-defined commodity catalog, checked inventory, and deferred-delivery intents (`CommodityInventoryTests`)
+- [x] Content-defined facilities/recipes, shared capacity, staged output, and legacy economy import (`ProductionTests`, `LegacyWorldConverterTests`)
+- [x] Collection at the capital, connected depots and ports, including port-and-depot sea gateways (`ExtractionTests`)
+- [x] Worker feeding, and labour priced per recipe and spent by production (`FeedingTests`, `LabourTests`)
+- [x] Starvation and sickness cutting the labour pool from the following turn (`FeedingTests`, `LabourTests`)
+- [x] Fair-start defaults for named powers (`SkirmishStartTests`)
+- [x] Industry capacity ladder and construction (`CapacityConstructionTests`)
+- [x] Capitol recruitment and workforce growth (`MigrationTests`)
+- [x] Transport capacity, railyard construction and per-turn allocation (`TransportTests`)
+- [x] Civilians improving land, with work duration and per-rung cash cost (`DevelopmentTests`)
+- [x] Prospecting and hidden deposits (`ProspectingTests`)
+- [x] Technology gates on improvement and rail, and technology purchase (`TechnologyGateTests`, `TechnologyInvestmentTests`)
+- [x] Treasury, gold and gems income, and the Engineer's rail, depots and ports (`TreasuryTests`, `EngineerTests`)
+- [x] World market and merchant-marine cargo holds (`TradeTests`)
+- [x] River and sea connectivity for ports, sea zones, fleets and task forces (`SeaZoneTopologyTests`, `FleetStateTests`, `TaskForceMovementTests`)
 - [x] Transient power and worker training (`PowerAndTrainingTests`)
-- [ ] Research progress
+- [x] Research progress: the original has none beyond purchase ([`docs/formulas/research-progress.md`](docs/formulas/research-progress.md))
+- [ ] Trade subsidies, sea routes between ports, and blockade
+- [ ] Moving regiments by rail, building ships, the University, the newspaper, fortifications
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's
