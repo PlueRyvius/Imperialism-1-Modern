@@ -171,6 +171,13 @@ public sealed class DiplomacyContentSettings
     public long ConsulateCost { get; set; }
 
     public long EmbassyCost { get; set; }
+
+    /// <summary>
+    /// The subsidy buttons on the trade policies screen: ascending, distinct, each 1-99.
+    /// Empty grants no subsidy; boycotts need no number. The importer writes the
+    /// tutorial's 5 and 10 (manual lines 5121 and 5126). Added in version 31.
+    /// </summary>
+    public int[] SubsidyPercents { get; set; } = [];
 }
 
 public sealed class MapContentDocument

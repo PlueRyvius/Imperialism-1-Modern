@@ -156,6 +156,11 @@ internal static class WorldContentMigrator
             MigrateVersionTwentyNineToThirty(document);
         }
 
+        if (document.FormatVersion == 30)
+        {
+            MigrateVersionThirtyToThirtyOne(document);
+        }
+
         if (document.FormatVersion == WorldContentCodec.CurrentVersion)
         {
             RejectLegacyArmyCount(document);
@@ -1201,6 +1206,24 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 30;
+    }
+
+    /// <summary>
+    /// Version 31 lists the trade policies screen's subsidy percentages. None is supplied:
+    /// a migrated package's diplomacy block lists no percentages, so it can grant no
+    /// subsidy, while boycotts — which need no number — work as soon as it has a post. A
+    /// package with no diplomacy block keeps none. Re-importing legacy content supplies
+    /// the tutorial's 5 and 10.
+    /// </summary>
+    private static void MigrateVersionThirtyToThirtyOne(WorldContentDocument document)
+    {
+        if (document.Diplomacy is { SubsidyPercents.Length: > 0 })
+        {
+            throw new ContentValidationException(
+                "diplomacy.subsidyPercents", "Version 30 cannot list subsidy percentages.");
+        }
+
+        document.FormatVersion = 31;
     }
 
     private static void RejectLegacyArmyCount(WorldContentDocument document)

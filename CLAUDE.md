@@ -818,6 +818,21 @@ it offers peace back the same turn**. Relation scores, alliances, colonies and c
 entering a minor are still open. The v29 migration adds no block, so a migrated world sells no
 posts. No soak number moved.
 
+`.iworld` **v31** adds **trade policy**: a Great Power holding a consulate or embassy at a
+country as the turn opens may set a standing **subsidy** or **boycott** toward it (lines
+3432–3437, 3663–3667), free, in `Diplomacy` after the overtures, so **no new phase**. The
+recipient of a subsidy buys from its grantor at world price less the percentage and sells to
+it at world price plus it (lines 3692–3699). A voluntary boycott **either way** shares the war
+boycott's one gate, `WorldState.IsTradeBoycotted`. **The bidder placeholder is gone**: a
+seller ranks bidders by the subsidy each grants it, ties in id order, so with no subsidy the
+order is unchanged and no soak number moved. The v31 field is `diplomacy.subsidyPercents`;
+the importer writes `[5, 10]` and the v30 migration writes none. **Seven rules are chosen**,
+numbered 7–13 in `docs/formulas/diplomacy.md`: a policy takes effect **next turn**; ranking is
+by **subsidy alone** until relations exist; **mutual subsidies net**; a deal rounds **once,
+toward the recipient**; a subsidy **never moves the world price**; a Great Power war that
+closes the posts **clears the policy** both ways; and the percentages are **5 and 10**, the
+tutorial's buttons, because the executable names none.
+
 **Production spends labour: two per cycle, flat**, from one pool per country shared
 across every facility. The manual prices exactly one recipe — a unit of clothing
 costs two fabric and two labour — and the original's own help resources charge the

@@ -117,6 +117,22 @@ public sealed class TurnReportRendererTests
     }
 
     [Fact]
+    public void ASubsidisedDealPrintsItsTotalRatherThanAUnitPriceThatDoesNotMultiplyOut()
+    {
+        var renderer = CreateRenderer();
+        var grain = new CommodityId(0);
+
+        var plain = Assert.Single(renderer.Render(new CommodityTradedEvent(1, Blue, Red, grain, 5, 100, Red)));
+        var subsidised = Assert.Single(renderer.Render(
+            new CommodityTradedEvent(1, Blue, Red, grain, 5, 100, Red, total: 475)));
+
+        Assert.Contains("a unit", plain.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("subsidised", plain.Text, StringComparison.Ordinal);
+        Assert.Contains("subsidised", subsidised.Text, StringComparison.Ordinal);
+        Assert.Contains("475", subsidised.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ARefusedExpansionNamesTheFacilityAndWhy()
     {
         var renderer = CreateRenderer();
@@ -422,6 +438,9 @@ public sealed class TurnReportRendererTests
             new DiplomaticOvertureRefusedEvent(
                 1, Blue, Red, DiplomaticOvertureKind.Embassy, DiplomaticOvertureRefusal.NoConsulate),
             new DiplomaticTiesCutEvent(1, Blue, Red, pactBroken: true, postsClosed: true),
+            new TradePolicySetEvent(1, Blue, Red, TradePolicy.Subsidy(5)),
+            new TradePolicyRefusedEvent(1, Blue, Red, TradePolicy.Boycott, TradePolicyRefusal.NoPost),
+            new TradePolicyClearedEvent(1, Blue, Red, TradePolicy.Subsidy(10)),
         ];
     }
 }

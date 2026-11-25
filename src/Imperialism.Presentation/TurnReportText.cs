@@ -183,6 +183,35 @@ public static class TurnReportText
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 
+    /// <summary>The verb phrase for a trade policy order, ready to be followed by its target.</summary>
+    public static string Describe(TradePolicy policy) => policy.Kind switch
+    {
+        TradePolicyKind.None => "cancel its trade policy toward",
+        TradePolicyKind.Subsidy => $"grant a {policy.Percent}% trade subsidy to",
+        TradePolicyKind.Boycott => "declare a trade boycott of",
+        _ => throw new ArgumentOutOfRangeException(nameof(policy)),
+    };
+
+    /// <summary>A standing trade policy as a noun phrase.</summary>
+    public static string Name(TradePolicy policy) => policy.Kind switch
+    {
+        TradePolicyKind.None => "no trade policy",
+        TradePolicyKind.Subsidy => $"{policy.Percent}% trade subsidy",
+        TradePolicyKind.Boycott => "trade boycott",
+        _ => throw new ArgumentOutOfRangeException(nameof(policy)),
+    };
+
+    public static string Describe(TradePolicyRefusal reason) => reason switch
+    {
+        TradePolicyRefusal.NoSuchCountry => "no country carries that id in this world",
+        TradePolicyRefusal.Itself => "a country sets no trade policy toward itself",
+        TradePolicyRefusal.NotAGreatPower => "only a Great Power sets trade policies",
+        TradePolicyRefusal.AlreadyOrderedThisTurn => "a trade policy toward them was already set this turn",
+        TradePolicyRefusal.NoPost => "it needs a trade consulate or an embassy there, open as the turn began",
+        TradePolicyRefusal.PercentNotOffered => "this world offers no subsidy of that size",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason)),
+    };
+
     public static string Describe(CivilianDisbandRefusal reason) => reason switch
     {
         CivilianDisbandRefusal.NoSuchCivilian => "no civilian carries that id, so it has most likely died",

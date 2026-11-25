@@ -21,6 +21,7 @@ public sealed class CountryTurnOrders
     private readonly IReadOnlyList<CivilianPurchaseOrder> _civilianPurchases;
     private readonly IReadOnlyList<CivilianUnitId> _civilianDisbands;
     private readonly IReadOnlyList<DiplomaticOverture> _overtures;
+    private readonly IReadOnlyList<TradePolicyOrder> _tradePolicies;
 
     public CountryTurnOrders(
         CountryId country,
@@ -42,7 +43,8 @@ public sealed class CountryTurnOrders
         IEnumerable<NavalOrder>? naval = null,
         IEnumerable<CivilianPurchaseOrder>? civilianPurchases = null,
         IEnumerable<CivilianUnitId>? civilianDisbands = null,
-        IEnumerable<DiplomaticOverture>? overtures = null)
+        IEnumerable<DiplomaticOverture>? overtures = null,
+        IEnumerable<TradePolicyOrder>? tradePolicies = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(recruitWorkers);
         ArgumentOutOfRangeException.ThrowIfNegative(burnFuel);
@@ -170,8 +172,18 @@ public sealed class CountryTurnOrders
             throw new ArgumentOutOfRangeException(nameof(overtures));
         }
 
+        // Kept as given: a policy toward nobody, toward itself, without a post or at a
+        // percentage the world does not list is refused with an event when the turn
+        // resolves. Only a kind the screen has no button for is malformed.
+        var policyArray = tradePolicies?.ToArray() ?? [];
+        if (policyArray.Any(static item => !Enum.IsDefined(item.Policy.Kind)))
+        {
+            throw new ArgumentOutOfRangeException(nameof(tradePolicies));
+        }
+
         Country = country;
         RecruitWorkers = recruitWorkers;
+        _tradePolicies = Array.AsReadOnly(policyArray);
         _civilianPurchases = Array.AsReadOnly(purchaseArray);
         _overtures = Array.AsReadOnly(overtureArray);
         _civilianDisbands = Array.AsReadOnly(disbandArray);
@@ -340,6 +352,16 @@ public sealed class CountryTurnOrders
     /// nothing and does not stop later ones. See <c>docs/formulas/diplomacy.md</c>.
     /// </remarks>
     public IReadOnlyList<DiplomaticOverture> Overtures => _overtures;
+
+    /// <summary>
+    /// Subsidies, boycotts and cancellations set on the trade policies screen this turn.
+    /// </summary>
+    /// <remarks>
+    /// Resolved in <c>Diplomacy</c> after every overture, countries in id order and orders
+    /// in list order. Free to set; each replaces whatever policy stood toward that country
+    /// and is first felt by next turn's market. See <c>docs/formulas/diplomacy.md</c>.
+    /// </remarks>
+    public IReadOnlyList<TradePolicyOrder> TradePolicies => _tradePolicies;
 }
 
 /// <summary>

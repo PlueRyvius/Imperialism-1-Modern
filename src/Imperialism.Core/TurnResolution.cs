@@ -1095,17 +1095,24 @@ public sealed record CommodityTradedEvent : TurnEvent
         CommodityId commodity,
         long quantity,
         long unitPrice,
-        CountryId holdsPaidBy)
+        CountryId holdsPaidBy,
+        long? total = null)
         : base(turnNumber, TurnPhase.Trade)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantity);
         ArgumentOutOfRangeException.ThrowIfNegative(unitPrice);
+        if (total is { } paid)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(paid);
+        }
+
         Seller = seller;
         Buyer = buyer;
         Commodity = commodity;
         Quantity = quantity;
         UnitPrice = unitPrice;
         HoldsPaidBy = holdsPaidBy;
+        Total = total ?? checked(quantity * unitPrice);
     }
 
     public CountryId Seller { get; }
@@ -1116,11 +1123,14 @@ public sealed record CommodityTradedEvent : TurnEvent
 
     public long Quantity { get; }
 
-    /// <summary>The world price this turn. One price for everybody, until subsidies exist.</summary>
+    /// <summary>The world price this turn, the same for everybody.</summary>
     public long UnitPrice { get; }
 
-    /// <summary>What the buyer paid and the seller received, in total.</summary>
-    public long Total => Quantity * UnitPrice;
+    /// <summary>
+    /// What the buyer paid and the seller received, in total: <c>Quantity × UnitPrice</c>
+    /// unless a subsidy moved it, rounded once for the deal toward whoever it favours.
+    /// </summary>
+    public long Total { get; }
 
     /// <summary>
     /// Whose cargo holds carried it — the buyer's, unless the buyer is a minor nation.

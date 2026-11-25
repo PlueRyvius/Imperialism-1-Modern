@@ -348,8 +348,9 @@ there is a dead band; and whether prices are bounded.
 over a century, so a curve that changes that by orders of magnitude is worth a second look.
 
 Also wanted, same area: **whether the bidder ranking is what we think.** The manual says
-relations plus subsidies; we currently use a placeholder (country id order) and have labelled
-it as such.
+relations plus subsidies; since v31 we rank by subsidy alone, ties in id order, and label it a
+chosen rule pending relations. Also wanted: **the subsidy buttons' percentages** — we ship the
+tutorial's 5 and 10, and nothing in the extraction names a level or a third button.
 
 ---
 

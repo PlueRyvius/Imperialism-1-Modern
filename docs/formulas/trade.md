@@ -39,7 +39,7 @@ numbers. The split matters more than the average.
 | The opening fleet | **corpus** — all three skirmishes agree; the class is the executable's |
 | A `ship` type index is 1-based | **corpus-corroborated** — see below |
 | **How far a price moves** | **a guess**, quarantined behind `ITradeMarket` |
-| **Which bidder gets first refusal** | **a placeholder** — the real rule needs diplomacy |
+| **Which bidder gets first refusal** | **half the rule** — by subsidy since v31; relations are still missing |
 | A minor nation's holds | **inference** — the manual says they own none |
 
 **The manual prices nothing.** Its only figures anywhere are gold $200, gems $500,
@@ -410,12 +410,16 @@ A world may have prices and no market, and then it trades at the opening price f
 That separation is deliberate — the prices are transcribed and the curve is not, so they
 should not fall together.
 
-### The bidder ranking is a placeholder and is labelled one
+### The bidder ranking is half the manual's rule
 
 The manual ranks bidders by the seller's favoured-trading-partner list, which combines
-**diplomatic relations with trade subsidies** — and this engine has neither. Bidders are
-taken in country-id order: deterministic, arbitrary, and the thing in `TradePlanner` most
-in need of replacing. **Read nothing into which country gets first refusal.**
+**diplomatic relations with trade subsidies** (lines 3031–3033). Since v31 the engine has
+subsidies and still has no relation scores, so each seller ranks its bidders by **the
+subsidy each grants it**, highest first, with ties — every unsubsidised bidder among them —
+in country-id order. With no subsidy anywhere that is the old id order exactly, which is
+why no published number moved. It is a chosen rule pending relations; see the
+trade-policy section of [diplomacy.md](diplomacy.md), chosen rule 8. A subsidy also moves
+the price of the deal it touches, never the world price.
 
 ## Pseudocode
 
@@ -529,9 +533,13 @@ the work duration was 1. Trade income buys improvement faster than the food supp
 
 - **The clearing price.** Still the oldest unknown here, and now load-bearing rather than
   hypothetical. `ITradeMarket` is where a recovered curve goes.
-- **The bidder ranking**, which wants relations and subsidies — so it wants diplomacy.
-- **Trade subsidies**, which make the price per *pair* rather than per commodity and are
-  the manual's own answer to being outbid.
+- **Relations in the bidder ranking.** Subsidies rank bidders since v31; relation scores,
+  the other half, are not modelled. See [diplomacy.md](diplomacy.md).
+- ~~**Trade subsidies**~~ — **modelled at v31**, per pair and per deal. One question stays
+  open: `docs/game-systems.md` records a *release-notes correction* that between two Great
+  Powers a subsidy governs only the grantor's own goods. The release notes are not in this
+  repository, so v31 applies the manual's symmetric rule to every pair; see
+  [diplomacy.md](diplomacy.md).
 - **Whether oil and fuel are tradable.** The roster omits both and the manual does not say.
 - ~~**The ship array order**, the Freighter's cargo, and every build cost.~~
   **All recovered**, and `ship` records convert.
