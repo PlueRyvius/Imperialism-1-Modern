@@ -1208,7 +1208,25 @@ public static class WorldContentCompiler
             throw Error("diplomacy.embassyCost", "An embassy cannot cost a negative amount.");
         }
 
-        return new DiplomacySettings(content.ConsulateCost, content.EmbassyCost);
+        var percents = content.SubsidyPercents ?? [];
+        for (var index = 0; index < percents.Length; index++)
+        {
+            if (percents[index] < TradePolicy.MinimumSubsidyPercent ||
+                percents[index] > TradePolicy.MaximumSubsidyPercent)
+            {
+                throw Error(
+                    $"diplomacy.subsidyPercents[{index}]", "A subsidy is between 1 and 99 percent.");
+            }
+
+            if (index > 0 && percents[index] <= percents[index - 1])
+            {
+                throw Error(
+                    $"diplomacy.subsidyPercents[{index}]",
+                    "Subsidy percentages must be distinct and in ascending order.");
+            }
+        }
+
+        return new DiplomacySettings(content.ConsulateCost, content.EmbassyCost, percents);
     }
 
     private static MigrationSettings? CompileMigration(

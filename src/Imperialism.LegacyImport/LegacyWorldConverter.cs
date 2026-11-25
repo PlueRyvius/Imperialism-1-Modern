@@ -2808,6 +2808,22 @@ public static class LegacyWorldConverter
     ];
 
     /// <summary>
+    /// The Diplomacy screen's two prices, both printed in the manual: a consulate "costs
+    /// you $500" (line 3517), an embassy "costs $5000" (lines 3530-3531). Neither is a
+    /// guess. And the trade policies screen's subsidy buttons, 5% and 10%, which are the
+    /// two the manual's tutorial presses (lines 5121 and 5126). The manual promises
+    /// "varying percentages" (line 3681) without listing them, and
+    /// <c>docs/disasm/definitive-original-data.md</c> names no subsidy level, so a third is
+    /// not ruled out — the set is a chosen rule. See <c>docs/formulas/diplomacy.md</c>.
+    /// </summary>
+    private static DiplomacyContentSettings CreateStandardDiplomacy() => new()
+    {
+        ConsulateCost = 500,
+        EmbassyCost = 5_000,
+        SubsidyPercents = [5, 10],
+    };
+
+    /// <summary>
     /// The Power Plant: "1 fuel → 6 power, with up to 100 fuel per turn".
     /// </summary>
     /// <remarks>
@@ -2816,17 +2832,6 @@ public static class LegacyWorldConverter
     /// the resource gives one figure and mentions no size. See
     /// <c>docs/formulas/production.md</c>.
     /// </remarks>
-    /// <summary>
-    /// The Diplomacy screen's two prices, both printed in the manual: a consulate "costs
-    /// you $500" (line 3517), an embassy "costs $5000" (lines 3530-3531). Neither is a
-    /// guess. See <c>docs/formulas/diplomacy.md</c>.
-    /// </summary>
-    private static DiplomacyContentSettings CreateStandardDiplomacy() => new()
-    {
-        ConsulateCost = 500,
-        EmbassyCost = 5_000,
-    };
-
     private static PowerContentSettings CreateStandardPower() => new()
     {
         Fuel = "commodity.fuel",

@@ -487,6 +487,10 @@ public sealed class LegacyWorldConverterTests
 
         var world = WorldContentCompiler.Compile(result.Document).World;
         Assert.Equal(500, world.Diplomacy!.ConsulateCost);
+
+        // The tutorial's two subsidy buttons (manual lines 5121 and 5126).
+        Assert.Equal([5, 10], diplomacy.SubsidyPercents);
+        Assert.Equal([5, 10], world.Diplomacy.SubsidyPercents);
     }
 
     [Fact]

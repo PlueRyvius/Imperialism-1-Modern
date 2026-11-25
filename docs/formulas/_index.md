@@ -179,7 +179,7 @@ bottom of this file.
 | Which commodities are tradable at all | `inferred` — **observed, and it agrees with the manual three times** | [trade](trade.md) | Core, Content, LegacyImport | generated |
 | The commodity order holds are spent in | `inferred` — observed | [trade](trade.md) | Core, Content, LegacyImport | generated |
 | **Trade clearing price** — how far a price moves | `guess`, quarantined behind `ITradeMarket` | [trade](trade.md) | Core, Content | generated |
-| **Favoured-partner ranking** | **a placeholder**, not a rule — wants diplomacy | [trade](trade.md) | Core | generated |
+| **Favoured-partner ranking** | **a chosen rule**, half the manual's — by subsidy since v31, ties in id order; relations still missing | [trade](trade.md), [diplomacy](diplomacy.md) | Core | generated |
 | Merchant marine, and what limits it | `inferred` — the manual states the rules, the executable the cargo | [trade](trade.md) | Core, Content, LegacyImport | generated |
 | The fleet a power opens with | `inferred` — **all three skirmishes agree**, and the class is the executable's | [trade](trade.md) | Core, Content, LegacyImport | generated + local corpus |
 | What a `ship` type index means | `inferred` — **corpus-corroborated**, 1-based | [trade](trade.md) | — | local corpus |
@@ -207,6 +207,9 @@ bottom of this file.
 | When an overture's tie opens, and when peace ends a war | `inferred` — **the manual states it**: next turn, by the relation token | [diplomacy](diplomacy.md) | Core | generated |
 | **When a Great Power accepts peace** | **a chosen rule** — only if it offers peace back the same turn; wants something to play the powers | [diplomacy](diplomacy.md) | Core | generated |
 | What a war cuts, and the boycott | `inferred` for the boycott and the posts; **chosen** that both are cut at the declaration | [diplomacy](diplomacy.md) | Core | generated |
+| Trade subsidies and voluntary boycotts: who may set them, what they need, what a subsidy does to a price | `inferred` — **the manual states it** (lines 3432–3437, 3663–3667, 3692–3699) | [diplomacy](diplomacy.md) | Core, Content, LegacyImport | generated |
+| **Subsidy percentages, timing and rounding** | **chosen rules** — 5 and 10 from the tutorial; next turn; once per deal toward the recipient |
+| **A subsidy between two Great Powers** | `inferred` — the release notes as recorded in `game-systems.md:204-206`: only the grantor's own sales, and no ranking; README.TXT / README11.TXT still to be read on the PC | [diplomacy](diplomacy.md) | Core, Content, LegacyImport | generated |
 | **Relation scores, alliances, colonies, civilians entering a Minor Nation** | **open** — none modelled; the overtures that would move them now exist | [diplomacy](diplomacy.md) | — | — |
 | Diplomatic relation deltas | `guess` | _relations_ | — | — |
 | Council nomination + abstention curve | `guess` | _council_ | — | — |
@@ -400,7 +403,7 @@ Ordered by impact x uncertainty, not by ease:
    offers, bids, delivery timing, hold accounting, who carries and the price
    *direction*. What was left undocumented is exactly two things: how far a price
    moves, which is behind `ITradeMarket`, and which bidder gets first refusal, which
-   is a labelled placeholder waiting on diplomacy. The prices themselves came from the
+   was a labelled placeholder and since v31 ranks by subsidy, pending relations. The prices themselves came from the
    game's own screen and are not guesses at all. **This entry is smaller than it
    looked**, and what remains of it now sits behind item 0's decompiler rather than
    ahead of it. See [trade.md](trade.md).

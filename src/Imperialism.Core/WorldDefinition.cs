@@ -790,6 +790,7 @@ public sealed class WorldState
     private readonly short[] _relationTokens;
     private readonly short[] _relationPriorModes;
     private readonly byte[] _diplomaticTies;
+    private readonly byte[] _tradePolicies;
     private readonly List<FleetState> _fleets;
     private System.Collections.ObjectModel.ReadOnlyCollection<FleetState>? _fleetsView;
     private readonly List<TaskForceState> _taskForces = [];
@@ -989,6 +990,10 @@ public sealed class WorldState
         // scenario authors at war starts without them, because a war between Great
         // Powers is what closes them.
         _diplomaticTies = new byte[relationSlots];
+
+        // Every policy starts at None: the manual gives no Great Power a subsidy or a
+        // boycott at the start, and the scenario format carries none.
+        _tradePolicies = new byte[relationSlots];
         foreach (var owner in definition.Countries)
         {
             foreach (var host in definition.Countries)
@@ -1162,6 +1167,39 @@ public sealed class WorldState
         _diplomaticTies[offset] &= (byte)~bit;
         return true;
     }
+
+    /// <summary>
+    /// The trade policy <paramref name="grantor"/> holds toward <paramref name="target"/>
+    /// as things stand now.
+    /// </summary>
+    /// <remarks>
+    /// The market is planned before any phase runs, so a policy set in this turn's
+    /// <c>Diplomacy</c> is first read by next turn's market — the same ordering that makes a
+    /// consulate bought this turn open next turn.
+    /// </remarks>
+    public TradePolicy GetTradePolicy(CountryId grantor, CountryId target) =>
+        TradePolicy.Decode(_tradePolicies[GetRelationOffset(grantor, target)]);
+
+    internal void SetTradePolicy(CountryId grantor, CountryId target, TradePolicy policy)
+    {
+        if (grantor == target)
+        {
+            throw new ArgumentException("A country holds no trade policy toward itself.", nameof(target));
+        }
+
+        _tradePolicies[GetRelationOffset(grantor, target)] = policy.Encode();
+    }
+
+    /// <summary>
+    /// Whether no deal may clear between the pair: a war in effect, or a boycott either
+    /// way. One gate with two causes — "a trade boycott goes into effect automatically
+    /// between countries at war" (manual lines 3714-3715), and a chosen boycott means "no
+    /// trade of any kind occurs between the two countries" (lines 3436-3437).
+    /// </summary>
+    public bool IsTradeBoycotted(CountryId first, CountryId second) =>
+        HasEffectiveHostility(first, second) ||
+        GetTradePolicy(first, second).Kind == TradePolicyKind.Boycott ||
+        GetTradePolicy(second, first).Kind == TradePolicyKind.Boycott;
 
     private static byte TieBit(DiplomaticTie tie) =>
         Enum.IsDefined(tie)

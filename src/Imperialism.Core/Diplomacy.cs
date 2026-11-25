@@ -42,15 +42,36 @@ public enum DiplomaticOvertureKind : byte
 /// </remarks>
 public readonly record struct DiplomaticOverture(DiplomaticOvertureKind Kind, CountryId Target);
 
-/// <summary>What a consulate and an embassy cost. Both figures are the manual's.</summary>
+/// <summary>
+/// What a consulate and an embassy cost, both the manual's figures, and which subsidy
+/// percentages the trade policies screen offers.
+/// </summary>
 public sealed class DiplomacySettings
 {
-    public DiplomacySettings(long consulateCost, long embassyCost)
+    public DiplomacySettings(long consulateCost, long embassyCost, IEnumerable<int>? subsidyPercents = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(consulateCost);
         ArgumentOutOfRangeException.ThrowIfNegative(embassyCost);
+        var percents = subsidyPercents?.ToArray() ?? [];
+        for (var index = 0; index < percents.Length; index++)
+        {
+            if (percents[index] < TradePolicy.MinimumSubsidyPercent ||
+                percents[index] > TradePolicy.MaximumSubsidyPercent)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(subsidyPercents), "A subsidy is between 1 and 99 percent.");
+            }
+
+            if (index > 0 && percents[index] <= percents[index - 1])
+            {
+                throw new ArgumentException(
+                    "Subsidy percentages are distinct and in ascending order.", nameof(subsidyPercents));
+            }
+        }
+
         ConsulateCost = consulateCost;
         EmbassyCost = embassyCost;
+        SubsidyPercents = Array.AsReadOnly(percents);
     }
 
     /// <summary>"The overture costs you $500" (manual line 3517).</summary>
@@ -58,7 +79,187 @@ public sealed class DiplomacySettings
 
     /// <summary>"The Embassy overture costs $5000" (manual lines 3530-3531).</summary>
     public long EmbassyCost { get; }
+
+    /// <summary>
+    /// The subsidy buttons on the trade policies screen, ascending. The manual promises "a
+    /// new trade subsidy of varying percentages" (line 3681) and its tutorial presses
+    /// buttons labelled 5% and 10% (lines 5121 and 5126); nothing in the executable names
+    /// a third. Empty means no subsidy can be granted, which is how a package migrated
+    /// from before version 31 behaves. A boycott needs no number and is unaffected.
+    /// </summary>
+    public IReadOnlyList<int> SubsidyPercents { get; }
 }
+
+/// <summary>Which button on the trade policies screen a policy was set with.</summary>
+public enum TradePolicyKind : byte
+{
+    /// <summary>No policy: trade at the world price, ranked by nothing but country id.</summary>
+    None,
+
+    /// <summary>A trade subsidy granted to the target (manual lines 3692-3699).</summary>
+    Subsidy,
+
+    /// <summary>"No trade of any kind occurs between the two countries" (lines 3436-3437).</summary>
+    Boycott,
+}
+
+/// <summary>
+/// One Great Power's standing trade policy toward one other country: nothing, a subsidy of
+/// some percentage, or a boycott. The three are exclusive; setting one replaces the last.
+/// </summary>
+public readonly record struct TradePolicy
+{
+    /// <summary>The smallest subsidy a world may list.</summary>
+    public const int MinimumSubsidyPercent = 1;
+
+    /// <summary>The largest subsidy a world may list; 100 would make goods free.</summary>
+    public const int MaximumSubsidyPercent = 99;
+
+    private TradePolicy(TradePolicyKind kind, int percent)
+    {
+        Kind = kind;
+        Percent = percent;
+    }
+
+    public static TradePolicy None => default;
+
+    public static TradePolicy Boycott => new(TradePolicyKind.Boycott, 0);
+
+    public TradePolicyKind Kind { get; }
+
+    /// <summary>The subsidy's percentage; zero for anything but a subsidy.</summary>
+    public int Percent { get; }
+
+    /// <summary>
+    /// A subsidy of <paramref name="percent"/>. Whether the world offers that percentage
+    /// is decided when the turn resolves, and refused with an event if not; only a figure
+    /// no world could list is malformed.
+    /// </summary>
+    public static TradePolicy Subsidy(int percent)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(percent, MinimumSubsidyPercent);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(percent, MaximumSubsidyPercent);
+        return new TradePolicy(TradePolicyKind.Subsidy, percent);
+    }
+
+    /// <summary>The subsidy this policy grants, or zero.</summary>
+    internal int SubsidyPercent => Kind == TradePolicyKind.Subsidy ? Percent : 0;
+
+    internal byte Encode() => Kind switch
+    {
+        TradePolicyKind.None => 0,
+        TradePolicyKind.Subsidy => (byte)Percent,
+        TradePolicyKind.Boycott => byte.MaxValue,
+        _ => throw new ArgumentOutOfRangeException(nameof(Kind)),
+    };
+
+    internal static TradePolicy Decode(byte value) => value switch
+    {
+        0 => None,
+        byte.MaxValue => Boycott,
+        _ => new TradePolicy(TradePolicyKind.Subsidy, value),
+    };
+}
+
+/// <summary>
+/// One button on the trade policies screen pressed on one country: a subsidy, a boycott,
+/// or <see cref="TradePolicy.None"/> to cancel what stands.
+/// </summary>
+public readonly record struct TradePolicyOrder(CountryId Target, TradePolicy Policy);
+
+/// <summary>Why a trade policy order changed nothing.</summary>
+public enum TradePolicyRefusal : byte
+{
+    /// <summary>No country carries that id in this world.</summary>
+    NoSuchCountry,
+
+    /// <summary>A country sets no policy toward itself.</summary>
+    Itself,
+
+    /// <summary>"Both boycotts and subsidies are initiated by Great Powers" (line 3433).</summary>
+    NotAGreatPower,
+
+    /// <summary>A second policy toward the same country in one turn.</summary>
+    AlreadyOrderedThisTurn,
+
+    /// <summary>
+    /// Policies are set "with any country in the game where you have a trade consulate or
+    /// Embassy" (lines 3663-3667), and none was open as the turn began.
+    /// </summary>
+    NoPost,
+
+    /// <summary>The world's trade policies screen has no button for that percentage.</summary>
+    PercentNotOffered,
+}
+
+/// <summary>Records a trade policy set. It takes effect next turn.</summary>
+public sealed record TradePolicySetEvent : TurnEvent
+{
+    public TradePolicySetEvent(int turnNumber, CountryId country, CountryId target, TradePolicy policy)
+        : base(turnNumber, TurnPhase.Diplomacy)
+    {
+        Country = country;
+        Target = target;
+        Policy = policy;
+    }
+
+    public CountryId Country { get; }
+
+    public CountryId Target { get; }
+
+    public TradePolicy Policy { get; }
+}
+
+/// <summary>Records a trade policy order that changed nothing. It cost nothing either.</summary>
+public sealed record TradePolicyRefusedEvent : TurnEvent
+{
+    public TradePolicyRefusedEvent(
+        int turnNumber, CountryId country, CountryId target, TradePolicy policy, TradePolicyRefusal reason)
+        : base(turnNumber, TurnPhase.Diplomacy)
+    {
+        Country = country;
+        Target = target;
+        Policy = policy;
+        Reason = reason;
+    }
+
+    public CountryId Country { get; }
+
+    public CountryId Target { get; }
+
+    public TradePolicy Policy { get; }
+
+    public TradePolicyRefusal Reason { get; }
+}
+
+/// <summary>
+/// Records a standing policy cleared because the posts it needed were closed by a war
+/// between Great Powers. A chosen rule; see <c>docs/formulas/diplomacy.md</c>.
+/// </summary>
+public sealed record TradePolicyClearedEvent : TurnEvent
+{
+    public TradePolicyClearedEvent(int turnNumber, CountryId country, CountryId target, TradePolicy previous)
+        : base(turnNumber, TurnPhase.Diplomacy)
+    {
+        Country = country;
+        Target = target;
+        Previous = previous;
+    }
+
+    /// <summary>The Great Power whose policy it was.</summary>
+    public CountryId Country { get; }
+
+    public CountryId Target { get; }
+
+    /// <summary>The policy that stood before the war cleared it.</summary>
+    public TradePolicy Previous { get; }
+}
+
+internal sealed record PlannedTradePolicy(
+    CountryId Country,
+    CountryId Target,
+    TradePolicy Policy,
+    TradePolicyRefusal? Refusal);
 
 /// <summary>Why an overture changed nothing and cost nothing.</summary>
 public enum DiplomaticOvertureRefusal : byte
@@ -216,11 +417,18 @@ internal sealed record PlannedOverture(
 /// </summary>
 internal sealed class DiplomacyPlan
 {
-    public DiplomacyPlan(IReadOnlyList<PlannedOverture> overtures, long[] cashClaimed)
+    public DiplomacyPlan(
+        IReadOnlyList<PlannedOverture> overtures,
+        long[] cashClaimed,
+        IReadOnlyList<PlannedTradePolicy> policies)
     {
         Overtures = overtures;
         CashClaimed = cashClaimed;
+        Policies = policies;
     }
+
+    /// <summary>Every trade policy order in resolution order, set or refused.</summary>
+    public IReadOnlyList<PlannedTradePolicy> Policies { get; }
 
     /// <summary>Every overture in resolution order, accepted or refused.</summary>
     public IReadOnlyList<PlannedOverture> Overtures { get; }
@@ -296,7 +504,79 @@ internal static class DiplomacyPlanner
             }
         }
 
-        return new DiplomacyPlan(planned, spent);
+        return new DiplomacyPlan(planned, spent, PlanPolicies(state, orders));
+    }
+
+    /// <summary>
+    /// Plans the trade policy orders against the posts open as the turn began, so a
+    /// consulate bought this turn cannot carry a policy until next turn — the same way it
+    /// cannot carry an embassy.
+    /// </summary>
+    private static IReadOnlyList<PlannedTradePolicy> PlanPolicies(WorldState state, TurnOrders orders)
+    {
+        var definition = state.Definition;
+        var planned = new List<PlannedTradePolicy>();
+        for (var index = 0; index < definition.Countries.Count; index++)
+        {
+            var country = new CountryId(index);
+            var ordered = new HashSet<CountryId>();
+            foreach (var order in orders[country].TradePolicies)
+            {
+                // Only a policy that stands counts against a second one: a refused order
+                // changed nothing, so it must not stop a later order toward the same country.
+                var refusal = RefusePolicy(state, country, order, ordered);
+                if (refusal is null)
+                {
+                    _ = ordered.Add(order.Target);
+                }
+
+                planned.Add(new PlannedTradePolicy(country, order.Target, order.Policy, refusal));
+            }
+        }
+
+        return planned;
+    }
+
+    private static TradePolicyRefusal? RefusePolicy(
+        WorldState state, CountryId country, TradePolicyOrder order, HashSet<CountryId> ordered)
+    {
+        var definition = state.Definition;
+        var target = order.Target;
+        if ((uint)target.Value >= (uint)definition.Countries.Count)
+        {
+            return TradePolicyRefusal.NoSuchCountry;
+        }
+
+        if (target == country)
+        {
+            return TradePolicyRefusal.Itself;
+        }
+
+        if (!definition.Countries[country.Value].IsGreatPower)
+        {
+            return TradePolicyRefusal.NotAGreatPower;
+        }
+
+        if (ordered.Contains(target))
+        {
+            return TradePolicyRefusal.AlreadyOrderedThisTurn;
+        }
+
+        // A consulate or an embassy, open as the turn began. An embassy is only ever
+        // bought on top of a consulate, but a scenario could author one alone.
+        if (!state.HoldsDiplomaticTie(country, target, DiplomaticTie.Consulate) &&
+            !state.HoldsDiplomaticTie(country, target, DiplomaticTie.Embassy))
+        {
+            return TradePolicyRefusal.NoPost;
+        }
+
+        if (order.Policy.Kind == TradePolicyKind.Subsidy &&
+            !(definition.Diplomacy?.SubsidyPercents.Contains(order.Policy.Percent) ?? false))
+        {
+            return TradePolicyRefusal.PercentNotOffered;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -344,6 +624,22 @@ internal static class DiplomacyPlanner
                 turnNumber, overture.Country, overture.Target, overture.Kind, overture.CashCost));
         }
 
+        // After overtures, before declarations. A policy set now stands at once, but the
+        // market was planned before any phase ran, so it is first felt next turn — "any
+        // changes in diplomatic status take effect next turn" (lines 626-629).
+        foreach (var policy in plan.Policies)
+        {
+            if (policy.Refusal is { } reason)
+            {
+                events.Add(new TradePolicyRefusedEvent(
+                    turnNumber, policy.Country, policy.Target, policy.Policy, reason));
+                continue;
+            }
+
+            state.SetTradePolicy(policy.Country, policy.Target, policy.Policy);
+            events.Add(new TradePolicySetEvent(turnNumber, policy.Country, policy.Target, policy.Policy));
+        }
+
         return events;
     }
 
@@ -352,7 +648,7 @@ internal static class DiplomacyPlanner
     /// Great Powers their consulates and embassies either way. Returns the event, or null
     /// when there was nothing to cut.
     /// </summary>
-    public static DiplomaticTiesCutEvent? CutTiesForWar(
+    public static IReadOnlyList<TurnEvent> CutTiesForWar(
         WorldState state, CountryId country, CountryId target, int turnNumber)
     {
         var pactBroken = state.RemoveDiplomaticTie(country, target, DiplomaticTie.Pact);
@@ -369,9 +665,30 @@ internal static class DiplomacyPlanner
             }
         }
 
-        return pactBroken || postsClosed
-            ? new DiplomaticTiesCutEvent(turnNumber, country, target, pactBroken, postsClosed)
-            : null;
+        var events = new List<TurnEvent>();
+        if (pactBroken || postsClosed)
+        {
+            events.Add(new DiplomaticTiesCutEvent(turnNumber, country, target, pactBroken, postsClosed));
+        }
+
+        // A policy needs an open post (lines 3663-3667), so closing the posts clears it,
+        // both ways. A chosen rule: the manual says the posts must be re-established after
+        // a war and says nothing of the policies that stood on them. A war on a Minor
+        // Nation closes no post and clears nothing; the war's own boycott covers it.
+        if (postsClosed)
+        {
+            foreach (var (owner, host) in new[] { (country, target), (target, country) })
+            {
+                var previous = state.GetTradePolicy(owner, host);
+                if (previous.Kind != TradePolicyKind.None)
+                {
+                    state.SetTradePolicy(owner, host, TradePolicy.None);
+                    events.Add(new TradePolicyClearedEvent(turnNumber, owner, host, previous));
+                }
+            }
+        }
+
+        return events;
     }
 
     private static DiplomaticOvertureRefusal? Refuse(

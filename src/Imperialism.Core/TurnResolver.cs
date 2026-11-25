@@ -162,8 +162,8 @@ public static class TurnResolver
                 state.CommitProduction(trade.InventoryDeltas);
                 foreach (var entry in trade.Trades)
                 {
-                    _ = state.TrySpendCash(entry.Buyer, entry.Quantity * entry.UnitPrice);
-                    state.AddCash(entry.Seller, entry.Quantity * entry.UnitPrice);
+                    _ = state.TrySpendCash(entry.Buyer, entry.Total);
+                    state.AddCash(entry.Seller, entry.Total);
 
                     // The buyer's goods arrive next turn: "the commodities you buy appear
                     // for your use in the Industry screen next turn." That is the same
@@ -178,7 +178,8 @@ public static class TurnResolver
                         entry.Commodity,
                         entry.Quantity,
                         entry.UnitPrice,
-                        entry.HoldsPaidBy));
+                        entry.HoldsPaidBy,
+                        entry.Total));
                 }
 
                 foreach (var entry in trade.Shortfalls)

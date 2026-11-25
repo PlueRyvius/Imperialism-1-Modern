@@ -110,6 +110,9 @@ public sealed class TurnReportRenderer
             DiplomaticOvertureAcceptedEvent accepted => [OvertureAccepted(accepted)],
             DiplomaticOvertureRefusedEvent refused => [OvertureRefused(refused)],
             DiplomaticTiesCutEvent cut => [TiesCut(cut)],
+            TradePolicySetEvent set => [PolicySet(set)],
+            TradePolicyRefusedEvent refused => [PolicyRefused(refused)],
+            TradePolicyClearedEvent cleared => [PolicyCleared(cleared)],
             TaskForceAssembledEvent assembled => [Assembled(assembled)],
             TaskForcePatrolOrderedEvent patrol => [Patrolling(patrol)],
             TaskForceSailedEvent sailed => [Sailed(sailed)],
@@ -209,6 +212,35 @@ public sealed class TurnReportRenderer
             $"{Country(cut.Country)}'s war on {Country(cut.Target)} {lost}.");
     }
 
+    private TurnReportLine PolicySet(TradePolicySetEvent set)
+    {
+        var who = Country(set.Country);
+        var whom = Country(set.Target);
+        var text = set.Policy.Kind switch
+        {
+            TradePolicyKind.Subsidy => $"{who} granted {whom} a {set.Policy.Percent}% trade subsidy; it takes effect next turn.",
+            TradePolicyKind.Boycott => $"{who} declared a trade boycott of {whom}; it takes effect next turn.",
+            _ => $"{who} cancelled its trade policy toward {whom}; ordinary trade resumes next turn.",
+        };
+        return Line(set, TurnReportKind.Outcome, set.Country, null, text);
+    }
+
+    private TurnReportLine PolicyRefused(TradePolicyRefusedEvent refused) => Line(
+        refused,
+        TurnReportKind.Refusal,
+        refused.Country,
+        null,
+        $"{Country(refused.Country)} could not {TurnReportText.Describe(refused.Policy)} " +
+        $"{Country(refused.Target)}: {TurnReportText.Describe(refused.Reason)}.");
+
+    private TurnReportLine PolicyCleared(TradePolicyClearedEvent cleared) => Line(
+        cleared,
+        TurnReportKind.Outcome,
+        cleared.Country,
+        null,
+        $"With its posts in {Country(cleared.Target)} closed by war, {Country(cleared.Country)}'s " +
+        $"{TurnReportText.Name(cleared.Previous)} toward them has lapsed.");
+
     private TurnReportLine Assembled(TaskForceAssembledEvent assembled) => Line(
         assembled,
         TurnReportKind.Outcome,
@@ -253,14 +285,21 @@ public sealed class TurnReportRenderer
 
     // ---- Trade -----------------------------------------------------------
 
-    private TurnReportLine Traded(CommodityTradedEvent traded) => Line(
-        traded,
-        TurnReportKind.Outcome,
-        traded.Seller,
-        null,
-        $"{Country(traded.Seller)} sold {Count(traded.Quantity)} {Commodity(traded.Commodity)} " +
-        $"to {Country(traded.Buyer)} at {Money(traded.UnitPrice)} a unit, {Money(traded.Total)} in all; " +
-        $"{Country(traded.HoldsPaidBy)} paid the cargo holds.");
+    private TurnReportLine Traded(CommodityTradedEvent traded)
+    {
+        // A subsidy moves only the deal's total, so say so rather than print a unit price
+        // that does not multiply out.
+        var price = traded.Total == traded.Quantity * traded.UnitPrice
+            ? $"at {Money(traded.UnitPrice)} a unit, {Money(traded.Total)} in all"
+            : $"for {Money(traded.Total)} in all at a subsidised price (world price {Money(traded.UnitPrice)} a unit)";
+        return Line(
+            traded,
+            TurnReportKind.Outcome,
+            traded.Seller,
+            null,
+            $"{Country(traded.Seller)} sold {Count(traded.Quantity)} {Commodity(traded.Commodity)} " +
+            $"to {Country(traded.Buyer)} {price}; {Country(traded.HoldsPaidBy)} paid the cargo holds.");
+    }
 
     private TurnReportLine Unfilled(TradeUnfilledEvent unfilled) => Line(
         unfilled,

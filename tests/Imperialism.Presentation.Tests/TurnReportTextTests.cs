@@ -74,6 +74,22 @@ public sealed class TurnReportTextTests
         AssertDistinctAndSpoken(Enum.GetValues<DiplomaticOvertureRefusal>(), TurnReportText.Describe);
 
     [Fact]
+    public void EveryTradePolicyRefusalHasItsOwnWords() =>
+        AssertDistinctAndSpoken(Enum.GetValues<TradePolicyRefusal>(), TurnReportText.Describe);
+
+    [Fact]
+    public void EveryTradePolicyHasItsOwnWords()
+    {
+        TradePolicy[] policies = [TradePolicy.None, TradePolicy.Subsidy(5), TradePolicy.Subsidy(10), TradePolicy.Boycott];
+        foreach (var describe in new Func<TradePolicy, string>[] { TurnReportText.Describe, TurnReportText.Name })
+        {
+            var spoken = policies.Select(describe).ToArray();
+            Assert.All(spoken, static text => Assert.False(string.IsNullOrWhiteSpace(text)));
+            Assert.Equal(policies.Length, spoken.Distinct(StringComparer.Ordinal).Count());
+        }
+    }
+
+    [Fact]
     public void EveryWorkerGradeHasItsOwnWords() =>
         AssertDistinctAndSpoken(Enum.GetValues<WorkerGrade>(), TurnReportText.Describe);
 

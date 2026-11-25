@@ -192,6 +192,14 @@ embassies between Great Powers, which follow from `isGreatPower`, work as before
 version 29 document that carries the block is rejected at `diplomacy`. Legacy conversion
 emits the manual's $500 and $5,000. See `docs/formulas/diplomacy.md`.
 
+Version 31 adds `subsidyPercents` to that block: the trade policies screen's subsidy
+buttons, ascending and distinct, each between 1 and 99 (`diplomacy.subsidyPercents[i]`).
+**Empty means no subsidy can be granted**; a boycott needs no number and works wherever a
+post is open. A version 30 package migrates with the list empty, and a version 30 document
+that carries the field is rejected at `diplomacy.subsidyPercents`. Legacy conversion emits
+the tutorial's `[5, 10]` (manual lines 5121–5126), a chosen set: the executable names no
+subsidy level. See the trade-policy section of `docs/formulas/diplomacy.md`.
+
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the

@@ -322,7 +322,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(31)]
+    [InlineData(32)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1893,11 +1893,87 @@ public sealed class WorldContentTests
         var decoded = WorldContentCodec.Decode(encoded);
         var world = WorldContentCompiler.Compile(decoded).World;
 
-        Assert.Equal(30, WorldContentCodec.CurrentVersion);
         Assert.Contains("\"consulateCost\": 500", Encoding.UTF8.GetString(encoded), StringComparison.Ordinal);
         Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
         var diplomacy = Assert.IsType<DiplomacySettings>(world.Diplomacy);
         Assert.Equal((500L, 5_000L), (diplomacy.ConsulateCost, diplomacy.EmbassyCost));
+    }
+
+    [Fact]
+    public void SubsidyPercentsRoundTripAndCompile()
+    {
+        var document = CreateValidDocument();
+        document.Diplomacy = new DiplomacyContentSettings
+        {
+            ConsulateCost = 500,
+            EmbassyCost = 5_000,
+            SubsidyPercents = [5, 10],
+        };
+
+        var encoded = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(encoded);
+        var world = WorldContentCompiler.Compile(decoded).World;
+
+        Assert.Equal(31, WorldContentCodec.CurrentVersion);
+        Assert.Contains("\"subsidyPercents\"", Encoding.UTF8.GetString(encoded), StringComparison.Ordinal);
+        Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
+        Assert.Equal([5, 10], world.Diplomacy!.SubsidyPercents);
+    }
+
+    [Theory]
+    [InlineData(new[] { 0 }, "diplomacy.subsidyPercents[0]")]
+    [InlineData(new[] { 100 }, "diplomacy.subsidyPercents[0]")]
+    [InlineData(new[] { 10, 5 }, "diplomacy.subsidyPercents[1]")]
+    [InlineData(new[] { 5, 5 }, "diplomacy.subsidyPercents[1]")]
+    public void ASubsidyListOutOfRangeOrOrderIsRejected(int[] percents, string path)
+    {
+        var document = CreateValidDocument();
+        document.Diplomacy = new DiplomacyContentSettings
+        {
+            ConsulateCost = 500,
+            EmbassyCost = 5_000,
+            SubsidyPercents = percents,
+        };
+
+        AssertPath(path, document);
+    }
+
+    [Fact]
+    public void VersionThirtyMigratesToAWorldThatListsNoSubsidies()
+    {
+        var document = CreateValidDocument();
+        document.Diplomacy = new DiplomacyContentSettings { ConsulateCost = 500, EmbassyCost = 5_000 };
+        // A version 30 file has no such field at all.
+        var json = System.Text.RegularExpressions.Regex.Replace(
+            Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 30),
+            @",\s*""subsidyPercents"":\s*\[\s*\]",
+            string.Empty);
+        Assert.DoesNotContain("subsidyPercents", json, StringComparison.Ordinal);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+        var world = WorldContentCompiler.Compile(migrated).World;
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.Empty(migrated.Diplomacy!.SubsidyPercents);
+        Assert.Empty(world.Diplomacy!.SubsidyPercents);
+        Assert.Equal(500, world.Diplomacy.ConsulateCost);
+    }
+
+    [Fact]
+    public void VersionThirtyCannotListASubsidy()
+    {
+        var document = CreateValidDocument();
+        document.Diplomacy = new DiplomacyContentSettings
+        {
+            ConsulateCost = 500,
+            EmbassyCost = 5_000,
+            SubsidyPercents = [5],
+        };
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 30);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+        Assert.Equal("diplomacy.subsidyPercents", exception.Path);
     }
 
     [Fact]
