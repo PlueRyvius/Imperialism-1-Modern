@@ -148,7 +148,8 @@ That is the manual's own rule rather than a gap. See `formulas/technology.md` an
 experience]`; the province supplies ownership, and type is the executable's zero-based
 index into its fixed 30-row army table. Each record is one regiment; repeated records
 retain their source order. An unknown province is an error; an unknown type is warned
-and dropped; zero experience is preserved. This preserves the tactical roster without guessing
+and dropped — the 30-row limit is the importer's alone (`OriginalArmyTypeCount`), since
+Core's `ArmyTypeId` accepts any non-negative id; zero experience is preserved. This preserves the tactical roster without guessing
 deployment, movement, losses, capture, or combat resolution.
 
 `civi` records are converted rather than deferred. The record is `[type, cell]`

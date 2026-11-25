@@ -1504,6 +1504,16 @@ public static class LegacyWorldConverter
     }
 
     /// <summary>
+    /// The number of rows in the original executable's army table. A legacy
+    /// <c>army</c> record's type is a <b>zero-based</b> index into it; the army
+    /// manager's per-type tables are all 30 entries long
+    /// (<c>docs/disasm/definitive-original-data.md</c>, "Verified army fields").
+    /// This is a limit of the 1997 files and stops here: Core's
+    /// <see cref="ArmyTypeId"/> accepts any non-negative id.
+    /// </summary>
+    internal const uint OriginalArmyTypeCount = 30;
+
+    /// <summary>
     /// Preserves original <c>army</c> records as <c>[province, type, experience]</c>.
     /// The type is zero-based and indexes the executable's verified 30-row
     /// army table; ownership is intentionally not copied, because it is the
@@ -1546,13 +1556,13 @@ public static class LegacyWorldConverter
                 continue;
             }
 
-            if (type >= (uint)ArmyTypeId.OriginalTypeCount)
+            if (type >= OriginalArmyTypeCount)
             {
                 report.Add(
                     LegacyImportSeverity.Warning,
                     "scenario.unknown-army-type",
                     path,
-                    $"Army type {type} is outside the table of {ArmyTypeId.OriginalTypeCount}; " +
+                    $"Army type {type} is outside the table of {OriginalArmyTypeCount}; " +
                     "no army regiment was placed.");
                 continue;
             }
