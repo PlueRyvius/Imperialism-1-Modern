@@ -89,4 +89,32 @@ public sealed class OrdersPreviewGateTests
         Assert.Equal(1, recruited.Recruited);
         Assert.Equal(recruited.Recruited, preview.Recruitment!.ExpectedRecruits);
     }
+
+    [Fact]
+    public void OutputThatFundsABuildingIsStillNotSellable()
+    {
+        // 2 lumber in stock, 2 made this turn, 2 spent on the mill. Core lets the
+        // mill use this turn's output, yet the market sells only from stock less
+        // what industry claims, so nothing is left to sell.
+        var package = Compile();
+        var state = NewState(package);
+        var lumber = Commodity(package, "commodity.lumber");
+        Assert.True(state.TryConsumeAvailable(Blue, lumber, 8));
+        var draft = new OrdersDraft(state.Definition, Blue);
+        draft.SetProduction(Recipe(package, "recipe.lumber"), 2);
+        draft.SetExpansion(Facility(package, "facility.lumber-mill"), true);
+        draft.SetOffer(lumber, 5);
+
+        var preview = OrdersPreview.Create(package, Scenario, state, draft);
+        var red = new CountryTurnOrders(Red, tradeBids: [new TradeOrder(lumber, 5)]);
+        var events = TurnResolver.Resolve(state, new TurnOrders([draft.Build(), red]), 1).Events;
+
+        Assert.Single(events.OfType<FacilityExpandedEvent>(), e => e.Country == Blue);
+        Assert.Equal(ExpansionOutcome.Expands,
+            preview.Industry.Facilities.Single(row => row.FacilityKey == "facility.lumber-mill").Expansion);
+        var row = preview.Trade.Rows.Single(item => item.CommodityKey == "commodity.lumber");
+        Assert.Equal((2L, 2L, 0L), (row.Stock, row.ClaimedByIndustry, row.Sellable));
+        Assert.Equal(row.Sellable, events.OfType<CommodityTradedEvent>()
+            .Where(e => e.Seller == Blue && e.Commodity == lumber).Sum(static e => e.Quantity));
+    }
 }

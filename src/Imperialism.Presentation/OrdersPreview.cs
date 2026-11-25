@@ -13,8 +13,8 @@ public sealed record CommodityAmountView(string CommodityKey, string CommodityNa
 /// <remarks>
 /// <b>A preview, not a ruling.</b> Core's planners are internal, so these figures
 /// repeat their rules in the order <see cref="TurnResolver"/> applies them —
-/// recipes, then facility expansion, then the railyard, then the Capitol, then the
-/// market — and the tests resolve real turns to hold the two together. Core still
+/// recipes, then facility expansion in the draft's order, then the railyard, then the
+/// Capitol, then the market — and the tests resolve real turns to hold the two together. Core still
 /// decides when the turn resolves. The preview never refuses: an over-ask shows as
 /// a warning and goes to Core as given, which trims or refuses it and reports why.
 /// <para>
@@ -106,6 +106,7 @@ public sealed class OrdersPreview
         // (1) Recipes, in the player's order, each limited by what the earlier rows
         // left of the facility, the labour pool and the warehouse.
         var recipes = new List<RecipePreview>();
+        var produced = new long[available.Length];
         foreach (var (recipeId, requested) in draft.Production)
         {
             var recipe = world.ProductionRecipes[recipeId.Value];
@@ -154,6 +155,12 @@ public sealed class OrdersPreview
                 claimed[input.Commodity.Value] += expected * input.Quantity;
             }
 
+            // Not added to `available` yet: a later recipe cannot use it this turn.
+            foreach (var output in recipe.Outputs)
+            {
+                produced[output.Commodity.Value] += expected * output.Quantity;
+            }
+
             recipes.Add(new RecipePreview(
                 names.Key(recipe.Id),
                 recipe.Name,
@@ -168,7 +175,48 @@ public sealed class OrdersPreview
                 facility.CapacityMode == ProductionCapacityMode.Unlimited));
         }
 
-        // (2) Facility expansion, from what the recipes left of the warehouse.
+        // What the recipes make is in the warehouse for everything built after them:
+        // Core plans expansion, the railyard and the Capitol against production's net
+        // deltas, outputs included. Never `claimed` — the market cannot sell it.
+        for (var index = 0; index < available.Length; index++)
+        {
+            available[index] += produced[index];
+        }
+
+        // (2) Facility expansion, from what the recipes left of the warehouse, in the
+        // draft's order: that is the order Core charges them, so when materials cover
+        // only one building the first listed gets it, whatever its catalogue position.
+        var outcomes = new Dictionary<ProductionFacilityId, ExpansionOutcome>();
+        foreach (var facilityId in draft.Expansions)
+        {
+            var facility = world.ProductionFacilities[facilityId.Value];
+            if (facility.CapacityLadder is not { } ladder || world.ExpansionCostPerCapacityPoint.Count == 0)
+            {
+                outcomes[facilityId] = ExpansionOutcome.CannotExpand;
+                continue;
+            }
+
+            if (facility.RequiredTechnology is { } required && !state.HasTechnology(country, required))
+            {
+                outcomes[facilityId] = ExpansionOutcome.TechnologyNotKnown;
+                continue;
+            }
+
+            var bill = ExpansionBill(world, ladder, state.GetProductionCapacity(country, facilityId) ?? 0);
+            if (bill.Any(item => available[item.Commodity.Value] < item.Quantity))
+            {
+                outcomes[facilityId] = ExpansionOutcome.NotEnoughMaterials;
+                continue;
+            }
+
+            outcomes[facilityId] = ExpansionOutcome.Expands;
+            foreach (var item in bill)
+            {
+                available[item.Commodity.Value] -= item.Quantity;
+                claimed[item.Commodity.Value] += item.Quantity;
+            }
+        }
+
         var facilities = new List<FacilityPreview>();
         foreach (var facility in world.ProductionFacilities)
         {
@@ -178,41 +226,12 @@ public sealed class OrdersPreview
             var gated = facility.RequiredTechnology is { } required && !state.HasTechnology(country, required);
             long? next = null;
             IReadOnlyList<CommodityAmountView> cost = [];
-            var ordered = draft.Expansions.Contains(facility.Id);
-            var expansion = ExpansionOutcome.NotOrdered;
+            var ordered = outcomes.TryGetValue(facility.Id, out var expansion);
             if (facility.CapacityLadder is { } ladder && world.ExpansionCostPerCapacityPoint.Count > 0)
             {
                 var from = capacity ?? 0;
                 next = ladder.NextAbove(from);
-                var points = next.Value - from;
-                var bill = world.ExpansionCostPerCapacityPoint
-                    .Select(item => new CommodityQuantity(item.Commodity, item.Quantity * points))
-                    .ToArray();
-                cost = names.Amounts(bill);
-                if (ordered)
-                {
-                    if (gated)
-                    {
-                        expansion = ExpansionOutcome.TechnologyNotKnown;
-                    }
-                    else if (bill.Any(item => available[item.Commodity.Value] < item.Quantity))
-                    {
-                        expansion = ExpansionOutcome.NotEnoughMaterials;
-                    }
-                    else
-                    {
-                        expansion = ExpansionOutcome.Expands;
-                        foreach (var item in bill)
-                        {
-                            available[item.Commodity.Value] -= item.Quantity;
-                            claimed[item.Commodity.Value] += item.Quantity;
-                        }
-                    }
-                }
-            }
-            else if (ordered)
-            {
-                expansion = ExpansionOutcome.CannotExpand;
+                cost = names.Amounts(ExpansionBill(world, ladder, from));
             }
 
             facilities.Add(new FacilityPreview(
@@ -228,7 +247,8 @@ public sealed class OrdersPreview
                 expansion));
         }
 
-        // (3) The railyard: the warehouse after expansion, the labour after recipes.
+        // (3) The railyard: the warehouse (output included) after expansion, the labour
+        // after recipes.
         RailyardPreview? railyard = null;
         if (world.Transport is { } transport && transport.CostPerCapacityPoint.Count > 0)
         {
@@ -415,6 +435,14 @@ public sealed class OrdersPreview
             state.GetCash(country),
             draft.TradeBids.Count(static row => row.Quantity > 0),
             Array.AsReadOnly(rows.ToArray()));
+    }
+
+    private static CommodityQuantity[] ExpansionBill(WorldDefinition world, CapacityLadder ladder, long from)
+    {
+        var points = ladder.NextAbove(from) - from;
+        return world.ExpansionCostPerCapacityPoint
+            .Select(item => new CommodityQuantity(item.Commodity, item.Quantity * points))
+            .ToArray();
     }
 
     private sealed class Names(CompiledWorldPackage package, WorldDefinition world)
