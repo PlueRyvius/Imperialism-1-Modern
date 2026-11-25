@@ -88,8 +88,8 @@ public enum NavalOrderRefusal : byte
     FleetNotYours,
 
     /// <summary>
-    /// The fleet has no sea zone — a newly built ship, which waits unplaced, or a legacy
-    /// record naming a zone this map does not have.
+    /// The fleet has no sea zone — a merchant hull, a warship with no capital-adjacent
+    /// sea zone, or a legacy record naming a zone this map does not have.
     /// </summary>
     FleetNotPlaced,
 

@@ -210,8 +210,8 @@ with an event, never an exception, when:
 **Defenders** are every regiment of the province's current owner standing in it, militia
 and regiments that marched in this turn included. A type with **no combat stats** (the
 Generals) is not a combatant: it travels, retreats and surrenders with its side and is never
-fired on. If no defender is a combatant, the province is taken **uncontested**. If no
-attacker is a combatant, the attack loses after 0 rounds.
+fired on. If no defender is a combatant, the province is taken **uncontested**. If the
+defenders include a combatant but the attackers do not, the attack loses after 0 rounds.
 
 `StrategicBattleResolver`, behind the internal `IBattleResolver` in the same way the price
 rule sits behind `ITradeMarket`, works as follows:
