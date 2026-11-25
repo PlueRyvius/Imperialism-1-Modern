@@ -170,9 +170,11 @@ scenario's own starting stock agree.
 
 ## Open questions
 
-- Power plants, which the manual says add directly to the labour pool and are
-  spent before human labour.
-- The Trade School: how workers are promoted between grades.
+- ~~Power plants.~~ **Modelled** at `.iworld` v27: power joins the pool for the
+  turn it is made and is spent before human labour. See `production.md`.
+- ~~The Trade School.~~ **Modelled** at v27. A trainee is out of the pool for the
+  turn, **still eats**, and works at the new grade from the next turn — that last
+  point a chosen rule. See `migration.md`.
 - Recruiting new workers, which the manual says costs canned food.
 - Whether the original penalises illness on the same turn it is diagnosed rather
   than the next. Our phase order forces the next, and the player-facing reading

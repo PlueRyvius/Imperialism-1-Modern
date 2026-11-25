@@ -406,6 +406,8 @@ public static class WorldContentCompiler
             improvement = new ImprovementSettings(costs);
         }
 
+        var workerTraining = CompileWorkerTraining(document.WorkerTraining, commodityIds);
+        var power = CompilePower(document.Power, commodityIds, facilityIds, facilities);
         var recipes = CompileProductionRecipes(recipeContent, facilityIds, commodityIds);
 
         MapDimensions dimensions;
@@ -516,7 +518,9 @@ public static class WorldContentCompiler
                     improvement,
                     shipTypes,
                     shipTypeIds,
-                    tradeMarket));
+                    tradeMarket,
+                    workerTraining,
+                    power));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -550,7 +554,9 @@ public static class WorldContentCompiler
         ImprovementSettings? improvement,
         ShipTypeDefinition[] shipTypes,
         IReadOnlyDictionary<string, int> shipTypeIds,
-        ITradeMarket? tradeMarket)
+        ITradeMarket? tradeMarket,
+        WorkerTrainingSettings? workerTraining,
+        PowerSettings? power)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -803,7 +809,9 @@ public static class WorldContentCompiler
                 construction,
                 improvement,
                 shipTypes,
-                tradeMarket);
+                tradeMarket,
+                workerTraining,
+                power);
         }
         catch (ArgumentException exception)
         {
@@ -1043,6 +1051,76 @@ public static class WorldContentCompiler
         catch (ArgumentException exception)
         {
             throw Error("startingDefaults", exception.Message, exception);
+        }
+    }
+
+    private static WorkerTrainingSettings? CompileWorkerTraining(
+        WorkerTrainingContent?[]? content,
+        IReadOnlyDictionary<string, int> commodityIds)
+    {
+        if (content is null)
+        {
+            return null;
+        }
+
+        var rules = new WorkerTrainingRule[content.Length];
+        for (var index = 0; index < content.Length; index++)
+        {
+            var path = $"workerTraining[{index}]";
+            var entry = content[index] ?? throw Error(path, "Value is required.");
+            var cost = CompileCommodityQuantities(
+                RequireArray(entry.Cost, $"{path}.cost"), commodityIds, $"{path}.cost");
+            try
+            {
+                rules[index] = new WorkerTrainingRule(entry.From, cost, entry.CashCost);
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error(path, exception.Message, exception);
+            }
+        }
+
+        try
+        {
+            return new WorkerTrainingSettings(rules);
+        }
+        catch (ArgumentException exception)
+        {
+            throw Error("workerTraining", exception.Message, exception);
+        }
+    }
+
+    private static PowerSettings? CompilePower(
+        PowerContentSettings? content,
+        IReadOnlyDictionary<string, int> commodityIds,
+        IReadOnlyDictionary<string, int> facilityIds,
+        ProductionFacilityDefinition[] facilities)
+    {
+        if (content is null)
+        {
+            return null;
+        }
+
+        var fuel = FindKey(commodityIds, content.Fuel, "power.fuel");
+        var plant = FindKey(facilityIds, content.Facility, "power.facility");
+        if (facilities[plant].CapacityMode != ProductionCapacityMode.Limited)
+        {
+            throw Error(
+                "power.facility",
+                "A plant must be built to be held, so it needs a limited capacity.");
+        }
+
+        try
+        {
+            return new PowerSettings(
+                new CommodityId(fuel),
+                new ProductionFacilityId(plant),
+                content.PowerPerFuel,
+                content.MaxFuelPerTurn);
+        }
+        catch (Exception exception) when (exception is ArgumentException or OverflowException)
+        {
+            throw Error("power", exception.Message, exception);
         }
     }
 

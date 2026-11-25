@@ -54,15 +54,10 @@ public static class TurnResolver
 
         // The railyard is priced against the same running total, and is the one
         // build that also draws on the labour pool, so it needs to know what
-        // production already spent there.
-        var labourSpent = new long[orders.Count];
-        foreach (var entry in production.Entries)
-        {
-            labourSpent[entry.Country.Value] = checked(
-                labourSpent[entry.Country.Value] + entry.LabourUsed);
-        }
-
-        var railyard = TransportPlanner.CreateRailyard(state, orders, spentSoFar, labourSpent);
+        // production already spent there — and what the Trade School took out of
+        // it. Power is not offered to it: power is spent by production or lost.
+        var railyard = TransportPlanner.CreateRailyard(
+            state, orders, spentSoFar, production.HumanLabourClaimed);
         for (var index = 0; index < spentSoFar.Length; index++)
         {
             spentSoFar[index] += railyard.InventoryDeltas[index];
@@ -104,7 +99,10 @@ public static class TurnResolver
             claimed[index] = Math.Max(0, produced[index] - combined[index]);
         }
 
-        var trade = TradePlanner.Create(state, orders, claimed);
+        // Training is paid for on the Industry screen before the market clears, the
+        // same first claim industry has on the warehouse, so trade bids only with
+        // what the Trade School leaves.
+        var trade = TradePlanner.Create(state, orders, claimed, production.CashClaimed);
         for (var index = 0; index < combined.Length; index++)
         {
             combined[index] += trade.InventoryDeltas[index];
@@ -173,7 +171,40 @@ public static class TurnResolver
             }
             else if (phase == TurnPhase.Production)
             {
+                // Paper, fuel and every recipe's inputs leave together. Training's
+                // cash cannot fail here: trade was planned against what was left
+                // after it.
                 state.CommitProduction(production.InventoryDeltas);
+                foreach (var entry in production.Training)
+                {
+                    if (entry.CashPaid > 0 && !state.TrySpendCash(entry.Country, entry.CashPaid))
+                    {
+                        throw new InvalidOperationException(
+                            "Training was planned against cash the treasury no longer holds.");
+                    }
+
+                    events.Add(new WorkersTrainedEvent(
+                        turnNumber,
+                        entry.Country,
+                        entry.Rule.From,
+                        entry.Rule.To,
+                        entry.Count,
+                        entry.Paid,
+                        entry.CashPaid));
+                }
+
+                foreach (var entry in production.TrainingRefusals)
+                {
+                    events.Add(new WorkerTrainingRefusedEvent(
+                        turnNumber, entry.Country, entry.From, entry.Requested, entry.Reason));
+                }
+
+                foreach (var entry in production.PowerRefusals)
+                {
+                    events.Add(new PowerRefusedEvent(
+                        turnNumber, entry.Country, entry.Requested, entry.Reason));
+                }
+
                 foreach (var entry in production.Entries)
                 {
                     events.Add(new ProductionCompletedEvent(
@@ -186,6 +217,26 @@ public static class TurnResolver
                         entry.LabourUsed,
                         entry.Consumed,
                         entry.Produced));
+                }
+
+                foreach (var entry in production.Power)
+                {
+                    events.Add(new PowerGeneratedEvent(
+                        turnNumber,
+                        entry.Country,
+                        entry.Fuel,
+                        entry.FuelBurned,
+                        entry.PowerMade,
+                        entry.PowerSpent));
+                }
+
+                // Promotion comes last, once every recipe has drawn on the pool, so a
+                // trainee supplies nothing this turn and its new grade's labour from
+                // the next. That timing is a chosen rule; the manual says only "out of
+                // the labour pool for the turn". See docs/formulas/migration.md.
+                foreach (var entry in production.Training)
+                {
+                    Promote(state, entry.Country, entry.Rule.From, entry.Rule.To, entry.Count);
                 }
             }
             else if (phase == TurnPhase.Construction)
@@ -427,6 +478,15 @@ public static class TurnResolver
             state.CurrentDate,
             seed,
             events);
+    }
+
+    private static void Promote(
+        WorldState state, CountryId country, WorkerGrade from, WorkerGrade to, long count)
+    {
+        // Raise the higher grade first so that a worker counted out of one grade
+        // is never briefly absent from both.
+        state.SetWorkers(country, to, checked(state.GetWorkers(country, to) + count));
+        state.SetWorkers(country, from, state.GetWorkers(country, from) - count);
     }
 
     private static void FinalizeConnectivity(WorldState state)

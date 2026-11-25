@@ -136,6 +136,11 @@ internal static class WorldContentMigrator
             MigrateVersionTwentyFiveToTwentySix(document);
         }
 
+        if (document.FormatVersion == 26)
+        {
+            MigrateVersionTwentySixToTwentySeven(document);
+        }
+
         if (document.FormatVersion == WorldContentCodec.CurrentVersion)
         {
             RejectLegacyArmyCount(document);
@@ -1098,6 +1103,28 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 26;
+    }
+
+    /// <summary>
+    /// Version 27 adds the Trade School and the Power Plant. Neither is supplied:
+    /// absent means not modelled, so a migrated package trains nobody and burns
+    /// nothing, exactly as it did. Re-importing legacy content supplies the
+    /// recovered terms.
+    /// </summary>
+    private static void MigrateVersionTwentySixToTwentySeven(WorldContentDocument document)
+    {
+        if (document.WorkerTraining is not null)
+        {
+            throw new ContentValidationException(
+                "workerTraining", "Version 26 cannot declare worker training.");
+        }
+
+        if (document.Power is not null)
+        {
+            throw new ContentValidationException("power", "Version 26 cannot declare power.");
+        }
+
+        document.FormatVersion = 27;
     }
 
     private static void RejectLegacyArmyCount(WorldContentDocument document)

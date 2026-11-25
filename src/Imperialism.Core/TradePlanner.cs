@@ -107,7 +107,11 @@ internal static class TradePlanner
     /// commits, which is after this.
     /// </para>
     /// </remarks>
-    public static TradePlan Create(WorldState state, TurnOrders orders, long[] claimed)
+    public static TradePlan Create(
+        WorldState state,
+        TurnOrders orders,
+        long[] claimed,
+        long[]? cashClaimed = null)
     {
         var definition = state.Definition;
         var commodityCount = definition.Commodities.Count;
@@ -128,7 +132,7 @@ internal static class TradePlanner
         for (var index = 0; index < countryCount; index++)
         {
             var country = new CountryId(index);
-            cash[index] = state.GetCash(country);
+            cash[index] = state.GetCash(country) - (cashClaimed?[index] ?? 0);
             holds[index] = state.GetMerchantMarine(country);
         }
 

@@ -680,19 +680,46 @@ three Traders, which is Core's existing rule and needed no change.
 `trade.md` and want a full corpus to confirm.
 
 **What is recorded and deliberately unused.** The army purchase and stat tables, the map
-geometry, the town-development rules, the power conversion (1 fuel → 6 power, 100 fuel a
-turn) and worker training (1 paper + $100 to train, 2 paper + $1,000 to promote) are all in
-the extraction and modelled nowhere. So is every entry marked `candidate` — including a
+geometry and the town-development rules are all in the extraction and modelled nowhere.
+The power conversion and worker training were on this list and are spent at v27; see
+below. So is every entry marked `candidate` — including a
 nine-record cost block that *looks* like the civilian purchase list and whose first figure
 happens to match our remembered depot cost. **Do not promote a candidate without tracing its
 selector.**
 
-Transient power, research *progress*, conflict, diplomacy, trade subsidies, sea routes
+Research *progress*, conflict, diplomacy, trade subsidies, sea routes
 between ports, blockade, moving regiments by rail, building ships, the University, the
 newspaper and fortifications remain explicitly pending. So does
 **whether a civilian's work costs cash generally** — the manual implies it does, and
 `docs/formulas/money.md` records the finding without acting on it, because pricing
 every civilian's work would move every number in the soak.
+
+`.iworld` **v27** spends the last two recovered industry figures: a **Power Plant** and a
+**Trade School**. Both resolve inside `Production`, ahead of every recipe, so **no new turn
+phase** — the client smoke still counts fourteen. Training charges its paper and cash and
+takes its trainees out of this turn's pool; the plant burns fuel into a pool of power that
+recipes spend **before** any human labour; whatever power is left is lost, because it
+"cannot be sold or stored". **Every number is the original's own**: 1 paper + $100 to train,
+2 paper + $1,000 to promote, 1 fuel → 6 power, at most 100 fuel a turn. The v26 migration
+adds neither block, so a migrated package trains nobody and burns nothing.
+
+**Four rules in it are chosen, and are labelled so.** A trainee works at its new grade from
+the **next** turn — the manual says only "out of the labour pool for the turn". The 100 is
+read as a **flat cap** per country, not scaled by the plant's size. An order over it is
+**refused, not trimmed**. And power goes to recipes only, never the railyard. Two smaller
+ones ride along: the cheap promotion is paid for before the dear one, and training is paid
+**before the market clears**, so trade cannot spend money already promised to the school.
+Each promotion step is **all or nothing**, and **only healthy workers** may be sent; both
+are chosen too. A bill too large to count is refused like any other, never an overflow.
+
+**The Power Plant is the refinery's twin, gap included.** Same facility machinery, same
+ladder, appended last so no imported id moves. The manual opens both with Oil Drilling, and
+**neither is gated in code**: a facility carries no technology requirement, so the refinery
+was already buildable without it. The plant inherits that rather than being fixed alone.
+Mutation-checked: power-first order, transience, promotion timing, refusal charging, the
+cap, the plant requirement and the trade ordering each fail a test when broken
+(`PowerAndTrainingTests`, `TradeTests`). No soak table moved, because no soak policy
+submits these orders.
 
 **Production spends labour: two per cycle, flat**, from one pool per country shared
 across every facility. The manual prices exactly one recipe — a unit of clothing

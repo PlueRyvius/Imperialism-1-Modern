@@ -81,6 +81,32 @@ public static class TurnReportText
         _ => throw new ArgumentOutOfRangeException(nameof(structure)),
     };
 
+    public static string Describe(PowerRefusal reason) => reason switch
+    {
+        PowerRefusal.NotModelled => "this world has no power",
+        PowerRefusal.NoPowerPlant => "it has no Power Plant",
+        PowerRefusal.OverTurnLimit => "that is more than a plant may burn in one turn",
+        PowerRefusal.NotEnoughFuel => "the warehouse does not hold that much fuel",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason)),
+    };
+
+    public static string Describe(WorkerTrainingRefusal reason) => reason switch
+    {
+        WorkerTrainingRefusal.NotOffered => "the Trade School offers no training from that grade",
+        WorkerTrainingRefusal.NotEnoughWorkers => "it has fewer healthy workers of that grade",
+        WorkerTrainingRefusal.NotEnoughCommodities => "the warehouse does not hold the paper it costs",
+        WorkerTrainingRefusal.NotEnoughCash => "the treasury will not cover it",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason)),
+    };
+
+    public static string Describe(WorkerGrade grade) => grade switch
+    {
+        WorkerGrade.Untrained => "untrained",
+        WorkerGrade.Trained => "trained",
+        WorkerGrade.Expert => "expert",
+        _ => throw new ArgumentOutOfRangeException(nameof(grade)),
+    };
+
     public static string Describe(PendingDeliverySource source) => source switch
     {
         PendingDeliverySource.Transport => "carried",

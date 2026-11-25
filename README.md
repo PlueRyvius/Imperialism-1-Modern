@@ -125,7 +125,8 @@ still an optional local source with the procedural palette as its fallback.
 - [x] Treasury, gold and gems income, and the Engineer's rail, depots and ports (`TreasuryTests`, `EngineerTests`)
 - [x] World market and merchant-marine cargo holds (`TradeTests`)
 - [x] River and sea connectivity for ports, sea zones, fleets and task forces (`SeaZoneTopologyTests`, `FleetStateTests`, `TaskForceMovementTests`)
-- [ ] Transient power and research progress
+- [x] Transient power and worker training (`PowerAndTrainingTests`)
+- [x] Research progress: the original has none beyond purchase ([`docs/formulas/research-progress.md`](docs/formulas/research-progress.md))
 - [ ] Trade subsidies, sea routes between ports, and blockade
 - [ ] Moving regiments by rail, building ships, the University, the newspaper, fortifications
 

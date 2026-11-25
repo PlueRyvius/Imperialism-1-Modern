@@ -289,8 +289,12 @@ Capacity is per facility; **labour is one pool per country**, spent across every
 facility in the order the requests arrive. Outputs are staged rather than
 made eligible as same-turn inputs. Production deltas and existing pending
 deliveries are jointly preflighted before any inventory mutation, preserving
-full-turn atomicity for the currently implemented economy phases. Power,
-capacity construction, and transport allocation remain later rule layers.
+full-turn atomicity for the currently implemented economy phases. Before any
+recipe runs, the Trade School withholds its trainees' labour and the Power Plant
+burns fuel into a per-turn power pool that recipes spend ahead of human labour;
+both live inside `Production` rather than in a phase of their own, and trainees
+are promoted only after the recipes have run. See
+`docs/formulas/production.md`.
 
 **Civilians on the map.** `CivilianUnit` is the first thing here that is neither
 a definition nor a per-country total: it has an identity, a position and a job.

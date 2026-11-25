@@ -186,6 +186,11 @@ bottom of this file.
 | **The ship array's order, cargo, sea zones, build costs and combat stats** | **`verified`** — the executable's naval and cost tables | [trade](trade.md) | Core, Content, LegacyImport | generated |
 | The raw-resource yield curves | **`verified`** — the executable's table agrees with the manual row for row | [extraction](extraction.md) | Core, Content, LegacyImport | generated + local corpus |
 | What the Capitol charges per recruit | **`verified`** — the worker-conversion help string | [migration](migration.md) | Core, Content, LegacyImport | generated |
+| What the Trade School charges per promotion | **`verified`** — the same worker-conversion help string | [migration](migration.md) | Core, Content, LegacyImport | generated |
+| When a trainee works at its new grade | **a chosen rule** — the next turn | [migration](migration.md) | Core | generated |
+| Fuel to power, and the most a turn may burn | **`verified`** — the power help string; the cap read as flat per country | [production](production.md) | Core, Content, LegacyImport | generated |
+| Power spent before people, and lost if unspent | `inferred` — **the manual states both** | [production](production.md) | Core | generated |
+| A power order over the cap | **a chosen rule** — refused, not trimmed | [production](production.md) | Core | generated |
 | Diplomatic relation deltas | `guess` | _relations_ | — | — |
 | Council nomination + abstention curve | `guess` | _council_ | — | — |
 | Tactical initiative order | `guess` | _initiative_ | — | — |

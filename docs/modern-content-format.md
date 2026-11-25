@@ -153,6 +153,15 @@ of width and height. Legacy conversion sets it because the original map seam wra
 modern packages migrate as non-wrapping maps because they had no naval movement behaviour
 to preserve.
 
+Version 27 adds two optional world-level blocks. `workerTraining[]` holds one entry per
+promotion — `from` (`untrained` or `trained`; the trainee ends one grade higher), a `cost`
+list of commodity quantities and a `cashCost`, all per worker — and may not price a grade
+twice. `power` names the `fuel` commodity, the `facility` a country must hold to burn it,
+which must be capacity-limited, `powerPerFuel` and `maxFuelPerTurn`. **Absent means not
+modelled**, and a version 26 package migrates with neither, so it trains nobody and burns
+nothing, which is how it behaved. Legacy conversion writes the recovered terms and a
+`facility.power-plant` laddered like the refinery. See `docs/formulas/production.md`.
+
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the

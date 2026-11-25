@@ -322,7 +322,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(27)]
+    [InlineData(28)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1729,6 +1729,138 @@ public sealed class WorldContentTests
         Assert.Equal(4, migrated.Scenarios[0].Armies[0].Experience);
         Assert.Null(migrated.Scenarios[0].Armies[0].LegacyCount);
         Assert.DoesNotContain("\"count\"", Encoding.UTF8.GetString(WorldContentCodec.Encode(migrated)));
+    }
+
+    [Fact]
+    public void VersionTwentySixMigratesToAWorldThatNeitherTrainsNorBurns()
+    {
+        // Absent means not modelled, so a migrated package behaves exactly as it did.
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 26);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+        var world = WorldContentCompiler.Compile(migrated).World;
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.Null(migrated.WorkerTraining);
+        Assert.Null(migrated.Power);
+        Assert.Null(world.WorkerTraining);
+        Assert.Null(world.Power);
+        var reencoded = Encoding.UTF8.GetString(WorldContentCodec.Encode(migrated));
+        Assert.DoesNotContain("\"workerTraining\"", reencoded, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"power\"", reencoded, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("workerTraining")]
+    [InlineData("power")]
+    public void VersionTwentySixMigrationRejectsVersionTwentySevenBlocks(string block)
+    {
+        var document = WithPowerAndTraining(CreateValidDocument());
+        if (block == "power")
+        {
+            document.WorkerTraining = null;
+        }
+        else
+        {
+            document.Power = null;
+        }
+
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 26);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+        Assert.Equal(block, exception.Path);
+    }
+
+    [Fact]
+    public void WorkerTrainingAndPowerRoundTripAndCompile()
+    {
+        var document = WithPowerAndTraining(CreateValidDocument());
+
+        var encoded = WorldContentCodec.Encode(document);
+        var json = Encoding.UTF8.GetString(encoded);
+        var decoded = WorldContentCodec.Decode(encoded);
+        var world = WorldContentCompiler.Compile(decoded).World;
+
+        Assert.Contains("\"from\": \"untrained\"", json, StringComparison.Ordinal);
+        Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
+        var training = Assert.IsType<WorkerTrainingSettings>(world.WorkerTraining);
+        Assert.Equal(2, training.Rules.Count);
+        var expert = Assert.IsType<WorkerTrainingRule>(training.GetRule(WorkerGrade.Trained));
+        Assert.Equal(WorkerGrade.Expert, expert.To);
+        Assert.Equal(1000, expert.CashCost);
+        Assert.Equal(2, Assert.Single(expert.Cost).Quantity);
+        Assert.Null(training.GetRule(WorkerGrade.Expert));
+        var power = Assert.IsType<PowerSettings>(world.Power);
+        Assert.Equal(6, power.PowerPerFuel);
+        Assert.Equal(100, power.MaxFuelPerTurn);
+        Assert.Equal("Oil", world.Commodities[power.Fuel.Value].Name);
+        Assert.Equal("Steel Mill", world.ProductionFacilities[power.Plant.Value].Name);
+    }
+
+    [Fact]
+    public void TrainingOutOfTheTopGradeIsRejected()
+    {
+        var document = WithPowerAndTraining(CreateValidDocument());
+        document.WorkerTraining![1].From = WorkerGrade.Expert;
+
+        AssertPath("workerTraining[1]", document);
+    }
+
+    [Fact]
+    public void TrainingTheSameGradeTwiceIsRejected()
+    {
+        var document = WithPowerAndTraining(CreateValidDocument());
+        document.WorkerTraining![1].From = WorkerGrade.Untrained;
+
+        AssertPath("workerTraining", document);
+    }
+
+    [Fact]
+    public void PowerMustNameAFacilityThatExists()
+    {
+        var document = WithPowerAndTraining(CreateValidDocument());
+        document.Power!.Facility = "facility.power-plant";
+
+        AssertPath("power.facility", document);
+    }
+
+    [Fact]
+    public void PowerThatMakesNothingIsRejected()
+    {
+        var document = WithPowerAndTraining(CreateValidDocument());
+        document.Power!.PowerPerFuel = 0;
+
+        AssertPath("power", document);
+    }
+
+    private static WorldContentDocument WithPowerAndTraining(WorldContentDocument document)
+    {
+        // The fixture has no paper or fuel; steel and oil stand in, which is all the
+        // codec can tell apart anyway.
+        document.WorkerTraining =
+        [
+            new WorkerTrainingContent
+            {
+                From = WorkerGrade.Untrained,
+                Cost = [new CommodityQuantityContent { Commodity = "commodity.steel", Quantity = 1 }],
+                CashCost = 100,
+            },
+            new WorkerTrainingContent
+            {
+                From = WorkerGrade.Trained,
+                Cost = [new CommodityQuantityContent { Commodity = "commodity.steel", Quantity = 2 }],
+                CashCost = 1000,
+            },
+        ];
+        document.Power = new PowerContentSettings
+        {
+            Fuel = "commodity.oil",
+            Facility = "facility.steel-mill",
+            PowerPerFuel = 6,
+            MaxFuelPerTurn = 100,
+        };
+        return document;
     }
 
     [Fact]
