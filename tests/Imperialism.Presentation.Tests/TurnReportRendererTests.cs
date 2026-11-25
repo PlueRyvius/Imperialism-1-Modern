@@ -589,6 +589,7 @@ public sealed class TurnReportRendererTests
             new CommodityDeliveredEvent(1, new PendingDelivery(
                 new DeliveryId(1), Blue, grain, 12, PendingDeliverySource.Extraction)),
             new TechnologyPurchasedEvent(1, Blue, new TechnologyId(0), 1200),
+            new TechnologyAvailableEvent(1, new TechnologyId(0)),
             new TechnologyPurchaseRefusedEvent(
                 1, Blue, new TechnologyId(1), TechnologyPurchaseRefusal.NotEnoughCash),
             new WorkersTrainedEvent(1, Blue, WorkerGrade.Untrained, WorkerGrade.Trained, 2, some, 200),

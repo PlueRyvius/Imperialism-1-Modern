@@ -35,6 +35,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | What an overture costs, and what a war cuts | `docs/formulas/diplomacy.md` |
 | How a player changes what the network reaches | `docs/formulas/engineer.md` |
 | What a regiment costs, and how it marches or rides the rail | `docs/formulas/army.md` |
+| What the newspaper prints, and for whom | `docs/formulas/newspaper.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Does the economy hold up over 100 turns? | `docs/formulas/soak.md` |
@@ -693,8 +694,7 @@ happens to match our remembered depot cost. **Do not promote a candidate without
 selector.**
 
 Research *progress*, conflict, diplomacy, trade subsidies, sea routes
-between ports, blockade, the
-newspaper and building fortifications remain explicitly pending. So does
+between ports, blockade and building fortifications remain explicitly pending. So does
 **whether a civilian's work costs cash generally** — the manual implies it does, and
 `docs/formulas/money.md` records the finding without acting on it, because pricing
 every civilian's work would move every number in the soak.
@@ -943,6 +943,20 @@ cleared both ways, its later attacks that turn are refused, and units due to it 
 treasury and workforce stay **frozen**, neither eating nor gathering. The `Extraction`
 skip is unobservable because a capital-less country already gathers nothing. The rules are
 army 38–48 and engineer F1–F7, each labelled manual or chosen. No soak number moved.
+
+**Row 7b prints the newspaper, with no content bump and no new phase.** Core gains one
+event, `TechnologyAvailableEvent`, emitted at the end of `Investment` for each priced
+technology whose arrival year the turn's date advance **crosses** — never one already
+available as the game opens, never an unpriced one, same-year arrivals in id order.
+Technology.md had said "the events exist"; **they did not**, and that line is corrected.
+Presentation gains `NewspaperView`, a detached per-reader paper built from a resolution:
+seven priorities of headline ("New Invention" first, the manual's own title, lines
+4096–4099), then the "doings of the little people" as items, **every headline before any
+item, at most 12 stories**, the rest counted, and one fixed item on a quiet quarter. A
+story's body is the turn report's own sentence, except New Invention's and the quiet
+quarter's, which are the paper's own. **All four rules are chosen** (N1–N4 in
+`docs/formulas/newspaper.md`) because `UNewspaper.cpp` is untraced
+(`wanted-values.md` §10). The Godot screen is not built. No soak number moved.
 
 **Production spends labour: two per cycle, flat**, from one pool per country shared
 across every facility. The manual prices exactly one recipe — a unit of clothing

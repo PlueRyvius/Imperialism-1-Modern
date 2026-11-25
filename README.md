@@ -135,7 +135,7 @@ still an optional local source with the procedural palette as its fallback.
 - [ ] Sea routes between ports other than capitals
 - [x] The University: buying and disbanding civilians (`UniversityTests`)
 - [x] Buying regiments and moving them by march and rail (`RegimentTests`)
-- [ ] The newspaper
+- [x] The newspaper: the New Invention event and a detached view (`TechnologyAvailableEventTests`, `NewspaperViewTests`); the Godot screen is pending
 - [x] Land battles and capture (`LandBattleTests`)
 - [x] Naval landings and attacks across water (`LandingTests`)
 - [x] Fortification construction (`FortTests`)

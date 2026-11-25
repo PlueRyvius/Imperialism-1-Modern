@@ -743,6 +743,12 @@ public static class TurnResolver
                             $"Unhandled investment outcome {outcome.GetType().Name}."),
                     });
                 }
+
+                // Then the inventions this turn's date advance makes available: the
+                // newspaper's "New Invention" (chosen rule N1). The year the turn ends
+                // on comes from the date's own step rather than from CompleteTurn, which
+                // still runs last.
+                AnnounceInventions(state, startedAt.Year, startedAt.Next().Year, turnNumber, events);
             }
             else if (phase == TurnPhase.Connectivity)
             {
@@ -768,6 +774,25 @@ public static class TurnResolver
         // is never briefly absent from both.
         state.SetWorkers(country, to, checked(state.GetWorkers(country, to) + count));
         state.SetWorkers(country, from, state.GetWorkers(country, from) - count);
+    }
+
+    /// <summary>
+    /// One <see cref="TechnologyAvailableEvent"/> per priced technology whose arrival
+    /// year lies in <c>(yearNow, yearAfter]</c>, in ascending id order.
+    /// </summary>
+    private static void AnnounceInventions(
+        WorldState state, int yearNow, int yearAfter, int turnNumber, List<TurnEvent> events)
+    {
+        foreach (var technology in state.Definition.Technologies)
+        {
+            if (technology.Cost is not null &&
+                technology.AvailableFrom is { } arrival &&
+                arrival > yearNow &&
+                arrival <= yearAfter)
+            {
+                events.Add(new TechnologyAvailableEvent(turnNumber, technology.Id));
+            }
+        }
     }
 
     private static void FinalizeConnectivity(WorldState state)

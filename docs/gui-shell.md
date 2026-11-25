@@ -361,7 +361,9 @@ Manual checklist:
 - **Provinces owned** is deliberately absent from the status snapshot: it is
   O(provinces) and would break the promise that the border costs nothing.
 - **The manual's real interstitials.** It describes three, and this slice builds
-  none of them: the newspaper at the start of every turn (:494-498, :557-560),
+  none of them: the newspaper at the start of every turn (:494-498, :557-560) —
+  **the view exists; the screen is pending**: `NewspaperView` in Presentation
+  composes a reader's paper from a resolution, see `docs/formulas/newspaper.md` —
   the Deal Book summarising trades and the deals that fell through (:3298-3306,
   :5011-5013), and the full-screen technology confirmation (:4249-4253). The Deal
   Book in particular is a re-grouping of `CommodityTradedEvent` plus

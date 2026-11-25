@@ -464,6 +464,21 @@ waiting on the binary.
 **Wanted once traced:** (a) is a content edit in `LegacyWorldConverter.CreateStandardConstruction`;
 (b) replaces `EliminationPlanner.Eliminate`; (c) is one guard in `LandBattles` healing.
 
+## 10. The newspaper: what row 7b chose
+
+Row 7b composes a paper from each turn's events. **All four selection rules are chosen**
+(`docs/formulas/newspaper.md` N1–N4); nothing of the original's is recovered beyond the
+manual's prose. Done on the PC.
+
+| Target | Question | What it replaces |
+|---|---|---|
+| (a) `UNewspaper.cpp`, `0x0055BA30`–`0x0055BB8F` | What selects the stories, in what order, and is there a cap on how many a paper prints? | N2's priorities, N3's filter, N4's cap of 12 |
+| (b) The newspaper story strings in `STR#ENU.GOB` | How many story templates there are, by kind — **counts only**, no text copied | `NewspaperText`'s story kinds, which are ours |
+| (c) The same path | Does the original report a rival's technology purchase? | The `TechnologyPurchasedEvent` item, chosen in N2 |
+
+**Wanted once traced:** (a) replaces `NewspaperView`'s `Editor` and the cap; (b) tells us
+which kinds of story the original has and we lack; (c) is one arm of the `Editor` switch.
+
 ## What is *not* wanted
 
 Please do not spend time on these — they are settled well enough that a binary value would

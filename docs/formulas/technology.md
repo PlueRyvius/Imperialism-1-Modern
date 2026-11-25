@@ -671,4 +671,7 @@ recorded above.
   accumulates points, which is what this models. Its one optional follow-up is
   drawing each arrival date within its window.
 - **The newspaper**, which is how the original tells you a technology has arrived.
-  The events exist and nothing presents them.
+  An earlier version of this line said "the events exist". They did not: nothing
+  marked an arrival. Row 7b adds `TechnologyAvailableEvent` (chosen rule N1 in
+  [newspaper.md](newspaper.md)) and a detached `NewspaperView`; the screen that
+  shows it is still pending.
