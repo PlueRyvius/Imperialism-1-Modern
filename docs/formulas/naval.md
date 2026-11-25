@@ -34,6 +34,15 @@ merchant hulls. **The money already paid stands.**
 the executable's `0x005578A0` is traced on the PC (`wanted-values.md` §7). The loop's shape
 is 6b's recovered one; what is invented is labelled below as chosen rules 11–28.
 
+**Row 6d adds the landing site**, the executable's task-force state 5. A fourth mission,
+`Landing(province)`, holds a site on a province the task force's zone touches; from the next
+turn regiments may cross to it from any coast with a sea path (`army.md`, rules 31–37). A
+site neither cuts a port nor intercepts merchants. It is fought over in two ways the manual
+names: a hostile task force **sailing into** its zone attacks it the turn it arrives, and the
+first landing through it in a turn is attacked by **every** hostile task force in the zone,
+whatever it is doing. Ships lost there drown troops. **The interception battle is a
+placeholder** until a PC trace (`wanted-values.md` §8). Naval chosen rules 29–33 below.
+
 There is **no new turn phase** (the client smoke test still counts fourteen), **no content
 version bump**, and **no soak number moved**: no soak policy declares war or orders a fleet.
 
@@ -41,9 +50,10 @@ version bump**, and **no soak number moved**: no soak policy declares war or ord
 
 `inferred`. The manual states that a declaration cannot be refused and takes effect next
 turn, and that a fleet takes a mission or a move in a turn but not both. The patrol state
-and the sailing leg are PR #35's executable readings. Twenty-eight rules below are chosen,
+and the sailing leg are PR #35's executable readings. Thirty-three rules below are chosen,
 and are labelled where they appear and in the table. Rules 13, 22 and 25 are
-**placeholders**, not readings: they stand until `0x005578A0` is traced.
+**placeholders**, not readings: they stand until `0x005578A0` is traced. Rule 31 is a
+placeholder until the landing path is traced (`wanted-values.md` §8).
 
 | Claim | Support |
 |---|---|
@@ -90,6 +100,16 @@ and are labelled where they appear and in the table. Rules 13, 22 and 25 are
 | 26. Money settled in `Trade` is never reversed | **chosen rule** |
 | 27. A sunk merchant comes from the carrier's lowest-id merchant fleet | **chosen rule** |
 | 28. The generator streams and salts | **chosen rule** |
+| A fleet may establish a landing site near a coast; troops may not cross the turn it is established, and may on any later turn while ships hold the zone | **manual**, lines 1935–1945 |
+| A landing site is task-force state 5, which the port predicate does not count | **executable**, `definitive-original-data.md` ("Strategic mission construction") |
+| A fleet moving into a zone holding a hostile landing fleet intercepts it, the one exception to a move arriving idle | **manual**, lines 1889–1891 |
+| Enemy fleets "entering or present" in the zone fight the landing fleets on the turn troops cross; sunk ships drown troops | **manual**, lines 1778–1781 and 1940–1942 |
+| The landing force is capped by the armaments cost of the ships performing it | `game-systems.md:272-274`, the owner's reading; **not traced** |
+| 29. A site needs no war, may name an ownerless province, and is usable from the next turn; re-ordering it restamps that turn; `None` keeps it | **chosen rule** |
+| 30. The arrival rule's attacker is the arriving side; if both arrived and both hold sites, the lower id | **chosen rule** |
+| 31. The first landing through a site in a turn is attacked by every hostile country's task forces in the zone, any activity, one country at a time in id order, until the site is gone; once per site a turn | **chosen rule — a placeholder** until the landing path is traced |
+| 32. A site persists until moved, re-ordered, stood down or dissolved, including after a landing through it; it intercepts no merchant | **chosen rule**; the ports are **executable** (state 5) |
+| 33. Landing battles share the `"NAVALBAT"` salt and the turn's naval ordinal count | **chosen rule** |
 
 ## Declaring war
 
@@ -411,13 +431,72 @@ with `"NAVALBAT"` and number their ordinals from 0 in the order fought, escort b
 continuing the same count; interceptions salt with `"INTERCEP"` and use the deal index. No
 naval stream shares a land battle's.
 
+## Landing sites
+
+Row 6d. The army side — who may cross, how much a site carries and who drowns — is in
+`army.md`, rules 31–37. `game-systems.md:272-274` states the mechanic in one sentence and
+keeps its wording.
+
+**The mission.** `NavalMission.Landing(province)` is given through `Assemble` or `Command` like
+a patrol or a blockade and spends the turn. The task force's activity becomes
+`TaskForceActivity.Landing`, with `LandingTarget` and `LandingSince` (the turn it was
+established); both clear whenever the activity changes. It is refused, with an event and no
+change, as `UnknownProvince` when the id is out of range, `LandingOnOwnProvince` when the
+ordering country owns the target, and `ProvinceNotOnThisSeaZone` when no cell of the target
+touches the task force's present zone (`PortAccess.AdjacentSeaZones`).
+
+**No war is needed (chosen rule 29)**, as with a patrol or blockade: war is checked when troops
+land. An ownerless province may be named. "You cannot move land forces on the turn the landing
+site is established" (line 1943), so a site is ready only when `LandingSince` is an earlier
+turn, and **re-ordering a landing, even at the same province, restamps it**: it is a new
+site. A `None` mission spends nothing and keeps the site (rule 8).
+
+**What a site does not do (chosen rule 32).** It is state 5, so `PortAccess`, which counts only
+the patrol state, never counts it: it cuts no port. It intercepts no merchant either; only a
+patrol or a blockade draws for a deal. It persists until the task force moves, takes another
+mission, stands down after a lost battle, or is dissolved — and a successful landing does not
+end it.
+
+**Arriving intercepts (chosen rule 30).** A moved task force arrives idle and normally seeks no
+battle. The manual's one exception: "A fleet ordered to move into a sea zone containing hostile
+landing fleets intercepts the landing" (lines 1889–1891). `ResolveConflict` hands
+`ResolveBattles` a turn-local set of the task forces that arrived by a move; in the existing
+(zone, pair) loop a pair with no patrol still fights when one side arrived and the other holds
+a site there. The arriving side attacks, every task force of the landing side in the zone
+defends, and the battle is a `NavalBattleFoughtEvent` of kind `Landing`. If both arrived and
+both hold sites, the lower id attacks. A hostile already lying idle in the zone does not attack
+the site on this step; it fights the landing itself, below.
+
+**The interception battle (chosen rule 31 — a placeholder).** Before the first landing through a
+site in a turn crosses, **every effectively hostile country with task forces in the site's zone,
+whatever they are doing** — idle, patrolling, blockading, holding a site of their own — attacks
+it: "Any enemy fleets entering or present in the sea zone with the landing site automatically
+intercept and battle the landing fleets" (lines 1778–1781). One country at a time in id order;
+the hostile side attacks and the landing country's task forces in the zone defend, through 6c's
+`Fight` and resolver. The loser stands down (rule 17), so a beaten site ends at once and the
+battles stop. It is fought **once per site a turn**; later landings through the site see its
+result. Ships sunk here shrink what the site can carry, and the regiments that no longer fit
+drown (`army.md`, rule 34).
+
+**The stream (chosen rule 33).** Landing battles salt with `"NAVALBAT"` and continue the turn's
+naval ordinal count, so they collide with neither a land battle nor a 6c battle.
+
+**A sample landing**, from `LandingTests` (seed 1). Home holds a site on Beach from East with one
+Battleship and three Lighters; a Lighter's build bill holds 3 armaments, the Battleship's
+none, so the site carries **9**. Nine Regulars (1 armament each, load 9) are ordered across
+from Harbour. Other has two Frigates idle in East, so they intercept: **Home wins in 2 rounds**,
+both Frigates sunk and one Lighter lost. The site now carries **6**: regiments **7, 8 and 9
+drown** — the end of the roster — and **1–6 land**, using 6 with 0 left. Beach is undefended
+and is captured uncontested. This shows what the placeholder does. It is not evidence for it.
+
 ## What this does not do
 
 - **Ship damage and repair**, and so the manual's "fully repaired" condition on escorts.
   **Ship experience** and **Admirals**.
 - **Aggressiveness** (lines 4664–4668). Not stored.
-- **Landings and their interception** (row 6d), and **placing newly built ships**: a new
-  ship is unplaced, so it is refused as `FleetNotPlaced` until placement is modelled.
+- **Placing newly built ships**: a new ship is unplaced, so it is refused as
+  `FleetNotPlaced` until placement is modelled — and so cannot hold a landing site.
+- **Troops aboard ships** as a standing state: a landing crosses within one turn's `Conflict`.
 - **Routes between ports other than capitals.**
 - **Minor Nations' own merchants**: they own none (`trade.md`), so a minor carrier never
   arises.
@@ -469,3 +548,14 @@ was run, turned at least one test red, and was reverted:
 | Let anchored fleets be engaged | `AnAnchoredFleetIsNotEngagedByAPatrol`, `ABeatenPatrolGoesIdle…`, the three escort tests |
 | Skip the escort battle | `EscortsFightOncePerTaskForceAndCarrierEvenAcrossSeveralDeals`, `ABeatenInterceptorGoesIdleAndInterceptsNothingMore` |
 | Make every outcome a capture | `ATurnedBackCargoReturnsToTheSellerAndTheMoneyStands`, `ASunkMerchantLosesTheCargoAndOneHull` |
+
+Row 6d's tests are `LandingTests` (Core) and
+`ALandingSaysWhereItCameFromWhatItCarriedAndWhoDrowned` (Presentation). Each of these
+mutations was run, turned at least one test red, and was reverted (the army ones are listed in
+`army.md`):
+
+| Mutation | Caught by |
+|---|---|
+| Drop the arrival rule (`ResolveBattles` sees no arrivals) | `AHostileSailingIntoTheSitesZoneFightsItButOneAlreadyThereDoesNot` |
+| Let only patrols intercept a landing | `AnIdleEnemyInTheSitesZoneFightsTheLanding…`, `ALostInterceptionDrownsEveryone…`, `TheInterceptionIsFoughtOncePerSitePerTurn` |
+| Let a landing site cut ports (`PortAccess` counts `Landing`) | `ALandingSiteCutsNoPortWhereAPatrolDoes` |

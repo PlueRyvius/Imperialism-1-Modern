@@ -149,7 +149,7 @@ internal sealed class StrategicNavalBattleResolver : INavalBattleResolver
 /// <summary>
 /// Naval battles in <c>Conflict</c>, and interception with its escort battles in
 /// <c>TradeCancellation</c>. Every rule here beyond the manual's prose is chosen and
-/// labelled in <c>docs/formulas/naval.md</c>, rules 11–28.
+/// labelled in <c>docs/formulas/naval.md</c>, rules 11–28, and the landing rules from 29.
 /// </summary>
 internal static class NavalWarPlanner
 {
@@ -175,12 +175,21 @@ internal static class NavalWarPlanner
 
     /// <summary>
     /// The <c>Conflict</c> battles: zones in id order, then effectively hostile pairs
-    /// a &lt; b with task forces there, fought when at least one side patrols. Pairs
-    /// resolve against live state, so ships sunk in one are gone for the next.
+    /// a &lt; b with task forces there, fought when at least one side patrols — or when
+    /// one side arrived by a move this turn and the other holds a landing site there
+    /// (naval rule 30). Pairs resolve against live state, so ships sunk in one are gone
+    /// for the next, and each pair fights at most once in this step.
     /// </summary>
+    /// <param name="arrived">Task forces that arrived by a move this turn; turn-local.</param>
     public static IReadOnlyList<TurnEvent> ResolveBattles(
-        WorldState state, int turnNumber, ulong seed, INavalBattleResolver resolver, Ordinals ordinals)
+        WorldState state,
+        int turnNumber,
+        ulong seed,
+        INavalBattleResolver resolver,
+        Ordinals ordinals,
+        IReadOnlySet<TaskForceId>? arrived = null)
     {
+        arrived ??= new HashSet<TaskForceId>();
         var events = new List<TurnEvent>();
         var zones = state.TaskForces
             .Select(static force => force.SeaZone)
@@ -213,20 +222,37 @@ internal static class NavalWarPlanner
                         continue;
                     }
 
-                    // Only a patrol seeks battle; two blockades or idle forces pass.
+                    // Only a patrol seeks battle; two blockades or idle forces pass. The
+                    // manual's one exception: a task force sailing into a zone holding a
+                    // hostile landing site intercepts it the turn it arrives (1889–1891).
                     var patrolA = forcesA.Any(static force => force.Activity == TaskForceActivity.Patrolling);
                     var patrolB = forcesB.Any(static force => force.Activity == TaskForceActivity.Patrolling);
-                    if (!patrolA && !patrolB)
+                    var kind = NavalBattleKind.Patrol;
+                    bool aAttacks;
+                    if (patrolA || patrolB)
                     {
-                        continue;
+                        aAttacks = patrolA;
+                    }
+                    else
+                    {
+                        var interceptA = forcesA.Any(force => arrived.Contains(force.Id)) && HoldsLanding(forcesB);
+                        var interceptB = forcesB.Any(force => arrived.Contains(force.Id)) && HoldsLanding(forcesA);
+                        if (!interceptA && !interceptB)
+                        {
+                            continue;
+                        }
+
+                        // Both arrived and both hold sites: the lower id attacks (chosen).
+                        kind = NavalBattleKind.Landing;
+                        aAttacks = interceptA;
                     }
 
-                    var (attacker, attackForces, defender, defendForces) = patrolA
+                    var (attacker, attackForces, defender, defendForces) = aAttacks
                         ? (a, forcesA, b, forcesB)
                         : (b, forcesB, a, forcesA);
                     var fought = Fight(
                         state,
-                        NavalBattleKind.Patrol,
+                        kind,
                         zone,
                         attacker,
                         attackForces.SelectMany(static force => force.Fleets).ToArray(),
@@ -395,7 +421,10 @@ internal static class NavalWarPlanner
     internal static bool IsMerchant(ShipTypeDefinition type) =>
         type.Cargo > 0 && (type.Combat?.Firepower ?? 0) == 0;
 
-    private static TaskForceState[] ForcesIn(WorldState state, CountryId country, SeaZoneId zone) =>
+    private static bool HoldsLanding(TaskForceState[] forces) =>
+        forces.Any(static force => force.Activity == TaskForceActivity.Landing);
+
+    internal static TaskForceState[] ForcesIn(WorldState state, CountryId country, SeaZoneId zone) =>
         state.TaskForces.Where(force => force.Country == country && force.SeaZone == zone).ToArray();
 
     private static int Chance(
@@ -484,7 +513,7 @@ internal static class NavalWarPlanner
     }
 
     /// <summary>A beaten side's surviving task forces go idle; a broken patrol or blockade (chosen rule 17).</summary>
-    private static void StandDown(WorldState state, IEnumerable<TaskForceState> forces)
+    internal static void StandDown(WorldState state, IEnumerable<TaskForceState> forces)
     {
         foreach (var force in forces)
         {
@@ -499,7 +528,7 @@ internal static class NavalWarPlanner
     /// Fights one battle between two sets of fleets and sinks the losses. Returns null,
     /// fighting nothing, when either side has no ship with combat stats.
     /// </summary>
-    private static NavalBattleFoughtEvent? Fight(
+    internal static NavalBattleFoughtEvent? Fight(
         WorldState state,
         NavalBattleKind kind,
         SeaZoneId zone,

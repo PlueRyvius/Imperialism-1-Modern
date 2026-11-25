@@ -65,8 +65,12 @@ internal static class NavalPlanner
     /// The <c>Conflict</c> phase: countries in id order, orders in list order, and every
     /// sailing leg resolved once after all of them — a chosen rule.
     /// </summary>
+    /// <param name="arrived">
+    /// Receives every task force that arrived somewhere by a move this turn, for the
+    /// battle step's arrival rule (naval rule 30). Turn-local, never world state.
+    /// </param>
     public static IReadOnlyList<TurnEvent> ResolveConflict(
-        WorldState state, TurnOrders orders, int turnNumber)
+        WorldState state, TurnOrders orders, int turnNumber, HashSet<TaskForceId>? arrived = null)
     {
         var events = new List<TurnEvent>();
         var ordered = new HashSet<TaskForceId>();
@@ -96,6 +100,11 @@ internal static class NavalPlanner
         foreach (var leg in state.ResolveTaskForceMoves())
         {
             var force = state.GetTaskForce(leg.TaskForce);
+            if (leg.From != leg.To)
+            {
+                _ = arrived?.Add(leg.TaskForce);
+            }
+
             events.Add(new TaskForceSailedEvent(
                 turnNumber,
                 force.Country,
@@ -245,6 +254,11 @@ internal static class NavalPlanner
             return CheckBlockade(state, country, blockade.Target, current);
         }
 
+        if (mission is NavalMission.LandingMission landing)
+        {
+            return CheckLanding(state, country, landing.Target, current);
+        }
+
         if (mission is not NavalMission.MoveMission move)
         {
             return null;
@@ -297,8 +311,36 @@ internal static class NavalPlanner
             : NavalOrderRefusal.CapitalNotOnThisSeaZone;
     }
 
+    /// <summary>
+    /// A landing site names a province, which must exist, must not be the ordering
+    /// country's own as the turn resolves, and must touch the zone the task force lies in.
+    /// No war is needed to establish one (naval rule 29): war is checked when troops land.
+    /// An ownerless province is allowed.
+    /// </summary>
+    private static NavalOrderRefusal? CheckLanding(
+        WorldState state, CountryId country, ProvinceId target, SeaZoneId current)
+    {
+        if ((uint)target.Value >= (uint)state.Definition.Map.Provinces.Count)
+        {
+            return NavalOrderRefusal.UnknownProvince;
+        }
+
+        if (state.GetProvinceOwner(target) == country)
+        {
+            return NavalOrderRefusal.LandingOnOwnProvince;
+        }
+
+        return ProvinceTouchesSeaZone(state.Definition.Map, target, current)
+            ? null
+            : NavalOrderRefusal.ProvinceNotOnThisSeaZone;
+    }
+
+    /// <summary>Whether any cell of a province touches the given sea zone.</summary>
+    internal static bool ProvinceTouchesSeaZone(MapDefinition map, ProvinceId province, SeaZoneId zone) =>
+        map.GetCells(province).Any(cell => PortAccess.AdjacentSeaZones(map, cell).Contains(zone));
+
     /// <summary>Sea zones between two zones, or null when no sea path joins them.</summary>
-    private static long? SeaZoneDistance(SeaZoneTopology topology, SeaZoneId from, SeaZoneId to)
+    internal static long? SeaZoneDistance(SeaZoneTopology topology, SeaZoneId from, SeaZoneId to)
     {
         var distance = new Dictionary<SeaZoneId, long> { [from] = 0 };
         var frontier = new Queue<SeaZoneId>();
@@ -345,6 +387,13 @@ internal static class NavalPlanner
                 state.BlockadeTaskForce(country, force.Id, blockade.Target);
                 events.Add(new TaskForceBlockadeOrderedEvent(
                     turnNumber, country, force.Id, force.SeaZone, blockade.Target));
+                break;
+            case NavalMission.LandingMission landing:
+                // Re-ordering restamps the turn, even at the same target: a new site,
+                // unusable this turn (naval rule 29).
+                state.EstablishLandingSite(country, force.Id, landing.Target, turnNumber);
+                events.Add(new TaskForceLandingOrderedEvent(
+                    turnNumber, country, force.Id, force.SeaZone, landing.Target));
                 break;
             case NavalMission.MoveMission move:
                 // The plan switches the task force out of patrol at once, and the leg

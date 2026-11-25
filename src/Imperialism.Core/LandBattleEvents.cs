@@ -243,3 +243,95 @@ public sealed record RegimentsHealedEvent : TurnEvent
     /// <summary>Health restored across all of them.</summary>
     public long HealthRestored { get; }
 }
+
+/// <summary>
+/// Records regiments carried across water from a landing site, before the land battle (if
+/// any) for the province. <see cref="ArmsUsed"/> is what they took of the site's capacity
+/// and <see cref="CapacityLeft"/> what remains for later landings through it this turn.
+/// </summary>
+public sealed record RegimentsLandedEvent : TurnEvent
+{
+    private readonly IReadOnlyList<RegimentId> _regiments;
+
+    public RegimentsLandedEvent(
+        int turnNumber,
+        CountryId country,
+        TaskForceId taskForce,
+        IEnumerable<RegimentId> regiments,
+        ProvinceId from,
+        ProvinceId destination,
+        long armsUsed,
+        long capacityLeft)
+        : base(turnNumber, TurnPhase.Conflict)
+    {
+        ArgumentNullException.ThrowIfNull(regiments);
+        ArgumentOutOfRangeException.ThrowIfNegative(armsUsed);
+        ArgumentOutOfRangeException.ThrowIfNegative(capacityLeft);
+        _regiments = Array.AsReadOnly(regiments.ToArray());
+        if (_regiments.Count == 0)
+        {
+            throw new ArgumentException("A landing lands somebody.", nameof(regiments));
+        }
+
+        Country = country;
+        TaskForce = taskForce;
+        From = from;
+        Destination = destination;
+        ArmsUsed = armsUsed;
+        CapacityLeft = capacityLeft;
+    }
+
+    public CountryId Country { get; }
+
+    /// <summary>The task force holding the landing site.</summary>
+    public TaskForceId TaskForce { get; }
+
+    public IReadOnlyList<RegimentId> Regiments => _regiments;
+
+    public ProvinceId From { get; }
+
+    public ProvinceId Destination { get; }
+
+    public long ArmsUsed { get; }
+
+    public long CapacityLeft { get; }
+}
+
+/// <summary>
+/// Records regiments drowned on the way to a landing, because the interception battle
+/// sank the ships carrying them or broke the landing site. They are removed. A
+/// <b>placeholder</b> until the executable's landing is traced; see
+/// <c>docs/formulas/army.md</c>, rule 34.
+/// </summary>
+public sealed record RegimentsDrownedEvent : TurnEvent
+{
+    private readonly IReadOnlyList<RegimentId> _regiments;
+
+    public RegimentsDrownedEvent(
+        int turnNumber,
+        CountryId country,
+        TaskForceId taskForce,
+        IEnumerable<RegimentId> regiments,
+        ProvinceId destination)
+        : base(turnNumber, TurnPhase.Conflict)
+    {
+        ArgumentNullException.ThrowIfNull(regiments);
+        _regiments = Array.AsReadOnly(regiments.ToArray());
+        if (_regiments.Count == 0)
+        {
+            throw new ArgumentException("A drowning drowns somebody.", nameof(regiments));
+        }
+
+        Country = country;
+        TaskForce = taskForce;
+        Destination = destination;
+    }
+
+    public CountryId Country { get; }
+
+    public TaskForceId TaskForce { get; }
+
+    public IReadOnlyList<RegimentId> Regiments => _regiments;
+
+    public ProvinceId Destination { get; }
+}

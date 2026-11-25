@@ -2,14 +2,14 @@ namespace Imperialism.Core;
 
 /// <summary>
 /// What a task force is told to do this turn: nothing, patrol where it is, blockade a
-/// capital it lies beside, or sail.
+/// capital it lies beside, establish a landing site on a province it lies beside, or sail.
 /// </summary>
 /// <remarks>
 /// "Mission orders are carried out in the sea zone where the fleet is already located.
 /// Movement sends the fleet to a new location. Fleets cannot do both a mission and a
-/// move in the same turn." So a task force takes one of these a turn, never two. The
-/// landing is not here yet (row 6d). A blockade never cuts a port: the executable's port
-/// predicate counts only the patrol state. See <c>docs/formulas/naval.md</c>.
+/// move in the same turn." So a task force takes one of these a turn, never two. A
+/// blockade and a landing site never cut a port: the executable's port predicate counts
+/// only the patrol state. See <c>docs/formulas/naval.md</c>.
 /// </remarks>
 public abstract class NavalMission
 {
@@ -28,6 +28,13 @@ public abstract class NavalMission
     /// cursor. A blockade names a country and acts on its capital (chosen rule 11).
     /// </summary>
     public static NavalMission Blockade(CountryId target) => new BlockadeMission(target);
+
+    /// <summary>
+    /// Establish a landing site on a province from the task force's present sea zone, the
+    /// Cannon cursor: "Establish a site for a landing on coast of this sea zone" (manual
+    /// 1114–1116). Troops may cross to it from the next turn (naval rule 29).
+    /// </summary>
+    public static NavalMission Landing(ProvinceId target) => new LandingMission(target);
 
     /// <summary>Sail towards another sea zone, the Wheel cursor.</summary>
     public static NavalMission MoveTo(SeaZoneId destination) => new MoveMission(destination);
@@ -50,6 +57,16 @@ public abstract class NavalMission
         public CountryId Target { get; }
 
         public override string ToString() => $"Blockade({Target})";
+    }
+
+    /// <summary>A landing-site order. The target is checked when the turn resolves.</summary>
+    public sealed class LandingMission : NavalMission
+    {
+        internal LandingMission(ProvinceId target) => Target = target;
+
+        public ProvinceId Target { get; }
+
+        public override string ToString() => $"Landing({Target})";
     }
 
     /// <summary>A move order. The destination is checked when the turn resolves.</summary>

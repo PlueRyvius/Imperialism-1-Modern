@@ -26,6 +26,33 @@ public sealed record TaskForceBlockadeOrderedEvent : TurnEvent
     public CountryId Target { get; }
 }
 
+/// <summary>
+/// Records a task force establishing a landing site on a province from its present sea
+/// zone: the executable's state 5. Troops may cross from the next turn, for as long as the
+/// site holds. It never cuts a port and never intercepts merchants.
+/// </summary>
+public sealed record TaskForceLandingOrderedEvent : TurnEvent
+{
+    public TaskForceLandingOrderedEvent(
+        int turnNumber, CountryId country, TaskForceId taskForce, SeaZoneId seaZone, ProvinceId target)
+        : base(turnNumber, TurnPhase.Conflict)
+    {
+        Country = country;
+        TaskForce = taskForce;
+        SeaZone = seaZone;
+        Target = target;
+    }
+
+    public CountryId Country { get; }
+
+    public TaskForceId TaskForce { get; }
+
+    public SeaZoneId SeaZone { get; }
+
+    /// <summary>The province the site is established on.</summary>
+    public ProvinceId Target { get; }
+}
+
 /// <summary>One fleet's part in a naval battle.</summary>
 /// <param name="ShipsBefore">Ships of this fleet that fought; a class with no combat stats stands aside and is not listed.</param>
 /// <param name="ShipsSunk">Ships of this fleet sunk in the battle. Survivors come out undamaged.</param>
@@ -47,6 +74,13 @@ public enum NavalBattleKind : byte
     /// anchored beside the carrier's capital.
     /// </summary>
     Escort,
+
+    /// <summary>
+    /// A landing site was fought in <c>Conflict</c>: by a hostile task force that sailed
+    /// into its zone this turn (manual 1889–1891), or by every hostile present when the
+    /// first troops cross through it (manual 1778–1781). The landing side defends.
+    /// </summary>
+    Landing,
 }
 
 /// <summary>

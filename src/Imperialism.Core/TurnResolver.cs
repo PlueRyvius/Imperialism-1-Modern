@@ -164,13 +164,16 @@ public static class TurnResolver
             {
                 // Before Extraction, so a patrol set or a leg sailed this turn already
                 // decides this turn's port access, through hostility already in effect.
-                events.AddRange(NavalPlanner.ResolveConflict(state, orders, turnNumber));
+                // A task force that sails this turn is remembered, turn-locally, so it
+                // can intercept a hostile landing site in the zone it arrives in.
+                var arrived = new HashSet<TaskForceId>();
+                events.AddRange(NavalPlanner.ResolveConflict(state, orders, turnNumber, arrived));
 
                 // Then the sea battles, after every order and leg and before the army: a
                 // patrol finds a hostile task force in its zone. Still before Extraction,
                 // so a beaten patrol stops cutting a port this turn.
                 events.AddRange(NavalWarPlanner.ResolveBattles(
-                    state, turnNumber, seed, StrategicNavalBattleResolver.Instance, navalOrdinals));
+                    state, turnNumber, seed, StrategicNavalBattleResolver.Instance, navalOrdinals, arrived));
 
                 // Then the army: marches and rail moves, after every naval order. The
                 // rail budget is the whole network as the turn opened, separate from
@@ -183,9 +186,17 @@ public static class TurnResolver
 
                 // Pass 2: every attack, after every move, checked live as it resolves;
                 // a capture changes the owner at once. Still before Extraction, so a
-                // province taken now pays its new owner this turn. Healing last.
+                // province taken now pays its new owner this turn. A landing attack fights
+                // its site's interception battle first, on the naval stream. Healing last.
                 events.AddRange(LandBattlePlanner.ResolveAttacks(
-                    state, attacks, acted, turnNumber, seed, StrategicBattleResolver.Instance));
+                    state,
+                    attacks,
+                    acted,
+                    turnNumber,
+                    seed,
+                    StrategicBattleResolver.Instance,
+                    StrategicNavalBattleResolver.Instance,
+                    navalOrdinals));
                 events.AddRange(LandBattlePlanner.Heal(state, acted, turnNumber));
             }
             else if (phase == TurnPhase.Trade)

@@ -426,6 +426,28 @@ searching turn seeds and asserts directions (a blockade beats a patrol) rather t
 rates, so most of it should survive a change of numbers; the range test pins the opening
 volley and will need the traced rule.
 
+## 8. Landings: what the landing path decides
+
+Row 6d ships the landing site (task-force state 5, which the port predicate does not count —
+that much is the binary's), the arrival rule and the landing attack. **Three parts are
+placeholders**: the capacity reading (army rule 33), drowning (army rule 34) and the
+interception battle (naval rule 31). Army rule 32, embarking from any coast, waits on the
+same trace.
+
+| Target | Question | What it replaces |
+|---|---|---|
+| Action 16 / `0x00563360` | What the land target is: a province, a cell, the site's own province? And does it check the site's age, so troops cannot cross the turn it is established? | army rules 31 and 35; naval rule 29's restamp |
+| `0x00556100`, the `+0xA1` owner bit | What the bit marks — the site's owner, a "landing ready" flag, or a per-turn used flag — and when it is set and cleared | army rule 31's readiness; naval rule 32's persistence |
+| `0x00558960`, called twice | What the two calls are: the interception battle and the landing, two interceptions, or a check then an action | naval rule 31: one battle per site a turn, every hostile in the zone |
+| Where the landing capacity is computed | Is it the sum of the armaments in the ships' build bills, the naval table's own armaments field, or something else? Per site, per task force or per country? Spent cumulatively across landings in a turn? | army rule 33 |
+| Drowning | Which regiments drown when ships are lost — from the end, at random, by type — and whether a beaten site drowns everyone or sends them home | army rule 34 |
+| Embarkation | Must troops embark on a coast touching the site's zone, or any coast with a sea path? Is there a distance limit? | army rule 32 |
+
+**Wanted once traced:** replace `LandingPlanner`'s `Capacity`, `Land` and `Intercept`.
+`LandingTests` finds its battle outcomes by searching seeds and asserts the rules on what it
+finds (drowned from the end, capacity after the battle), so the capacity and drowning tests
+will need the traced rules while the refusal and readiness tests should survive.
+
 ---
 
 ## What is *not* wanted
