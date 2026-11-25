@@ -420,6 +420,53 @@ public sealed class LegacyWorldConverterTests
     }
 
     [Fact]
+    public void EveryImportedCivilianIsSoldAtTheUniversityAndThreeAreGated()
+    {
+        // One expert is the manual's ("one expert worker for each new civilian");
+        // the two paper and $1,000 are guesses, labelled so in university.md. The
+        // gates are the manual's Benefits of Technology Table, resolved by key.
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(1, 1, LandCell(0, 0)),
+            new ScenarioDocument(
+            [
+                Record("year", 1815),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "university");
+
+        var document = result.Document!;
+        Assert.Equal(7, document.CivilianTypes.Length);
+        Assert.All(document.CivilianTypes, static type =>
+        {
+            var price = Assert.IsType<CivilianPurchaseContent>(type.Purchase);
+            Assert.Equal(1, price.ExpertWorkers);
+            Assert.Equal(1_000, price.Cash);
+            var paper = Assert.Single(price.Commodities);
+            Assert.Equal("commodity.paper", paper.Commodity);
+            Assert.Equal(2, paper.Quantity);
+        });
+
+        var gates = document.CivilianTypes.ToDictionary(
+            static type => type.Key, static type => type.Purchase!.RequiredTechnology);
+        Assert.Equal("technology.feed-grasses", gates["civilian.rancher"]);
+        Assert.Equal("technology.iron-railroad-bridge", gates["civilian.forester"]);
+        Assert.Equal("technology.oil-drilling", gates["civilian.driller"]);
+        foreach (var ungated in new[] { "civilian.miner", "civilian.prospector", "civilian.farmer", "civilian.engineer" })
+        {
+            Assert.Null(gates[ungated]);
+        }
+
+        var compiled = WorldContentCompiler.Compile(document);
+        // Civilian type ids are dense in document order.
+        var rancher = compiled.World.CivilianTypes[
+            Array.FindIndex(document.CivilianTypes, static type => type.Key == "civilian.rancher")];
+        var required = Assert.IsType<TechnologyId>(rancher.Purchase!.RequiredTechnology);
+        Assert.Equal("Feed Grasses", compiled.World.Technologies[required.Value].Name);
+    }
+
+    [Fact]
     public void TheRefineryAndThePowerPlantAreGatedBehindOilDrillingAndNothingElseIs()
     {
         // "available once Oil Drilling technology is purchased" — the manual opens

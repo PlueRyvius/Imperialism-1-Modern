@@ -146,6 +146,11 @@ internal static class WorldContentMigrator
             MigrateVersionTwentySevenToTwentyEight(document);
         }
 
+        if (document.FormatVersion == 28)
+        {
+            MigrateVersionTwentyEightToTwentyNine(document);
+        }
+
         if (document.FormatVersion == WorldContentCodec.CurrentVersion)
         {
             RejectLegacyArmyCount(document);
@@ -1151,6 +1156,27 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 28;
+    }
+
+    /// <summary>
+    /// Version 29 lets a civilian type carry a University price. None is supplied:
+    /// absent means the type cannot be bought, so a migrated package's University
+    /// builds nothing, exactly as before. Re-importing legacy content supplies them.
+    /// </summary>
+    private static void MigrateVersionTwentyEightToTwentyNine(WorldContentDocument document)
+    {
+        var types = document.CivilianTypes ?? [];
+        for (var index = 0; index < types.Length; index++)
+        {
+            if (types[index]?.Purchase is not null)
+            {
+                throw new ContentValidationException(
+                    $"civilianTypes[{index}].purchase",
+                    "Version 28 cannot price a civilian at the University.");
+            }
+        }
+
+        document.FormatVersion = 29;
     }
 
     private static void RejectLegacyArmyCount(WorldContentDocument document)

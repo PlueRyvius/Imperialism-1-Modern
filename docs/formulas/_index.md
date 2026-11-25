@@ -200,6 +200,9 @@ bottom of this file.
 | Fuel to power, and the most a turn may burn | **`verified`** — the power help string; the cap read as flat per country | [production](production.md) | Core, Content, LegacyImport | generated |
 | Power spent before people, and lost if unspent | `inferred` — **the manual states both** | [production](production.md) | Core | generated |
 | A power order over the cap | **a chosen rule** — refused, not trimmed | [production](production.md) | Core | generated |
+| What a civilian is made of, and which types the University sells when | `inferred` — **the manual states both**: an expert, paper and cash; four types at the start, three behind a technology | [university](university.md) | Core, Content, LegacyImport | generated |
+| **What the University charges in paper and cash** | **`guess`** — 2 paper + $1,000 every type; the expert is the manual's. A candidate table at `0x00695C50` is untraced | [university](university.md) | Content, LegacyImport | generated |
+| Where a bought civilian appears, and a disbanded one's expert | **a chosen rule** — the capital cell, next turn; the expert works from next turn | [university](university.md) | Core | generated |
 | Diplomatic relation deltas | `guess` | _relations_ | — | — |
 | Council nomination + abstention curve | `guess` | _council_ | — | — |
 | Tactical initiative order | `guess` | _initiative_ | — | — |

@@ -322,7 +322,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(29)]
+    [InlineData(30)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1781,7 +1781,6 @@ public sealed class WorldContentTests
         var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
         var world = WorldContentCompiler.Compile(migrated).World;
 
-        Assert.Equal(28, WorldContentCodec.CurrentVersion);
         Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
         Assert.All(migrated.ProductionFacilities, static facility => Assert.Null(facility.RequiredTechnology));
         Assert.All(world.ProductionFacilities, static facility => Assert.Null(facility.RequiredTechnology));
@@ -1852,6 +1851,121 @@ public sealed class WorldContentTests
         document.ProductionFacilities[0].RequiredTechnology = "technology.drilling";
 
         AssertPath("productionFacilities[0].requiredTechnology", document);
+    }
+
+    [Fact]
+    public void VersionTwentyEightMigratesToAUniversityThatSellsNothing()
+    {
+        // Absent means not for sale, so a migrated package recruits exactly as it did.
+        var document = WithUniversity(CreateValidDocument());
+        document.CivilianTypes[0].Purchase = null;
+        document.CivilianTypes[1].Purchase = null;
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 28);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+        var world = WorldContentCompiler.Compile(migrated).World;
+
+        Assert.Equal(29, WorldContentCodec.CurrentVersion);
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.All(migrated.CivilianTypes, static type => Assert.Null(type.Purchase));
+        Assert.All(world.CivilianTypes, static type => Assert.Null(type.Purchase));
+        Assert.DoesNotContain(
+            "\"purchase\"", Encoding.UTF8.GetString(WorldContentCodec.Encode(migrated)), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void VersionTwentyEightCannotPriceACivilian()
+    {
+        var json = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(WithUniversity(CreateValidDocument()))), 28);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+        Assert.Equal("civilianTypes[0].purchase", exception.Path);
+    }
+
+    [Fact]
+    public void AUniversityPriceRoundTripsAndCompilesByKey()
+    {
+        var document = WithUniversity(CreateValidDocument());
+
+        var encoded = WorldContentCodec.Encode(document);
+        var json = Encoding.UTF8.GetString(encoded);
+        var decoded = WorldContentCodec.Decode(encoded);
+        var world = WorldContentCompiler.Compile(decoded).World;
+
+        Assert.Contains("\"expertWorkers\": 1", json, StringComparison.Ordinal);
+        Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
+
+        var miner = Assert.IsType<CivilianPurchase>(world.CivilianTypes[0].Purchase);
+        Assert.Equal(1, miner.ExpertWorkers);
+        Assert.Equal(1000, miner.CashCost);
+        Assert.Null(miner.RequiredTechnology);
+        var steel = Assert.Single(miner.Cost);
+        Assert.Equal("Steel", world.Commodities[steel.Commodity.Value].Name);
+        Assert.Equal(2, steel.Quantity);
+
+        var driller = Assert.IsType<CivilianPurchase>(world.CivilianTypes[1].Purchase);
+        var required = Assert.IsType<TechnologyId>(driller.RequiredTechnology);
+        Assert.Equal("Oil Drilling", world.Technologies[required.Value].Name);
+        Assert.Null(world.CivilianTypes[2].Purchase);
+    }
+
+    [Theory]
+    [InlineData("expertWorkers", "civilianTypes[0].purchase.expertWorkers")]
+    [InlineData("cash", "civilianTypes[0].purchase.cash")]
+    [InlineData("commodity", "civilianTypes[0].purchase.commodities")]
+    [InlineData("technology", "civilianTypes[1].purchase.requiredTechnology")]
+    public void AMalformedUniversityPriceIsRejectedWhereItIsWrong(string fault, string path)
+    {
+        var document = WithUniversity(CreateValidDocument());
+        switch (fault)
+        {
+            case "expertWorkers":
+                document.CivilianTypes[0].Purchase!.ExpertWorkers = 0;
+                break;
+            case "cash":
+                document.CivilianTypes[0].Purchase!.Cash = -1;
+                break;
+            case "commodity":
+                document.CivilianTypes[0].Purchase!.Commodities[0].Commodity = "commodity.paper";
+                break;
+            default:
+                document.CivilianTypes[1].Purchase!.RequiredTechnology = "technology.nonexistent";
+                break;
+        }
+
+        var exception = Assert.Throws<ContentValidationException>(() => WorldContentCompiler.Compile(document));
+        Assert.StartsWith(path, exception.Path, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A miner for one expert, two steel and $1,000; a driller behind Oil Drilling;
+    /// and a third type the University does not sell.
+    /// </summary>
+    private static WorldContentDocument WithUniversity(WorldContentDocument document)
+    {
+        CivilianPurchaseContent Price(string? technology) => new()
+        {
+            ExpertWorkers = 1,
+            Commodities = [new CommodityQuantityContent { Commodity = "commodity.steel", Quantity = 2 }],
+            Cash = 1000,
+            RequiredTechnology = technology,
+        };
+
+        document.CivilianTypes =
+        [
+            new CivilianTypeContentDefinition
+            {
+                Key = "civilian.miner", Name = "Miner", WorkTurns = 3, Purchase = Price(null),
+            },
+            new CivilianTypeContentDefinition
+            {
+                Key = "civilian.driller", Name = "Driller", WorkTurns = 3, Purchase = Price("technology.drilling"),
+            },
+            new CivilianTypeContentDefinition { Key = "civilian.developer", Name = "Developer", WorkTurns = 3 },
+        ];
+        return document;
     }
 
     private static WorldContentDocument WithGatedSteelMill(WorldContentDocument document)

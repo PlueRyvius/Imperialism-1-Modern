@@ -117,6 +117,12 @@ public sealed class TurnReportRenderer
             ProductionCompletedEvent produced => [Produced(produced)],
             WorkersTrainedEvent trained => [Trained(trained)],
             WorkerTrainingRefusedEvent refused => [TrainingRefused(refused)],
+            CivilianDisbandedEvent disbanded => [Disbanded(disbanded)],
+            CivilianDisbandRefusedEvent refused => [DisbandRefused(refused)],
+            CiviliansPurchasedEvent bought => [CiviliansBought(bought)],
+            CivilianPurchaseRefusedEvent refused => [CivilianPurchaseRefused(refused)],
+            CiviliansDeliveredEvent delivered => [CiviliansDelivered(delivered)],
+            CivilianDeliveryLostEvent lost => [CivilianDeliveryLost(lost)],
             PowerGeneratedEvent generated => Powered(generated),
             PowerRefusedEvent refused => [PowerRefused(refused)],
             FacilityExpandedEvent expanded => [Expanded(expanded)],
@@ -291,6 +297,79 @@ public sealed class TurnReportRenderer
         null,
         $"{Country(refused.Country)} could not train {Workers(refused.Requested, refused.From)}: " +
         $"{TurnReportText.Describe(refused.Reason)}.");
+
+    // ---- The University ---------------------------------------------------
+
+    private TurnReportLine CiviliansBought(CiviliansPurchasedEvent bought)
+    {
+        var cost = new List<string> { Workers(bought.ExpertsTaken, WorkerGrade.Expert) };
+        if (bought.Paid.Count > 0)
+        {
+            cost.Add(Quantities(bought.Paid));
+        }
+
+        if (bought.CashPaid > 0)
+        {
+            cost.Add(Money(bought.CashPaid));
+        }
+
+        return Line(
+            bought,
+            TurnReportKind.Outcome,
+            bought.Country,
+            null,
+            $"{Country(bought.Country)} bought {Civilians(bought.Count, bought.Type)} at the University " +
+            $"for {string.Join(" and ", cost)}; the experts leave the workforce for good.");
+    }
+
+    private TurnReportLine CivilianPurchaseRefused(CivilianPurchaseRefusedEvent refused) => Line(
+        refused,
+        TurnReportKind.Refusal,
+        refused.Country,
+        null,
+        $"{Country(refused.Country)} could not buy {Civilians(refused.Requested, refused.Type)}: " +
+        $"{TurnReportText.Describe(refused.Reason)}.");
+
+    private TurnReportLine CiviliansDelivered(CiviliansDeliveredEvent delivered) => Line(
+        delivered,
+        TurnReportKind.Outcome,
+        delivered.Country,
+        delivered.Cell,
+        $"{Country(delivered.Country)}'s new {Civilians(delivered.Units.Count, delivered.Type)} " +
+        $"arrived at {Cell(delivered.Cell)} and {(delivered.Units.Count == 1 ? "takes" : "take")} orders from next turn.");
+
+    private TurnReportLine CivilianDeliveryLost(CivilianDeliveryLostEvent lost) => Line(
+        lost,
+        TurnReportKind.Loss,
+        lost.Country,
+        null,
+        $"{Country(lost.Country)} lost the {Civilians(lost.Count, lost.Type)} it paid for, " +
+        "because it holds no capital to receive them.");
+
+    private TurnReportLine Disbanded(CivilianDisbandedEvent disbanded) => Line(
+        disbanded,
+        TurnReportKind.Outcome,
+        disbanded.Country,
+        null,
+        $"{Country(disbanded.Country)} disbanded its {CivilianType(disbanded.Type)} " +
+        $"(civilian {disbanded.Unit.Value}), returning {Workers(disbanded.ExpertsReturned, WorkerGrade.Expert)} " +
+        $"who {(disbanded.ExpertsReturned == 1 ? "works" : "work")} from next turn.");
+
+    private TurnReportLine DisbandRefused(CivilianDisbandRefusedEvent refused) => Line(
+        refused,
+        TurnReportKind.Refusal,
+        refused.Country,
+        null,
+        $"{Country(refused.Country)} could not disband civilian {refused.Unit.Value}: " +
+        $"{TurnReportText.Describe(refused.Reason)}.");
+
+    private string Civilians(long count, CivilianTypeId type) =>
+        $"{Count(count)} {CivilianType(type)}{(count == 1 ? string.Empty : "s")}";
+
+    private string CivilianType(CivilianTypeId type) =>
+        (uint)type.Value < (uint)_world.CivilianTypes.Count
+            ? _world.CivilianTypes[type.Value].Name
+            : $"civilian type {type.Value}";
 
     private IReadOnlyList<TurnReportLine> Powered(PowerGeneratedEvent generated)
     {

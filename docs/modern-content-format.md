@@ -172,6 +172,17 @@ A version 27 package migrates with no gate on any facility, so it builds exactly
 it did; a version 27 document that carries one is rejected. Legacy conversion gates
 `facility.oil-refinery` and `facility.power-plant` behind `technology.oil-drilling`.
 
+Version 29 adds an optional `purchase` block to each `civilianTypes[]` entry: what the
+University charges for one civilian of that type. It holds `expertWorkers` (at least
+one), a `commodities` list of commodity quantities, a non-negative `cash`, and an optional
+`requiredTechnology` key that must name a declared technology. **Absent means the type is
+not for sale**, which is how the Developer is modelled. A version 28 package migrates with
+no block on any type, so its University sells nothing; a version 28 document that carries
+one is rejected at `civilianTypes[i].purchase`. Legacy conversion prices every type at 1
+expert, 2 paper and $1,000 (the paper and cash are guesses) and gates the Rancher, Forester
+and Driller behind Feed Grasses, Iron Railroad Bridges and Oil Drilling. See
+`docs/formulas/university.md`.
+
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the

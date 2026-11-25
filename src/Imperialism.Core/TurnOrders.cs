@@ -18,6 +18,8 @@ public sealed class CountryTurnOrders
     private readonly IReadOnlyList<ShipBuildOrder> _shipBuilds;
     private readonly IReadOnlyList<CountryId> _declareWar;
     private readonly IReadOnlyList<NavalOrder> _naval;
+    private readonly IReadOnlyList<CivilianPurchaseOrder> _civilianPurchases;
+    private readonly IReadOnlyList<CivilianUnitId> _civilianDisbands;
 
     public CountryTurnOrders(
         CountryId country,
@@ -36,7 +38,9 @@ public sealed class CountryTurnOrders
         WorkerTrainingOrder training = default,
         IEnumerable<ShipBuildOrder>? shipBuilds = null,
         IEnumerable<CountryId>? declareWar = null,
-        IEnumerable<NavalOrder>? naval = null)
+        IEnumerable<NavalOrder>? naval = null,
+        IEnumerable<CivilianPurchaseOrder>? civilianPurchases = null,
+        IEnumerable<CivilianUnitId>? civilianDisbands = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(recruitWorkers);
         ArgumentOutOfRangeException.ThrowIfNegative(burnFuel);
@@ -71,9 +75,13 @@ public sealed class CountryTurnOrders
         // "deploy to this tile, no work this turn" its own cursor, so moving and
         // working are alternatives rather than a sequence — and the Engineer's
         // two cursors are alternatives to each other for the same reason.
+        // Disbanding is an order like any other, so a civilian cannot be both sent
+        // home and set to work, nor disbanded twice.
+        var disbandArray = civilianDisbands?.ToArray() ?? [];
         var ordered = deployArray.Select(static item => item.Unit)
             .Concat(workArray.Select(static item => item.Unit))
             .Concat(engineerArray.Select(static item => item.Unit))
+            .Concat(disbandArray)
             .ToArray();
         if (ordered.Distinct().Count() != ordered.Length)
         {
@@ -146,8 +154,15 @@ public sealed class CountryTurnOrders
             throw new ArgumentException("Naval orders cannot contain null entries.", nameof(naval));
         }
 
+        // Kept exactly as given, like the Shipyard's list: an unknown type, a count of
+        // zero or less, and anything the country cannot afford are refused with an
+        // event when the turn resolves.
+        var purchaseArray = civilianPurchases?.ToArray() ?? [];
+
         Country = country;
         RecruitWorkers = recruitWorkers;
+        _civilianPurchases = Array.AsReadOnly(purchaseArray);
+        _civilianDisbands = Array.AsReadOnly(disbandArray);
         _shipBuilds = Array.AsReadOnly(shipBuildArray);
         _declareWar = Array.AsReadOnly(declareWarArray);
         _naval = Array.AsReadOnly(navalArray);
@@ -283,7 +298,34 @@ public sealed class CountryTurnOrders
     /// See <c>docs/formulas/naval.md</c>.
     /// </summary>
     public IReadOnlyList<NavalOrder> Naval => _naval;
+
+    /// <summary>
+    /// Civilians to order at the University this turn, in the order they are paid for.
+    /// </summary>
+    /// <remarks>
+    /// Resolved in <c>Production</c>, after the Trade School and before any recipe.
+    /// Each entry is all or nothing, a refused entry does not stop later ones, and a
+    /// type may be named more than once. The experts leave the workforce at once;
+    /// the civilians stand on the capital from next turn. See
+    /// <c>docs/formulas/university.md</c>.
+    /// </remarks>
+    public IReadOnlyList<CivilianPurchaseOrder> CivilianPurchases => _civilianPurchases;
+
+    /// <summary>
+    /// Civilians to disband this turn. Each returns one expert worker to industry, who
+    /// supplies labour from next turn; nothing paid for it is refunded.
+    /// </summary>
+    public IReadOnlyList<CivilianUnitId> CivilianDisbands => _civilianDisbands;
 }
+
+/// <summary>
+/// One University order: build this many civilians of this type.
+/// </summary>
+/// <remarks>
+/// The count is not checked here; zero or less is refused when the turn resolves, the
+/// same standing as a <see cref="ShipBuildOrder"/>.
+/// </remarks>
+public readonly record struct CivilianPurchaseOrder(CivilianTypeId Type, long Count);
 
 /// <summary>
 /// One Shipyard request: build this many hulls of this class.
