@@ -191,6 +191,58 @@ public static class WorldContentCompiler
             }
         }).ToArray();
 
+        // After the technology map too: every era past the first names what opens it.
+        var armyTypeContent = document.ArmyTypes ?? [];
+        _ = BuildArmyTypeKeyMap(armyTypeContent);
+        var armyTypes = armyTypeContent.Select((definition, index) =>
+        {
+            var path = $"armyTypes[{index}]";
+            ArmyPurchase? purchase = null;
+            try
+            {
+                if (definition!.Purchase is { } price)
+                {
+                    var bill = RequireArray(price.Bill, $"{path}.purchase.bill")
+                        .Select((item, offset) => new CommodityQuantity(
+                            new CommodityId(FindKey(
+                                commodityIds, item!.Commodity, $"{path}.purchase.bill[{offset}]")),
+                            item.Quantity))
+                        .ToArray();
+                    purchase = new ArmyPurchase(price.WorkerGrade, bill, price.Cash);
+                }
+
+                return new ArmyTypeDefinition(
+                    new ArmyTypeId(index),
+                    definition.Name,
+                    definition.Category,
+                    definition.Era,
+                    definition.RequiredTechnology is null
+                        ? null
+                        : new TechnologyId(FindKey(
+                            technologyIds,
+                            definition.RequiredTechnology,
+                            $"{path}.requiredTechnology")),
+                    purchase,
+                    definition.Arms,
+                    definition.MovesByRail,
+                    definition.LeavesProvince,
+                    definition.Stats is not { } stats
+                        ? null
+                        : new ArmyCombatStats(
+                            stats.FirepowerVsInfantry,
+                            stats.FirepowerVsMounted,
+                            stats.Range,
+                            stats.DefendingRange,
+                            stats.Defence,
+                            stats.EntrenchedDefence,
+                            stats.Movement));
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error(path, exception.Message, exception);
+            }
+        }).ToArray();
+
         ITradeMarket? tradeMarket = null;
         if (document.Trade is { } tradeContent)
         {
@@ -544,7 +596,8 @@ public static class WorldContentCompiler
                     tradeMarket,
                     workerTraining,
                     power,
-                    diplomacy));
+                    diplomacy,
+                    armyTypes));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -581,7 +634,8 @@ public static class WorldContentCompiler
         ITradeMarket? tradeMarket,
         WorkerTrainingSettings? workerTraining,
         PowerSettings? power,
-        DiplomacySettings? diplomacy)
+        DiplomacySettings? diplomacy,
+        ArmyTypeDefinition[] armyTypes)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -729,6 +783,15 @@ public static class WorldContentCompiler
                 throw Error($"{entryPath}.experience", "Army experience cannot be negative.");
             }
 
+            // Today's rule, kept: without a catalogue the record is inert; with one, it
+            // must name a row of it.
+            if (armyTypes.Length > 0 && (entry.Type < 0 || entry.Type >= armyTypes.Length))
+            {
+                throw Error(
+                    $"{entryPath}.type",
+                    $"Army type {entry.Type} is outside the catalogue of {armyTypes.Length}.");
+            }
+
             try
             {
                 armies.Add(new InitialArmy(
@@ -837,7 +900,8 @@ public static class WorldContentCompiler
                 tradeMarket,
                 workerTraining,
                 power,
-                diplomacy);
+                diplomacy,
+                armyTypes);
         }
         catch (ArgumentException exception)
         {
@@ -1808,6 +1872,25 @@ public static class WorldContentCompiler
         }
 
         return BuildKeyMap(keys, "shipTypes");
+    }
+
+    private static Dictionary<string, int> BuildArmyTypeKeyMap(
+        ArmyTypeContentDefinition?[] definitions)
+    {
+        var keys = new string[definitions.Length];
+        for (var index = 0; index < definitions.Length; index++)
+        {
+            var definition = definitions[index] ??
+                throw Error($"armyTypes[{index}]", "Value is required.");
+            if (string.IsNullOrWhiteSpace(definition.Name))
+            {
+                throw Error($"armyTypes[{index}].name", "Value cannot be blank.");
+            }
+
+            keys[index] = definition.Key;
+        }
+
+        return BuildKeyMap(keys, "armyTypes");
     }
 
     private static Dictionary<string, int> BuildTechnologyKeyMap(

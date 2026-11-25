@@ -48,7 +48,9 @@ internal sealed class ProductionPlan
         IEnumerable<PlannedCivilianPurchase> civilianPurchases,
         IEnumerable<PlannedCivilianPurchaseRefusal> civilianPurchaseRefusals,
         IEnumerable<PlannedCivilianDisband> civilianDisbands,
-        IEnumerable<PlannedCivilianDisbandRefusal> civilianDisbandRefusals)
+        IEnumerable<PlannedCivilianDisbandRefusal> civilianDisbandRefusals,
+        IEnumerable<PlannedRegimentPurchase> regimentPurchases,
+        IEnumerable<PlannedRegimentPurchaseRefusal> regimentPurchaseRefusals)
     {
         InventoryDeltas = inventoryDeltas;
         Entries = Array.AsReadOnly(entries.ToArray());
@@ -62,7 +64,13 @@ internal sealed class ProductionPlan
         CivilianPurchaseRefusals = Array.AsReadOnly(civilianPurchaseRefusals.ToArray());
         CivilianDisbands = Array.AsReadOnly(civilianDisbands.ToArray());
         CivilianDisbandRefusals = Array.AsReadOnly(civilianDisbandRefusals.ToArray());
+        RegimentPurchases = Array.AsReadOnly(regimentPurchases.ToArray());
+        RegimentPurchaseRefusals = Array.AsReadOnly(regimentPurchaseRefusals.ToArray());
     }
+
+    public IReadOnlyList<PlannedRegimentPurchase> RegimentPurchases { get; }
+
+    public IReadOnlyList<PlannedRegimentPurchaseRefusal> RegimentPurchaseRefusals { get; }
 
     public IReadOnlyList<PlannedCivilianPurchase> CivilianPurchases { get; }
 
@@ -133,6 +141,8 @@ internal static class ProductionPlanner
         var civilianPurchaseRefusals = new List<PlannedCivilianPurchaseRefusal>();
         var civilianDisbands = new List<PlannedCivilianDisband>();
         var civilianDisbandRefusals = new List<PlannedCivilianDisbandRefusal>();
+        var regimentPurchases = new List<PlannedRegimentPurchase>();
+        var regimentPurchaseRefusals = new List<PlannedRegimentPurchaseRefusal>();
 
         for (var countryValue = 0; countryValue < orders.Count; countryValue++)
         {
@@ -205,6 +215,52 @@ internal static class ProductionPlanner
                     var withheld = checked(purchase.ExpertsTaken * feeding.GetLabour(WorkerGrade.Expert));
                     remainingLabour -= withheld;
                     humanLabourClaimed[countryValue] = checked(humanLabourClaimed[countryValue] + withheld);
+                }
+            }
+
+            // (a3) The Armoury. Each regiment takes one healthy worker of its type's
+            // grade for good, so this turn's recipes cannot use him either. Counted
+            // against the healthy workforce the turn opened with, less the trainees and
+            // the University's experts, so no worker is spent twice.
+            if (countryOrders.RegimentPurchases.Count > 0)
+            {
+                var healthy = new long[WorkerGrades.Count];
+                foreach (var grade in WorkerGrades.All)
+                {
+                    healthy[(int)grade] = state.GetWorkers(country, grade) - state.GetSickWorkers(country, grade);
+                }
+
+                foreach (var step in training.Where(step => step.Country == country))
+                {
+                    healthy[(int)step.Rule.From] -= step.Count;
+                }
+
+                foreach (var purchase in civilianPurchases.Where(purchase => purchase.Country == country))
+                {
+                    healthy[(int)WorkerGrade.Expert] -= purchase.ExpertsTaken;
+                }
+
+                var regimentsBefore = regimentPurchases.Count;
+                ArmouryPlanner.PlanPurchases(
+                    state,
+                    country,
+                    countryOrders.RegimentPurchases,
+                    available,
+                    deltas,
+                    ref cash,
+                    healthy,
+                    regimentPurchases,
+                    regimentPurchaseRefusals);
+                for (var index = regimentsBefore; index < regimentPurchases.Count; index++)
+                {
+                    var purchase = regimentPurchases[index];
+                    cashClaimed[countryValue] = checked(cashClaimed[countryValue] + purchase.CashPaid);
+                    if (definition.Feeding is { } feeding)
+                    {
+                        var withheld = checked(purchase.WorkersTaken * feeding.GetLabour(purchase.WorkerGrade));
+                        remainingLabour -= withheld;
+                        humanLabourClaimed[countryValue] = checked(humanLabourClaimed[countryValue] + withheld);
+                    }
                 }
             }
 
@@ -319,7 +375,9 @@ internal static class ProductionPlanner
             civilianPurchases,
             civilianPurchaseRefusals,
             civilianDisbands,
-            civilianDisbandRefusals);
+            civilianDisbandRefusals,
+            regimentPurchases,
+            regimentPurchaseRefusals);
     }
 
     private static WorkerTrainingRefusal? PlanTraining(

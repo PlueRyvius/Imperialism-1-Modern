@@ -133,7 +133,9 @@ still an optional local source with the procedural palette as its fallback.
 - [x] Trade subsidies and boycotts (`TradePolicyTests`)
 - [ ] Sea routes between ports, and blockade
 - [x] The University: buying and disbanding civilians (`UniversityTests`)
-- [ ] Moving regiments by rail, the newspaper, fortifications
+- [x] Buying regiments and moving them by march and rail (`RegimentTests`)
+- [ ] The newspaper
+- [ ] Land battles and fortifications
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's

@@ -211,6 +211,11 @@ bottom of this file.
 | **Subsidy percentages, timing and rounding** | **chosen rules** — 5 and 10 from the tutorial; next turn; once per deal toward the recipient |
 | **A subsidy between two Great Powers** | `inferred` — the release notes as recorded in `game-systems.md:204-206`: only the grantor's own sales, and no ranking; README.TXT / README11.TXT still to be read on the PC | [diplomacy](diplomacy.md) | Core, Content, LegacyImport | generated |
 | **Relation scores, alliances, colonies, civilians entering a Minor Nation** | **open** — none modelled; the overtures that would move them now exist | [diplomacy](diplomacy.md) | — | — |
+| What a regiment costs, and which category and era each type fills | **`verified`** — the executable's purchase table at `0x00695CD0` and role slots at `0x00695528` | [army](army.md) | Core, Content, LegacyImport | generated |
+| Which technology opens each era of each category | `inferred` — **the manual's table**, corroborated by the `STR#ENU.GOB` effect strings for every regular type; four gates (engineers, saboteurs, militia, conscripts) the manual's alone | [army](army.md) | Content, LegacyImport | generated |
+| Marching, rail, five capacity per armaments point, militia never leaving home | `inferred` — **the manual states all of it** | [army](army.md) | Core | generated |
+| **When a category upgrades, where a regiment appears, what rail needs and draws on** | **chosen rules 1–9** — as the turn opens; the capital's province in `Delivery`; one component of own rail; a budget of total capacity separate from commodity transport | [army](army.md) | Core | generated |
+| **Militia growth and its free upgrade** | **open** — not modelled (chosen rule 11) | [army](army.md) | — | — |
 | Diplomatic relation deltas | `guess` | _relations_ | — | — |
 | Council nomination + abstention curve | `guess` | _council_ | — | — |
 | Tactical initiative order | `guess` | _initiative_ | — | — |

@@ -340,6 +340,40 @@ public sealed class TurnReportRendererTests
     }
 
     [Fact]
+    public void TheArmourySaysWhatARegimentCostAndHowItTravelled()
+    {
+        // The fixture world declares no army types, so the type falls back to its
+        // number rather than throwing — the same courtesy an unknown civilian gets.
+        var renderer = CreateRenderer();
+        var type = new ArmyTypeId(2);
+
+        var bought = Assert.Single(renderer.Render(new RegimentsPurchasedEvent(
+            1, Blue, ArmyCategory.RegularInfantry, type, 2, WorkerGrade.Untrained, 2,
+            [new CommodityQuantity(new CommodityId(1), 2)], 1000)));
+        Assert.Equal(TurnReportKind.Outcome, bought.Kind);
+        Assert.Contains("raised 2 regiments of army type 2 at the Armoury", bought.Text, StringComparison.Ordinal);
+        Assert.Contains("2 untrained workers and 2 Lumber and $1,000", bought.Text, StringComparison.Ordinal);
+
+        var refused = Assert.Single(renderer.Render(new RegimentPurchaseRefusedEvent(
+            1, Blue, ArmyCategory.Militia, 1, RegimentPurchaseRefusal.NotPurchasable)));
+        Assert.Equal(TurnReportKind.Refusal, refused.Kind);
+        Assert.Contains("1 militia regiment", refused.Text, StringComparison.Ordinal);
+
+        var lost = Assert.Single(renderer.Render(new RegimentDeliveryLostEvent(1, Blue, type, 1)));
+        Assert.Equal(TurnReportKind.Loss, lost.Kind);
+
+        var rail = Assert.Single(renderer.Render(new RegimentsMovedEvent(
+            1, Blue, [new RegimentId(1), new RegimentId(2)], new ProvinceId(0), new ProvinceId(0),
+            RegimentMoveMode.Rail, 10)));
+        Assert.Contains("2 regiments", rail.Text, StringComparison.Ordinal);
+        Assert.Contains("by rail, using 10 transport capacity", rail.Text, StringComparison.Ordinal);
+
+        var march = Assert.Single(renderer.Render(new RegimentsMovedEvent(
+            1, Blue, [new RegimentId(1)], new ProvinceId(0), new ProvinceId(0), RegimentMoveMode.March, 0)));
+        Assert.Contains("on the march", march.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ALineCarriesTheCountryItIsAboutSoTheClientNeedNotReadIt()
     {
         var renderer = CreateRenderer();
@@ -441,6 +475,16 @@ public sealed class TurnReportRendererTests
             new TradePolicySetEvent(1, Blue, Red, TradePolicy.Subsidy(5)),
             new TradePolicyRefusedEvent(1, Blue, Red, TradePolicy.Boycott, TradePolicyRefusal.NoPost),
             new TradePolicyClearedEvent(1, Blue, Red, TradePolicy.Subsidy(10)),
+            new RegimentsPurchasedEvent(
+                1, Blue, ArmyCategory.RegularInfantry, new ArmyTypeId(2), 1, WorkerGrade.Untrained, 1, some, 500),
+            new RegimentPurchaseRefusedEvent(
+                1, Blue, ArmyCategory.Militia, 1, RegimentPurchaseRefusal.NotPurchasable),
+            new RegimentsDeliveredEvent(1, Blue, new ArmyTypeId(2), new ProvinceId(0), [new RegimentId(1)]),
+            new RegimentDeliveryLostEvent(1, Blue, new ArmyTypeId(2), 1),
+            new RegimentsMovedEvent(
+                1, Blue, [new RegimentId(1)], new ProvinceId(0), new ProvinceId(0), RegimentMoveMode.Rail, 5),
+            new RegimentMoveRefusedEvent(
+                1, Blue, [new RegimentId(1)], new ProvinceId(0), RegimentMoveRefusal.NotConnectedByRail),
         ];
     }
 }

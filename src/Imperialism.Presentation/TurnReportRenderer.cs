@@ -129,6 +129,12 @@ public sealed class TurnReportRenderer
             CivilianPurchaseRefusedEvent refused => [CivilianPurchaseRefused(refused)],
             CiviliansDeliveredEvent delivered => [CiviliansDelivered(delivered)],
             CivilianDeliveryLostEvent lost => [CivilianDeliveryLost(lost)],
+            RegimentsPurchasedEvent bought => [RegimentsBought(bought)],
+            RegimentPurchaseRefusedEvent refused => [RegimentPurchaseRefused(refused)],
+            RegimentsDeliveredEvent delivered => [RegimentsDelivered(delivered)],
+            RegimentDeliveryLostEvent lost => [RegimentDeliveryLost(lost)],
+            RegimentsMovedEvent moved => [RegimentsMoved(moved)],
+            RegimentMoveRefusedEvent refused => [RegimentMoveRefused(refused)],
             PowerGeneratedEvent generated => Powered(generated),
             PowerRefusedEvent refused => [PowerRefused(refused)],
             FacilityExpandedEvent expanded => [Expanded(expanded)],
@@ -443,6 +449,95 @@ public sealed class TurnReportRenderer
         null,
         $"{Country(refused.Country)} could not disband civilian {refused.Unit.Value}: " +
         $"{TurnReportText.Describe(refused.Reason)}.");
+
+    // ---- The Armoury and deployment ----------------------------------------
+
+    private TurnReportLine RegimentsBought(RegimentsPurchasedEvent bought)
+    {
+        var cost = new List<string> { Workers(bought.WorkersTaken, bought.WorkerGrade) };
+        if (bought.Paid.Count > 0)
+        {
+            cost.Add(Quantities(bought.Paid));
+        }
+
+        if (bought.CashPaid > 0)
+        {
+            cost.Add(Money(bought.CashPaid));
+        }
+
+        return Line(
+            bought,
+            TurnReportKind.Outcome,
+            bought.Country,
+            null,
+            $"{Country(bought.Country)} raised {Regiments(bought.Count, bought.Type)} at the Armoury " +
+            $"for {string.Join(" and ", cost)}; the workers leave industry for good.");
+    }
+
+    private TurnReportLine RegimentPurchaseRefused(RegimentPurchaseRefusedEvent refused) => Line(
+        refused,
+        TurnReportKind.Refusal,
+        refused.Country,
+        null,
+        $"{Country(refused.Country)} could not raise {Count(refused.Requested)} " +
+        $"{TurnReportText.Describe(refused.Category)} {(refused.Requested == 1 ? "regiment" : "regiments")}: " +
+        $"{TurnReportText.Describe(refused.Reason)}.");
+
+    private TurnReportLine RegimentsDelivered(RegimentsDeliveredEvent delivered) => Line(
+        delivered,
+        TurnReportKind.Outcome,
+        delivered.Country,
+        null,
+        $"{Country(delivered.Country)}'s new {Regiments(delivered.Regiments.Count, delivered.Type)} " +
+        $"mustered in {Province(delivered.Province)} and may move from next turn.");
+
+    private TurnReportLine RegimentDeliveryLost(RegimentDeliveryLostEvent lost) => Line(
+        lost,
+        TurnReportKind.Loss,
+        lost.Country,
+        null,
+        $"{Country(lost.Country)} lost the {Regiments(lost.Count, lost.Type)} it paid for, " +
+        "because it holds no capital to muster them in.");
+
+    private TurnReportLine RegimentsMoved(RegimentsMovedEvent moved)
+    {
+        var how = moved.Mode == RegimentMoveMode.Rail
+            ? $"by rail, using {Count(moved.CapacityUsed)} transport capacity"
+            : "on the march";
+        var count = moved.Regiments.Count;
+        return Line(
+            moved,
+            TurnReportKind.Outcome,
+            moved.Country,
+            null,
+            $"{Country(moved.Country)} moved {Count(count)} {(count == 1 ? "regiment" : "regiments")} " +
+            $"from {Province(moved.From)} to {Province(moved.To)} {how}.");
+    }
+
+    private TurnReportLine RegimentMoveRefused(RegimentMoveRefusedEvent refused)
+    {
+        var count = refused.Regiments.Count;
+        return Line(
+            refused,
+            TurnReportKind.Refusal,
+            refused.Country,
+            null,
+            $"{Country(refused.Country)} could not move {Count(count)} {(count == 1 ? "regiment" : "regiments")} " +
+            $"to {Province(refused.Destination)}: {TurnReportText.Describe(refused.Reason)}.");
+    }
+
+    private string Regiments(long count, ArmyTypeId type) =>
+        $"{Count(count)} {(count == 1 ? "regiment" : "regiments")} of {ArmyType(type)}";
+
+    private string ArmyType(ArmyTypeId type) =>
+        (uint)type.Value < (uint)_world.ArmyTypes.Count
+            ? _world.ArmyTypes[type.Value].Name
+            : $"army type {type.Value}";
+
+    private string Province(ProvinceId province) =>
+        (uint)province.Value < (uint)_world.Map.Provinces.Count
+            ? _world.Map.Provinces[province.Value].Name
+            : $"province {province.Value}";
 
     private string Civilians(long count, CivilianTypeId type) =>
         $"{Count(count)} {CivilianType(type)}{(count == 1 ? string.Empty : "s")}";

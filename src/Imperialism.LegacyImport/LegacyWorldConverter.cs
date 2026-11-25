@@ -852,6 +852,7 @@ public static class LegacyWorldConverter
             WorkerTraining = CreateStandardWorkerTraining(),
             Power = CreateStandardPower(),
             Diplomacy = CreateStandardDiplomacy(),
+            ArmyTypes = CreateStandardArmyTypes(),
             Resources = resourceCodes.Select(code => new ResourceContentDefinition
             {
                 Key = resourceKeys[code],
@@ -2670,6 +2671,164 @@ public static class LegacyWorldConverter
         .ToArray();
 
     private static string ShipTypeKey(string key) => $"ship.{key}";
+
+    /// <summary>One row of the executable's army table, as the importer emits it.</summary>
+    private sealed record LegacyArmyType(
+        string Key,
+        string Name,
+        ArmyCategory Category,
+        int Era,
+        string? RequiredTechnology,
+        WorkerGrade? Worker,
+        long Arms,
+        long Horses,
+        long Fuel,
+        long Cash,
+        ArmyStatsContent? Stats);
+
+    private static ArmyStatsContent Stats(
+        decimal fpn, decimal fpm, long range, long? defendingRange, long defence, long? entrenched, long movement) => new()
+    {
+        FirepowerVsInfantry = fpn,
+        FirepowerVsMounted = fpm,
+        Range = range,
+        DefendingRange = defendingRange,
+        Defence = defence,
+        EntrenchedDefence = entrenched,
+        Movement = movement,
+    };
+
+    private const string MachineGuns = "Machine Guns";
+    private const string LargeArtillery = "Large Artillery";
+
+    /// <summary>
+    /// The executable's thirty-row army table, in its order — a scenario <c>army</c>
+    /// record's 0-based type indexes it, so <b>do not reorder it</b>.
+    /// </summary>
+    /// <remarks>
+    /// <b>The worker, the bill and the cash are the executable's</b>, from the purchase
+    /// table at <c>0x00695CD0</c>; the category and era are its role-slot table at
+    /// <c>0x00695528</c>, which repeats slots 0–7 per era and puts the engineers in slot
+    /// 8 and the Generals in slot 9. <b>The technology per era is the manual's</b>
+    /// Regimental Upgrade Requirement Table (lines 1620–1641), corroborated for every
+    /// regular type by the technology effect strings in <c>STR#ENU.GOB</c> — which is
+    /// also what settles "Rifled Guns" as Rifled Artillery and "Heavy Guns" as Large
+    /// Artillery. Nothing in the executable names the gate on Combat Engineers,
+    /// Saboteurs, Militia or Conscripts; those four are the manual's alone.
+    /// <para>
+    /// <b>The stats are the manual's Regiment Abilities table</b> (4040–4072), with the
+    /// executable winning on firepower: Grenadiers are 12.5, which the manual rounds to
+    /// 12. The executable has one firepower figure; an infantry row's two columns are
+    /// equal throughout the manual, so both carry 12.5. The Generals have no row and
+    /// carry no stats.
+    /// </para>
+    /// </remarks>
+    private static readonly IReadOnlyList<LegacyArmyType> StandardArmyTypes =
+    [
+        // 0-7. Era 1, open from the start.
+        new("minutemen", "Minutemen", ArmyCategory.Militia, 1, null, null, 0, 0, 0, 0,
+            Stats(5, 5, 5, null, 4, 5, 4)),
+        new("skirmishers", "Skirmishers", ArmyCategory.LightInfantry, 1, null, WorkerGrade.Untrained, 1, 0, 0, 200,
+            Stats(5, 5, 5, null, 7, 8, 6)),
+        new("regulars", "Regulars", ArmyCategory.RegularInfantry, 1, null, WorkerGrade.Untrained, 1, 0, 0, 500,
+            Stats(10, 10, 5, null, 5, 6, 4)),
+        new("grenadiers", "Grenadiers", ArmyCategory.HeavyInfantry, 1, null, WorkerGrade.Trained, 1, 0, 0, 1_000,
+            Stats(12.5m, 12.5m, 5, null, 5, 6, 4)),
+        new("hussars", "Hussars", ArmyCategory.LightCavalry, 1, null, WorkerGrade.Untrained, 1, 1, 0, 100,
+            Stats(7, 10, 3, null, 7, null, 11)),
+        new("cuirassiers", "Cuirassiers", ArmyCategory.HeavyCavalry, 1, null, WorkerGrade.Trained, 1, 1, 0, 500,
+            Stats(15, 19, 3, null, 5, null, 9)),
+        new("light-artillery", "Light Artillery", ArmyCategory.LightArtillery, 1, null, WorkerGrade.Trained, 2, 1, 0, 1_000,
+            Stats(10, 3, 9, 10, 3, 4, 5)),
+        new("artillery", "Artillery", ArmyCategory.HeavyArtillery, 1, null, WorkerGrade.Trained, 2, 0, 0, 1_000,
+            Stats(16, 4, 11, 12, 2, 3, 3)),
+
+        // 8-15. Era 2.
+        new("militia", "Militia", ArmyCategory.Militia, 2, BreechLoadingRifles, null, 0, 0, 0, 0,
+            Stats(7, 7, 8, null, 4, 5, 4)),
+        new("sharpshooters", "Sharpshooters", ArmyCategory.LightInfantry, 2, BessemerConverter, WorkerGrade.Untrained, 2, 0, 0, 3_000,
+            Stats(10, 10, 8, null, 7, 8, 6)),
+        new("rifle-infantry", "Rifle Infantry", ArmyCategory.RegularInfantry, 2, BreechLoadingRifles, WorkerGrade.Untrained, 2, 0, 0, 3_000,
+            Stats(15, 15, 8, null, 7, 8, 4)),
+        new("guards", "Guards", ArmyCategory.HeavyInfantry, 2, BreechLoadingRifles, WorkerGrade.Trained, 2, 0, 0, 4_000,
+            Stats(17, 17, 8, null, 7, 8, 4)),
+        new("scouts", "Scouts", ArmyCategory.LightCavalry, 2, BessemerConverter, WorkerGrade.Untrained, 2, 1, 0, 2_000,
+            Stats(10, 13, 5, null, 7, null, 11)),
+        new("carbine-cavalry", "Carbine Cavalry", ArmyCategory.HeavyCavalry, 2, BreechLoadingRifles, WorkerGrade.Trained, 2, 1, 0, 3_500,
+            Stats(20, 26, 5, null, 5, null, 9)),
+        new("field-artillery", "Field Artillery", ArmyCategory.LightArtillery, 2, RifledArtillery, WorkerGrade.Trained, 4, 1, 0, 5_000,
+            Stats(17, 5, 12, 13, 3, 4, 6)),
+        new("siege-artillery", "Siege Artillery", ArmyCategory.HeavyArtillery, 2, RifledArtillery, WorkerGrade.Trained, 4, 0, 0, 5_000,
+            Stats(30, 8, 14, 15, 3, 4, 3)),
+
+        // 16-23. Era 3.
+        new("conscripts", "Conscripts", ArmyCategory.Militia, 3, MachineGuns, null, 0, 0, 0, 0,
+            Stats(10, 10, 10, null, 10, 12, 5)),
+        new("rangers", "Rangers", ArmyCategory.LightInfantry, 3, MachineGuns, WorkerGrade.Trained, 4, 0, 0, 5_000,
+            Stats(15, 15, 10, null, 20, 25, 7)),
+        new("modern-infantry", "Modern Infantry", ArmyCategory.RegularInfantry, 3, MachineGuns, WorkerGrade.Trained, 4, 0, 0, 5_000,
+            Stats(22, 22, 10, null, 20, 25, 5)),
+        new("machinegunners", "Machinegunners", ArmyCategory.HeavyInfantry, 3, MachineGuns, WorkerGrade.Trained, 4, 0, 0, 7_000,
+            Stats(25, 25, 10, null, 20, 25, 4)),
+        new("mechanized-infantry", "Mechanized Infantry", ArmyCategory.LightCavalry, 3, InternalCombustion, WorkerGrade.Trained, 4, 0, 4, 5_000,
+            Stats(22, 28, 10, null, 10, 12, 11)),
+        new("armor", "Armor", ArmyCategory.HeavyCavalry, 3, InternalCombustion, WorkerGrade.Trained, 10, 0, 4, 9_000,
+            Stats(45, 60, 12, null, 20, 25, 9)),
+        new("mobile-artillery", "Mobile Artillery", ArmyCategory.LightArtillery, 3, LargeArtillery, WorkerGrade.Trained, 6, 0, 4, 5_000,
+            Stats(25, 8, 15, 16, 20, 25, 8)),
+        new("railroad-gun", "Railroad Gun", ArmyCategory.HeavyArtillery, 3, LargeArtillery, WorkerGrade.Trained, 8, 0, 0, 9_000,
+            Stats(50, 12, 17, 18, 20, 25, 3)),
+
+        // 24-26. The engineers, role slot 8.
+        new("sappers", "Sappers", ArmyCategory.CombatEngineers, 1, null, WorkerGrade.Expert, 2, 0, 0, 5_000,
+            Stats(0, 0, 5, null, 3, 4, 4)),
+        new("combat-engineers", "Combat Engineers", ArmyCategory.CombatEngineers, 2, BessemerConverter, WorkerGrade.Expert, 2, 0, 0, 7_000,
+            Stats(0, 0, 8, null, 4, 5, 4)),
+        new("saboteurs", "Saboteurs", ArmyCategory.CombatEngineers, 3, Dynamite, WorkerGrade.Expert, 3, 0, 0, 9_000,
+            Stats(0, 0, 10, null, 10, 12, 5)),
+
+        // 27-29. The Generals, role slot 9: never bought, never priced, no manual row.
+        new("general-1", "General", ArmyCategory.General, 1, null, null, 0, 0, 0, 0, null),
+        new("general-2", "General", ArmyCategory.General, 1, null, null, 0, 0, 0, 0, null),
+        new("general-3", "General", ArmyCategory.General, 1, null, null, 0, 0, 0, 0, null),
+    ];
+
+    private static ArmyTypeContentDefinition[] CreateStandardArmyTypes() =>
+        StandardArmyTypes.Select(static type =>
+        {
+            var militia = type.Category == ArmyCategory.Militia;
+            return new ArmyTypeContentDefinition
+            {
+                Key = $"army.{type.Key}",
+                Name = type.Name,
+                Category = type.Category,
+                Era = type.Era,
+                RequiredTechnology = type.RequiredTechnology is null ? null : TechnologyKey(type.RequiredTechnology),
+                Purchase = type.Worker is not { } worker
+                    ? null
+                    : new ArmyPurchaseContent
+                    {
+                        WorkerGrade = worker,
+                        Bill = new (string Commodity, long Quantity)[]
+                            {
+                                ("armaments", type.Arms),
+                                ("horses", type.Horses),
+                                ("fuel", type.Fuel),
+                            }
+                            .Where(static item => item.Quantity > 0)
+                            .Select(static item => Quantity(item.Commodity, item.Quantity))
+                            .ToArray(),
+                        Cash = type.Cash,
+                    },
+                Arms = type.Worker is null ? null : type.Arms,
+
+                // "Regiments of Minutemen, Militia, and Conscripts cannot be deployed by
+                // rail", and militia "cannot be ordered to leave their home province".
+                MovesByRail = !militia,
+                LeavesProvince = !militia,
+                Stats = type.Stats,
+            };
+        }).ToArray();
 
     private static ProductionFacilityContentDefinition[] CreateStandardProductionFacilities() =>
     [

@@ -322,7 +322,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(32)]
+    [InlineData(33)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1914,7 +1914,6 @@ public sealed class WorldContentTests
         var decoded = WorldContentCodec.Decode(encoded);
         var world = WorldContentCompiler.Compile(decoded).World;
 
-        Assert.Equal(31, WorldContentCodec.CurrentVersion);
         Assert.Contains("\"subsidyPercents\"", Encoding.UTF8.GetString(encoded), StringComparison.Ordinal);
         Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
         Assert.Equal([5, 10], world.Diplomacy!.SubsidyPercents);
@@ -2075,6 +2074,170 @@ public sealed class WorldContentTests
 
         var exception = Assert.Throws<ContentValidationException>(() => WorldContentCompiler.Compile(document));
         Assert.StartsWith(path, exception.Path, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArmyTypesRoundTripAndCompileByKey()
+    {
+        var document = WithArmoury(CreateValidDocument());
+
+        var encoded = WorldContentCodec.Encode(document);
+        var json = Encoding.UTF8.GetString(encoded);
+        var decoded = WorldContentCodec.Decode(encoded);
+        var world = WorldContentCompiler.Compile(decoded).World;
+
+        Assert.Equal(32, WorldContentCodec.CurrentVersion);
+        Assert.Contains("\"armyTypes\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"movesByRail\": false", json, StringComparison.Ordinal);
+        Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
+
+        Assert.Equal(3, world.ArmyTypes.Count);
+        var militia = world.ArmyTypes[0];
+        Assert.Equal(ArmyCategory.Militia, militia.Category);
+        Assert.Null(militia.Purchase);
+        Assert.Null(militia.Arms);
+        Assert.False(militia.MovesByRail);
+        Assert.False(militia.LeavesProvince);
+
+        var regulars = world.ArmyTypes[1];
+        var price = Assert.IsType<ArmyPurchase>(regulars.Purchase);
+        Assert.Equal(WorkerGrade.Untrained, price.WorkerGrade);
+        Assert.Equal(500, price.CashCost);
+        var steel = Assert.Single(price.Bill);
+        Assert.Equal("Steel", world.Commodities[steel.Commodity.Value].Name);
+        Assert.Equal(1, steel.Quantity);
+        Assert.Equal(1, regulars.Arms);
+        Assert.True(regulars.MovesByRail);
+        Assert.Null(regulars.RequiredTechnology);
+        Assert.Equal(12.5m, regulars.Stats!.FirepowerVsInfantry);
+        Assert.Null(regulars.Stats.DefendingRange);
+
+        var rifles = world.ArmyTypes[2];
+        Assert.Equal(2, rifles.Era);
+        var required = Assert.IsType<TechnologyId>(rifles.RequiredTechnology);
+        Assert.Equal("Oil Drilling", world.Technologies[required.Value].Name);
+    }
+
+    [Fact]
+    public void VersionThirtyOneMigratesToAWorldWithNoArmoury()
+    {
+        // No catalogue means the Armoury sells nothing and every army record stays
+        // inert — exactly how a version 31 world behaved.
+        var document = CreateValidDocument();
+        document.Scenarios[0].Armies = [new ArmyContent { Province = "province.west", Type = 40 }];
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 31);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+        var world = WorldContentCompiler.Compile(migrated).World;
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.Null(migrated.ArmyTypes);
+        Assert.Empty(world.ArmyTypes);
+        Assert.DoesNotContain(
+            "\"armyTypes\"", Encoding.UTF8.GetString(WorldContentCodec.Encode(migrated)), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void VersionThirtyOneCannotDeclareArmyTypes()
+    {
+        var json = Relabel(
+            Encoding.UTF8.GetString(WorldContentCodec.Encode(WithArmoury(CreateValidDocument()))), 31);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+        Assert.Equal("armyTypes", exception.Path);
+    }
+
+    [Theory]
+    [InlineData("armyType", "scenarios[0].armies[0].type")]
+    [InlineData("technology", "armyTypes[2].requiredTechnology")]
+    [InlineData("commodity", "armyTypes[1].purchase.bill[0]")]
+    [InlineData("era", "armyTypes[1]")]
+    [InlineData("cash", "armyTypes[1]")]
+    [InlineData("duplicate", "armyTypes")]
+    public void AMalformedArmyTypeIsRejectedWhereItIsWrong(string fault, string path)
+    {
+        var document = WithArmoury(CreateValidDocument());
+        switch (fault)
+        {
+            case "armyType":
+                // With a catalogue, a scenario army must name a row of it.
+                document.Scenarios[0].Armies = [new ArmyContent { Province = "province.west", Type = 3 }];
+                break;
+            case "technology":
+                document.ArmyTypes![2].RequiredTechnology = "technology.nonexistent";
+                break;
+            case "commodity":
+                document.ArmyTypes![1].Purchase!.Bill[0].Commodity = "commodity.armaments";
+                break;
+            case "era":
+                document.ArmyTypes![1].Era = 4;
+                break;
+            case "cash":
+                document.ArmyTypes![1].Purchase!.Cash = -1;
+                break;
+            default:
+                document.ArmyTypes![2].Key = document.ArmyTypes[1].Key;
+                break;
+        }
+
+        var exception = Assert.Throws<ContentValidationException>(() => WorldContentCompiler.Compile(document));
+        Assert.StartsWith(path, exception.Path, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AScenarioArmyInsideTheCatalogueCompiles()
+    {
+        var document = WithArmoury(CreateValidDocument());
+        document.Scenarios[0].Armies = [new ArmyContent { Province = "province.west", Type = 2 }];
+
+        var world = WorldContentCompiler.Compile(document).World;
+
+        Assert.Equal(3, world.ArmyTypes.Count);
+    }
+
+    /// <summary>
+    /// Militia the Armoury never builds; Regulars for an untrained worker, one steel
+    /// standing in for armaments and $500; and an era-2 type behind Oil Drilling.
+    /// </summary>
+    private static WorldContentDocument WithArmoury(WorldContentDocument document)
+    {
+        ArmyTypeContentDefinition Bought(string key, string name, int era, string? technology) => new()
+        {
+            Key = key,
+            Name = name,
+            Category = ArmyCategory.RegularInfantry,
+            Era = era,
+            RequiredTechnology = technology,
+            Purchase = new ArmyPurchaseContent
+            {
+                WorkerGrade = WorkerGrade.Untrained,
+                Bill = [new CommodityQuantityContent { Commodity = "commodity.steel", Quantity = 1 }],
+                Cash = 500,
+            },
+            Arms = 1,
+            Stats = new ArmyStatsContent
+            {
+                FirepowerVsInfantry = 12.5m, FirepowerVsMounted = 12.5m, Range = 5,
+                Defence = 5, EntrenchedDefence = 6, Movement = 4,
+            },
+        };
+
+        document.ArmyTypes =
+        [
+            new ArmyTypeContentDefinition
+            {
+                Key = "army.militia",
+                Name = "Militia",
+                Category = ArmyCategory.Militia,
+                Era = 1,
+                MovesByRail = false,
+                LeavesProvince = false,
+            },
+            Bought("army.regulars", "Regulars", 1, null),
+            Bought("army.rifles", "Rifle Infantry", 2, "technology.drilling"),
+        ];
+        return document;
     }
 
     /// <summary>
