@@ -3081,6 +3081,9 @@ public sealed class LegacyWorldConverterTests
         Assert.Equal((1500L, 2000L), (construction.DepotCashCost, construction.PortCashCost));
         Assert.Null(construction.RailCashCost);
 
+        // Version 33: a guess with no evidence at all, reusing the port's figure.
+        Assert.Equal(2000L, construction.FortCashCost);
+
         // The manual's one statement about either.
         Assert.True(construction.PortCashCost > construction.DepotCashCost);
     }

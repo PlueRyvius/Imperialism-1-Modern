@@ -138,7 +138,8 @@ still an optional local source with the procedural palette as its fallback.
 - [ ] The newspaper
 - [x] Land battles and capture (`LandBattleTests`)
 - [x] Naval landings and attacks across water (`LandingTests`)
-- [ ] Fortification construction
+- [x] Fortification construction (`FortTests`)
+- [x] Elimination and anarchy (`EliminationTests`)
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's

@@ -407,6 +407,27 @@ public sealed class TurnReportRendererTests
     }
 
     [Fact]
+    public void AnEliminationSaysWhoFellToWhomAndWhatFellIntoAnarchy()
+    {
+        var renderer = CreateRenderer();
+
+        var eliminated = Assert.Single(renderer.Render(new CountryEliminatedEvent(1, Red, Blue, 2, 1, 3, 4, 1)));
+        Assert.Equal(TurnReportKind.Loss, eliminated.Kind);
+        Assert.Equal(Red, eliminated.Country);
+        Assert.Contains("Red Empire has been eliminated by", eliminated.Text, StringComparison.Ordinal);
+        Assert.Contains("its 2 remaining provinces fall into anarchy", eliminated.Text, StringComparison.Ordinal);
+        Assert.Contains("3 ships in 1 fleet went down with it", eliminated.Text, StringComparison.Ordinal);
+
+        var bare = Assert.Single(renderer.Render(new CountryEliminatedEvent(1, Red, Blue, 0, 0, 0, 0, 0)));
+        Assert.Contains("nothing falls into anarchy", bare.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("ship", bare.Text, StringComparison.Ordinal);
+
+        var ignored = Assert.Single(renderer.Render(new EliminatedCountryOrdersIgnoredEvent(2, Red)));
+        Assert.Equal(TurnReportKind.Refusal, ignored.Kind);
+        Assert.Contains("set aside", ignored.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ANavalBattleAndAnInterceptionSayWhoLostWhatAndThatTheMoneyStands()
     {
         var renderer = CreateRenderer();
@@ -601,6 +622,8 @@ public sealed class TurnReportRendererTests
                 1, Blue, new TaskForceId(1), [new RegimentId(1)], new ProvinceId(0), new ProvinceId(0), 1, 0),
             new RegimentsDrownedEvent(1, Blue, new TaskForceId(1), [new RegimentId(1)], new ProvinceId(0)),
             new RegimentsHealedEvent(1, Blue, [new RegimentId(1)], 100),
+            new CountryEliminatedEvent(1, Red, Blue, 2, 1, 3, 4, 1),
+            new EliminatedCountryOrdersIgnoredEvent(1, Red),
         ];
     }
 }

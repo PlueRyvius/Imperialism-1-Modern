@@ -3032,11 +3032,18 @@ public static class LegacyWorldConverter
     /// manual prices neither and states only the ordering: ports "cost more than
     /// depots". These two satisfy it, and the price list does not price either, so
     /// they stand unchallenged. See <c>docs/formulas/engineer.md</c>.
+    /// <para>
+    /// <b>The fort is weaker still: a guess with no evidence at all.</b> Nothing prices
+    /// it — not the manual, not the price list, not a recollection. 2,000 reuses the
+    /// port's figure so as not to invent a fourth number; the construction dialog's own
+    /// price is <c>wanted-values.md</c> §9(a), and <c>0x00695C50</c> is a candidate only.
+    /// </para>
     /// </remarks>
     private static ConstructionContentSettings CreateStandardConstruction() => new()
     {
         DepotCashCost = 1500,
         PortCashCost = 2000,
+        FortCashCost = 2000,
     };
 
     /// <summary>

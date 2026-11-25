@@ -58,7 +58,10 @@ internal static class TechnologyPlanner
         {
             var country = new CountryId(countryValue);
             var wanted = orders[country].BuyTechnology;
-            if (wanted.Count == 0)
+
+            // Row 6e: a country eliminated in this turn's Conflict buys nothing; its
+            // treasury is frozen. Silent, like every other phase it no longer acts in.
+            if (wanted.Count == 0 || state.IsEliminated(country))
             {
                 continue;
             }

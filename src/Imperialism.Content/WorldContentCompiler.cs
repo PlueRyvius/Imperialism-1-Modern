@@ -454,14 +454,16 @@ public static class WorldContentCompiler
                     "This version prices rail per terrain, on terrains[].rail.cashCost.");
             }
 
-            if (constructionContent.DepotCashCost < 0 || constructionContent.PortCashCost < 0)
+            if (constructionContent.DepotCashCost < 0 || constructionContent.PortCashCost < 0 ||
+                constructionContent.FortCashCost < 0)
             {
                 throw Error("construction", "A construction cannot cost a negative amount.");
             }
 
             construction = new ConstructionSettings(
                 constructionContent.DepotCashCost,
-                constructionContent.PortCashCost);
+                constructionContent.PortCashCost,
+                constructionContent.FortCashCost);
         }
 
         ImprovementSettings? improvement = null;

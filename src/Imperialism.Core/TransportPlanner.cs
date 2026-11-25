@@ -124,6 +124,13 @@ internal static class TransportPlanner
         {
             var country = extraction.Country;
 
+            // Row 6e: nothing is gathered for an eliminated country, so nothing is
+            // carried; skipped outright so a stale pool could never pay it.
+            if (state.IsEliminated(country))
+            {
+                continue;
+            }
+
             // A world with no transport settings has no limit, which is how
             // every world behaved before capacity existed: everything gathered
             // went straight through.

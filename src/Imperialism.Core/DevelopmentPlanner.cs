@@ -200,6 +200,14 @@ internal static class DevelopmentPlanner
                 continue;
             }
 
+            // Row 6e: an eliminated country's civilians stay on the map but their work
+            // is frozen where it stood — nothing finishes, nothing counts down. A chosen
+            // rule (army rule 41); nobody is left to pay or direct them.
+            if (state.IsEliminated(civilian.Country))
+            {
+                continue;
+            }
+
             if (job.TurnsRemaining > 1)
             {
                 state.SetCivilianWork(

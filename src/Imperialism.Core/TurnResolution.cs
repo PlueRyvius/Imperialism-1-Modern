@@ -444,6 +444,19 @@ public enum CivilianOrderRefusal : byte
     /// which is the same all-or-nothing bargain the warehouse already makes.
     /// </summary>
     NotEnoughCash,
+
+    /// <summary>
+    /// A fort order in a world that prices no fort — a package migrated from before
+    /// version 33. Refused before anything is charged.
+    /// </summary>
+    FortsNotPricedInThisWorld,
+
+    /// <summary>
+    /// The province's fort, counting every fort job of this country already under way
+    /// there (including one accepted earlier this turn), would pass
+    /// <see cref="WorldState.MaxFortLevel"/>.
+    /// </summary>
+    FortAtMaximum,
 }
 
 /// <summary>Records one civilian moving without being set to work.</summary>

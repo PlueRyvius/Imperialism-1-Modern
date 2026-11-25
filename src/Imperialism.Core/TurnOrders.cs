@@ -228,6 +228,17 @@ public sealed class CountryTurnOrders
 
     public CountryId Country { get; }
 
+    /// <summary>True when this submission orders nothing at all.</summary>
+    public bool IsEmpty =>
+        _production.Count == 0 && _expansions.Count == 0 && RecruitWorkers == 0 &&
+        _deployments.Count == 0 && _civilianWork.Count == 0 && _engineerWork.Count == 0 &&
+        _transport.Count == 0 && BuildTransportCapacity == 0 && _buyTechnology.Count == 0 &&
+        _tradeOffers.Count == 0 && _tradeBids.Count == 0 && BurnFuel == 0 &&
+        Training.UntrainedToTrained == 0 && Training.TrainedToExpert == 0 &&
+        _shipBuilds.Count == 0 && _declareWar.Count == 0 && _naval.Count == 0 &&
+        _civilianPurchases.Count == 0 && _civilianDisbands.Count == 0 && _overtures.Count == 0 &&
+        _tradePolicies.Count == 0 && _regimentPurchases.Count == 0 && _regimentMoves.Count == 0;
+
     /// <summary>Production requests in explicit allocation-priority order.</summary>
     public IReadOnlyList<ProductionOrder> Production => _production;
 

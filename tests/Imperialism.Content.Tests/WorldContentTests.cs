@@ -322,7 +322,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(33)]
+    [InlineData(34)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -2086,7 +2086,7 @@ public sealed class WorldContentTests
         var decoded = WorldContentCodec.Decode(encoded);
         var world = WorldContentCompiler.Compile(decoded).World;
 
-        Assert.Equal(32, WorldContentCodec.CurrentVersion);
+        Assert.Equal(33, WorldContentCodec.CurrentVersion);
         Assert.Contains("\"armyTypes\"", json, StringComparison.Ordinal);
         Assert.Contains("\"movesByRail\": false", json, StringComparison.Ordinal);
         Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
@@ -2146,6 +2146,79 @@ public sealed class WorldContentTests
         var exception = Assert.Throws<ContentValidationException>(() =>
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
         Assert.Equal("armyTypes", exception.Path);
+    }
+
+    [Fact]
+    public void AFortPriceSurvivesARoundTripAndCompiles()
+    {
+        var document = CreateValidDocument();
+        document.Construction = new ConstructionContentSettings
+        {
+            DepotCashCost = 1500,
+            PortCashCost = 2000,
+            FortCashCost = 2000,
+        };
+
+        var first = WorldContentCodec.Encode(document);
+        Assert.Contains("\"fortCashCost\": 2000", Encoding.UTF8.GetString(first), StringComparison.Ordinal);
+        var decoded = WorldContentCodec.Decode(first);
+        Assert.Equal(first, WorldContentCodec.Encode(decoded));
+
+        var world = WorldContentCompiler.Compile(decoded).World;
+        Assert.Equal(2000, world.Construction!.FortCashCost);
+        Assert.Equal(2000, world.Construction.GetCashCost(EngineerConstruction.Fort));
+    }
+
+    [Fact]
+    public void ANegativeFortPriceIsRejected()
+    {
+        var document = CreateValidDocument();
+        document.Construction = new ConstructionContentSettings
+        {
+            DepotCashCost = 1500,
+            PortCashCost = 2000,
+            FortCashCost = -1,
+        };
+
+        var exception = Assert.Throws<ContentValidationException>(() => WorldContentCompiler.Compile(document));
+        Assert.Equal("construction", exception.Path);
+    }
+
+    [Fact]
+    public void VersionThirtyTwoMigratesToAWorldThatPricesNoFort()
+    {
+        // No price means every fort order is refused — a version 32 Engineer built none.
+        var document = CreateValidDocument();
+        document.Construction = new ConstructionContentSettings { DepotCashCost = 1500, PortCashCost = 2000 };
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 32);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+        var world = WorldContentCompiler.Compile(migrated).World;
+
+        Assert.Equal(33, WorldContentCodec.CurrentVersion);
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.Null(migrated.Construction!.FortCashCost);
+        Assert.Null(world.Construction!.FortCashCost);
+        Assert.Throws<InvalidOperationException>(() => world.Construction.GetCashCost(EngineerConstruction.Fort));
+        Assert.DoesNotContain(
+            "\"fortCashCost\"", Encoding.UTF8.GetString(WorldContentCodec.Encode(migrated)), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void VersionThirtyTwoCannotPriceAFort()
+    {
+        var document = CreateValidDocument();
+        document.Construction = new ConstructionContentSettings
+        {
+            DepotCashCost = 1500,
+            PortCashCost = 2000,
+            FortCashCost = 2000,
+        };
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 32);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+        Assert.Equal("construction.fortCashCost", exception.Path);
     }
 
     [Theory]

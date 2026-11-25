@@ -42,6 +42,11 @@ public static class TurnResolver
 
         var turnNumber = checked(state.CompletedTurnCount + 1);
         var startedAt = state.CurrentDate;
+
+        // Row 6e: a country eliminated on an earlier turn orders nothing. Its orders are
+        // set aside before anything is planned, so no planner ever reads them.
+        var ignored = new List<TurnEvent>();
+        orders = EliminationPlanner.IgnoreEliminated(state, orders, turnNumber, ignored);
         var production = ProductionPlanner.Create(state, orders);
 
         // Expansion is planned against what production has already committed to
@@ -148,6 +153,7 @@ public static class TurnResolver
         var settled = new List<(PlannedTrade Deal, DeliveryId Delivery)>(trade.Trades.Count);
         var navalOrdinals = new NavalWarPlanner.Ordinals();
         var events = new List<TurnEvent>(Pipeline.Length + production.Entries.Count);
+        events.AddRange(ignored);
         foreach (var phase in Pipeline)
         {
             if (phase == TurnPhase.Diplomacy)
@@ -657,9 +663,12 @@ public static class TurnResolver
                 // Terrain Map at the start of the next turn", standing "in the province
                 // of the capital". The capital is read now, not when they were paid for;
                 // a country that has lost it receives nobody and gets nothing back.
+                // Row 6e: a country eliminated this turn receives nobody — the same loss
+                // as a capital already gone, and it has lost its capital or all its land.
                 foreach (var entry in production.CivilianPurchases)
                 {
-                    if (state.GetCountryCapital(entry.Country) is not { } capital)
+                    if (state.IsEliminated(entry.Country) ||
+                        state.GetCountryCapital(entry.Country) is not { } capital)
                     {
                         events.Add(new CivilianDeliveryLostEvent(
                             turnNumber, entry.Country, entry.Type, entry.Count));
@@ -681,7 +690,8 @@ public static class TurnResolver
                 // of the capital". After Conflict, so none moves the turn it was bought.
                 foreach (var entry in production.RegimentPurchases)
                 {
-                    if (state.GetCountryCapital(entry.Country) is not { } capital ||
+                    if (state.IsEliminated(entry.Country) ||
+                        state.GetCountryCapital(entry.Country) is not { } capital ||
                         state.Definition.Map[capital].Region.Kind != CellRegionKind.Province)
                     {
                         events.Add(new RegimentDeliveryLostEvent(

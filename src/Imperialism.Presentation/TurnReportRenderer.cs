@@ -145,6 +145,8 @@ public sealed class TurnReportRenderer
             ProvinceCapturedEvent captured => [ProvinceCaptured(captured)],
             RegimentsRetreatedEvent retreated => [RegimentsRetreated(retreated)],
             RegimentsSurrenderedEvent surrendered => [RegimentsSurrendered(surrendered)],
+            CountryEliminatedEvent eliminated => [Eliminated(eliminated)],
+            EliminatedCountryOrdersIgnoredEvent ignored => [OrdersIgnored(ignored)],
             RegimentsHealedEvent healed => [RegimentsHealed(healed)],
             PowerGeneratedEvent generated => Powered(generated),
             PowerRefusedEvent refused => [PowerRefused(refused)],
@@ -640,6 +642,32 @@ public sealed class TurnReportRenderer
             null,
             $"{Country(captured.NewOwner)} took {Province(captured.Province)}{from}{how}{killed}{capital}.");
     }
+
+    private TurnReportLine Eliminated(CountryEliminatedEvent eliminated)
+    {
+        var provinces = eliminated.ProvincesInAnarchy;
+        var anarchy = provinces == 0
+            ? "it holds no province, so nothing falls into anarchy"
+            : $"its {Count(provinces)} remaining {(provinces == 1 ? "province falls" : "provinces fall")} into anarchy";
+        var fleets = eliminated.FleetsLost;
+        var ships = eliminated.ShipsLost == 0
+            ? string.Empty
+            : $"; {Count(eliminated.ShipsLost)} {(eliminated.ShipsLost == 1 ? "ship" : "ships")} in " +
+              $"{Count(fleets)} {(fleets == 1 ? "fleet" : "fleets")} went down with it";
+        return Line(
+            eliminated,
+            TurnReportKind.Loss,
+            eliminated.Country,
+            null,
+            $"{Country(eliminated.Country)} has been eliminated by {Country(eliminated.By)}; {anarchy}{ships}.");
+    }
+
+    private TurnReportLine OrdersIgnored(EliminatedCountryOrdersIgnoredEvent ignored) => Line(
+        ignored,
+        TurnReportKind.Refusal,
+        ignored.Country,
+        null,
+        $"{Country(ignored.Country)} has been eliminated; the orders given in its name were set aside.");
 
     private TurnReportLine RegimentsRetreated(RegimentsRetreatedEvent retreated)
     {

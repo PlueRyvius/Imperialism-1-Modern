@@ -634,6 +634,13 @@ public sealed class ConstructionContentSettings
     public long DepotCashCost { get; set; }
 
     public long PortCashCost { get; set; }
+
+    /// <summary>
+    /// Version 33: what one fort level costs. Absent means the world prices no fort and
+    /// every fort order is refused. The importer's 2,000 is a guess with no evidence at all.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? FortCashCost { get; set; }
 }
 
 /// <summary>

@@ -190,6 +190,12 @@ public enum TradePolicyRefusal : byte
 
     /// <summary>The world's trade policies screen has no button for that percentage.</summary>
     PercentNotOffered,
+
+    /// <summary>
+    /// The target country has been eliminated (row 6e). Nothing is left to treat with:
+    /// its provinces are in anarchy and its posts were closed when it fell.
+    /// </summary>
+    CountryEliminated,
 }
 
 /// <summary>Records a trade policy set. It takes effect next turn.</summary>
@@ -325,6 +331,12 @@ public enum DiplomaticOvertureRefusal : byte
     /// declaration of war.
     /// </summary>
     AlreadyMadeThisTurn,
+
+    /// <summary>
+    /// The target country has been eliminated (row 6e). Nothing is left to treat with:
+    /// its provinces are in anarchy and its posts were closed when it fell.
+    /// </summary>
+    CountryEliminated,
 }
 
 /// <summary>Records an overture carried out. What it grants opens next turn.</summary>
@@ -552,6 +564,11 @@ internal static class DiplomacyPlanner
             return TradePolicyRefusal.Itself;
         }
 
+        if (state.IsEliminated(target))
+        {
+            return TradePolicyRefusal.CountryEliminated;
+        }
+
         if (!definition.Countries[country.Value].IsGreatPower)
         {
             return TradePolicyRefusal.NotAGreatPower;
@@ -710,6 +727,12 @@ internal static class DiplomacyPlanner
         if (target == country)
         {
             return DiplomaticOvertureRefusal.Itself;
+        }
+
+        // Row 6e: nobody is left to receive an envoy or sign a peace.
+        if (state.IsEliminated(target))
+        {
+            return DiplomaticOvertureRefusal.CountryEliminated;
         }
 
         if (!definition.Countries[country.Value].IsGreatPower)

@@ -110,11 +110,11 @@ public sealed class TurnReportTextTests
         AssertDistinctAndSpoken(Enum.GetValues<PendingDeliverySource>(), TurnReportText.Describe);
 
     [Fact]
-    public void TheCivilianRefusalsAreTheTwentyFiveCoreDeclares()
+    public void TheCivilianRefusalsAreTheTwentySevenCoreDeclares()
     {
         // A count is a blunt instrument, but it is the one assertion that fails
         // loudly when the enumeration grows rather than when someone provokes it.
-        Assert.Equal(25, Enum.GetValues<CivilianOrderRefusal>().Length);
+        Assert.Equal(27, Enum.GetValues<CivilianOrderRefusal>().Length);
     }
 
     [Fact]

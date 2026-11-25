@@ -921,6 +921,24 @@ are placeholders** until a PC trace (`wanted-values.md` §8). Chosen rules are n
 army 31–37; `game-systems.md:272-274` keeps its wording. Elimination and anarchy are now 6e.
 No soak number moved.
 
+`.iworld` **v33** closes row 6e: **forts, elimination and anarchy**, with no new phase.
+The one content field is `construction.fortCashCost`, and **its importer value of $2,000 is a
+guess with no evidence at all** — the port's figure reused (`wanted-values.md` §9a). Absent,
+as after the v32 migration, it means no forts. An Engineer on its own tile raises its
+**province** one level when its work is done, three at most, **counting jobs already under
+way**. A battle capture kills the Engineer, so a job is lost that way rather than refused
+on finishing. **Taking a capital eliminates its owner at once** (manual 692–702), which
+**retracts 6b's "capital cleared without elimination" rule** (army rule 27). So does a
+capture that leaves a country no province. Elimination is permanent and **keeps
+ownership**: a province is in anarchy exactly when its owner is eliminated. It produces
+nothing, may be attacked **without war**, and its local forces defend and still heal. The
+eliminated country's fleets go down (a guess, §9b), its posts and trade policies are
+cleared both ways, its later attacks that turn are refused, and units due to it in
+`Delivery` are lost. Its orders are **set aside at every later turn open**. Its warehouse,
+treasury and workforce stay **frozen**, neither eating nor gathering. The `Extraction`
+skip is unobservable because a capital-less country already gathers nothing. The rules are
+army 38–48 and engineer F1–F7, each labelled manual or chosen. No soak number moved.
+
 **Production spends labour: two per cycle, flat**, from one pool per country shared
 across every facility. The manual prices exactly one recipe — a unit of clothing
 costs two fabric and two labour — and the original's own help resources charge the

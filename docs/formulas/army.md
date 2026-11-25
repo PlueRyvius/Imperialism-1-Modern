@@ -24,7 +24,7 @@ resolve in `Production` after the University, deliveries in `Delivery`, moves in
 6a fought nothing. **6b** adds attacks, a headless strategic battle, health and healing,
 experience, entrenchment, the *effect* of a fort, and capture — with **no content bump and
 no new phase**: attacks resolve in `Conflict` after the moves, and healing closes it.
-Building a fort is still pending.
+Building a fort waited for 6e and is now an Engineer order (`engineer.md`, Forts).
 
 **6d** adds **landings**: an attack on a province that does not border the regiments' own,
 through a **landing site** a task force of the country established on an earlier turn
@@ -34,6 +34,14 @@ and ships lost there **drown** the regiments that no longer fit. The survivors t
 6b's battle unchanged. **The capacity reading, drowning and the interception battle are
 placeholders** until a PC trace (`wanted-values.md` §8). Rules 31–37 below; still no content
 bump and no new phase.
+
+**6e** adds **elimination and anarchy**. Taking a country's capital eliminates it on the
+spot (manual 692–702), and so does a capture that leaves it no province. Its remaining
+provinces fall into **anarchy**: they stay its own, produce nothing, and anyone may attack
+them without a war. Their local forces still defend. Its fleets go down with it, its
+diplomatic posts and trade policies are cleared both ways, and from then on its orders are
+set aside. Rules 38–48 below. Content **v33** only prices the fort (`engineer.md`), and
+there is still no new phase.
 
 ## Confidence
 
@@ -299,7 +307,7 @@ The numbering continues from 6a.
 | 24 | Entrenchment is the entrenched DEF, so the manual's 20% is not applied twice; artillery never entrenches | chosen reading; artillery from the **release notes** |
 | 25 | The fort reduction, 10% a level and at most three levels, applies to artillery too | **manual** amount (3947–3959); the scope is chosen |
 | 26 | Survivors retreat to the lowest-id own neighbour, else surrender | chosen, from the manual's flee-or-surrender (3913–3915) |
-| 27 | A captured capital is cleared with no elimination or anarchy | chosen gap; elimination is 6d |
+| 27 | ~~A captured capital is cleared with no elimination or anarchy~~ **Retracted by 6e**: the capital is still cleared, and its owner is now eliminated at once (rule 38) | was a chosen gap |
 | 28 | A captured province keeps its fort level | chosen |
 | 29 | Healing comes after every battle | chosen timing; the amount and cap are the **binary's** |
 | 30 | Each battle's generator is SplitMix64 seeded `turnSeed ^ Mix(ordinal + 1)`, with ordinal the 0-based battle index in the turn | chosen |
@@ -395,10 +403,56 @@ Row 6d's mutations, each run, red, and reverted (the naval ones are in `naval.md
 | Capacity per order instead of cumulative | `TwoLandingsThroughOneSiteSpendItsCapacityCumulatively` and three more |
 | Drown from the front of the roster | `AnIdleEnemyInTheSitesZoneFightsTheLanding…DrownFromTheEnd` and three more |
 
+## Elimination and anarchy
+
+`LandBattles.Capture` calls `EliminateIfFallen` once a capture is applied. The
+`ProvinceCapturedEvent` and the retreat or surrender come first, then a
+`CountryEliminatedEvent(turn, country, by, provincesInAnarchy, fleetsLost, shipsLost,
+diplomaticTiesClosed, tradePoliciesCleared)`. `WorldState.IsEliminated`,
+`GetEliminatedOnTurn` and `IsInAnarchy(province)` expose the result.
+
+| # | Rule | Standing |
+|---|---|---|
+| 38 | Capturing the province holding a country's capital eliminates it at once, after the capture | **manual** (692–702; both Great Powers and minors, 664–666) |
+| 39 | A capture that leaves a country no province eliminates it even without a capital; a country with no capital that still holds land is not eliminated by losing another province | chosen |
+| 40 | Its task forces and fleets go down, landing sites with them, and its hull counts are zeroed | **chosen — a guess**; the manual is silent. `wanted-values.md` §9(b) |
+| 41 | Its treasury, warehouse, workforce, regiments and civilians stay, frozen: the workforce neither eats nor starves, civilians' work neither counts down nor finishes, nothing is bought in `Investment` | chosen |
+| 42 | Every pact, consulate, embassy and trade policy involving it is cleared, both ways. The counts ride on the elimination event, and no `TradePolicyClearedEvent` is raised | chosen |
+| 43 | Elimination is permanent. Ownership is kept, and a province is in anarchy exactly when its owner is eliminated | chosen representation |
+| 44 | From the next turn its orders are set aside before anything is planned, with one `EliminatedCountryOrdersIgnoredEvent` (phase `Diplomacy`) only when they were not empty | chosen |
+| 45 | Eliminated mid-`Conflict`, its later attacks that turn are refused `CountryEliminated`, and `Extraction`, `Transport`, `Feeding`, `Development` and `Investment` skip it. Anarchic provinces "produce no resources" | the production rule is the **manual's**; the skips are chosen |
+| 46 | A regiment or civilian due to it in that turn's `Delivery` is lost, as for a capital already gone | chosen |
+| 47 | An attack on an anarchic province needs no war, and its local forces defend with 6b's resolver and retreat to a neighbour still their owner's. They still heal | no war and defending are the **manual's** (700–702); healing is chosen. `wanted-values.md` §9(c) |
+| 48 | A war, overture, peace offer or trade policy naming an eliminated country is refused `CountryEliminated`, charged nothing | chosen; there is nobody to treat with, and no war is needed |
+
+Rule 45's `Extraction` skip cannot be observed: an eliminated country has lost its
+capital, and a country with no capital already gathers nothing. It is kept so the rule is
+stated where it applies.
+
+**A sample elimination** (`CapturingACapitalEliminatesItsOwnerAndLeavesTheRestInAnarchy`).
+Home has been at war with Other since turn 2. On turn 3 Home takes Other's capital
+province, and the event reads (Other, by Home, 2 provinces in anarchy, 2 fleets and 5
+ships lost, 4 ties closed, 2 policies cleared). Provinces 4 and 5 stay Other's, now in
+anarchy. Other's consulate and embassy with Third are gone both ways, as are its subsidy
+to Third and Third's boycott of it. Its cash, fish, armaments, regiments and civilians are
+untouched.
+
+Row 6e's mutations were each run, turned a test red, and were then reverted:
+
+| Mutation | Caught by |
+|---|---|
+| The fort ceiling ignores jobs under way | `AJobUnderWayCountsAgainstTheCeiling` |
+| A fort job adds two levels | `AnEngineerBuildsAFortThroughoutItsProvinceAfterItsWork`, `AFortTheEngineerBuiltCutsTheDefendersLossInTheNextBattle` |
+| A capture never eliminates | seven of the eight `EliminationTests` |
+| An anarchic province still needs a war | `ACountryNotAtWarMayAttackAnAnarchicProvinceAndItsLocalForcesDefend`, `LaterTheSameTurnTheVictimIsRefusedAndAThirdCountryNeedsNoWar` |
+| An eliminated country's orders are kept | `AnEliminatedCountrysOrdersAreIgnoredAndItsLandsNeitherGatherNorEat` |
+| An eliminated workforce still eats | the same, and `CapturingACapitalEliminatesItsOwnerAndLeavesTheRestInAnarchy` |
+| Fleets survive elimination | `CapturingACapitalEliminatesItsOwnerAndLeavesTheRestInAnarchy` |
+
 ## What is not modelled
 
-Building forts (an Engineer order with no known price or gate); the tactical battlefield and
-initiative; Generals in battle and morale; Combat Engineers against forts; elimination and
-anarchy (6e); alliances joining a war; militia growth and its free upgrade (rule 11);
+The tactical battlefield and initiative; Generals in battle and morale; Combat Engineers
+against forts; the war-declaration penalties the manual alludes to; victory; revival of
+an eliminated country; alliances joining a war; militia growth and its free upgrade (rule 11);
 regiments aboard ships as a standing state, and ship damage. No soak policy orders
-regiments, so no soak number moved.
+regiments, so no soak number moved; nor does any soak policy capture a capital.

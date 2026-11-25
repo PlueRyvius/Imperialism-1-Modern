@@ -166,6 +166,11 @@ internal static class WorldContentMigrator
             MigrateVersionThirtyOneToThirtyTwo(document);
         }
 
+        if (document.FormatVersion == 32)
+        {
+            MigrateVersionThirtyTwoToThirtyThree(document);
+        }
+
         if (document.FormatVersion == WorldContentCodec.CurrentVersion)
         {
             RejectLegacyArmyCount(document);
@@ -1244,6 +1249,21 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 32;
+    }
+
+    /// <summary>
+    /// Version 33 prices a fort. None is supplied: a migrated world's Engineers are
+    /// refused every fort order, exactly how it behaved at version 32.
+    /// </summary>
+    private static void MigrateVersionThirtyTwoToThirtyThree(WorldContentDocument document)
+    {
+        if (document.Construction?.FortCashCost is not null)
+        {
+            throw new ContentValidationException(
+                "construction.fortCashCost", "Version 32 cannot price a fort.");
+        }
+
+        document.FormatVersion = 33;
     }
 
     private static void RejectLegacyArmyCount(WorldContentDocument document)
