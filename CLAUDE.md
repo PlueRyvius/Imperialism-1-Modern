@@ -907,6 +907,25 @@ combination, both chances and the uniform outcome split are placeholders** until
 `docs/formulas/naval.md`. Ship damage and repair, experience, Admirals, aggressiveness,
 landings (6d) and routes between non-capital ports are not modelled. No soak number moved.
 
+**Row 6d lands troops across water, with no content bump and no new phase.** A fourth mission,
+`Landing(province)`, holds a **landing site** — the executable's task-force state 5, which
+`PortAccess` does not count, so it **cuts no port**, and it intercepts no merchant. It needs no
+war, and troops may cross only **from the next turn**, so re-ordering it restamps it (manual
+1943). A regiment attack on a province that does **not border** the regiments' own is a
+**landing** when the country has such a ready site; the refusals run `NotAdjacent` (no site),
+`NotCoastal`, `NoSeaPath` (any length), then 6b's `AlreadyOwn` and `NotAtWar`, then
+`NotEnoughLandingCapacity`. A site carries **Σ count × the armaments in each hull's build bill**
+a turn, spent cumulatively, all or nothing per order. Before its first landing in a turn,
+**every hostile task force in the zone, whatever it is doing, attacks it** ("entering or
+present", 1778–1781), once per site a turn, through 6c's `Fight`; ships lost there shrink the
+site and regiments **drown from the end of the roster** until the rest fit — all of them if the
+site lost. The survivors fight 6b's battle and `Capture` unchanged, and the site persists. A
+hostile **sailing into** a site's zone also attacks it the turn it arrives (1889–1891), the one
+exception to a move arriving idle. **The capacity reading, drowning and the interception battle
+are placeholders** until a PC trace (`wanted-values.md` §8). Chosen rules are naval 29–33 and
+army 31–37; `game-systems.md:272-274` keeps its wording. Elimination and anarchy are now 6e.
+No soak number moved.
+
 **Production spends labour: two per cycle, flat**, from one pool per country shared
 across every facility. The manual prices exactly one recipe — a unit of clothing
 costs two fabric and two labour — and the original's own help resources charge the

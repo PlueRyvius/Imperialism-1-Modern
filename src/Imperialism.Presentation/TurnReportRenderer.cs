@@ -116,6 +116,7 @@ public sealed class TurnReportRenderer
             TaskForceAssembledEvent assembled => [Assembled(assembled)],
             TaskForcePatrolOrderedEvent patrol => [Patrolling(patrol)],
             TaskForceBlockadeOrderedEvent blockade => [Blockading(blockade)],
+            TaskForceLandingOrderedEvent landing => [LandingSite(landing)],
             NavalBattleFoughtEvent battle => [NavalBattle(battle)],
             MerchantInterceptedEvent intercepted => [Intercepted(intercepted)],
             TaskForceSailedEvent sailed => [Sailed(sailed)],
@@ -137,6 +138,8 @@ public sealed class TurnReportRenderer
             RegimentsDeliveredEvent delivered => [RegimentsDelivered(delivered)],
             RegimentDeliveryLostEvent lost => [RegimentDeliveryLost(lost)],
             RegimentsMovedEvent moved => [RegimentsMoved(moved)],
+            RegimentsDrownedEvent drowned => [RegimentsDrowned(drowned)],
+            RegimentsLandedEvent landed => [RegimentsLanded(landed)],
             RegimentMoveRefusedEvent refused => [RegimentMoveRefused(refused)],
             BattleFoughtEvent battle => [BattleFought(battle)],
             ProvinceCapturedEvent captured => [ProvinceCaptured(captured)],
@@ -279,6 +282,14 @@ public sealed class TurnReportRenderer
         $"{Country(blockade.Country)}'s task force {blockade.TaskForce.Value} is blockading " +
         $"{Country(blockade.Target)}'s capital from {SeaZone(blockade.SeaZone)}.");
 
+    private TurnReportLine LandingSite(TaskForceLandingOrderedEvent landing) => Line(
+        landing,
+        TurnReportKind.Outcome,
+        landing.Country,
+        null,
+        $"{Country(landing.Country)}'s task force {landing.TaskForce.Value} holds a landing site on " +
+        $"{Province(landing.Target)} from {SeaZone(landing.SeaZone)}; troops may cross from next turn.");
+
     private TurnReportLine NavalBattle(NavalBattleFoughtEvent battle)
     {
         var loser = battle.Winner == battle.Attacker ? battle.Defender : battle.Attacker;
@@ -286,9 +297,14 @@ public sealed class TurnReportRenderer
         var losses = sunk.Length == 0
             ? "no ship was sunk"
             : $"{Join(sunk.Select(ship => $"{Country(Owner(battle, ship.Side))} lost {Hulls(ship.ShipsSunk, ship.Type)}"))}";
-        var opening = battle.Kind == NavalBattleKind.Escort
-            ? $"{Country(battle.Attacker)}'s raiders met {Country(battle.Defender)}'s merchant escort"
-            : $"{Country(battle.Attacker)}'s patrol engaged {Country(battle.Defender)}'s ships in {SeaZone(battle.SeaZone)}";
+        var opening = battle.Kind switch
+        {
+            NavalBattleKind.Escort =>
+                $"{Country(battle.Attacker)}'s raiders met {Country(battle.Defender)}'s merchant escort",
+            NavalBattleKind.Landing =>
+                $"{Country(battle.Attacker)}'s ships fell on {Country(battle.Defender)}'s landing fleet in {SeaZone(battle.SeaZone)}",
+            _ => $"{Country(battle.Attacker)}'s patrol engaged {Country(battle.Defender)}'s ships in {SeaZone(battle.SeaZone)}",
+        };
         return Line(
             battle,
             TurnReportKind.Outcome,
@@ -635,6 +651,33 @@ public sealed class TurnReportRenderer
             null,
             $"{Country(retreated.Country)} fell back from {Province(retreated.From)} to {Province(retreated.To)} " +
             $"with {Count(count)} {(count == 1 ? "regiment" : "regiments")}.");
+    }
+
+    private TurnReportLine RegimentsLanded(RegimentsLandedEvent landed)
+    {
+        var count = landed.Regiments.Count;
+        return Line(
+            landed,
+            TurnReportKind.Outcome,
+            landed.Country,
+            null,
+            $"{Country(landed.Country)} landed {Count(count)} {(count == 1 ? "regiment" : "regiments")} " +
+            $"from {Province(landed.From)} on {Province(landed.Destination)} through task force " +
+            $"{landed.TaskForce.Value}, carrying {Count(landed.ArmsUsed)} armaments with room for " +
+            $"{Count(landed.CapacityLeft)} more this turn.");
+    }
+
+    private TurnReportLine RegimentsDrowned(RegimentsDrownedEvent drowned)
+    {
+        var count = drowned.Regiments.Count;
+        return Line(
+            drowned,
+            TurnReportKind.Loss,
+            drowned.Country,
+            null,
+            $"{Country(drowned.Country)} lost {Count(count)} {(count == 1 ? "regiment" : "regiments")} " +
+            $"at sea on the way to {Province(drowned.Destination)}: task force {drowned.TaskForce.Value} " +
+            "could no longer carry them.");
     }
 
     private TurnReportLine RegimentsSurrendered(RegimentsSurrenderedEvent surrendered)

@@ -441,6 +441,36 @@ public sealed class TurnReportRendererTests
     }
 
     [Fact]
+    public void ALandingSaysWhereItCameFromWhatItCarriedAndWhoDrowned()
+    {
+        var renderer = CreateRenderer();
+        var province = new ProvinceId(0);
+
+        var site = Assert.Single(renderer.Render(
+            new TaskForceLandingOrderedEvent(1, Blue, new TaskForceId(2), new SeaZoneId(0), province)));
+        Assert.Equal(TurnReportKind.Outcome, site.Kind);
+        Assert.Contains("task force 2 holds a landing site on", site.Text, StringComparison.Ordinal);
+        Assert.Contains("from Northern Sea; troops may cross from next turn.", site.Text, StringComparison.Ordinal);
+
+        var intercepted = Assert.Single(renderer.Render(new NavalBattleFoughtEvent(
+            1, NavalBattleKind.Landing, new SeaZoneId(0), Red, Blue,
+            [new NavalBattleParticipant(new FleetId(1), new ShipTypeId(0), BattleSide.Defender, 2, 1)], Red, 3)));
+        Assert.Contains("Red Empire's ships fell on", intercepted.Text, StringComparison.Ordinal);
+        Assert.Contains("landing fleet in Northern Sea", intercepted.Text, StringComparison.Ordinal);
+
+        var landed = Assert.Single(renderer.Render(new RegimentsLandedEvent(
+            1, Blue, new TaskForceId(2), [new RegimentId(1), new RegimentId(3)], province, province, 4, 2)));
+        Assert.Equal((TurnReportKind.Outcome, Blue), (landed.Kind, landed.Country));
+        Assert.Contains("landed 2 regiments from", landed.Text, StringComparison.Ordinal);
+        Assert.Contains("through task force 2, carrying 4 armaments with room for 2 more this turn.", landed.Text, StringComparison.Ordinal);
+
+        var drowned = Assert.Single(renderer.Render(new RegimentsDrownedEvent(
+            1, Blue, new TaskForceId(2), [new RegimentId(5)], province)));
+        Assert.Equal((TurnReportKind.Loss, Blue), (drowned.Kind, drowned.Country));
+        Assert.Contains("lost 1 regiment at sea", drowned.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ALineCarriesTheCountryItIsAboutSoTheClientNeedNotReadIt()
     {
         var renderer = CreateRenderer();
@@ -529,6 +559,7 @@ public sealed class TurnReportRendererTests
             new NavalOrderRefusedEvent(
                 1, Blue, NavalOrderKind.Command, new TaskForceId(1), NavalOrderRefusal.AlreadyOrderedThisTurn),
             new TaskForceBlockadeOrderedEvent(1, Blue, new TaskForceId(1), new SeaZoneId(0), Red),
+            new TaskForceLandingOrderedEvent(1, Blue, new TaskForceId(1), new SeaZoneId(0), new ProvinceId(0)),
             new NavalBattleFoughtEvent(
                 1, NavalBattleKind.Patrol, new SeaZoneId(0), Blue, Red,
                 [new NavalBattleParticipant(new FleetId(1), new ShipTypeId(0), BattleSide.Attacker, 1, 0)], Blue, 2),
@@ -566,6 +597,9 @@ public sealed class TurnReportRendererTests
             new ProvinceCapturedEvent(1, new ProvinceId(0), Red, Blue, false, [new RegimentId(1)], [unit], true),
             new RegimentsRetreatedEvent(1, Red, [new RegimentId(2)], new ProvinceId(0), new ProvinceId(0)),
             new RegimentsSurrenderedEvent(1, Red, [new RegimentId(2)], new ProvinceId(0)),
+            new RegimentsLandedEvent(
+                1, Blue, new TaskForceId(1), [new RegimentId(1)], new ProvinceId(0), new ProvinceId(0), 1, 0),
+            new RegimentsDrownedEvent(1, Blue, new TaskForceId(1), [new RegimentId(1)], new ProvinceId(0)),
             new RegimentsHealedEvent(1, Blue, [new RegimentId(1)], 100),
         ];
     }

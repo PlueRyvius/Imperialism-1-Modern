@@ -137,6 +137,7 @@ still an optional local source with the procedural palette as its fallback.
 - [x] Buying regiments and moving them by march and rail (`RegimentTests`)
 - [ ] The newspaper
 - [x] Land battles and capture (`LandBattleTests`)
+- [x] Naval landings and attacks across water (`LandingTests`)
 - [ ] Fortification construction
 
 The tactical battle engine is deliberately early: the original runs it for

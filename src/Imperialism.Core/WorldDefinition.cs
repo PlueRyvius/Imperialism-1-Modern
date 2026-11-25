@@ -1909,6 +1909,32 @@ public sealed class WorldState
     }
 
     /// <summary>
+    /// Puts a task force on a landing site: the executable's state 5. It persists like a
+    /// patrol, a move clears it, and it never cuts a port.
+    /// </summary>
+    internal void EstablishLandingSite(CountryId country, TaskForceId taskForce, ProvinceId target, int turnNumber)
+    {
+        ValidateCountry(country);
+        if ((uint)target.Value >= (uint)Definition.Map.Provinces.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(target));
+        }
+
+        var force = GetTaskForce(taskForce);
+        if (force.Country != country)
+        {
+            throw new InvalidOperationException("A country cannot land with a foreign task force.");
+        }
+
+        if (force.PlannedSeaZone is not null)
+        {
+            throw new InvalidOperationException("A sailing leg must resolve before a task force can hold a landing site.");
+        }
+
+        force.EstablishLanding(target, turnNumber);
+    }
+
+    /// <summary>
     /// Places a task force into the original's port-control qualifying patrol
     /// state. This alone has no tactical-combat or port-access side effect.
     /// </summary>

@@ -259,19 +259,29 @@ internal sealed class StrategicBattleResolver : IBattleResolver
 /// </summary>
 internal static class LandBattlePlanner
 {
+    /// <remarks>
+    /// An attack on a province that does not border the regiments' own is a <b>landing
+    /// attack</b> when the country holds a ready landing site on it (row 6d): it is
+    /// checked, intercepted at sea, thinned by drowning, and then fought here exactly as
+    /// an adjacent attack is. See <c>docs/formulas/army.md</c>, rules 31 onwards.
+    /// </remarks>
     public static IReadOnlyList<TurnEvent> ResolveAttacks(
         WorldState state,
         IReadOnlyList<(CountryId Country, RegimentMoveOrder Order)> attacks,
         HashSet<RegimentId> acted,
         int turnNumber,
         ulong seed,
-        IBattleResolver resolver)
+        IBattleResolver resolver,
+        INavalBattleResolver? navalResolver = null,
+        NavalWarPlanner.Ordinals? navalOrdinals = null)
     {
         var events = new List<TurnEvent>();
         var ordinal = 0;
+        var landings = new LandingPlanner(
+            state, turnNumber, seed, navalResolver ?? StrategicNavalBattleResolver.Instance, navalOrdinals ?? new());
         foreach (var (country, order) in attacks)
         {
-            if (Check(state, country, order, acted) is { } refusal)
+            if (Check(state, country, order, acted, landings, out var site, out var load) is { } refusal)
             {
                 events.Add(new RegimentMoveRefusedEvent(turnNumber, country, order.Regiments, order.Destination, refusal));
                 continue;
@@ -283,11 +293,22 @@ internal static class LandBattlePlanner
             }
 
             var destination = order.Destination;
-            var previousOwner = state.GetProvinceOwner(destination);
             var attackers = order.Regiments
                 .Select(id => state.GetRegiment(id)!)
                 .OrderBy(static regiment => regiment.Id.Value)
                 .ToArray();
+            if (site is { } landingSite)
+            {
+                // Across water: the interception battle, then drowning. Ownership is
+                // read after both, though no naval battle changes it.
+                attackers = landings.Land(country, order, landingSite, attackers, load, events);
+                if (attackers.Length == 0)
+                {
+                    continue;
+                }
+            }
+
+            var previousOwner = state.GetProvinceOwner(destination);
             var defenders = previousOwner is { } owner
                 ? state.GetRegiments(owner).Where(regiment => regiment.Province == destination).ToArray()
                 : [];
@@ -358,13 +379,23 @@ internal static class LandBattlePlanner
         return events;
     }
 
+    /// <summary>
+    /// The checks for an attack, in the blueprint's order. An adjacent destination is 6b's
+    /// path, unchanged, whatever landing site exists; anything further needs a ready
+    /// landing site, a coast, a sea path, the war, and room on the site.
+    /// </summary>
     private static RegimentMoveRefusal? Check(
         WorldState state,
         CountryId country,
         RegimentMoveOrder order,
-        HashSet<RegimentId> acted)
+        HashSet<RegimentId> acted,
+        LandingPlanner landings,
+        out TaskForceState? site,
+        out long load)
     {
-        if (RegimentMovePlanner.CheckCommon(state, country, order, acted, out var from, out _) is { } refusal)
+        site = null;
+        load = 0;
+        if (RegimentMovePlanner.CheckCommon(state, country, order, acted, out var from, out var named) is { } refusal)
         {
             return refusal;
         }
@@ -372,9 +403,41 @@ internal static class LandBattlePlanner
         var destination = order.Destination;
         if (!state.Definition.ProvinceAdjacency.AreAdjacent(from, destination))
         {
-            return RegimentMoveRefusal.NotAdjacent;
+            if (landings.ReadySite(country, destination) is not { } ready)
+            {
+                return RegimentMoveRefusal.NotAdjacent;
+            }
+
+            if (LandingPlanner.CoastalZones(state.Definition.Map, from).Count == 0)
+            {
+                return RegimentMoveRefusal.NotCoastal;
+            }
+
+            if (!LandingPlanner.HasSeaPath(state, from, ready.SeaZone))
+            {
+                return RegimentMoveRefusal.NoSeaPath;
+            }
+
+            if (CheckOwnerAndWar(state, country, destination) is { } war)
+            {
+                return war;
+            }
+
+            load = LandingPlanner.Load(named.Select(static item => item.Type));
+            if (load > landings.Available(ready))
+            {
+                return RegimentMoveRefusal.NotEnoughLandingCapacity;
+            }
+
+            site = ready;
+            return null;
         }
 
+        return CheckOwnerAndWar(state, country, destination);
+    }
+
+    private static RegimentMoveRefusal? CheckOwnerAndWar(WorldState state, CountryId country, ProvinceId destination)
+    {
         var owner = state.GetProvinceOwner(destination);
         if (owner == country)
         {

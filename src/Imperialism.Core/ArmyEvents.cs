@@ -298,6 +298,25 @@ public enum RegimentMoveRefusal : byte
     /// by its new owner, so "the invasion does not take place" (manual 3798–3817).
     /// </summary>
     NotAtWar,
+
+    /// <summary>
+    /// A landing attack from a province no cell of which touches any sea zone: troops
+    /// cross from their own coast (army rule 32).
+    /// </summary>
+    NotCoastal,
+
+    /// <summary>
+    /// A landing attack where no sea path joins a zone touching the regiments' province to
+    /// the landing site's zone.
+    /// </summary>
+    NoSeaPath,
+
+    /// <summary>
+    /// A landing attack whose armaments exceed what the landing site has left to carry
+    /// this turn: the sum of its hulls' build-bill arms, less what earlier landings
+    /// through it used (army rule 33). Refused whole.
+    /// </summary>
+    NotEnoughLandingCapacity,
 }
 
 /// <summary>Records one deployment being refused. Nobody moved.</summary>

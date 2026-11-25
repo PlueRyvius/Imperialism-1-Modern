@@ -26,6 +26,15 @@ experience, entrenchment, the *effect* of a fort, and capture — with **no cont
 no new phase**: attacks resolve in `Conflict` after the moves, and healing closes it.
 Building a fort is still pending.
 
+**6d** adds **landings**: an attack on a province that does not border the regiments' own,
+through a **landing site** a task force of the country established on an earlier turn
+(`naval.md`, rules 29–33). The regiments cross from any coast with a sea path, up to what
+the site's ships can carry this turn; the hostile fleets in the zone fight the site first,
+and ships lost there **drown** the regiments that no longer fit. The survivors then fight
+6b's battle unchanged. **The capacity reading, drowning and the interception battle are
+placeholders** until a PC trace (`wanted-values.md` §8). Rules 31–37 below; still no content
+bump and no new phase.
+
 ## Confidence
 
 `inferred`, with every price and every category/era `verified`. The executable supplies the
@@ -196,7 +205,8 @@ have not moved, and the destination is a different province on the map. It is th
 with an event, never an exception, when:
 
 - the destination does **not border** the regiments' province: `NotAdjacent`. There is no
-  attack by rail (manual 1765–1770). Landings are 6c.
+  attack by rail (manual 1765–1770). With a ready landing site the same order is a
+  **landing** instead; see *Landings* below.
 - the destination is **already the attacker's**, for instance because it was taken earlier
   this turn: `AlreadyOwn`.
 - its **current** owner has **no war in effect** with the attacker as the turn opened:
@@ -302,10 +312,93 @@ holds after **8 rounds**. Attacker health goes 500 → 240 and 500 → 63, and e
 gains +20. Defender health goes 500 → 187 (+35) and 500 → 0, killed. This shows what the
 placeholder does. It is not evidence for it.
 
+## Landings
+
+Row 6d. The naval side — establishing a site, the arrival rule and the interception battle — is
+`naval.md`, rules 29–33. The mechanic as the owner stated it is `game-systems.md:272-274`:
+"Amphibious landings need a fleet to spend a turn establishing a beachhead, which persists only
+while you hold ships in the zone. The landing force is capped by the total armaments cost of the
+ships performing it."
+
+"Superficially, this seems exactly like an attack on an adjacent province. Once your fleets
+establish a landing site, you select land forces and use the Crossed Swords attack cursor to
+order them to move directly across the seas to the enemy province" (manual 1774–1777). So
+there is no new order: a `RegimentMoveOrder` whose destination is an attack and **does not
+border** the regiments' province is a landing when the country has a **ready site** for it.
+
+**A ready site (chosen rule 31)** is a task force of the country holding a landing site on the
+destination, established on an **earlier** turn, whose present zone still touches the
+destination, checked live. If several are ready, the lowest task-force id carries.
+
+**The checks (chosen rule 35)**, after 6a's common checks (so militia is still
+`CannotLeaveProvince`), in this order:
+
+1. An **adjacent** destination is 6b's attack, unchanged. A site never changes it.
+2. No ready site: `NotAdjacent`, as before.
+3. No cell of the regiments' province touches a sea zone: `NotCoastal`.
+4. No sea path joins a zone touching the regiments' province and the site's zone: `NoSeaPath`.
+5. 6b's `AlreadyOwn`, then `NotAtWar` (an ownerless province needs no war), against live
+   ownership.
+6. The load does not fit what the site has left: `NotEnoughLandingCapacity`.
+
+**Coast and sea path (chosen rule 32).** Troops embark from any coast of their own province, not
+only the site's own zone, and **the path has no length limit**: they "move directly across the
+seas", and the fleet already sailed there. Whether the original makes them embark on the site's
+coast is a trace target.
+
+**Capacity (chosen rule 33 — a placeholder).** A site carries **Σ over its live fleets of count ×
+the armaments in the hull's build bill**; a merchant's bill holds none. A landing's **load** is Σ
+of its regiments' `arms`, a type with none (a General) counting 0. Capacity is **per site per
+turn**, spent **cumulatively** by the landings through it in resolution order, and a landing that
+does not fit what is left is **refused whole** — all or nothing, like the rail budget. It is a
+separate budget from rail and from commodity transport, and nothing carries over. Core has no
+key lookup for commodities, so the armaments commodity is **the one every purchasable armed
+army type's bill holds in exactly its `arms` quantity**; if that does not single one out, no
+site carries anything (chosen rule 37).
+
+**Drowning (chosen rule 34 — a placeholder).** "If any of your ships are sunk, some of your land
+forces may be drowned" (manual 1780–1781). After the site's interception battle (naval rule 31),
+the capacity is recomputed from the surviving ships. If the load no longer fits, regiments drown
+from the **end of the order's roster** — the highest ids, since attackers are sorted — until the
+rest fit; a drowned regiment is removed. If the site lost or was sunk, **every regiment drowns**
+and the landing does not happen: once embarked, troops whose transports are gone do not come
+home. Later landings through the site are judged against what it has left, or against "no ready
+site" if it is gone. A refused landing never embarks, so it never drowns.
+
+**The battle (chosen rule 36).** The survivors attack through 6b's resolver and `Capture`
+unchanged — same ordinal stream, same retreat and surrender, same experience, and no terrain or
+sea penalty invented for landing. A **beaten** landing force stays in its source province, as a
+beaten 6b attacker does. Landed regiments have acted, so they do not heal this turn. The site
+**persists** after the landing (naval rule 32).
+
+`RegimentsLandedEvent` names the task force, source, destination, arms used and room left, and
+comes before the battle; `RegimentsDrownedEvent` names who drowned. A sample landing, with its
+interception battle, is in `naval.md` under *Landing sites*.
+
+### Landing chosen rules
+
+| # | Rule | Standing |
+|---|---|---|
+| 31 | A non-adjacent attack with a ready site is a landing; a ready site is the lowest-id own task force holding a site on the destination, established on an earlier turn, its zone still touching the destination | chosen; the earlier turn is the **manual's** (1943) |
+| 32 | Troops embark from any coast of their province, by any sea path of any length | chosen |
+| 33 | Capacity = Σ count × armaments in each hull's build bill, per site per turn, spent cumulatively; a landing that does not fit is refused whole | **chosen placeholder**; the cap by armaments is `game-systems.md:272-274` |
+| 34 | Regiments drown from the end of the roster until the rest fit; all of them if the site was beaten or sunk | **chosen placeholder** |
+| 35 | The refusal order: adjacent → 6b, then `NotAdjacent`, `NotCoastal`, `NoSeaPath`, `AlreadyOwn`, `NotAtWar`, `NotEnoughLandingCapacity` | chosen |
+| 36 | The survivors fight 6b's battle unchanged; a beaten landing stays home; landed regiments do not heal | chosen |
+| 37 | The armaments commodity is the one every armed type's bill holds in exactly its `arms` quantity | chosen, for want of a key lookup in Core |
+
+Row 6d's mutations, each run, red, and reverted (the naval ones are in `naval.md`):
+
+| Mutation | Caught by |
+|---|---|
+| A site is ready the turn it is established | `TroopsCannotCrossTheTurnTheSiteIsEstablishedButMayTheNext` |
+| Capacity per order instead of cumulative | `TwoLandingsThroughOneSiteSpendItsCapacityCumulatively` and three more |
+| Drown from the front of the roster | `AnIdleEnemyInTheSitesZoneFightsTheLanding…DrownFromTheEnd` and three more |
+
 ## What is not modelled
 
 Building forts (an Engineer order with no known price or gate); the tactical battlefield and
-initiative; Generals in battle and morale; Combat Engineers against forts; landings and
-interception (6c); elimination and anarchy (6d); alliances joining a war; militia growth and
-its free upgrade (rule 11); regiments aboard ships. No soak policy orders regiments, so no
-soak number moved.
+initiative; Generals in battle and morale; Combat Engineers against forts; elimination and
+anarchy (6e); alliances joining a war; militia growth and its free upgrade (rule 11);
+regiments aboard ships as a standing state, and ship damage. No soak policy orders
+regiments, so no soak number moved.

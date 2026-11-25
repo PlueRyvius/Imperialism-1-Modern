@@ -15,6 +15,14 @@ public enum TaskForceActivity
     /// <c>docs/formulas/naval.md</c>, chosen rules 11 and 12.
     /// </summary>
     Blockading,
+
+    /// <summary>
+    /// Holding a landing site on a province: the executable's task-force state 5. Troops
+    /// may cross to the province from the turn after it is established, for as long as
+    /// the site holds. It never cuts a port and never intercepts merchants. See
+    /// <c>docs/formulas/naval.md</c>, rules 29 onwards.
+    /// </summary>
+    Landing,
 }
 
 /// <summary>
@@ -83,6 +91,12 @@ public sealed class TaskForceState
             {
                 BlockadeTarget = null;
             }
+
+            if (value != TaskForceActivity.Landing)
+            {
+                LandingTarget = null;
+                LandingSince = null;
+            }
         }
     }
 
@@ -92,6 +106,18 @@ public sealed class TaskForceState
     /// </summary>
     public CountryId? BlockadeTarget { get; private set; }
 
+    /// <summary>
+    /// The province this task force holds a landing site on; set only while
+    /// <see cref="Activity"/> is <see cref="TaskForceActivity.Landing"/>.
+    /// </summary>
+    public ProvinceId? LandingTarget { get; private set; }
+
+    /// <summary>
+    /// The turn the landing site was established. Troops may land only on a later turn:
+    /// "You cannot move land forces on the turn the landing site is established."
+    /// </summary>
+    public int? LandingSince { get; private set; }
+
     /// <summary>Fleet records in deterministic ascending ID order.</summary>
     public IReadOnlyList<FleetId> Fleets => _fleetsView;
 
@@ -99,6 +125,16 @@ public sealed class TaskForceState
     {
         _activity = TaskForceActivity.Blockading;
         BlockadeTarget = target;
+        LandingTarget = null;
+        LandingSince = null;
+    }
+
+    internal void EstablishLanding(ProvinceId target, int turnNumber)
+    {
+        _activity = TaskForceActivity.Landing;
+        BlockadeTarget = null;
+        LandingTarget = target;
+        LandingSince = turnNumber;
     }
 
     /// <summary>Drops a member whose last ship was sunk. Order is kept.</summary>

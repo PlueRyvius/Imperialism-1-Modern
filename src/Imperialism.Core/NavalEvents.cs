@@ -137,6 +137,15 @@ public enum NavalOrderRefusal : byte
 
     /// <summary>The target's capital does not touch the task force's present sea zone.</summary>
     CapitalNotOnThisSeaZone,
+
+    /// <summary>A landing site names a province this map does not have.</summary>
+    UnknownProvince,
+
+    /// <summary>A landing site names a province the ordering country already owns.</summary>
+    LandingOnOwnProvince,
+
+    /// <summary>No cell of the landing site's province touches the task force's present sea zone.</summary>
+    ProvinceNotOnThisSeaZone,
 }
 
 /// <summary>Records fleets grouped into a new task force.</summary>
