@@ -116,7 +116,7 @@ while its ship count, and so its holds, includes the defaults.
 
 Obsolescence and scrapping (manual line 2785: "An obsolete ship is broken up"), flagships,
 repair, blockade and interception, and any shipyard cap. On the cap, the chosen rule is
-**no limit but materials**. The manual's line 2768 warning that "over-construction can
+**no limit but materials**. The manual's warning at lines 2768–2769 that "over-construction can
 slow your early development" is about materials, not a separate cap.
 
 ## Open: most later hulls are not gated in imported content
