@@ -174,6 +174,48 @@ public sealed record FacilityExpandedEvent : TurnEvent
     public IReadOnlyList<CommodityQuantity> Paid => _paid;
 }
 
+/// <summary>Why a facility was not built a rung larger.</summary>
+/// <remarks>
+/// Separate from <see cref="CivilianOrderRefusal"/>, whose construction reasons
+/// are about an Engineer on a tile: an expansion has neither. It carries only the
+/// technology gate for now. An expansion the warehouse cannot pay for is still
+/// skipped without an event, as it was before the gate existed.
+/// </remarks>
+public enum FacilityExpansionRefusal : byte
+{
+    /// <summary>
+    /// The facility names a technology this country does not know. The manual's
+    /// instances are the Oil Refinery and the Power Plant, both "available once
+    /// Oil Drilling technology is purchased". Read as the turn opens, so buying
+    /// it this turn opens the facility next turn.
+    /// </summary>
+    TechnologyNotKnown,
+}
+
+/// <summary>
+/// Records one expansion order refused. Nothing was charged.
+/// </summary>
+public sealed record FacilityExpansionRefusedEvent : TurnEvent
+{
+    public FacilityExpansionRefusedEvent(
+        int turnNumber,
+        CountryId country,
+        ProductionFacilityId facility,
+        FacilityExpansionRefusal reason)
+        : base(turnNumber, TurnPhase.Construction)
+    {
+        Country = country;
+        Facility = facility;
+        Reason = reason;
+    }
+
+    public CountryId Country { get; }
+
+    public ProductionFacilityId Facility { get; }
+
+    public FacilityExpansionRefusal Reason { get; }
+}
+
 /// <summary>Why a civilian could not be given the order it was given.</summary>
 /// <remarks>
 /// Refusals are reported rather than thrown. A civilian can die between the

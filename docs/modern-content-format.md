@@ -162,6 +162,16 @@ modelled**, and a version 26 package migrates with neither, so it trains nobody 
 nothing, which is how it behaved. Legacy conversion writes the recovered terms and a
 `facility.power-plant` laddered like the refinery. See `docs/formulas/production.md`.
 
+Version 28 adds an optional `requiredTechnology` to each `productionFacilities[]`
+entry: a technology key a country must hold before an expansion order for that
+facility is accepted. It must name a declared technology, and may appear only on a
+facility with a `capacityLadder`, since nothing else can be expanded. **It gates
+building only**: scenario `productionCapacities` and `startingDefaults` capacity
+for a gated facility load without the technology, and its recipes run without it.
+A version 27 package migrates with no gate on any facility, so it builds exactly as
+it did; a version 27 document that carries one is rejected. Legacy conversion gates
+`facility.oil-refinery` and `facility.power-plant` behind `technology.oil-drilling`.
+
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the

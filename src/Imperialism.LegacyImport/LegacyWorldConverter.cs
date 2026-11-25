@@ -2677,14 +2677,17 @@ public static class LegacyWorldConverter
         Facility("metal-works", "Metal Works", ProductionCapacityMode.Limited, FactoryLadder),
         Facility("lumber-mill", "Lumber Mill", ProductionCapacityMode.Limited, MillLadder),
         Facility("furniture-factory", "Furniture Factory", ProductionCapacityMode.Limited, FactoryLadder),
-        Facility("oil-refinery", "Oil Refinery", ProductionCapacityMode.Limited, FactoryLadder),
+        Facility("oil-refinery", "Oil Refinery", ProductionCapacityMode.Limited, FactoryLadder,
+            TechnologyKey(OilDrilling)),
         Facility("food-processing", "Food Processing", ProductionCapacityMode.Unlimited),
 
-        // Last, so every facility id before it keeps the number it had. Built and
-        // laddered exactly as the refinery is, because the manual opens both with
-        // the same technology on the same screen. Neither is gated in code: a
-        // facility carries no technology requirement yet. See production.md.
-        Facility(PowerPlant, "Power Plant", ProductionCapacityMode.Limited, FactoryLadder),
+        // Last, so every facility id before it keeps the number it had. Built,
+        // laddered and gated exactly as the refinery is, because the manual opens
+        // both with the same technology on the same screen: "available once Oil
+        // Drilling technology is purchased". The gate refuses expansion only;
+        // authored capa still loads without it. See production.md.
+        Facility(PowerPlant, "Power Plant", ProductionCapacityMode.Limited, FactoryLadder,
+            TechnologyKey(OilDrilling)),
     ];
 
     private const string PowerPlant = "power-plant";
@@ -2947,12 +2950,14 @@ public static class LegacyWorldConverter
         string key,
         string name,
         ProductionCapacityMode capacityMode,
-        CapacityLadderContent? capacityLadder = null) => new()
+        CapacityLadderContent? capacityLadder = null,
+        string? requiredTechnology = null) => new()
         {
             Key = $"facility.{key}",
             Name = name,
             CapacityMode = capacityMode,
             CapacityLadder = capacityLadder,
+            RequiredTechnology = requiredTechnology,
         };
 
     /// <summary>

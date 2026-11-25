@@ -7,17 +7,28 @@ internal sealed record PlannedExpansion(
     long ToCapacity,
     IReadOnlyList<CommodityQuantity> Paid);
 
+internal sealed record PlannedExpansionRefusal(
+    CountryId Country,
+    ProductionFacilityId Facility,
+    FacilityExpansionRefusal Reason);
+
 internal sealed class ExpansionPlan
 {
-    public ExpansionPlan(long[] inventoryDeltas, IEnumerable<PlannedExpansion> entries)
+    public ExpansionPlan(
+        long[] inventoryDeltas,
+        IEnumerable<PlannedExpansion> entries,
+        IEnumerable<PlannedExpansionRefusal> refusals)
     {
         InventoryDeltas = inventoryDeltas;
         Entries = Array.AsReadOnly(entries.ToArray());
+        Refusals = Array.AsReadOnly(refusals.ToArray());
     }
 
     public long[] InventoryDeltas { get; }
 
     public IReadOnlyList<PlannedExpansion> Entries { get; }
+
+    public IReadOnlyList<PlannedExpansionRefusal> Refusals { get; }
 }
 
 /// <summary>
@@ -48,6 +59,7 @@ internal static class ExpansionPlanner
 
         var deltas = new long[available.Length];
         var entries = new List<PlannedExpansion>();
+        var refusals = new List<PlannedExpansionRefusal>();
 
         for (var countryValue = 0; countryValue < orders.Count; countryValue++)
         {
@@ -65,6 +77,17 @@ internal static class ExpansionPlanner
                 if (facility.CapacityLadder is not { } ladder ||
                     definition.ExpansionCostPerCapacityPoint.Count == 0)
                 {
+                    continue;
+                }
+
+                // Before anything is priced, so a refused order charges nothing.
+                // Knowledge is read from the state the turn opened with: research
+                // bought this turn lands in Investment, which runs last.
+                if (facility.RequiredTechnology is { } required &&
+                    !state.HasTechnology(country, required))
+                {
+                    refusals.Add(new PlannedExpansionRefusal(
+                        country, facility.Id, FacilityExpansionRefusal.TechnologyNotKnown));
                     continue;
                 }
 
@@ -96,6 +119,6 @@ internal static class ExpansionPlanner
             }
         }
 
-        return new ExpansionPlan(deltas, entries);
+        return new ExpansionPlan(deltas, entries, refusals);
     }
 }

@@ -714,12 +714,23 @@ are chosen too. A bill too large to count is refused like any other, never an ov
 
 **The Power Plant is the refinery's twin, gap included.** Same facility machinery, same
 ladder, appended last so no imported id moves. The manual opens both with Oil Drilling, and
-**neither is gated in code**: a facility carries no technology requirement, so the refinery
-was already buildable without it. The plant inherits that rather than being fixed alone.
+at v27 **neither was gated in code**: a facility carried no technology requirement, so the
+refinery was already buildable without it. The plant inherited that rather than being fixed
+alone; v28 below fixes both together.
 Mutation-checked: power-first order, transience, promotion timing, refusal charging, the
 cap, the plant requirement and the trade ordering each fail a test when broken
 (`PowerAndTrainingTests`, `TradeTests`). No soak table moved, because no soak policy
 submits these orders.
+
+`.iworld` **v28** closes that gap: a facility may name a `requiredTechnology`, and the
+importer puts `technology.oil-drilling` on the refinery and the Power Plant — "the option to
+build a Power Plant and an Oil Refinery becomes available once Oil Drilling technology is
+purchased". An expansion order without it is **refused before it is priced**
+(`FacilityExpansionRefusal.TechnologyNotKnown`), charged nothing. **The gate governs
+building, never storing or running**. **Three rules around it are chosen**: authored `capa`
+and default capacity load without it; a held refinery runs without it; and knowledge is read
+as the turn opens, so Oil Drilling bought this turn opens both next turn. No new phase; the
+v27 migration adds no gate; no soak number moved.
 
 **Production spends labour: two per cycle, flat**, from one pool per country shared
 across every facility. The manual prices exactly one recipe — a unit of clothing

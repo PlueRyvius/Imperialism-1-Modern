@@ -269,6 +269,12 @@ public static class TurnResolver
                         entry.ToCapacity,
                         entry.Paid));
                 }
+
+                foreach (var entry in expansion.Refusals)
+                {
+                    events.Add(new FacilityExpansionRefusedEvent(
+                        turnNumber, entry.Country, entry.Facility, entry.Reason));
+                }
             }
             else if (phase == TurnPhase.Development)
             {

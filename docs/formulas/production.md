@@ -117,6 +117,34 @@ so a turn cannot pay for the same lumber twice, and the two are preflighted
 together. An expansion that cannot be afforded does nothing at all: nothing is
 part-built and nothing is spent.
 
+### Two facilities need a technology first
+
+"The option to build a Power Plant and an Oil Refinery becomes available once Oil
+Drilling technology is purchased." So from `.iworld` v28 a facility may name a
+`requiredTechnology`, and an expansion order for one whose technology the country
+does not hold is **refused before it is priced**: a `FacilityExpansionRefusedEvent`
+with `TechnologyNotKnown`, and not a unit of lumber or steel spent. Building the
+first one is an expansion from zero, so that is gated too. The importer gates
+exactly those two facilities, by key, behind `technology.oil-drilling`.
+
+Three rules sit around it, and **all three are chosen** — the manual's sentence is
+about the option to build and says nothing either way about the rest:
+
+- **The gate governs building, never storing.** Capacity a scenario authors with
+  `capa`, or the fair start grants, loads without the technology, exactly as the
+  ladder above governs building and not storing. A mission may author a refinery
+  for a power that could not have built one, and the importer must take it.
+- **Running is never gated.** A country that holds a refinery or a plant runs its
+  recipes and burns its fuel whether or not it knows Oil Drilling. Only the
+  expansion order is refused.
+- **Knowledge is read as the turn opens.** `Investment` runs last, so Oil Drilling
+  bought this turn opens both facilities next turn — the same "bought this turn,
+  known next turn" every other gate already follows.
+
+A gate on a facility with no capacity ladder is a content error: such a facility
+can never be expanded, so the gate could never fire. An expansion refused for want
+of lumber or steel is still silent, as it was before.
+
 The original recipes represented by the legacy importer are:
 
 - 2 cotton or 2 wool → 1 fabric;
@@ -207,9 +235,9 @@ less what recipes drew after power ran out.
 **The Power Plant is a facility exactly like the Oil Refinery**: limited capacity,
 the factory ladder, built through the ordinary expansion order, and appended as
 the last facility so no imported id moves. The manual opens both "once Oil Drilling
-technology is purchased". **Neither is gated in code** — a facility carries no
-technology requirement, so the refinery is buildable without Oil Drilling today and
-the plant inherits that gap rather than papering over it alone. In practice no
+technology is purchased", and **from v28 both are gated** on expansion — see *Two
+facilities need a technology first* above. Until then neither was, and the plant
+had inherited the refinery's gap rather than being fixed alone. In practice no
 power starts holding either.
 
 ### What the disassembly could not settle — and where it was found instead
@@ -288,6 +316,10 @@ explicit and keeping the content model general.
   `PowerRefusedEvent`, `WorkersTrainedEvent` and `WorkerTrainingRefusedEvent`
   report them. `.iworld` v27 adds the world-level `power` and `workerTraining`
   blocks; the v26 migration adds neither.
+- `ProductionFacilityDefinition.RequiredTechnology`, checked in `ExpansionPlanner`
+  and reported as `FacilityExpansionRefusedEvent` /
+  `FacilityExpansionRefusal.TechnologyNotKnown`. `.iworld` v28 adds
+  `productionFacilities[].requiredTechnology`; the v27 migration adds none.
 - `.iworld` v3 production definitions and capacities in `Imperialism.Content`;
   v9 adds the per-recipe `labourCost`.
 - Standard catalog plus `capa`/`ware` conversion in

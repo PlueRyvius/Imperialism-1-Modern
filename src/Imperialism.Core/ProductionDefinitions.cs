@@ -12,7 +12,8 @@ public sealed record ProductionFacilityDefinition
         ProductionFacilityId id,
         string name,
         ProductionCapacityMode capacityMode,
-        CapacityLadder? capacityLadder = null)
+        CapacityLadder? capacityLadder = null,
+        TechnologyId? requiredTechnology = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (!Enum.IsDefined(capacityMode))
@@ -27,10 +28,18 @@ public sealed record ProductionFacilityDefinition
                 nameof(capacityLadder));
         }
 
+        if (requiredTechnology is not null && capacityLadder is null)
+        {
+            throw new ArgumentException(
+                "A facility that cannot be expanded has nothing for a technology to gate.",
+                nameof(requiredTechnology));
+        }
+
         Id = id;
         Name = name;
         CapacityMode = capacityMode;
         CapacityLadder = capacityLadder;
+        RequiredTechnology = requiredTechnology;
     }
 
     public ProductionFacilityId Id { get; }
@@ -45,6 +54,21 @@ public sealed record ProductionFacilityDefinition
     /// have one.
     /// </summary>
     public CapacityLadder? CapacityLadder { get; }
+
+    /// <summary>
+    /// What a country must know before it may expand this facility, or null if
+    /// anyone may. The manual's two instances are the Oil Refinery and the Power
+    /// Plant, "available once Oil Drilling technology is purchased".
+    /// </summary>
+    /// <remarks>
+    /// <b>The gate governs building, never storing or running.</b> Capacity a
+    /// scenario authors, or the fair start grants, loads without it, exactly as an
+    /// authored development level loads above its technology; and a country that
+    /// holds capacity runs its recipes whether or not it could have built it.
+    /// Only <see cref="ProductionExpansionOrder"/> is refused. See
+    /// <c>docs/formulas/production.md</c>.
+    /// </remarks>
+    public TechnologyId? RequiredTechnology { get; }
 }
 
 public readonly record struct CommodityQuantity

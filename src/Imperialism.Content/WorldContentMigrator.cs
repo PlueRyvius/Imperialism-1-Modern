@@ -141,6 +141,11 @@ internal static class WorldContentMigrator
             MigrateVersionTwentySixToTwentySeven(document);
         }
 
+        if (document.FormatVersion == 27)
+        {
+            MigrateVersionTwentySevenToTwentyEight(document);
+        }
+
         if (document.FormatVersion == WorldContentCodec.CurrentVersion)
         {
             RejectLegacyArmyCount(document);
@@ -1125,6 +1130,27 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 27;
+    }
+
+    /// <summary>
+    /// Version 28 lets a facility name the technology it takes to expand. None is
+    /// supplied: absent means ungated, so a migrated package lets anyone build its
+    /// refinery exactly as it did. Re-importing legacy content supplies the gate.
+    /// </summary>
+    private static void MigrateVersionTwentySevenToTwentyEight(WorldContentDocument document)
+    {
+        var facilities = document.ProductionFacilities ?? [];
+        for (var index = 0; index < facilities.Length; index++)
+        {
+            if (facilities[index]?.RequiredTechnology is not null)
+            {
+                throw new ContentValidationException(
+                    $"productionFacilities[{index}].requiredTechnology",
+                    "Version 27 cannot gate a facility behind a technology.");
+            }
+        }
+
+        document.FormatVersion = 28;
     }
 
     private static void RejectLegacyArmyCount(WorldContentDocument document)
