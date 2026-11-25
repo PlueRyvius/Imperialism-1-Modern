@@ -388,6 +388,125 @@ public sealed class LegacyWorldConverterTests
                 .Sum(static item => item.Count));
     }
 
+    /// <summary>
+    /// The 1997 grid wraps east-west and the converted map says so, so a line
+    /// laid across the seam is one link like any other. Reading it on a flat
+    /// grid dropped both ends as "asymmetric" (issue #45).
+    /// </summary>
+    [Fact]
+    public void RailAcrossTheSeamBecomesOneLinkTheWorldAccepts()
+    {
+        var map = CreateMap(
+            3,
+            1,
+            LandCell(1, 0) with { Rail = 16 },
+            LandCell(2, 0),
+            LandCell(3, 0) with { Rail = 2 });
+
+        var result = LegacyWorldConverter.Convert(map, Scenario(1815), null, "rail-seam");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var link = Assert.Single(result.Document!.Scenarios[0].Rails);
+        Assert.Equal((0, 2), (link.First, link.Second));
+        Assert.DoesNotContain(
+            result.Report.Diagnostics,
+            static item => item.Code == "map.asymmetric-rail-endpoint");
+
+        var world = WorldContentCompiler.Compile(result.Document).World;
+        Assert.Contains(
+            new CellLink(new CellIndex(0), new CellIndex(2)),
+            world.Scenario.InitialRailLinks);
+    }
+
+    /// <summary>
+    /// On a two-column map east and west reach the same cell, so two cells
+    /// that each carry rail east and west name one pair twice. It is one link;
+    /// emitting it twice made the world reject the import as duplicate rail.
+    /// </summary>
+    [Fact]
+    public void RailBothWaysOnATwoColumnMapIsOneLink()
+    {
+        var map = CreateMap(
+            2,
+            1,
+            LandCell(1, 0) with { Rail = 18 },
+            LandCell(2, 0) with { Rail = 18 });
+
+        var result = LegacyWorldConverter.Convert(map, Scenario(1815), null, "narrow-rail-seam");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var link = Assert.Single(result.Document!.Scenarios[0].Rails);
+        Assert.Equal((0, 1), (link.First, link.Second));
+        Assert.DoesNotContain(
+            result.Report.Diagnostics,
+            static item => item.Code == "map.asymmetric-rail-endpoint");
+
+        var world = WorldContentCompiler.Compile(result.Document).World;
+        Assert.Equal(
+            new CellLink(new CellIndex(0), new CellIndex(1)),
+            Assert.Single(world.Scenario.InitialRailLinks));
+    }
+
+    /// <summary>
+    /// On a one-column map east and west lead back to the cell itself. A rail
+    /// end pointing at its own tile connects nothing and is dropped.
+    /// </summary>
+    [Fact]
+    public void RailToItselfOnAOneColumnMapIsDropped()
+    {
+        var map = CreateMap(1, 1, LandCell(1, 0) with { Rail = 18 });
+
+        var result = LegacyWorldConverter.Convert(map, Scenario(1815), null, "self-rail-seam");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Empty(result.Document!.Scenarios[0].Rails);
+        Assert.Empty(WorldContentCompiler.Compile(result.Document).World.Scenario.InitialRailLinks);
+    }
+
+    /// <summary>
+    /// The diagonal directions shift with the row's parity, and across the
+    /// seam each must still land on the cell whose opposite bit answers it.
+    /// The map is 4x5, so a cell's index is y * 4 + x.
+    /// </summary>
+    [Theory]
+    [InlineData(0, 2, 32, 7, 4)]
+    [InlineData(0, 2, 8, 15, 1)]
+    [InlineData(3, 1, 1, 0, 8)]
+    [InlineData(3, 1, 4, 8, 32)]
+    [InlineData(0, 1, 16, 7, 2)]
+    [InlineData(3, 2, 2, 8, 16)]
+    public void DiagonalRailAcrossTheSeamBecomesOneLinkOnOddAndEvenRows(
+        int x,
+        int y,
+        byte rail,
+        int neighbour,
+        byte opposite)
+    {
+        const int width = 4;
+        var cells = Enumerable.Range(0, width * 5)
+            .Select(static index => LandCell((ushort)(index + 1), 0))
+            .ToArray();
+        var index = (y * width) + x;
+        cells[index] = cells[index] with { Rail = rail };
+        cells[neighbour] = cells[neighbour] with { Rail = opposite };
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(width, 5, cells),
+            Scenario(1815),
+            null,
+            "diagonal-rail-seam");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var link = Assert.Single(result.Document!.Scenarios[0].Rails);
+        Assert.Equal(
+            (Math.Min(index, neighbour), Math.Max(index, neighbour)),
+            (link.First, link.Second));
+        Assert.DoesNotContain(
+            result.Report.Diagnostics,
+            static item => item.Code == "map.asymmetric-rail-endpoint");
+        _ = WorldContentCompiler.Compile(result.Document);
+    }
+
     [Fact]
     public void UnknownCodesWarnWithoutInventingFeatures()
     {

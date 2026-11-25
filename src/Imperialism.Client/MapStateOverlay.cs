@@ -45,10 +45,13 @@ internal sealed partial class MapStateOverlay : Node2D
 
         foreach (var rail in _state.Rails)
         {
-            var first = ToVector(_projection.GetCenter(rail.First));
-            var second = ToVector(_projection.GetCenter(rail.Second));
-            DrawLine(first, second, RailBedColor, 6.2f, true);
-            DrawLine(first, second, RailColor, 2.3f, true);
+            foreach (var (from, to) in _projection.GetLinkSegments(rail.First, rail.Second))
+            {
+                var first = ToVector(from);
+                var second = ToVector(to);
+                DrawLine(first, second, RailBedColor, 6.2f, true);
+                DrawLine(first, second, RailColor, 2.3f, true);
+            }
         }
 
         foreach (var cell in _state.Cells)

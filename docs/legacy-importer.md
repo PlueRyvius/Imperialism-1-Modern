@@ -173,11 +173,19 @@ sit within two tiles of each other, both of which the manual predicts. A depot
 on a cell with no rail is a warning; no original does it, though our own
 generated `s5` does it on all 32 of its depots.
 
+Track itself comes from the map's rail byte: a direction bit becomes a link
+when the neighbour it points at carries the opposite bit, and an unmatched end
+is dropped with `map.asymmetric-rail-endpoint`. **That neighbour wraps
+east-west**, like the port check below, because the converted map declares the
+same seam. Until issue #45 it did not, so a line across the seam lost both ends
+under a warning that blamed the map. Whether any shipped scenario rails across
+the seam is a corpus question nobody has asked yet.
+
 `port` records are converted too. Each names a land cell; repeats collapse with
 a warning. The importer also checks that a port touches sea or a river, using
-**wrapping** east-west adjacency because the 1997 grid wraps and
-`Imperialism.Core`'s does not — `s3` has a port whose only water is across the
-seam. A failure is a warning, not an error: it means our adjacency is wrong
+**wrapping** east-west adjacency because the 1997 grid wraps — `s3` has a
+port whose only water is across the seam. Core now follows the map's
+`wrapsHorizontally`, so the converted world agrees. A failure is a warning, not an error: it means our adjacency is wrong
 before it means the map is.
 
 The importer also emits the evidenced standard industrial catalog: seven
