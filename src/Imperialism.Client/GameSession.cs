@@ -65,6 +65,9 @@ public sealed class GameSession
     /// <summary>The report of the last turn resolved, or null before the first.</summary>
     public TurnReportView? LastReport { get; private set; }
 
+    /// <summary>The local country's paper, or null before the first resolved turn.</summary>
+    public NewspaperView? LastNewspaper { get; private set; }
+
     public static GameSession Start(
         CompiledWorldPackage package,
         string scenarioKey,
@@ -102,8 +105,8 @@ public sealed class GameSession
     /// not a placeholder for an AI so much as an honest statement of what the
     /// engine currently is; the report says so on its own face.
     ///
-    /// Three statements and a guard, deliberately. Nothing in this assembly is
-    /// under the test suite, so every judgement about what a turn <em>means</em>
+    /// Presentation factories and a guard, deliberately. Nothing in this
+    /// assembly is under the test suite, so every judgement about what a turn <em>means</em>
     /// belongs in <see cref="TurnReportView"/> where it is covered.
     /// </remarks>
     public TurnReportView EndTurn()
@@ -130,8 +133,9 @@ public sealed class GameSession
                 (ulong)(World.CompletedTurnCount + 1));
 
             // Built before the refresh, so nothing handling Refreshed can
-            // observe a session whose report has not been made yet.
+            // observe a session whose report or paper has not been made yet.
             LastReport = TurnReportView.Create(Package, ScenarioKey, World, resolution);
+            LastNewspaper = NewspaperView.Create(Package, ScenarioKey, World, resolution, LocalCountry);
             Refresh();
             return LastReport;
         }

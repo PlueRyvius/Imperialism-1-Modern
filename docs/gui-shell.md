@@ -141,12 +141,13 @@ toolbar. When you click here, you are committed. No orders can be cancelled or
 changed once you end your turn."* It sits at the bottom of the Terrain Map's
 right-hand column, and carries that warning as its tooltip.
 
-`GameSession.EndTurn` is three statements and a guard:
+`GameSession.EndTurn` calls the resolver and Presentation factories behind a guard:
 
 1. `TurnResolver.Resolve` with `TurnOrders.Empty(World.Definition.Countries.Count)`
    — the same count `Resolve` validates against, read from the same place.
-2. `TurnReportView.Create` against the post-resolve world, **before** the refresh,
-   so nothing handling `Refreshed` can observe a session whose report is not made.
+2. `TurnReportView.Create` and `NewspaperView.Create` against the post-resolve world,
+   **before** the refresh, so `Refreshed` sees both snapshots. The newspaper reader
+   is `LocalCountry`, the same country shown by the status border.
 3. `Refresh()`, which re-issues both snapshots and moves the border's date on.
 
 **The seed is the turn number about to resolve, and nothing consumes it.**
@@ -158,6 +159,21 @@ reading it, this becomes a proper stream and the change is one line.
 **The re-entrancy guard is in `GameSession`, not Core.** `Resolve` is destructive
 and has no guard of its own, and a Godot button press can arrive twice. The
 button disabling itself is a courtesy; the flag is the guard.
+
+## The newspaper
+
+**Built; untested in Godot until the PC run.** After End Turn, `NewspaperScreen`
+shows the local country's `LastNewspaper` before the full turn report. Continue
+or Escape dismisses the paper and opens the existing report; Close or Escape on
+that report returns to the Terrain Map and enables End Turn again. F1–F6 remain
+inert throughout both overlays. Neither overlay adds a navigable screen.
+
+The masthead and date sit above a scrolling story list. Headline stories use the
+existing large bold `ImperialismScreenTitle` style; their bodies and the smaller
+non-headline items use the plain body font. The paper preserves Presentation's
+story order and prints `and N more stories` from `StoriesOmitted`. It selects no
+stories and computes no game numbers. Fonts, frame and panel art all come from
+the existing theme; no art files were added.
 
 ## The turn report
 
@@ -315,15 +331,22 @@ because resolving moves `statusCash` and `statusWorkers`:
 ```
 VIEWER_SMOKE_OK map=… scenarios=… dimensions=…x… cells=… pickedCenters=… stateProbe=… country=… screens=6 statusCash=… statusWorkers=… theme=pass
 SHELL_SMOKE_OK screens=6 visited=6 country=… theme=pass borderVisible=yes
-TURN_SMOKE_OK turn=1 from=1815 Q1 to=1815 Q2 events=8 phases=14 lines=9 reportVisible=yes dismissed=yes country=… seed=1
+TURN_SMOKE_OK turn=1 from=1815 Q1 to=1815 Q2 events=8 phases=14 lines=9 reportVisible=yes dismissed=yes country=… seed=1 paperLines=2 paperVisible=yes paperDismissed=yes
 ```
+
+`paperLines` counts story text rows (headline and body separately) plus the
+optional overflow row; it excludes the masthead and date and does not count
+visual wrapping. The turn gate requires a nonempty paper shown first with the
+report hidden, then the visible report after dismissing the paper, then dismissal
+to the Terrain Map. These Godot assertions have not run on this server.
 
 **`events=0` fails the turn gate.** A turn nobody gave an order in still gathers,
 carries, feeds and delivers, so a pipeline that resolves and reports nothing is
 broken rather than quiet.
 
-`--screenshot <dir>` writes one image per screen and exits, and then one of the
-turn report — after the six, because resolving moves the world and the shots
+`--screenshot <dir>` writes one image per screen, followed by the newspaper
+(`newspaper.png`) and turn report (`turnreport.png`), then exits. The overlays
+come after the six screens because resolving moves the world and the shots
 would otherwise disagree with each other. No gate can tell whether wood grain
 smeared or chrome landed on top of a readout, so the check for those is a person
 looking at pictures and this is what produces them.
@@ -340,9 +363,11 @@ Manual checklist:
 6. Resize to 1920x1080, 2560x1080 and 3840x2160: wood tiles without smearing and
    the border stays complete.
 7. Every readout is rendered text at every size — nothing stretched.
-8. **End Turn** brings up the report, listing all fourteen phases.
-9. Close and Escape both dismiss it to the Terrain Map; F1–F6 do nothing while
-   it is up.
+8. **End Turn** brings up the newspaper: masthead, date, large bold headlines,
+   plain smaller items, scrolling and the overflow notice when applicable.
+9. Continue and Escape both open the report, listing all fourteen phases. Close
+   and Escape dismiss the report to the Terrain Map; F1–F6 do nothing while
+   either overlay is up. Check a second turn starts the paper scrolled to the top.
 10. Pressing End Turn twice quickly resolves exactly one turn.
 11. The border's date advances one quarter and the map's ownership redraws.
 
@@ -360,10 +385,9 @@ Manual checklist:
   arrival-date comparison, which is a rule and therefore Core's.
 - **Provinces owned** is deliberately absent from the status snapshot: it is
   O(provinces) and would break the promise that the border costs nothing.
-- **The manual's real interstitials.** It describes three, and this slice builds
-  none of them: the newspaper at the start of every turn (:494-498, :557-560) —
-  **the view exists; the screen is pending**: `NewspaperView` in Presentation
-  composes a reader's paper from a resolution, see `docs/formulas/newspaper.md` —
+- **The manual's real interstitials.** The newspaper at the start of every turn
+  (:494-498, :557-560) is **built; untested in Godot until the PC run**; see
+  `NewspaperView`, `NewspaperScreen` and `docs/formulas/newspaper.md`. Still pending:
   the Deal Book summarising trades and the deals that fell through (:3298-3306,
   :5011-5013), and the full-screen technology confirmation (:4249-4253). The Deal
   Book in particular is a re-grouping of `CommodityTradedEvent` plus

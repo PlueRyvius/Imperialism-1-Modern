@@ -29,6 +29,7 @@ public sealed partial class GameShell : Control
     private VBoxContainer? _leftTabs;
     private VBoxContainer? _rightTabs;
     private TurnReportScreen? _turnReport;
+    private NewspaperScreen? _newspaper;
     private ShellScreen _current = ShellScreen.TerrainMap;
     private bool _smokeTest;
     private bool _smokeScreens;
@@ -76,6 +77,17 @@ public sealed partial class GameShell : Control
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (_newspaper is { Visible: true })
+        {
+            if (@event.IsActionPressed("shell_back"))
+            {
+                _newspaper.Dismiss();
+                AcceptEvent();
+            }
+
+            return;
+        }
+
         // While the report is up, the only key that does anything is the one
         // that closes it. Without this the function keys navigate the stack
         // behind the modal, and the player dismisses into a screen they never
@@ -177,6 +189,16 @@ public sealed partial class GameShell : Control
             Navigate(ShellScreen.TerrainMap);
         };
         AddChild(_turnReport);
+
+        _newspaper = new NewspaperScreen();
+        _newspaper.Dismissed += () =>
+        {
+            if (_session?.LastReport is { } report)
+            {
+                _turnReport.Present(report);
+            }
+        };
+        AddChild(_newspaper);
     }
 
     private void BuildScreens()
@@ -313,12 +335,14 @@ public sealed partial class GameShell : Control
 
     private void EndTurn()
     {
-        if (_session is null || _turnReport is null)
+        if (_session is null || _turnReport is null || _newspaper is null ||
+            _newspaper.Visible || _turnReport.Visible)
         {
             return;
         }
 
-        _turnReport.Present(_session.EndTurn());
+        _session.EndTurn();
+        _newspaper.Present(_session.LastNewspaper!);
     }
 
     private void SetHotText(string text)
@@ -379,7 +403,20 @@ public sealed partial class GameShell : Control
         EndTurn();
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 
-        var report = _session!.LastReport;
+        var paper = _session!.LastNewspaper;
+        var paperShown = _newspaper is { Visible: true } && _newspaper.Size.X > 0 &&
+            _turnReport is { Visible: false };
+        var paperLines = _newspaper?.LineCount ?? 0;
+        if (screenshotDirectory is not null && paperShown)
+        {
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            GetViewport().GetTexture().GetImage().SavePng($"{screenshotDirectory}/newspaper.png");
+        }
+
+        _newspaper?.Dismiss();
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        var paperDismissed = _newspaper is { Visible: false };
+        var report = _session.LastReport;
         var shown = _turnReport is { Visible: true } && _turnReport.Size.X > 0;
         if (screenshotDirectory is not null && shown)
         {
@@ -395,10 +432,13 @@ public sealed partial class GameShell : Control
             $"TURN_SMOKE_OK turn={report?.TurnNumber} from={report?.StartedAt} to={report?.EndedAt} " +
             $"events={report?.EventCount} phases={report?.Phases.Count} lines={report?.LineCount} " +
             $"reportVisible={(shown ? "yes" : "no")} dismissed={(dismissed ? "yes" : "no")} " +
-            $"country={_session.Status.CountryKey} seed={report?.Seed}"));
+            $"country={_session.Status.CountryKey} seed={report?.Seed} " +
+            $"paperLines={paperLines} paperVisible={(paperShown ? "yes" : "no")} " +
+            $"paperDismissed={(paperDismissed ? "yes" : "no")}"));
 
         return report is { EventCount: > 0, LineCount: > 0 } &&
             report.Phases.Count == 14 &&
+            paper is not null && paperLines > 0 && paperShown && paperDismissed &&
             shown &&
             dismissed;
     }
