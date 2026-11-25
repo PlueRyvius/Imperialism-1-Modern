@@ -727,9 +727,9 @@ importer puts `technology.oil-drilling` on the refinery and the Power Plant — 
 build a Power Plant and an Oil Refinery becomes available once Oil Drilling technology is
 purchased". An expansion order without it is **refused before it is priced**
 (`FacilityExpansionRefusal.TechnologyNotKnown`), charged nothing. **The gate governs
-building, never storing or running**, and both halves are chosen rules: authored `capa` and
-default capacity load without it, and a held refinery runs without it. Knowledge is read as
-the turn opens, so Oil Drilling bought this turn opens both next turn. No new phase; the
+building, never storing or running**. **Three rules around it are chosen**: authored `capa`
+and default capacity load without it; a held refinery runs without it; and knowledge is read
+as the turn opens, so Oil Drilling bought this turn opens both next turn. No new phase; the
 v27 migration adds no gate; no soak number moved.
 
 **Production spends labour: two per cycle, flat**, from one pool per country shared
