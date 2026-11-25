@@ -133,6 +133,47 @@ public sealed class TurnReportRendererTests
     }
 
     [Fact]
+    public void WarAndFleetOrdersNameTheCountriesTheTaskForceAndTheSea()
+    {
+        var renderer = CreateRenderer();
+
+        var declared = Assert.Single(renderer.Render(new WarDeclaredEvent(1, Blue, Red)));
+        Assert.Equal(TurnReportKind.Outcome, declared.Kind);
+        Assert.Contains("declared war on", declared.Text, StringComparison.Ordinal);
+        Assert.Contains("begins next turn", declared.Text, StringComparison.Ordinal);
+
+        var refused = Assert.Single(renderer.Render(new WarDeclarationRefusedEvent(
+            1, Blue, new CountryId(40), WarDeclarationRefusal.NoSuchCountry)));
+        Assert.Equal(TurnReportKind.Refusal, refused.Kind);
+        Assert.Contains("Country 40", refused.Text, StringComparison.Ordinal);
+        Assert.Contains(
+            TurnReportText.Describe(WarDeclarationRefusal.NoSuchCountry), refused.Text, StringComparison.Ordinal);
+
+        var patrol = Assert.Single(renderer.Render(
+            new TaskForcePatrolOrderedEvent(1, Blue, new TaskForceId(2), new SeaZoneId(0))));
+        Assert.Contains("task force 2 is patrolling Northern Sea", patrol.Text, StringComparison.Ordinal);
+
+        // A leg cut short by the slowest hull is a shortfall, and an unknown zone
+        // still renders rather than throwing.
+        var shortLeg = Assert.Single(renderer.Render(new TaskForceSailedEvent(
+            1, Blue, new TaskForceId(2), new SeaZoneId(0), new SeaZoneId(7), new SeaZoneId(9))));
+        Assert.Equal(TurnReportKind.Shortfall, shortLeg.Kind);
+        Assert.Contains(
+            "sailed from Northern Sea as far as Sea zone 7, bound for Sea zone 9",
+            shortLeg.Text,
+            StringComparison.Ordinal);
+
+        var assemble = Assert.Single(renderer.Render(new NavalOrderRefusedEvent(
+            1, Blue, NavalOrderKind.Assemble, null, NavalOrderRefusal.FleetNotPlaced)));
+        Assert.Equal(TurnReportKind.Refusal, assemble.Kind);
+        Assert.Contains("could not assemble a task force:", assemble.Text, StringComparison.Ordinal);
+
+        var assembled = Assert.Single(renderer.Render(new TaskForceAssembledEvent(
+            1, Blue, new TaskForceId(1), new SeaZoneId(0), [new FleetId(30)])));
+        Assert.Contains("from fleet 30 in Northern Sea", assembled.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ShipsBuiltAndRefusedNameTheHullAndTheBill()
     {
         var renderer = CreateRenderer();
@@ -327,6 +368,14 @@ public sealed class TurnReportRendererTests
             new PowerRefusedEvent(1, Blue, 101, PowerRefusal.OverTurnLimit),
             new ShipsBuiltEvent(1, Blue, new ShipTypeId(0), 2, new FleetId(1), some),
             new ShipBuildRefusedEvent(1, Blue, new ShipTypeId(0), 3, ShipBuildRefusal.NotEnoughCommodities),
+            new WarDeclaredEvent(1, Blue, Red),
+            new WarDeclarationRefusedEvent(1, Blue, Blue, WarDeclarationRefusal.Itself),
+            new TaskForceAssembledEvent(1, Blue, new TaskForceId(1), new SeaZoneId(0), [new FleetId(1)]),
+            new TaskForcePatrolOrderedEvent(1, Blue, new TaskForceId(1), new SeaZoneId(0)),
+            new TaskForceSailedEvent(
+                1, Blue, new TaskForceId(1), new SeaZoneId(0), new SeaZoneId(0), new SeaZoneId(0)),
+            new NavalOrderRefusedEvent(
+                1, Blue, NavalOrderKind.Command, new TaskForceId(1), NavalOrderRefusal.AlreadyOrderedThisTurn),
         ];
     }
 }

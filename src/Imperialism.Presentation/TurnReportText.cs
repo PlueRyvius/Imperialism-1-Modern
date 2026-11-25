@@ -105,6 +105,33 @@ public static class TurnReportText
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 
+    public static string Describe(WarDeclarationRefusal reason) => reason switch
+    {
+        WarDeclarationRefusal.NoSuchCountry => "no country carries that id in this world",
+        WarDeclarationRefusal.Itself => "a country cannot make war on itself",
+        WarDeclarationRefusal.AlreadyAtWar => "we are already at war, or they declared first this turn",
+        WarDeclarationRefusal.AlreadyDeclaredThisTurn => "the same declaration was already made this turn",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason)),
+    };
+
+    public static string Describe(NavalOrderRefusal reason) => reason switch
+    {
+        NavalOrderRefusal.NoFleetsSelected => "no fleet was selected",
+        NavalOrderRefusal.FleetSelectedTwice => "a fleet was selected twice",
+        NavalOrderRefusal.NoSuchFleet => "no fleet carries that id",
+        NavalOrderRefusal.FleetNotYours => "a fleet belongs to another country",
+        NavalOrderRefusal.FleetNotPlaced => "a fleet has not been placed at sea yet",
+        NavalOrderRefusal.FleetAlreadyInTaskForce => "a fleet already sails in a task force",
+        NavalOrderRefusal.FleetsInDifferentSeaZones => "the fleets lie in different sea zones",
+        NavalOrderRefusal.NoSuchTaskForce => "no task force carries that id",
+        NavalOrderRefusal.TaskForceNotYours => "the task force belongs to another country",
+        NavalOrderRefusal.AlreadyOrderedThisTurn => "it already has its mission or move this turn",
+        NavalOrderRefusal.NoSuchSeaZone => "no such sea zone exists",
+        NavalOrderRefusal.AlreadyInThatSeaZone => "it is already in that sea zone",
+        NavalOrderRefusal.OutOfRange => "that sea zone is out of range this turn",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason)),
+    };
+
     public static string Describe(WorkerTrainingRefusal reason) => reason switch
     {
         WorkerTrainingRefusal.NotOffered => "the Trade School offers no training from that grade",

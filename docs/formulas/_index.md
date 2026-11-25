@@ -189,6 +189,10 @@ bottom of this file.
 | A Shipyard order the warehouse cannot cover | **a chosen rule** — refused whole, not trimmed | [shipbuilding](shipbuilding.md) | Core | generated |
 | Where a new ship is, and which fleet it joins | **a chosen rule** — unplaced, merged into an unplaced unassembled fleet | [shipbuilding](shipbuilding.md) | Core | generated |
 | Which technologies gate the Ironclad and later hulls | **open** — the manual names them; the importer does not emit them | [shipbuilding](shipbuilding.md) | — | — |
+| When a declared war takes effect | `inferred` — **the manual states it**: next turn, by the relation token | [naval](naval.md) | Core | generated |
+| One mission or move per task force per turn | `inferred` — **the manual states it** | [naval](naval.md) | Core | generated |
+| How long a patrol lasts, and how a moved task force arrives | **a chosen rule** — until ordered to move; idle | [naval](naval.md) | Core | generated |
+| An out-of-range sailing order | `inferred` — **the manual states it**: refused, as the cursor refuses it | [naval](naval.md) | Core | generated |
 | The raw-resource yield curves | **`verified`** — the executable's table agrees with the manual row for row | [extraction](extraction.md) | Core, Content, LegacyImport | generated + local corpus |
 | What the Capitol charges per recruit | **`verified`** — the worker-conversion help string | [migration](migration.md) | Core, Content, LegacyImport | generated |
 | What the Trade School charges per promotion | **`verified`** — the same worker-conversion help string | [migration](migration.md) | Core, Content, LegacyImport | generated |

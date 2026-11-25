@@ -127,6 +127,7 @@ still an optional local source with the procedural palette as its fallback.
 - [x] River and sea connectivity for ports, sea zones, fleets and task forces (`SeaZoneTopologyTests`, `FleetStateTests`, `TaskForceMovementTests`)
 - [x] Transient power and worker training (`PowerAndTrainingTests`)
 - [x] Building ships (`ShipbuildingTests`)
+- [x] Declaring war and commanding fleets (`NavalOrdersTests`)
 - [x] Research progress: the original has none beyond purchase ([`docs/formulas/research-progress.md`](docs/formulas/research-progress.md))
 - [ ] Trade subsidies, sea routes between ports, and blockade
 - [ ] Moving regiments by rail, the University, the newspaper, fortifications

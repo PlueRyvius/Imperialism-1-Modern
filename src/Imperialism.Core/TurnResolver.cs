@@ -127,7 +127,20 @@ public static class TurnResolver
         var events = new List<TurnEvent>(Pipeline.Length + production.Entries.Count);
         foreach (var phase in Pipeline)
         {
-            if (phase == TurnPhase.Trade)
+            if (phase == TurnPhase.Diplomacy)
+            {
+                // First, and harmless there: a war declared now is stamped with this
+                // turn's relation generation and so takes effect next turn — "the war
+                // begins on the next turn" — whatever runs after it.
+                events.AddRange(NavalPlanner.ResolveDiplomacy(state, orders, turnNumber));
+            }
+            else if (phase == TurnPhase.Conflict)
+            {
+                // Before Extraction, so a patrol set or a leg sailed this turn already
+                // decides this turn's port access, through hostility already in effect.
+                events.AddRange(NavalPlanner.ResolveConflict(state, orders, turnNumber));
+            }
+            else if (phase == TurnPhase.Trade)
             {
                 // Before Production, which is the order the manual's screens imply:
                 // industry claims its inputs first and the market sells what is left.
