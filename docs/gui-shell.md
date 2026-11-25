@@ -9,9 +9,9 @@ navigation, and a session that knows which country you are playing.
 The shell navigates, ends turns, and reports what a turn did. The player's
 orders now have a home — `GameSession.Draft`, an `OrdersDraft` for the local
 country, with read-only `OrdersPreview` views for Industry, Transport, Technology
-and Trade (row 4a). Industry and Transport now edit the draft (row 4b);
-Bid and Offers and Investment remain stubs. An untouched draft still builds empty
-orders. Rivals submit nothing at all — see below, because that is the
+and Trade (row 4a). Industry and Transport edit the draft (row 4b), as do
+Bid and Offers and Investment (row 4c). Diplomacy remains a stub. An untouched
+draft still builds empty orders. Rivals submit nothing at all — see below, because that is the
 single fact most likely to be mistaken for a bug.
 
 The demo package ships no cash, workforce or transport, so the border reads zero
@@ -47,14 +47,14 @@ Technology Investment screen the microscope reaches.
 | **Terrain Map** | Terrain Map screen and its toolbar | Built. Map, camera, picking, cell inspector, debug overlays, state probe. |
 | **Transport** | Transport screen | Built. Shared capacity bar, commodity sliders in draft priority order, up/down controls and shortfall warnings. `Transport`; capacity purchases live in Industry. |
 | **Industry** | Industry screen | Built. Workforce down the left border, warehouse on the right; scrolling facilities, production cycles, Capitol recruitment and railyard purchases. `Production`, `Expansions`, `RecruitWorkers`, `BuildTransportCapacity`. |
-| Bid and Offers | Bid and Offers screen | Offers and bids per commodity in a fixed order. `TradeOffers`, `TradeBids`. |
+| **Bid and Offers** | Bid and Offers screen | Built. Fixed commodity order, world prices, sellable stock, bounded offer input and bid input; holds, cash and all preview warnings. `TradeOffers`, `TradeBids`. |
 | Diplomacy | Diplomacy screen | Waiting on interface work; Core has supported diplomacy since content v30. |
-| Investment | Invest in Technology | The Benefits of Technology Table, its prices and arrival dates. `BuyTechnology`. |
+| **Investment** | Invest in Technology | Built. Purchasable technologies with prices and buy toggles, cumulative cost against cash, ordered buy list and affordability warnings. `BuyTechnology`. |
 
 The Transport, Industry, Bid and Offers and Investment rows have their model now:
 `OrdersDraft` holds each field named above, and `OrdersPreview.Create` gives the
-matching `Transport`, `Industry`, `Trade` and `Technology` view. The remaining
-stubs need drawing and input, not rules.
+matching `Transport`, `Industry`, `Trade` and `Technology` view. Each screen
+forwards input to the draft and re-reads its preview.
 
 **A preview warns and never refuses.** It replays the resolver's rules for these
 phases in the resolver's order — recipes in priority order against facility
@@ -110,7 +110,7 @@ asserts the border is somewhere a person could see it.
 res://scenes/Main.tscn  → GameShell (Control)
   top rail                screen title, hot text
   body                    left tabs · ScreenStack · right tabs
-    ScreenStack             TerrainMapScreen + IndustryScreen + TransportScreen + three StubScreens, one visible
+    ScreenStack             TerrainMapScreen + IndustryScreen + TransportScreen + TradeScreen + TechnologyScreen + StubScreen, one visible
   StatusBorder            always present, below everything
 ```
 
@@ -204,6 +204,28 @@ order above today's maximum remains in the draft and is printed as requested,
 even when the production spin box shows today's lower editable maximum. Only an
 explicit edit replaces it. Shortfall comparisons live in Presentation; the client
 only formats view values and warning flags.
+
+## Investment and Bid and Offers orders
+
+Both screens use the existing theme with fixed chrome in `TechnologyLayout.tscn`
+and `TradeLayout.tscn` and scrolling rows from the preview. No new art is needed.
+Investment shows the offered technologies and their prices with a buy toggle that
+reads Purchasing when selected. The summary shows the cumulative buy list cost
+against current cash. Below the offers, the buy list follows draft purchase order,
+shows every availability and affordability warning, and lets any purchase be
+cancelled. A note explains that purchases are known next turn and that cash can
+change before Investment resolves. No purchasable technologies gets an explicit
+empty state.
+
+Bid and Offers keeps holds, cash, bid count and total bid cost above the scrolling
+commodity rows. Each row names its commodity and shows world price, warehouse
+stock, industry claims, sellable stock, offer and bid inputs, and requested amounts
+and bid cost. Offer input is bounded by preview sellable stock. Like Industry,
+changing a range suppresses signals: an existing offer above today's sellable stock
+stays in the draft, is printed as requested, and receives the preview's warning.
+Only editing it changes it. Both the four-commodity bid warning and the cash
+warning appear together when applicable; neither prevents drafting an order.
+An empty market gets an explicit empty state. Trade orders clear after End Turn.
 
 ## Ending a turn
 
@@ -394,15 +416,19 @@ godot --headless --path src/Imperialism.Client -- --smoke-orders
 ```
 
 `--smoke-orders` defaults to the separate synthetic `demo/orders.iworld`, leaving
-the viewer demo and existing smoke flags unchanged. It visits Industry and
-Transport, sets one production cycle and one transport unit through the draft,
-verifies both orders are submitted, ends the turn through the existing newspaper
-and report flow, and prints the rendered event lines as `ORDERS_EVENT`, followed
-by `ORDERS_SMOKE_OK` (or `FAILED`). `--world` can override the fixture; a package
-without recipes or commodities fails explicitly. A headless .NET test resolves
-both scenarios in the orders fixture and requires one produced cycle and one
-transported unit. **The Godot smoke run and screenshots remain unrun on this
-server; they require the Windows PC.**
+the viewer demo and existing smoke flags unchanged. It visits Industry,
+Transport, Investment and Bid and Offers, sets one production cycle, one transport
+unit, one technology purchase (when offered) and one sellable commodity offer
+through the draft, verifies those orders are submitted, ends the turn through the
+existing newspaper and report flow, and prints rendered event lines as
+`ORDERS_EVENT`, followed by `ORDERS_SMOKE_OK` (or `FAILED`). `--world` can override the fixture; a package
+without recipes, commodities or sellable trade stock fails explicitly. The summary
+keeps the `ORDERS_SMOKE` prefix and adds `technology` and `offers` counts. The
+synthetic orders fixture includes priced timber and an affordable technology;
+headless .NET tests resolve both scenarios, preserving the production and transport
+checks while verifying the technology purchase and the offer event. Rival orders
+remain empty, so the offer is reported unsold rather than matched. **The Godot
+smoke run and screenshots remain unrun on this server; they require the Windows PC.**
 
 ```bash
 godot --path src/Imperialism.Client --resolution 2560x1080 -- --screenshot /tmp/shots
@@ -461,8 +487,13 @@ Manual checklist:
     expansions, recruitment and railyard purchases clear.
 13. Transport: drag a slider, reorder priorities, then revisit and End Turn;
     requests and priority survive. Verify the shared bar and each shortfall.
-14. Resize both screens at the base viewport and widescreen: columns remain
+14. Resize all four orders screens at the base viewport and widescreen: columns remain
     readable and the long order lists scroll inside the screen stack.
+15. Investment: select and cancel purchases, verify cumulative cost and the ordered
+    affordability warnings, then End Turn and confirm purchased knowledge is available.
+16. Bid and Offers: adjust an offer and bid, revisit Industry to reserve stock, then
+    return and check the sellable bound and any over-offer warning. Bid on five
+    commodities and over current cash; both warnings must remain visible.
 
 ## Open questions
 
