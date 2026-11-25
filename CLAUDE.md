@@ -953,7 +953,8 @@ Presentation gains `NewspaperView`, a detached per-reader paper built from a res
 seven priorities of headline ("New Invention" first, the manual's own title, lines
 4096–4099), then the "doings of the little people" as items, **every headline before any
 item, at most 12 stories**, the rest counted, and one fixed item on a quiet quarter. A
-story's body is the turn report's own sentence. **All four rules are chosen** (N1–N4 in
+story's body is the turn report's own sentence, except New Invention's and the quiet
+quarter's, which are the paper's own. **All four rules are chosen** (N1–N4 in
 `docs/formulas/newspaper.md`) because `UNewspaper.cpp` is untraced
 (`wanted-values.md` §10). The Godot screen is not built. No soak number moved.
 
