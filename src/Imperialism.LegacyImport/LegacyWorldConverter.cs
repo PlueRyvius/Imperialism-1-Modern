@@ -76,6 +76,17 @@ internal readonly record struct LegacyShipCombat(
 public static class LegacyWorldConverter
 {
     /// <summary>
+    /// The first raw map region the original treats as ocean. <c>UOcean</c>
+    /// resolves ocean byte <c>r</c> as <c>records[r - 0x17]</c>
+    /// (<c>0x00563300</c>), and the <c>zone</c> and <c>ship</c> handlers use a
+    /// scenario zone id <c>z</c> in that same lookup, so <c>z</c> is ocean byte
+    /// <c>z + 0x17</c>. It is a constant of the executable, not of a scenario:
+    /// deriving it from the highest country id a file happens to name agreed
+    /// only while that id was 22 (#41).
+    /// </summary>
+    internal const uint LegacyOceanRegionBase = 0x17;
+
+    /// <summary>
     /// The seventeen legacy terrain codes, their display names from the
     /// manual's Terrain Tiles Table, and whether a civilian can improve them.
     /// </summary>
@@ -659,7 +670,6 @@ public static class LegacyWorldConverter
             .Distinct()
             .Order()
             .ToArray();
-        var countryNamespaceSize = countryIds.Length == 0 ? 0u : checked(countryIds[^1] + 1);
         var cellSeaZoneIds = new uint[map.Cells.Count];
         for (var index = 0; index < map.Cells.Count; index++)
         {
@@ -669,18 +679,18 @@ public static class LegacyWorldConverter
                 continue;
             }
 
-            if (cell.NationZoneA < countryNamespaceSize)
+            if (cell.NationZoneA < LegacyOceanRegionBase)
             {
                 report.Add(
                     LegacyImportSeverity.Error,
                     "map.invalid-sea-zone-reference",
                     $"map.cells[{index}]",
-                    $"Ocean region value {cell.NationZoneA} is below the country namespace size {countryNamespaceSize}.");
+                    $"Ocean region value {cell.NationZoneA} is below the executable's ocean region base {LegacyOceanRegionBase}.");
                 cellSeaZoneIds[index] = cell.NationZoneA;
             }
             else
             {
-                cellSeaZoneIds[index] = cell.NationZoneA - countryNamespaceSize;
+                cellSeaZoneIds[index] = cell.NationZoneA - LegacyOceanRegionBase;
             }
         }
 
@@ -1506,6 +1516,16 @@ public static class LegacyWorldConverter
     }
 
     /// <summary>
+    /// The number of rows in the original executable's army table. A legacy
+    /// <c>army</c> record's type is a <b>zero-based</b> index into it; the army
+    /// manager's per-type tables are all 30 entries long
+    /// (<c>docs/disasm/definitive-original-data.md</c>, "Verified army fields").
+    /// This is a limit of the 1997 files and stops here: Core's
+    /// <see cref="ArmyTypeId"/> accepts any non-negative id.
+    /// </summary>
+    internal const uint OriginalArmyTypeCount = 30;
+
+    /// <summary>
     /// Preserves original <c>army</c> records as <c>[province, type, experience]</c>.
     /// The type is zero-based and indexes the executable's verified 30-row
     /// army table; ownership is intentionally not copied, because it is the
@@ -1548,13 +1568,13 @@ public static class LegacyWorldConverter
                 continue;
             }
 
-            if (type >= (uint)ArmyTypeId.OriginalTypeCount)
+            if (type >= OriginalArmyTypeCount)
             {
                 report.Add(
                     LegacyImportSeverity.Warning,
                     "scenario.unknown-army-type",
                     path,
-                    $"Army type {type} is outside the table of {ArmyTypeId.OriginalTypeCount}; " +
+                    $"Army type {type} is outside the table of {OriginalArmyTypeCount}; " +
                     "no army regiment was placed.");
                 continue;
             }
@@ -2151,6 +2171,10 @@ public static class LegacyWorldConverter
     private static CellLinkContent[] ReadReciprocalRails(MapDocument map, LegacyImportReport report)
     {
         var links = new List<CellLinkContent>();
+
+        // Pairs are canonical (lower index first) because only the lower end
+        // emits, so a set of pairs is enough to keep each link once.
+        var emitted = new HashSet<(int First, int Second)>();
         for (var index = 0; index < map.Cells.Count; index++)
         {
             var source = map.Cells[index];
@@ -2196,6 +2220,14 @@ public static class LegacyWorldConverter
                     continue;
                 }
 
+                // On a two-column map east and west reach the same cell, so
+                // one pair of cells can be named by two reciprocal directions.
+                // It is still one link.
+                if (!emitted.Add((index, neighbour.Value)))
+                {
+                    continue;
+                }
+
                 links.Add(new CellLinkContent { First = index, Second = neighbour.Value });
             }
         }
@@ -2203,6 +2235,12 @@ public static class LegacyWorldConverter
         return links.ToArray();
     }
 
+    /// <summary>
+    /// The neighbour a rail bit points at, wrapping east-west because the 1997
+    /// grid does and because the converted map declares the same seam. Without
+    /// the wrap, a line across the seam lost both ends as "asymmetric" and then
+    /// the world it was written into would have accepted it.
+    /// </summary>
     private static int? GetNeighbour(int index, int width, int height, byte bit)
     {
         var x = index % width;
@@ -2218,11 +2256,15 @@ public static class LegacyWorldConverter
             32 => (odd ? 0 : -1, -1),
             _ => throw new ArgumentOutOfRangeException(nameof(bit)),
         };
-        var targetX = x + dx;
+        var targetX = (x + dx + width) % width;
         var targetY = y + dy;
-        return (uint)targetX < (uint)width && (uint)targetY < (uint)height
-            ? checked((targetY * width) + targetX)
-            : null;
+        if ((uint)targetY >= (uint)height)
+        {
+            return null;
+        }
+
+        var target = checked((targetY * width) + targetX);
+        return target == index ? null : target;
     }
 
     private static void WarnUnknownCodes(MapDocument map, LegacyImportReport report)

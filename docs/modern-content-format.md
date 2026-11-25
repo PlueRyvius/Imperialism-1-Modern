@@ -222,8 +222,10 @@ The top-level document contains:
   positive capacities for limited facilities, sparse starting cell development,
   which technologies each country begins knowing, the cells carrying a port or a
   rail depot, each country's starting workforce, the civilians on the map at
-  the start, and army stacks. An army stack names its province, the original
-  executable's zero-based 30-row unit-table index, and its positive count;
+  the start, and army stacks. An army stack names its province, a
+  non-negative army type, and its positive count (the importer emits the original
+  executable's zero-based 30-row unit-table index and drops anything past it;
+  content and Core enforce no upper bound, because no army catalogue exists yet);
   province ownership deliberately remains the single owner source.
 
 Each cell references one terrain key, zero or more unique resource keys, and

@@ -142,8 +142,8 @@ public sealed class LegacyWorldConverterTests
             {
                 Terrain = 0,
                 Province = ushort.MaxValue,
-                NationZoneA = 11,
-                NationZoneB = 11,
+                NationZoneA = 30,
+                NationZoneB = 30,
             },
             new HexCell
             {
@@ -513,6 +513,125 @@ public sealed class LegacyWorldConverterTests
             result.Report.Diagnostics
                 .Where(static item => item.Code == "map.asymmetric-rail-endpoint")
                 .Sum(static item => item.Count));
+    }
+
+    /// <summary>
+    /// The 1997 grid wraps east-west and the converted map says so, so a line
+    /// laid across the seam is one link like any other. Reading it on a flat
+    /// grid dropped both ends as "asymmetric" (issue #45).
+    /// </summary>
+    [Fact]
+    public void RailAcrossTheSeamBecomesOneLinkTheWorldAccepts()
+    {
+        var map = CreateMap(
+            3,
+            1,
+            LandCell(1, 0) with { Rail = 16 },
+            LandCell(2, 0),
+            LandCell(3, 0) with { Rail = 2 });
+
+        var result = LegacyWorldConverter.Convert(map, Scenario(1815), null, "rail-seam");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var link = Assert.Single(result.Document!.Scenarios[0].Rails);
+        Assert.Equal((0, 2), (link.First, link.Second));
+        Assert.DoesNotContain(
+            result.Report.Diagnostics,
+            static item => item.Code == "map.asymmetric-rail-endpoint");
+
+        var world = WorldContentCompiler.Compile(result.Document).World;
+        Assert.Contains(
+            new CellLink(new CellIndex(0), new CellIndex(2)),
+            world.Scenario.InitialRailLinks);
+    }
+
+    /// <summary>
+    /// On a two-column map east and west reach the same cell, so two cells
+    /// that each carry rail east and west name one pair twice. It is one link;
+    /// emitting it twice made the world reject the import as duplicate rail.
+    /// </summary>
+    [Fact]
+    public void RailBothWaysOnATwoColumnMapIsOneLink()
+    {
+        var map = CreateMap(
+            2,
+            1,
+            LandCell(1, 0) with { Rail = 18 },
+            LandCell(2, 0) with { Rail = 18 });
+
+        var result = LegacyWorldConverter.Convert(map, Scenario(1815), null, "narrow-rail-seam");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var link = Assert.Single(result.Document!.Scenarios[0].Rails);
+        Assert.Equal((0, 1), (link.First, link.Second));
+        Assert.DoesNotContain(
+            result.Report.Diagnostics,
+            static item => item.Code == "map.asymmetric-rail-endpoint");
+
+        var world = WorldContentCompiler.Compile(result.Document).World;
+        Assert.Equal(
+            new CellLink(new CellIndex(0), new CellIndex(1)),
+            Assert.Single(world.Scenario.InitialRailLinks));
+    }
+
+    /// <summary>
+    /// On a one-column map east and west lead back to the cell itself. A rail
+    /// end pointing at its own tile connects nothing and is dropped.
+    /// </summary>
+    [Fact]
+    public void RailToItselfOnAOneColumnMapIsDropped()
+    {
+        var map = CreateMap(1, 1, LandCell(1, 0) with { Rail = 18 });
+
+        var result = LegacyWorldConverter.Convert(map, Scenario(1815), null, "self-rail-seam");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Empty(result.Document!.Scenarios[0].Rails);
+        Assert.Empty(WorldContentCompiler.Compile(result.Document).World.Scenario.InitialRailLinks);
+    }
+
+    /// <summary>
+    /// The diagonal directions shift with the row's parity, and across the
+    /// seam each must still land on the cell whose opposite bit answers it.
+    /// The map is 4x5, so a cell's index is y * 4 + x.
+    /// </summary>
+    [Theory]
+    [InlineData(0, 2, 32, 7, 4)]
+    [InlineData(0, 2, 8, 15, 1)]
+    [InlineData(3, 1, 1, 0, 8)]
+    [InlineData(3, 1, 4, 8, 32)]
+    [InlineData(0, 1, 16, 7, 2)]
+    [InlineData(3, 2, 2, 8, 16)]
+    public void DiagonalRailAcrossTheSeamBecomesOneLinkOnOddAndEvenRows(
+        int x,
+        int y,
+        byte rail,
+        int neighbour,
+        byte opposite)
+    {
+        const int width = 4;
+        var cells = Enumerable.Range(0, width * 5)
+            .Select(static index => LandCell((ushort)(index + 1), 0))
+            .ToArray();
+        var index = (y * width) + x;
+        cells[index] = cells[index] with { Rail = rail };
+        cells[neighbour] = cells[neighbour] with { Rail = opposite };
+
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(width, 5, cells),
+            Scenario(1815),
+            null,
+            "diagonal-rail-seam");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var link = Assert.Single(result.Document!.Scenarios[0].Rails);
+        Assert.Equal(
+            (Math.Min(index, neighbour), Math.Max(index, neighbour)),
+            (link.First, link.Second));
+        Assert.DoesNotContain(
+            result.Report.Diagnostics,
+            static item => item.Code == "map.asymmetric-rail-endpoint");
+        _ = WorldContentCompiler.Compile(result.Document);
     }
 
     [Fact]
@@ -1234,6 +1353,39 @@ public sealed class LegacyWorldConverterTests
             [(new ProvinceId(0), new ArmyTypeId(0), 4L), (new ProvinceId(0), new ArmyTypeId(8), 2L),
              (new ProvinceId(0), new ArmyTypeId(7), 0L)],
             armies.Select(static item => (item.Province, item.Type, item.Experience)));
+    }
+
+    /// <summary>
+    /// The 30-row limit lives in the importer now (issue #47): index 29 is the
+    /// last row and converts, index 30 is warned about and dropped exactly as
+    /// before, even though Core would accept it.
+    /// </summary>
+    [Fact]
+    public void LegacyArmyIndexThirtyIsStillWarnedAndDropped()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+                Record("army", 0, 29, 1),
+                Record("army", 0, 30, 1),
+            ]),
+            null,
+            "army-limit-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Equal([29], result.Document!.Scenarios[0].Armies.Select(static item => item.Type));
+        var warning = Assert.Single(
+            result.Report.Diagnostics,
+            static item => item.Code == "scenario.unknown-army-type");
+        Assert.Equal(LegacyImportSeverity.Warning, warning.Severity);
+        Assert.Equal("scenario.records[4]", warning.Location);
+        Assert.Equal(
+            "Army type 30 is outside the table of 30; no army regiment was placed.",
+            warning.Message);
     }
 
     [Fact]
@@ -2989,6 +3141,61 @@ public sealed class LegacyWorldConverterTests
             item => item.Code == "scenario.invalid-civi");
     }
 
+    [Fact]
+    public void AShipFindsItsSeaByTheExecutablesOceanBaseNotByTheCountriesAFileNames()
+    {
+        // Only countries 0 and 1 are named, so a base derived from the highest
+        // country id would be 2 and read ocean byte 32 as zone 30. The
+        // executable reads it as zone 32 - 0x17 = 9, which is where the ship
+        // record says the fleet is.
+        var ocean = new HexCell
+        {
+            Terrain = 0,
+            Province = ushort.MaxValue,
+            NationZoneA = 32,
+            NationZoneB = 32,
+        };
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(3, 1, LandCell(0, 0), LandCell(1, 1), ocean),
+            new ScenarioDocument(
+            [
+                Record("year", 1),
+                NameRecord("cnam", 0, "First"),
+                NameRecord("cnam", 1, "Second"),
+                NameRecord("pnam", 0, "West"),
+                NameRecord("pnam", 1, "East"),
+                Record("ship", 1, 1, 9, 2),
+            ]),
+            null,
+            "ocean-base");
+
+        Assert.True(result.Success);
+        var document = Assert.IsType<WorldContentDocument>(result.Document);
+        Assert.Equal("sea-zone.legacy.009", Assert.Single(document.Map.SeaZones).Key);
+        var ship = Assert.Single(Assert.Single(document.Scenarios).Ships);
+        Assert.Equal("sea-zone.legacy.009", ship.SeaZoneKey);
+        Assert.Equal(0, result.Report.DeferredCounts.GetValueOrDefault("scenario.unplaced-ship-zones"));
+    }
+
+    [Fact]
+    public void AnOceanByteBelowTheExecutablesOceanBaseIsAnError()
+    {
+        var ocean = new HexCell
+        {
+            Terrain = 0,
+            Province = ushort.MaxValue,
+            NationZoneA = 0x16,
+            NationZoneB = 0x16,
+        };
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), ocean),
+            new ScenarioDocument([Record("year", 1), NameRecord("cnam", 0, "Only")]),
+            null,
+            "below-base");
+
+        Assert.Contains(result.Report.Diagnostics, static item => item.Code == "map.invalid-sea-zone-reference");
+    }
+
     private static string RequireScenarioDirectory()
     {
         var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
@@ -3014,12 +3221,14 @@ public sealed class LegacyWorldConverterTests
         NationZoneB = owner,
     };
 
+    // Ocean byte 33 is scenario zone 10: the executable's ocean regions begin
+    // at 0x17 whatever countries a file names.
     private static HexCell OceanCell() => new()
     {
         Terrain = 0,
         Province = ushort.MaxValue,
-        NationZoneA = 11,
-        NationZoneB = 11,
+        NationZoneA = 33,
+        NationZoneB = 33,
     };
 
     private static ScenarioDocument Scenario(uint year) => new([Record("year", year)]);

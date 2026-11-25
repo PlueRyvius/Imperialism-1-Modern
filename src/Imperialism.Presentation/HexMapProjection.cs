@@ -84,6 +84,31 @@ public sealed class HexMapProjection
 
     public MapPoint GetCenter(CellIndex index) => GetCenter(Dimensions.GetCoordinate(index));
 
+    /// <summary>
+    /// The strokes that draw a link between two adjacent cells. Usually one,
+    /// centre to centre. A link across an east-west seam joins the first and
+    /// last columns, and a single stroke would cross the whole map, so it is
+    /// drawn as two half-links, each running from its own centre off its own
+    /// edge toward where the other end would sit if the map repeated.
+    /// </summary>
+    public IReadOnlyList<(MapPoint From, MapPoint To)> GetLinkSegments(CellIndex first, CellIndex second)
+    {
+        var a = GetCenter(first);
+        var b = GetCenter(second);
+        var span = Dimensions.Width * HexWidth;
+        var dx = b.X - a.X;
+        if (Math.Abs(dx) <= span / 2)
+        {
+            return [(a, b)];
+        }
+
+        // Shift the far end by one map width so it sits beside the near one.
+        var shift = dx > 0 ? -span : span;
+        var midpoint = new MapPoint((a.X + b.X + shift) / 2, (a.Y + b.Y) / 2);
+        var mirrored = new MapPoint(midpoint.X - shift, midpoint.Y);
+        return [(a, midpoint), (b, mirrored)];
+    }
+
     public IReadOnlyList<MapPoint> GetVertices(HexCoord coordinate)
     {
         return Array.AsReadOnly(Enumerable.Range(0, _localVertices.Length)
