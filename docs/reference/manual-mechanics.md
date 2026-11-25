@@ -97,8 +97,9 @@ here rather than from a decompiler.
 Technology is **bought with cash** on the Investment screen; an investment can
 be cancelled until the turn ends and not after. Advances "become available on a
 world-wide basis; they cannot be kept secret", and cost money to adopt rather
-than to discover. None of the purchasing is modelled — see
-`../formulas/technology.md`.
+than to discover. Purchase is modelled since `.iworld` v19, and the original has
+no research progress beyond it — see `../formulas/technology.md` and
+`../formulas/research-progress.md`.
 
 ## Prospecting
 
