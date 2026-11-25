@@ -443,10 +443,11 @@ turn phase compare before/after topology without copying source state.
 
 Component identifiers are deterministic: components are numbered by their
 lowest cell index, independent of hash-set iteration or link insertion order.
-Cells with no usable rail edge are outside the rail index. The index does not
-yet decide whether a depot is served, infer river continuity, or join ports
-through sea zones. Those are transport rules layered over this physical rail
-topology as their required state enters the model.
+Cells with no usable rail edge are outside the rail index. `ExtractionPlanner`
+layers the two manual depot routes over this physical topology: a component reaches
+the capital directly or through an owned port-and-depot gateway. River continuity
+and naval control remain later transport rules because the current river paths do
+not prove flow direction and naval state does not yet exist.
 
 ## Traps to avoid
 

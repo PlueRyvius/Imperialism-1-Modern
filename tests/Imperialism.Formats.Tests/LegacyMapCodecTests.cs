@@ -162,14 +162,10 @@ public sealed class LegacyMapCodecTests
         }
     }
 
-    [Fact]
+    [CorpusFact]
     public void OriginalMapsRoundTripWhenLocalCorpusIsConfigured()
     {
-        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return;
-        }
+        var directory = CorpusFactAttribute.RequireScenarioDirectory();
 
         var paths = Directory.GetFiles(directory, "*.map")
             .Where(IsNumberedScenarioFile)

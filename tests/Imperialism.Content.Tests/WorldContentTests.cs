@@ -63,6 +63,57 @@ public sealed class WorldContentTests
     }
 
     [Fact]
+    public void RawRelationRecordsCompileAndRoundTripWithoutDiplomaticInterpretation()
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].Relations =
+        [
+            new RelationContent { First = "empire.a", Second = "empire.b", Value = 110 },
+            new RelationContent { First = "empire.b", Second = "empire.a", Value = 100 },
+        ];
+
+        var encoded = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(encoded);
+        var relations = WorldContentCompiler.Compile(decoded).World.Scenario.InitialRelations;
+
+        Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
+        Assert.Equal(
+            [
+                (new CountryId(1), new CountryId(0), 110),
+                (new CountryId(0), new CountryId(1), 100),
+            ],
+            relations.Select(static item => (item.First, item.Second, item.Value)));
+    }
+
+    [Fact]
+    public void ActiveRelationStatesCompileAndRoundTripWithTheirGeneration()
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].RelationSequence = 17;
+        document.Scenarios[0].RelationStates =
+        [
+            new RelationStateContent
+            {
+                First = "empire.a", Second = "empire.b", Mode = 6, Token = 16,
+            },
+        ];
+
+        var encoded = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(encoded);
+        var scenario = WorldContentCompiler.Compile(decoded).World.Scenario;
+
+        Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
+        Assert.Equal((short)17, scenario.InitialRelationSequence);
+        Assert.Equal(
+            [(new CountryId(1), new CountryId(0), (short)6, (short)16)],
+            scenario.InitialRelationStates.Select(static item =>
+                (item.First, item.Second, item.Mode, item.Token)));
+
+        var state = new WorldState(WorldContentCompiler.Compile(decoded).World);
+        Assert.True(state.HasEffectiveHostility(new CountryId(0), new CountryId(1)));
+    }
+
+    [Fact]
     public void OnePackageCompilesMultipleScenariosOverTheSameMap()
     {
         var document = CreateValidDocument();
@@ -271,7 +322,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(21)]
+    [InlineData(27)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1542,6 +1593,198 @@ public sealed class WorldContentTests
         // And a country is not a Great Power, which is the right answer for a world with
         // no trade in it: the flag exists only to decide who carries a cargo.
         Assert.All(world.Countries, country => Assert.False(country.IsGreatPower));
+    }
+
+    [Fact]
+    public void VersionTwentyMigratesToANonWrappingMap()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 20);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.False(migrated.Map.WrapsHorizontally);
+        Assert.False(WorldContentCompiler.Compile(migrated).World.Map.WrapsHorizontally);
+    }
+
+    [Fact]
+    public void VersionTwentyCannotDeclareAHorizontalSeam()
+    {
+        var document = CreateValidDocument();
+        document.Map.WrapsHorizontally = true;
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 20);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+        Assert.Equal("map.wrapsHorizontally", exception.Path);
+    }
+
+    [Fact]
+    public void AFleetIsPlacedByItsSeaZoneKeyAndNeverByItsRawNumber()
+    {
+        var document = WithOneShipType(CreateValidDocument());
+        var country = document.Countries[0].Key;
+        document.Scenarios[0].Ships =
+        [
+            // A raw number that is no runtime id at all, keyed to a real sea.
+            new ShipContent { Country = country, Type = "ship.trader", SeaZone = 5, SeaZoneKey = "sea.west", Count = 1 },
+            // A raw number that happens to equal a runtime id, with no key.
+            new ShipContent { Country = country, Type = "ship.trader", SeaZone = 0, Count = 1 },
+        ];
+
+        var encoded = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(encoded);
+        Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
+
+        var state = new WorldState(WorldContentCompiler.Compile(decoded).World);
+        Assert.Collection(
+            state.Fleets,
+            fleet => Assert.Equal(new SeaZoneId(0), fleet.SeaZone),
+            fleet => Assert.Null(fleet.SeaZone));
+    }
+
+    [Fact]
+    public void AFleetKeyedToAnUnknownSeaIsRejected()
+    {
+        var document = WithOneShipType(CreateValidDocument());
+        document.Scenarios[0].Ships =
+        [
+            new ShipContent { Country = document.Countries[0].Key, Type = "ship.trader", SeaZoneKey = "sea.nowhere", Count = 1 },
+        ];
+
+        AssertPath("scenarios[0].ships[0].seaZoneKey", document);
+    }
+
+    [Fact]
+    public void VersionTwentyFiveCannotPlaceAFleetByKey()
+    {
+        var document = WithOneShipType(CreateValidDocument());
+        document.Scenarios[0].Ships =
+        [
+            new ShipContent { Country = document.Countries[0].Key, Type = "ship.trader", SeaZoneKey = "sea.west", Count = 1 },
+        ];
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 25);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+        Assert.Equal("scenarios[0].ships[0].seaZoneKey", exception.Path);
+    }
+
+    private static WorldContentDocument WithOneShipType(WorldContentDocument document)
+    {
+        document.ShipTypes =
+            [new ShipTypeContentDefinition { Key = "ship.trader", Name = "Trader", Cargo = 2, SeaZones = 1 }];
+        return document;
+    }
+
+    [Fact]
+    public void VersionTwentyOneMigratesToNoRelationRecords()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 21);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.All(migrated.Scenarios, static scenario => Assert.Empty(scenario.Relations));
+    }
+
+    [Fact]
+    public void VersionTwentyTwoMigratesToDefaultActiveRelationState()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 22);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.All(migrated.Scenarios, static scenario =>
+        {
+            Assert.Equal(0, scenario.RelationSequence);
+            Assert.Empty(scenario.RelationStates);
+        });
+    }
+
+    [Fact]
+    public void VersionTwentyThreeMigratesToNoArmyRecords()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 23);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.All(migrated.Scenarios, static scenario => Assert.Empty(scenario.Armies));
+    }
+
+    [Fact]
+    public void VersionTwentyFourArmyCountMigratesToExperience()
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].Armies =
+        [new ArmyContent { Province = "province.west", Type = 0, Experience = 4 }];
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 24)
+            .Replace("\"experience\": 4", "\"count\": 4", StringComparison.Ordinal);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.Equal(4, migrated.Scenarios[0].Armies[0].Experience);
+        Assert.Null(migrated.Scenarios[0].Armies[0].LegacyCount);
+        Assert.DoesNotContain("\"count\"", Encoding.UTF8.GetString(WorldContentCodec.Encode(migrated)));
+    }
+
+    [Fact]
+    public void CurrentVersionRejectsTheRetiredArmyCountName()
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].Armies =
+        [new ArmyContent { Province = "province.west", Type = 0, Experience = 4 }];
+        var json = Encoding.UTF8.GetString(WorldContentCodec.Encode(document))
+            .Replace("\"experience\": 4", "\"count\": 4", StringComparison.Ordinal);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+
+        Assert.Equal("scenarios[0].armies[0].count", exception.Path);
+    }
+
+    [Fact]
+    public void ScenarioArmiesPreserveTheOriginalZeroBasedTypeExperienceAndSourceOrder()
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].Armies =
+        [
+            new ArmyContent { Province = "province.east", Type = 8, Experience = 4 },
+            new ArmyContent { Province = "province.west", Type = 0, Experience = 0 },
+        ];
+
+        var encoded = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(encoded);
+        var armies = WorldContentCompiler.Compile(decoded).World.Scenario.InitialArmies;
+
+        Assert.Equal(
+            [(new ProvinceId(1), new ArmyTypeId(8), 4L), (new ProvinceId(0), new ArmyTypeId(0), 0L)],
+            armies.Select(static item => (item.Province, item.Type, item.Experience)));
+    }
+
+    [Fact]
+    public void ScenarioArmyRejectsNegativeExperience()
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].Armies =
+        [new ArmyContent { Province = "province.west", Type = 0, Experience = -1 }];
+
+        AssertPath("scenarios[0].armies[0].experience", document);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(30)]
+    public void ScenarioArmyRejectsAnUnknownOriginalType(int type)
+    {
+        var document = CreateValidDocument();
+        document.Scenarios[0].Armies =
+        [new ArmyContent { Province = "province.west", Type = type, Experience = 1 }];
+
+        AssertPath("scenarios[0].armies[0].type", document);
     }
 
     [Theory]
