@@ -124,6 +124,50 @@ any new order to a busy civilian with `AlreadyWorking`, and so does the preview.
 `UnitOrdersTests` resolves every listed target of every civilian alone through
 `TurnResolver` and compares the warning, the cost and the begun event.
 
+### Terrain Map civilian controls (row 4d-2)
+
+Click a local civilian's marker to select it. Cream circles are idle; grey
+crosses are busy; a gold square means an order is drafted, and a white ring
+marks the selected unit. Units sharing a hex have separate markers along its
+top edge. Hover a marker to read its type, id, busy state and drafted order.
+
+Selection highlights every target from `CreateUnitOrders` with a clickable verb
+label inside its hex: deploy, improve, prospect, rail, depot, port or fort.
+Multiple verbs on one hex have separate rows. Green labels are clean; amber
+labels with `!` warn; the drafted target has a gold border. Hover a label to
+read its verb, cash cost and Presentation's full warning text in the inspector.
+Zoom in with the wheel when labels are small.
+
+Left-click the verb to set or replace the selected civilian's draft order,
+including a warned target. Right-click in the map, or press **Clear civilian
+order**, to clear its draft while retaining selection. **Escape** deselects;
+leaving the screen also deselects. Clearing a draft does not cancel work already
+under way. Every edit re-reads both civilian previews. There are no game-rule
+calculations in the overlay and no new art assets.
+
+With no civilian selected, province picking and right-drag pan work as before.
+Middle-drag, arrows, wheel zoom, Home and debug overlays remain available while
+selected. Target labels take clicks only during civilian selection. Markers and
+targets use one cached `Node2D` draw surface, rebuilt on preview changes, with no
+per-cell nodes or per-frame rebuilding.
+
+The Windows Godot gate is:
+
+```bash
+godot --headless --path src/Imperialism.Client -- --smoke-units --world <converted.iworld> --scenario <key> --country <key>
+```
+
+Use a scenario/country with an idle starting civilian (the tiny default demo
+may have none). The flag chooses the first idle civilian and its first target
+without a warning. It prints `UNITS_SMOKE_DRAFT`, `UNITS_SMOKE_PREVIEW`, the
+unit's raw `UNITS_SMOKE_EVENT` and rendered `UNITS_SMOKE_RESOLVED` lines, then
+`UNITS_SMOKE_OK unit=… verb=… cell=… events=…`. It fails with exit code 1 if no
+idle civilian or clean target exists, the draft preview disagrees, no accepted
+unit event resolves, any unit refusal occurs, or the order survives End Turn.
+It exercises the screen's draft adapter and real session, not mouse routing.
+Run it separately from `--smoke-turn`, whose empty-draft output is unchanged.
+Godot runtime checks and screenshots remain pending the Windows PC run.
+
 ## What an order remembers
 
 `GameSession.EndTurn` calls `OrdersDraft.AdvanceTurn` once the turn resolves.
@@ -506,3 +550,34 @@ Manual checklist:
   the presentation layer. It should become names, or gain a parallel, when the
   Investment screen lands and needs both — not before: it is shipped, tested, and
   no consumer benefits today.
+
+### Windows acceptance for civilian orders
+
+1. Open a converted scenario with local civilians. Confirm idle, busy, drafted
+   and selected markers, including selecting each unit sharing a hex. Screenshot
+   the idle map and selected civilian with targets visible.
+2. Click a marker: every preview target appears, with separate clickable verb
+   rows on shared hexes. Confirm green clean rows, amber `!` warnings and the
+   drafted row's gold outline. Check deploy/improve/prospect and an Engineer's
+   rail/depot/port/fort, zooming in for readability.
+3. Hover each kind of target: inspector text gives the matching verb, cash cost
+   and full warning sentence. Moving between verbs on the same hex updates it.
+   Hover a busy marker: its remaining turns and busy state are shown.
+4. Click clean and warned targets: each replaces that civilian's draft, the
+   marker and target outline update, and warnings never disable ordering.
+   Right-click and the Clear button both remove only the selected unit's draft.
+   Busy units remain busy when their drafts are cleared.
+5. Escape removes selection and targets, preserving the draft. With no unit
+   selected, province pinning, debug overlays, Probe state and right-drag pan
+   still work. With selection active, check middle-drag, arrows, wheel and Home.
+   Leave/re-enter the screen and end/dismiss two turns: no stale targets, blocked
+   camera or duplicate resolution. Check newspaper/report modality and F1–F6.
+6. Run `--smoke-units` on a scenario with an idle civilian. Confirm the first idle
+   unit and first clean target, the matching draft/preview, raw and rendered
+   resolved events for that unit, matching target/cost, `UNITS_SMOKE_OK`, exit 0
+   and cleared draft. A scenario without an idle civilian must fail clearly with
+   exit 1. Run `--smoke-turn` separately with an empty draft and confirm its
+   existing fields, newspaper/report visibility and dismissal remain unchanged.
+7. At 1440x900, 1920x1080 and 2560x1080, confirm labels, hover text, controls and
+   the status border fit without overlap. Capture the selected Engineer and a
+   warned target alongside the original for Andy's visual review.

@@ -34,6 +34,7 @@ public sealed partial class GameShell : Control
     private bool _smokeTest;
     private bool _smokeScreens;
     private bool _smokeTurn;
+    private bool _smokeUnits;
     private string? _screenshotDirectory;
 
     public override void _Ready()
@@ -43,6 +44,7 @@ public sealed partial class GameShell : Control
         _smokeTest = arguments.Contains("--smoke-test", StringComparer.Ordinal);
         _smokeScreens = arguments.Contains("--smoke-screens", StringComparer.Ordinal);
         _smokeTurn = arguments.Contains("--smoke-turn", StringComparer.Ordinal);
+        _smokeUnits = arguments.Contains("--smoke-units", StringComparer.Ordinal);
         _screenshotDirectory = ReadArgument(arguments, "--screenshot");
         var worldPath = ReadArgument(arguments, "--world") ?? DefaultWorldPath;
 
@@ -57,7 +59,7 @@ public sealed partial class GameShell : Control
             StartSession(
                 ReadArgument(arguments, "--scenario") ?? _package.ScenarioKeys[0],
                 ReadArgument(arguments, "--country"));
-            if (_smokeTest || _smokeScreens || _smokeTurn || _screenshotDirectory is not null)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _screenshotDirectory is not null)
             {
                 CallDeferred(nameof(FinishSmoke));
             }
@@ -65,7 +67,7 @@ public sealed partial class GameShell : Control
         catch (Exception exception)
         {
             GD.PushError($"Could not load world package '{worldPath}': {exception.Message}");
-            if (_smokeTest || _smokeScreens || _smokeTurn)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits)
             {
                 GetTree().Quit(1);
                 return;
@@ -111,6 +113,13 @@ public sealed partial class GameShell : Control
                 AcceptEvent();
                 return;
             }
+        }
+
+        if (@event.IsActionPressed("shell_back") && _current == ShellScreen.TerrainMap &&
+            ((TerrainMapScreen)_screens[ShellScreen.TerrainMap]).DeselectCivilian())
+        {
+            AcceptEvent();
+            return;
         }
 
         if (@event.IsActionPressed("shell_back") && _current != ShellScreen.TerrainMap)
@@ -367,6 +376,12 @@ public sealed partial class GameShell : Control
         if (_screenshotDirectory is not null)
         {
             await CaptureEveryScreen(_screenshotDirectory);
+        }
+
+        if (_smokeUnits)
+        {
+            GetTree().Quit(UnitOrdersSmoke.Run(_session) ? 0 : 1);
+            return;
         }
 
         if (_smokeTurn || _screenshotDirectory is not null)

@@ -76,6 +76,9 @@ public sealed class GameSession
     /// <summary>The report of the last turn resolved, or null before the first.</summary>
     public TurnReportView? LastReport { get; private set; }
 
+    /// <summary>Raw events for client smoke diagnostics, from the same resolved turn.</summary>
+    public TurnResolution? LastResolution { get; private set; }
+
     /// <summary>The local country's paper, or null before the first resolved turn.</summary>
     public NewspaperView? LastNewspaper { get; private set; }
 
@@ -147,6 +150,7 @@ public sealed class GameSession
 
             // Built before the refresh, so nothing handling Refreshed can
             // observe a session whose report or paper has not been made yet.
+            LastResolution = resolution;
             LastReport = TurnReportView.Create(Package, ScenarioKey, World, resolution);
             LastNewspaper = NewspaperView.Create(Package, ScenarioKey, World, resolution, LocalCountry);
             Draft.AdvanceTurn();
