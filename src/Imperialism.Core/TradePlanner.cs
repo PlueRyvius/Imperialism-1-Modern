@@ -318,12 +318,25 @@ internal static class TradePlanner
     /// "The favourite trading partner receives the first chance to sell to and buy from the
     /// Minor Nation" (lines 3393-3394). Relation scores are the other half of that ranking
     /// and are not modelled, so with no subsidy anywhere this is id order exactly, as it was.
+    /// <para>
+    /// <b>Only a subsidy that moves this deal's price ranks the bidder.</b> Between two Great
+    /// Powers a subsidy governs only the grantor's own goods (the release-notes rule recorded
+    /// in <c>docs/game-systems.md</c>), so when the seller is a Great Power no bidder's subsidy
+    /// to it counts and the order is id order.
+    /// </para>
     /// </remarks>
-    private static IEnumerable<int> RankBidders(WorldState state, CountryId seller, int countryCount) =>
-        Enumerable.Range(0, countryCount)
-            .Where(index => index != seller.Value)
+    private static IEnumerable<int> RankBidders(WorldState state, CountryId seller, int countryCount)
+    {
+        var others = Enumerable.Range(0, countryCount).Where(index => index != seller.Value);
+        if (state.Definition.Countries[seller.Value].IsGreatPower)
+        {
+            return others;
+        }
+
+        return others
             .OrderByDescending(index => state.GetTradePolicy(new CountryId(index), seller).SubsidyPercent)
             .ThenBy(static index => index);
+    }
 
     /// <summary>
     /// What the buyer pays per hundred of world price on this deal.
@@ -332,15 +345,27 @@ internal static class TradePlanner
     /// A subsidy favours its recipient "on both ends of trade deals" (lines 3018-3021): the
     /// recipient buys from the grantor at the world price "reduced … by the percentage of
     /// the subsidy" and sells to it at the world price "increased … by the percentage"
-    /// (lines 3694-3699). The seller's subsidy to the buyer lowers the price; the buyer's
-    /// to the seller raises it. <b>Where both subsidise each other the two net</b> — a
-    /// chosen rule; the manual never puts two subsidies on one deal. Percentages are at
-    /// most 99, so this is always between 2 and 198.
+    /// (lines 3694-3699). That is the Minor Nation case. <b>Between two Great Powers a
+    /// subsidy governs only the grantor's own goods</b> — "it lowers what the other power
+    /// pays you, and does not change what you pay them" — which is the original's release
+    /// notes as recorded in <c>docs/game-systems.md</c>, ranked above the manual.
+    /// <para>
+    /// So the seller's subsidy to the buyer always lowers the price, and the buyer's subsidy
+    /// to the seller raises it only when the seller is not a Great Power. Only a Great Power
+    /// grants a subsidy, so no deal ever carries two and nothing nets. A percentage is at
+    /// most 99, so this is always between 1 and 199.
+    /// </para>
     /// </remarks>
-    private static int PriceFactor(WorldState state, CountryId seller, CountryId buyer) =>
-        100
-        - state.GetTradePolicy(seller, buyer).SubsidyPercent
-        + state.GetTradePolicy(buyer, seller).SubsidyPercent;
+    private static int PriceFactor(WorldState state, CountryId seller, CountryId buyer)
+    {
+        var factor = 100 - state.GetTradePolicy(seller, buyer).SubsidyPercent;
+        if (!state.Definition.Countries[seller.Value].IsGreatPower)
+        {
+            factor += state.GetTradePolicy(buyer, seller).SubsidyPercent;
+        }
+
+        return factor;
+    }
 
     /// <summary>
     /// What <paramref name="quantity"/> units cost at <paramref name="factor"/> per hundred,

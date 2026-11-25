@@ -417,7 +417,9 @@ The manual ranks bidders by the seller's favoured-trading-partner list, which co
 subsidies and still has no relation scores, so each seller ranks its bidders by **the
 subsidy each grants it**, highest first, with ties — every unsubsidised bidder among them —
 in country-id order. With no subsidy anywhere that is the old id order exactly, which is
-why no published number moved. It is a chosen rule pending relations; see the
+why no published number moved. A Great Power seller's bidders always stand in id order,
+because between Great Powers a subsidy moves only the grantor's own sale price (diplomacy.md
+rule 9, from the release notes). It is a chosen rule pending relations; see the
 trade-policy section of [diplomacy.md](diplomacy.md), chosen rule 8. A subsidy also moves
 the price of the deal it touches, never the world price.
 
@@ -535,11 +537,12 @@ the work duration was 1. Trade income buys improvement faster than the food supp
   hypothetical. `ITradeMarket` is where a recovered curve goes.
 - **Relations in the bidder ranking.** Subsidies rank bidders since v31; relation scores,
   the other half, are not modelled. See [diplomacy.md](diplomacy.md).
-- ~~**Trade subsidies**~~ — **modelled at v31**, per pair and per deal. One question stays
-  open: `docs/game-systems.md` records a *release-notes correction* that between two Great
-  Powers a subsidy governs only the grantor's own goods. The release notes are not in this
-  repository, so v31 applies the manual's symmetric rule to every pair; see
-  [diplomacy.md](diplomacy.md).
+- ~~**Trade subsidies**~~ — **modelled at v31**, per pair and per deal. Toward a Minor
+  Nation a subsidy works both ways, per the manual; between two Great Powers it covers only
+  the grantor's own sales and ranks no bidder, per the *release-notes correction* recorded
+  in `docs/game-systems.md:204-206`. One check stays open: the release notes themselves
+  (README.TXT / README11.TXT) are not in this repository and are to be read on the PC; see
+  [diplomacy.md](diplomacy.md) rule 9.
 - **Whether oil and fuel are tradable.** The roster omits both and the manual does not say.
 - ~~**The ship array order**, the Freighter's cargo, and every build cost.~~
   **All recovered**, and `ship` records convert.

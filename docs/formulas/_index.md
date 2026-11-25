@@ -208,7 +208,8 @@ bottom of this file.
 | **When a Great Power accepts peace** | **a chosen rule** — only if it offers peace back the same turn; wants something to play the powers | [diplomacy](diplomacy.md) | Core | generated |
 | What a war cuts, and the boycott | `inferred` for the boycott and the posts; **chosen** that both are cut at the declaration | [diplomacy](diplomacy.md) | Core | generated |
 | Trade subsidies and voluntary boycotts: who may set them, what they need, what a subsidy does to a price | `inferred` — **the manual states it** (lines 3432–3437, 3663–3667, 3692–3699) | [diplomacy](diplomacy.md) | Core, Content, LegacyImport | generated |
-| **Subsidy percentages, timing, netting and rounding** | **chosen rules** — 5 and 10 from the tutorial; next turn; mutual subsidies net; once per deal toward the recipient | [diplomacy](diplomacy.md) | Core, Content, LegacyImport | generated |
+| **Subsidy percentages, timing and rounding** | **chosen rules** — 5 and 10 from the tutorial; next turn; once per deal toward the recipient |
+| **A subsidy between two Great Powers** | `inferred` — the release notes as recorded in `game-systems.md:204-206`: only the grantor's own sales, and no ranking; README.TXT / README11.TXT still to be read on the PC | [diplomacy](diplomacy.md) | Core, Content, LegacyImport | generated |
 | **Relation scores, alliances, colonies, civilians entering a Minor Nation** | **open** — none modelled; the overtures that would move them now exist | [diplomacy](diplomacy.md) | — | — |
 | Diplomatic relation deltas | `guess` | _relations_ | — | — |
 | Council nomination + abstention curve | `guess` | _council_ | — | — |

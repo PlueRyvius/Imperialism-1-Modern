@@ -821,17 +821,21 @@ posts. No soak number moved.
 `.iworld` **v31** adds **trade policy**: a Great Power holding a consulate or embassy at a
 country as the turn opens may set a standing **subsidy** or **boycott** toward it (lines
 3432–3437, 3663–3667), free, in `Diplomacy` after the overtures, so **no new phase**. The
-recipient of a subsidy buys from its grantor at world price less the percentage and sells to
-it at world price plus it (lines 3692–3699). A voluntary boycott **either way** shares the war
+recipient of a subsidy buys from its grantor at world price less the percentage and, if it is a
+Minor Nation, sells to it at world price plus it (lines 3692–3699). **Between two Great Powers
+a subsidy covers only the grantor's own sales** and ranks no bidder — the release-notes
+correction recorded in `docs/game-systems.md:204-206`, ranked above the manual; README.TXT /
+README11.TXT are still to be read on the PC to confirm it. A voluntary boycott **either way** shares the war
 boycott's one gate, `WorldState.IsTradeBoycotted`. **The bidder placeholder is gone**: a
-seller ranks bidders by the subsidy each grants it, ties in id order, so with no subsidy the
+seller that is not a Great Power ranks bidders by the subsidy each grants it, ties in id order, so with no subsidy the
 order is unchanged and no soak number moved. The v31 field is `diplomacy.subsidyPercents`;
-the importer writes `[5, 10]` and the v30 migration writes none. **Seven rules are chosen**,
-numbered 7–13 in `docs/formulas/diplomacy.md`: a policy takes effect **next turn**; ranking is
-by **subsidy alone** until relations exist; **mutual subsidies net**; a deal rounds **once,
-toward the recipient**; a subsidy **never moves the world price**; a Great Power war that
+the importer writes `[5, 10]` and the v30 migration writes none. **Six rules are chosen**,
+numbered 7–13 in `docs/formulas/diplomacy.md` around the release-notes rule 9: a policy takes
+effect **next turn**; ranking is by **subsidy alone** until relations exist; a deal rounds
+**once, toward the recipient**; a subsidy **never moves the world price**; a Great Power war that
 closes the posts **clears the policy** both ways; and the percentages are **5 and 10**, the
-tutorial's buttons, because the executable names none.
+tutorial's buttons, because the executable names none. **Mutual subsidies no longer net**:
+no deal can carry two, so that rule retired.
 
 **Production spends labour: two per cycle, flat**, from one pool per country shared
 across every facility. The manual prices exactly one recipe — a unit of clothing

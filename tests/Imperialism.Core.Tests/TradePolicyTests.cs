@@ -269,38 +269,74 @@ public sealed class TradePolicyTests
     }
 
     [Fact]
-    public void MutualSubsidiesNetAndEachDealRoundsTowardItsRecipient()
+    public void BetweenGreatPowersASubsidyLowersOnlyTheGrantorsSalePrice()
     {
-        // The Power grants the Rival 10%, the Rival the Power 5%: a net 5% in the Rival's
-        // favour. At 101 a unit and three units, exact totals carry a fraction.
-        var state = CreateState(worldPrice: 101);
-        _ = Resolve(state, Policies(Power, Subsidy(Rival, 10)), Policies(Rival, Subsidy(Power, 5)));
+        // The release-notes rule (docs/game-systems.md:204-206): the Power grants the Rival
+        // 10%, which lowers what the Rival pays the Power and does not change what the Power
+        // pays the Rival.
+        var state = CreateState();
+        _ = Resolve(state, Policies(Power, Subsidy(Rival, 10)));
 
-        // Rival sells: 3 × 101 × 105% = 318.15, rounded up for the Rival to 319. Per unit
-        // it would be 3 × 107 = 321 rounded up, or 3 × 106 = 318 rounded down.
+        // The Rival buys from its grantor at 10% under: 2 × 100 × 90% = 180.
         var (powerCash, rivalCash) = (state.GetCash(Power), state.GetCash(Rival));
-        var sold = Resolve(state, Offer(Rival, 3), Bids(Power, 3));
-        Assert.Equal(319, Assert.Single(sold.Events.OfType<CommodityTradedEvent>()).Total);
-        Assert.Equal(powerCash - 319, state.GetCash(Power));
-        Assert.Equal(rivalCash + 319, state.GetCash(Rival));
+        var bought = Resolve(state, Offer(Power, 2), Bids(Rival, 2));
+        var purchase = Assert.Single(bought.Events.OfType<CommodityTradedEvent>());
+        Assert.Equal((Power, Rival, 180L), (purchase.Seller, purchase.Buyer, purchase.Total));
+        Assert.Equal(powerCash + 180, state.GetCash(Power));
+        Assert.Equal(rivalCash - 180, state.GetCash(Rival));
 
-        // Rival buys: 3 × 101 × 95% = 287.85, rounded down for the Rival to 287.
+        // The Rival sells to its grantor at the world price exactly: 2 × 100 = 200.
         (powerCash, rivalCash) = (state.GetCash(Power), state.GetCash(Rival));
-        var bought = Resolve(state, Offer(Power, 3), Bids(Rival, 3));
-        Assert.Equal(287, Assert.Single(bought.Events.OfType<CommodityTradedEvent>()).Total);
-        Assert.Equal(powerCash + 287, state.GetCash(Power));
-        Assert.Equal(rivalCash - 287, state.GetCash(Rival));
+        var sold = Resolve(state, Offer(Rival, 2), Bids(Power, 2));
+        var sale = Assert.Single(sold.Events.OfType<CommodityTradedEvent>());
+        Assert.Equal((Rival, Power, 200L), (sale.Seller, sale.Buyer, sale.Total));
+        Assert.Equal(powerCash - 200, state.GetCash(Power));
+        Assert.Equal(rivalCash + 200, state.GetCash(Rival));
     }
 
     [Fact]
-    public void EqualMutualSubsidiesCancelOut()
+    public void ASubsidyToAGreatPowerDoesNotRankItsGrantorAsABidder()
     {
+        // Country 3 is a third Great Power here, so the grantor's id is above another
+        // bidder's and a ranking by its subsidy would show. It grants the Power 10%; when
+        // the Power sells, that subsidy moves no price, so it ranks nobody: id order, and
+        // the Rival takes the whole offer.
+        var third = OtherMinor;
+        var state = CreateState(otherMinorIsGreatPower: true);
+        _ = Resolve(state, Policies(third, Subsidy(Power, 10)));
+        Assert.Equal(TradePolicy.Subsidy(10), state.GetTradePolicy(third, Power));
+
+        var deals = Deals(Resolve(state, Offer(Power, 2), Bids(Rival, 2), Bids(third, 2)));
+        Assert.Equal([(Power, Rival, 2L)], deals);
+
+        // And when the Power's offer does reach its grantor, at the world price exactly.
+        var result = Resolve(state, Offer(Power, 2), Bids(third, 2));
+        var deal = Assert.Single(result.Events.OfType<CommodityTradedEvent>());
+        Assert.Equal((Power, third, 200L), (deal.Seller, deal.Buyer, deal.Total));
+    }
+
+    [Fact]
+    public void EachDealRoundsOnceTowardItsRecipient()
+    {
+        // At 101 a unit and three units, exact totals carry a fraction.
         var state = CreateState(worldPrice: 101);
-        _ = Resolve(state, Policies(Power, Subsidy(Rival, 5)), Policies(Rival, Subsidy(Power, 5)));
+        OpenConsulate(state, Power, Minor);
+        _ = Resolve(state, Policies(Power, Subsidy(Minor, 5)));
 
-        var sold = Resolve(state, Offer(Rival, 3), Bids(Power, 3));
+        // The Minor Nation sells: 3 × 101 × 105% = 318.15, rounded up for it to 319. Per
+        // unit it would be 3 × 107 = 321 rounded up, or 3 × 106 = 318 rounded down.
+        var (powerCash, minorCash) = (state.GetCash(Power), state.GetCash(Minor));
+        var sold = Resolve(state, Offer(Minor, 3), Bids(Power, 3));
+        Assert.Equal(319, Assert.Single(sold.Events.OfType<CommodityTradedEvent>()).Total);
+        Assert.Equal(powerCash - 319, state.GetCash(Power));
+        Assert.Equal(minorCash + 319, state.GetCash(Minor));
 
-        Assert.Equal(303, Assert.Single(sold.Events.OfType<CommodityTradedEvent>()).Total);
+        // The Minor Nation buys: 3 × 101 × 95% = 287.85, rounded down for it to 287.
+        (powerCash, minorCash) = (state.GetCash(Power), state.GetCash(Minor));
+        var bought = Resolve(state, Offer(Power, 3), new CountryTurnOrders(Minor, tradeBids: [Bid(3)]));
+        Assert.Equal(287, Assert.Single(bought.Events.OfType<CommodityTradedEvent>()).Total);
+        Assert.Equal(powerCash + 287, state.GetCash(Power));
+        Assert.Equal(minorCash - 287, state.GetCash(Minor));
     }
 
     [Fact]
@@ -391,7 +427,8 @@ public sealed class TradePolicyTests
         long worldPrice = 100,
         long minorCash = StartingCash,
         int[]? subsidyPercents = null,
-        ITradeMarket? market = null)
+        ITradeMarket? market = null,
+        bool otherMinorIsGreatPower = false)
     {
         const int countries = 4;
         var dimensions = new MapDimensions(countries, 1);
@@ -440,7 +477,7 @@ public sealed class TradePolicyTests
                 new CountryDefinition(Power, "Power", isGreatPower: true),
                 new CountryDefinition(Rival, "Rival", isGreatPower: true),
                 new CountryDefinition(Minor, "Minor"),
-                new CountryDefinition(OtherMinor, "Other Minor"),
+                new CountryDefinition(OtherMinor, "Other Minor", isGreatPower: otherMinorIsGreatPower),
             ],
             scenario,
             [

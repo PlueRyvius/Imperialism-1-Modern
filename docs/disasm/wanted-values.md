@@ -349,7 +349,8 @@ over a century, so a curve that changes that by orders of magnitude is worth a s
 
 Also wanted, same area: **whether the bidder ranking is what we think.** The manual says
 relations plus subsidies; since v31 we rank by subsidy alone, ties in id order, and label it a
-chosen rule pending relations. Also wanted: **the subsidy buttons' percentages** — we ship the
+chosen rule pending relations; a Great Power seller ranks by nothing, per the release-notes
+rule (`game-systems.md:204-206`), which README.TXT / README11.TXT should confirm. Also wanted: **the subsidy buttons' percentages** — we ship the
 tutorial's 5 and 10, and nothing in the extraction names a level or a third button.
 
 ---

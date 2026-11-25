@@ -169,7 +169,7 @@ the last. There is no new turn phase and no soak number moved — no soak policy
 | **The percentages are 5 and 10** | **chosen rule 13**, from the tutorial (lines 5121–5126) |
 | A policy takes effect next turn | **chosen rule 7** |
 | Ranking by subsidy alone, ties in id order | **chosen rule 8** |
-| Mutual subsidies net | **chosen rule 9** |
+| Between two Great Powers a subsidy covers only the grantor's own sales | **rule 9**, release notes as recorded in `game-systems.md:204-206` — not chosen |
 | Rounding once per deal, toward the recipient | **chosen rule 10** |
 | A subsidy never moves the world price | **chosen rule 11** |
 | Closing the posts clears the policy | **chosen rule 12** |
@@ -191,11 +191,15 @@ the prices". Setting `None` where nothing stands is accepted and changes nothing
 * **Ranking.** Each seller ranks its bidders by **the subsidy each bidder grants it**,
   highest first. Ties — every unsubsidised bidder among them — stay in country-id order,
   so **with no subsidy anywhere the order is exactly what it was** and no published number
-  moves.
+  moves. **Only a subsidy that moves the deal's price ranks a bidder** (rule 9): when the
+  seller is a Great Power no bidder's subsidy to it counts, and its bidders stand in id
+  order.
 * **Price.** With world price `w`, a subsidy `p` from grantor G to recipient R:
-  R buying from G pays `w·(100−p)/100` a unit, R selling to G receives `w·(100+p)/100`.
-  In code the deal's factor is `100 − (seller's subsidy to buyer) + (buyer's subsidy to
-  seller)`, always between 2 and 198. The buyer pays and the seller receives the same
+  R buying from G pays `w·(100−p)/100` a unit. A **Minor Nation** R selling to G receives
+  `w·(100+p)/100`; a **Great Power** R selling to G receives `w` (rule 9). In code the
+  deal's factor is `100 − (seller's subsidy to buyer)`, plus the buyer's subsidy to the
+  seller only when the seller is not a Great Power — always between 1 and 199, because
+  only a Great Power grants a subsidy and so no deal ever carries two. The buyer pays and the seller receives the same
   total; `CommodityTradedEvent.Total` carries it, and `UnitPrice` stays the world price.
 * **Affordability** is checked by division at the subsidised price, in 128-bit
   arithmetic, so a discount buys what it should and nothing overflows.
@@ -215,17 +219,30 @@ Relation scores are not modelled, so subsidy is the only factor and the ranking 
 the manual's rule**. This replaces the pure id-order placeholder; when relations land,
 this is the rule to revisit.
 
-### Chosen rule 9: mutual subsidies net
+### Rule 9: between two Great Powers a subsidy covers only the grantor's own sales
 
-Two Great Powers may subsidise each other. The manual describes one subsidy on one deal.
-Here the two percentages subtract, so 10% one way and 5% the other is a net 5% in the
-favour of the country receiving the larger, and equal subsidies cancel.
+**From the release notes as recorded in `docs/game-systems.md:204-206`; the release notes
+themselves (README.TXT / README11.TXT in the original install) are not in the repo and are
+still to be checked on the PC.** "Between two Great Powers a subsidy governs only the
+granter's own goods — it lowers what the other power pays you, and does not change what you
+pay them. Minor nations get the symmetric version." This project ranks the release notes
+above the manual where they disagree, so the manual's two-way rule (lines 3692–3699) holds
+only toward a Minor Nation.
+
+So G granting Great Power H 10% makes H's purchases from G 10% cheaper and leaves H's sales
+to G at the world price. A subsidy that moves no price ranks no bidder either: when H
+sells, G's subsidy does not put G ahead of H's other bidders.
+
+This **retires the rule that mutual subsidies net**, which v31 first shipped as chosen rule
+9. A Minor Nation cannot grant a subsidy, and between Great Powers each subsidy covers only
+its grantor's sales, so no deal ever carries two subsidies and there is nothing to net.
 
 ### Chosen rule 10: rounding once per deal, toward the recipient
 
 `units · w · factor` is computed exactly and divided by 100 once for the whole deal:
 the **floor** where the buyer is favoured, the **ceiling** where the seller is. Three
-units at 101 under a net 5% cost the buyer 287 (287.85) or pay the seller 319 (318.15).
+units at 101 under a 5% subsidy to a Minor Nation cost it 287 (287.85) when it buys and pay
+it 319 (318.15) when it sells.
 
 ### Chosen rule 11: a subsidy never moves the world price
 
@@ -265,14 +282,10 @@ package migrated from v30 lists none, so it can grant no subsidy but can still b
 * **Colony boycotts** (lines 3721–3727): a colony's own boycott list. Colonies are not
   modelled.
 * **Relations in the bidder ranking** (chosen rule 8).
-* **A subsidy between two Great Powers.** `docs/game-systems.md` (line 204) records a
-  *release-notes correction*: between Great Powers a subsidy lowers only what the other
-  power pays the grantor and leaves what the grantor pays unchanged; Minor Nations get the
-  symmetric version. The release notes are not in `docs/reference/`, so the claim cannot
-  be checked here, and v31 applies the manual's symmetric rule (lines 3692–3699) to every
-  pair. If the release notes are recovered and say so, it is a one-line change in
-  `TradePlanner.PriceFactor`, and chosen rule 9 (netting) would only ever apply to the
-  grantors' own sales.
+* **Checking rule 9 against the release notes.** README.TXT / README11.TXT from the
+  original install should be read on the PC to confirm the wording `game-systems.md`
+  records. If they say otherwise, the change is the Great Power guard in
+  `TradePlanner.PriceFactor` and `TradePlanner.RankBidders`.
 
 Tests: `DiplomacyTests` and `TradePolicyTests`, plus the v30 and v31 content and importer
 checks in `WorldContentTests` and `LegacyWorldConverterTests`.
