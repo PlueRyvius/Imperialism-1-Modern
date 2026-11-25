@@ -2397,8 +2397,26 @@ public sealed class WorldContentTests
         var armies = WorldContentCompiler.Compile(decoded).World.Scenario.InitialArmies;
 
         Assert.Equal(
-            [(new ProvinceId(1), new ArmyTypeId(8), 4L), (new ProvinceId(0), new ArmyTypeId(0), 0L)],
+            [(new ProvinceId(1), new ArmyTypeId(8), 400L), (new ProvinceId(0), new ArmyTypeId(0), 0L)],
             armies.Select(static item => (item.Province, item.Type, item.Experience)));
+    }
+
+    [Theory]
+    [InlineData(2, 200)]
+    [InlineData(4, 400)]
+    [InlineData(9, 400)]
+    [InlineData(long.MaxValue, 400)]
+    public void AnArmyRecordsMedalsBecomeHundredthsClampedToFourHundred(long medals, long hundredths)
+    {
+        // The record carries whole medals; the engine keeps the executable's hundredths,
+        // to its ceiling of 400. A field past the ceiling is clamped, never overflowed.
+        var document = CreateValidDocument();
+        document.Scenarios[0].Armies =
+        [new ArmyContent { Province = "province.west", Type = 0, Experience = medals }];
+
+        var army = Assert.Single(WorldContentCompiler.Compile(document).World.Scenario.InitialArmies);
+
+        Assert.Equal(hundredths, army.Experience);
     }
 
     [Fact]

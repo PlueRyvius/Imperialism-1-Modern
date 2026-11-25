@@ -5,6 +5,11 @@ namespace Imperialism.Core;
 /// <c>[province, type, experience]</c>; ownership is deliberately read from
 /// the province rather than duplicated here.
 /// </summary>
+/// <remarks>
+/// <see cref="Experience"/> is in <b>hundredths of a medal</b>, 0 to 400, as the
+/// executable keeps it. The record and the <c>.iworld</c> field carry whole medals;
+/// the content compiler multiplies by 100 and clamps to 400.
+/// </remarks>
 public readonly record struct InitialArmy(
     ProvinceId Province,
     ArmyTypeId Type,

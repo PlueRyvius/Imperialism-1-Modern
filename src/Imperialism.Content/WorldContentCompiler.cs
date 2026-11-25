@@ -603,6 +603,15 @@ public static class WorldContentCompiler
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
     }
 
+    /// <summary>
+    /// A record's whole medals as the hundredths the engine keeps, clamped to the
+    /// executable's ceiling of 400. Compared before multiplying, so no field overflows.
+    /// </summary>
+    private static long MedalsToHundredths(long medals) =>
+        medals >= Regiment.MaxExperience / Regiment.ExperiencePerMedal
+            ? Regiment.MaxExperience
+            : medals * Regiment.ExperiencePerMedal;
+
     private static WorldDefinition CompileScenario(
         ScenarioContentDocument scenarioContent,
         string path,
@@ -797,7 +806,7 @@ public static class WorldContentCompiler
                 armies.Add(new InitialArmy(
                     new ProvinceId(FindKey(provinceIds, entry.Province, $"{entryPath}.province")),
                     new ArmyTypeId(entry.Type),
-                    entry.Experience));
+                    MedalsToHundredths(entry.Experience)));
             }
             catch (ArgumentOutOfRangeException exception)
             {

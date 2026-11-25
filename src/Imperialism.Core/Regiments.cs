@@ -190,15 +190,41 @@ public readonly record struct RegimentId
 
 /// <summary>
 /// A regiment on the map. <b>The owner is stored</b>, not read from the province:
-/// a land battle will put one country's regiments in another's province, and storing
-/// it keeps that a data change rather than a model change.
+/// a land battle puts one country's regiments in another's province, and storing it
+/// keeps that a data change rather than a model change.
 /// </summary>
+/// <param name="Experience">
+/// In <b>hundredths of a medal</b>, 0 to <see cref="MaxExperience"/>, as the executable
+/// stores it: a victory adds 35 and a defeat 20, so "three victories or five defeats
+/// earns one medal" (manual 1847–1857). <see cref="Medals"/> is the whole part.
+/// </param>
+/// <param name="Health">
+/// 0 to <see cref="MaxHealth"/>. Every regiment starts at the cap, because a scenario
+/// <c>army</c> record carries no health and 500 is the executable's ceiling.
+/// </param>
 public sealed record Regiment(
     RegimentId Id,
     CountryId Owner,
     ProvinceId Province,
     ArmyTypeId Type,
-    long Experience);
+    long Experience,
+    long Health = Regiment.MaxHealth)
+{
+    /// <summary>The executable's health ceiling, and what a new regiment starts with.</summary>
+    public const long MaxHealth = 500;
+
+    /// <summary>What a regiment without a movement order recovers each turn, up to the ceiling.</summary>
+    public const long HealingPerTurn = 100;
+
+    /// <summary>The executable's experience ceiling: four medals, in hundredths.</summary>
+    public const long MaxExperience = 400;
+
+    /// <summary>One medal, in the hundredths <see cref="Experience"/> is kept in.</summary>
+    public const long ExperiencePerMedal = 100;
+
+    /// <summary>Whole medals earned.</summary>
+    public long Medals => Experience / ExperiencePerMedal;
+}
 
 /// <summary>
 /// Which provinces border which: two provinces are adjacent when a cell of one is a

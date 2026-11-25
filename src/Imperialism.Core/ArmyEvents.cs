@@ -264,8 +264,8 @@ public enum RegimentMoveRefusal : byte
     SameProvince,
 
     /// <summary>
-    /// The destination was not this country's as the turn opened. Entering anyone else's
-    /// province is an attack, which this slice does not model.
+    /// Retired at row 6b and never issued now: a destination that was not this country's
+    /// as the turn opened is an attack, not a refused move. Kept so no later value moves.
     /// </summary>
     NotOwnProvince,
 
@@ -279,6 +279,25 @@ public enum RegimentMoveRefusal : byte
 
     /// <summary>Five capacity points per armaments point is more than the rail budget has left.</summary>
     NotEnoughRailCapacity,
+
+    /// <summary>
+    /// An attack on a province that does not border the regiments' own: attacks "may be
+    /// made only from an adjacent province" (manual 1765–1770). There is no attack by rail.
+    /// </summary>
+    NotAdjacent,
+
+    /// <summary>
+    /// An attack on a province that is already this country's when the attack comes to
+    /// resolve — taken earlier the same turn, for instance.
+    /// </summary>
+    AlreadyOwn,
+
+    /// <summary>
+    /// An attack on a country with no war in effect as the turn opened, which includes a
+    /// war declared this turn. A province that changed hands earlier this turn is judged
+    /// by its new owner, so "the invasion does not take place" (manual 3798–3817).
+    /// </summary>
+    NotAtWar,
 }
 
 /// <summary>Records one deployment being refused. Nobody moved.</summary>

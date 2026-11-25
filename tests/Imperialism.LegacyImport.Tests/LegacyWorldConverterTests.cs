@@ -1522,9 +1522,10 @@ public sealed class LegacyWorldConverterTests
             static item => item.Code == "scenario.unknown-army-type");
         Assert.DoesNotContain("scenario.tag.army", result.Report.DeferredCounts.Keys);
 
+        // The document keeps the record's medals; the compiled world holds hundredths (row 6b).
         var armies = WorldContentCompiler.Compile(result.Document).World.Scenario.InitialArmies;
         Assert.Equal(
-            [(new ProvinceId(0), new ArmyTypeId(0), 4L), (new ProvinceId(0), new ArmyTypeId(8), 2L),
+            [(new ProvinceId(0), new ArmyTypeId(0), 400L), (new ProvinceId(0), new ArmyTypeId(8), 200L),
              (new ProvinceId(0), new ArmyTypeId(7), 0L)],
             armies.Select(static item => (item.Province, item.Type, item.Experience)));
     }

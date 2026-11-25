@@ -570,6 +570,7 @@ public sealed class WorldDefinition
             }
 
             ArgumentOutOfRangeException.ThrowIfNegative(army.Experience);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(army.Experience, Regiment.MaxExperience);
 
             // A world without a catalogue keeps its army records inert, exactly as
             // every world did before version 32; once one exists every record names it.
@@ -825,6 +826,7 @@ public sealed class WorldDefinition
 public sealed class WorldState
 {
     private readonly CountryId?[] _provinceOwners;
+    private readonly byte[] _fortLevels;
     private readonly HashSet<CellLink> _railLinks;
     private readonly CellIndex?[] _countryCapitals;
     private readonly RailConnectivityIndex?[] _railConnectivity;
@@ -869,6 +871,7 @@ public sealed class WorldState
         Definition = definition;
         CurrentDate = new TurnDate(definition.Scenario.StartingYear, 1);
         _provinceOwners = definition.Scenario.InitialProvinceOwners.ToArray();
+        _fortLevels = new byte[definition.Map.Provinces.Count];
         _railLinks = definition.Scenario.InitialRailLinks.ToHashSet();
         _countryCapitals = new CellIndex?[definition.Countries.Count];
         _railConnectivity = new RailConnectivityIndex?[definition.Countries.Count];
@@ -1148,7 +1151,14 @@ public sealed class WorldState
     /// <summary>
     /// Puts a new regiment on the map and issues it an id. Ids are never reused.
     /// </summary>
-    public RegimentId CreateRegiment(CountryId owner, ProvinceId province, ArmyTypeId type, long experience = 0)
+    /// <param name="experience">In hundredths of a medal, 0 to <see cref="Regiment.MaxExperience"/>.</param>
+    /// <param name="health">0 to <see cref="Regiment.MaxHealth"/>; a new regiment starts at the ceiling.</param>
+    public RegimentId CreateRegiment(
+        CountryId owner,
+        ProvinceId province,
+        ArmyTypeId type,
+        long experience = 0,
+        long health = Regiment.MaxHealth)
     {
         ValidateCountry(owner);
         if ((uint)province.Value >= (uint)Definition.Map.Provinces.Count)
@@ -1162,11 +1172,64 @@ public sealed class WorldState
         }
 
         ArgumentOutOfRangeException.ThrowIfNegative(experience);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(experience, Regiment.MaxExperience);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(health);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(health, Regiment.MaxHealth);
         var id = new RegimentId(_nextRegimentId);
         _nextRegimentId = checked(_nextRegimentId + 1);
-        _regiments[id] = new Regiment(id, owner, province, type, experience);
+        _regiments[id] = new Regiment(id, owner, province, type, experience, health);
         return id;
     }
+
+    /// <summary>
+    /// Replaces a regiment's health and experience after a battle or a turn's healing.
+    /// Legality belongs to the phase; this checks only the ranges.
+    /// </summary>
+    internal void UpdateRegiment(RegimentId regiment, long health, long experience)
+    {
+        if (!_regiments.TryGetValue(regiment, out var value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(regiment), $"No regiment {regiment} exists.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegative(health);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(health, Regiment.MaxHealth);
+        ArgumentOutOfRangeException.ThrowIfNegative(experience);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(experience, Regiment.MaxExperience);
+        _regiments[regiment] = value with { Health = health, Experience = experience };
+    }
+
+    /// <summary>
+    /// Takes a regiment off the map: killed in action or surrendered. Its id is never
+    /// issued again.
+    /// </summary>
+    internal bool RemoveRegiment(RegimentId regiment) => _regiments.Remove(regiment);
+
+    /// <summary>
+    /// A province's fort level, 0 to <see cref="MaxFortLevel"/>. Each level takes 10% off
+    /// the damage its defenders suffer (manual 3947–3959). A captured province keeps
+    /// its fort — a chosen rule.
+    /// </summary>
+    public int GetFortLevel(ProvinceId province)
+    {
+        ValidateProvince(province);
+        return _fortLevels[province.Value];
+    }
+
+    /// <summary>
+    /// Sets a province's fort level. Nothing in the engine builds forts yet — the
+    /// Engineer's fort order is a later slice — so only content and tests call this.
+    /// </summary>
+    public void SetFortLevel(ProvinceId province, int level)
+    {
+        ValidateProvince(province);
+        ArgumentOutOfRangeException.ThrowIfNegative(level);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(level, MaxFortLevel);
+        _fortLevels[province.Value] = (byte)level;
+    }
+
+    /// <summary>Three levels of fort, "for a maximum of 50%" with entrenchment.</summary>
+    public const int MaxFortLevel = 3;
 
     public Regiment? GetRegiment(RegimentId regiment) =>
         _regiments.TryGetValue(regiment, out var value) ? value : null;

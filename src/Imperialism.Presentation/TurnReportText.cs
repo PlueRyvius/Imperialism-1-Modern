@@ -245,6 +245,9 @@ public static class TurnReportText
         RegimentMoveRefusal.NotConnectedByRail => "it is not next door and no line of our own rail joins the two",
         RegimentMoveRefusal.CannotMoveByRail => "a regiment named cannot travel by rail",
         RegimentMoveRefusal.NotEnoughRailCapacity => "the railways cannot carry that many armaments this turn",
+        RegimentMoveRefusal.NotAdjacent => "an attack may only be made from a neighbouring province",
+        RegimentMoveRefusal.AlreadyOwn => "the province is already ours",
+        RegimentMoveRefusal.NotAtWar => "we were not at war with its owner as the turn began",
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 

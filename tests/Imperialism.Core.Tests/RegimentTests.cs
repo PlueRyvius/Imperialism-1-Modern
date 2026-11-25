@@ -10,7 +10,8 @@ namespace Imperialism.Core.Tests;
 /// <remarks>
 /// The fixture's catalogue is a six-row excerpt of the executable's thirty, with the
 /// executable's own prices; nothing here depends on the excerpt being complete. The
-/// eleven chosen rules are in <c>docs/formulas/army.md</c>.
+/// chosen rules are in <c>docs/formulas/army.md</c>: 1–11 here, 12 onwards for the
+/// battles in <see cref="LandBattleTests"/>.
 /// </remarks>
 public sealed class RegimentTests
 {
@@ -280,11 +281,14 @@ public sealed class RegimentTests
     [Fact]
     public void AScenarioArmyBecomesARegimentOfItsProvincesOwner()
     {
-        var state = CreateState(armies: [new(Province(3), Type(Regulars), 2), new(Province(7), Type(Hussars), 0)]);
+        // Experience is in hundredths here: two medals in the record are 200.
+        var state = CreateState(armies: [new(Province(3), Type(Regulars), 200), new(Province(7), Type(Hussars), 0)]);
 
         var home = Assert.Single(state.GetRegiments(Home));
         Assert.Equal(Province(3), home.Province);
-        Assert.Equal(2, home.Experience);
+        Assert.Equal(200, home.Experience);
+        Assert.Equal(2, home.Medals);
+        Assert.Equal(Regiment.MaxHealth, home.Health);
         Assert.Equal(Type(Hussars), Assert.Single(state.GetRegiments(Other)).Type);
     }
 
@@ -467,14 +471,30 @@ public sealed class RegimentTests
     }
 
     [Fact]
-    public void AMoveIntoAForeignProvinceIsRefused()
+    public void AnOrderIntoAForeignProvinceIsAnAttackAndNeedsAWar()
     {
+        // Since 6b the destination decides the verb: foreign ground is an attack, and
+        // with no war in effect it is refused rather than marched into.
         var state = CreateState(capacity: 100, armies: [Army(6, Regulars)]);
         var regiment = Single(state);
 
         var events = Resolve(state, Orders(move: [new([regiment], Province(7))]));
 
-        AssertMoveRefused(state, events, RegimentMoveRefusal.NotOwnProvince, regiment, Province(6));
+        AssertMoveRefused(state, events, RegimentMoveRefusal.NotAtWar, regiment, Province(6));
+        Assert.Equal(Other, state.GetProvinceOwner(Province(7)));
+    }
+
+    [Fact]
+    public void AnAttackIsNeverMadeByRail()
+    {
+        // Home's rail reaches nowhere near province 7, but the refusal is about
+        // adjacency first: there is no attack from further than next door.
+        var state = CreateState(capacity: 100, armies: [Army(0, Regulars)]);
+        var regiment = Single(state);
+
+        var events = Resolve(state, Orders(move: [new([regiment], Province(7))]));
+
+        AssertMoveRefused(state, events, RegimentMoveRefusal.NotAdjacent, regiment, CapitalProvince);
     }
 
     [Fact]

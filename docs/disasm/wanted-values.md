@@ -380,6 +380,26 @@ Worth tracing the selector before anything is moved.
 Also useful if it falls out: **whether oil and fuel are tradable.** They appear on neither
 the trade roster nor the manual's untradable list, and we currently treat both as untradable.
 
+## 6. Land battles: how the strategic loop deals damage
+
+Row 6b ships a strategic auto-resolver that follows the recovered loop. The snapshot, the
+half-health test, attacker first, the 1-or-2 weight, mod 7, the artillery half branch, the
+[70, 80, 90, 90] scale, +35/+20, and +100 healing to 500 are all the binary's. **How those
+pieces combine into a loss is a placeholder**: `loss = max(1, shot × 5 / DEF)`, chosen rules
+17–25 in `docs/formulas/army.md`. Every target below needs the disassembly on the PC.
+
+| Target | Question | What it replaces |
+|---|---|---|
+| `0x004A8040` | How the mod-7 multiplier, the firepower entry, the 1-or-2 weight, the artillery branch and the round scale combine into damage, and **whether defence enters at all** | rules 18–21 and 23: the +1, the artillery rounding, 25% a medal, the round indexing, and the constant 5 |
+| The target selection inside that loop | How a firing regiment picks its target: uniformly, the weakest, roster order? | rule 22 |
+| The `+0x3a` bit 1 on a regiment | What the flag means. It sits beside the fields the loop reads | — |
+| The writer of the `+0x0c` movement sentinel read by `0x004A1F80` | When "no movement order" is set and cleared, which decides who heals and when | rule 29, healing after the battles |
+| The capture path after `0x004A5CA0` | After the winner is written to the control field: what happens to the owner byte, civilians in the province, the capital, and anarchy | rules 26–28; the civilians rule is the manual's |
+
+**Wanted once traced:** replace `StrategicBattleResolver`'s body behind `IBattleResolver`.
+`LandBattleTests` pins no casualty figure that only the placeholder produces, so it should
+survive the replacement unchanged.
+
 ---
 
 ## What is *not* wanted
