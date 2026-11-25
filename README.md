@@ -131,7 +131,8 @@ still an optional local source with the procedural palette as its fallback.
 - [x] Research progress: the original has none beyond purchase ([`docs/formulas/research-progress.md`](docs/formulas/research-progress.md))
 - [x] Consulates, embassies, pacts, peace and war boycotts (`DiplomacyTests`)
 - [x] Trade subsidies and boycotts (`TradePolicyTests`)
-- [ ] Sea routes between ports, and blockade
+- [x] Naval battles, the blockade, interception and escorts (`NavalWarTests`)
+- [ ] Sea routes between ports other than capitals
 - [x] The University: buying and disbanding civilians (`UniversityTests`)
 - [x] Buying regiments and moving them by march and rail (`RegimentTests`)
 - [ ] The newspaper

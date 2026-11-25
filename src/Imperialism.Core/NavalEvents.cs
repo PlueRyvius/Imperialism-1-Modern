@@ -125,6 +125,18 @@ public enum NavalOrderRefusal : byte
     /// no sea path reaches: "you cannot move the fleet that far in one turn".
     /// </summary>
     OutOfRange,
+
+    /// <summary>A blockade names a country this world does not have.</summary>
+    NoSuchCountry,
+
+    /// <summary>A country cannot blockade its own capital.</summary>
+    BlockadeOwnCountry,
+
+    /// <summary>The blockaded country holds no capital to blockade.</summary>
+    TargetHasNoCapital,
+
+    /// <summary>The target's capital does not touch the task force's present sea zone.</summary>
+    CapitalNotOnThisSeaZone,
 }
 
 /// <summary>Records fleets grouped into a new task force.</summary>

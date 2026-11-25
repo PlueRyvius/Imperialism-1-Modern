@@ -193,6 +193,9 @@ bottom of this file.
 | One mission or move per task force per turn | `inferred` — **the manual states it** | [naval](naval.md) | Core | generated |
 | How long a patrol lasts, and how a moved task force arrives | **a chosen rule** — until ordered to move; idle | [naval](naval.md) | Core | generated |
 | An out-of-range sailing order | `inferred` — **the manual states it**: refused, as the cursor refuses it | [naval](naval.md) | Core | generated |
+| A blockade does not cut a port; a patrol finds a blockade; a blockade seeks no battle | **`verified`** for the port (task-force state 6); `inferred` — **the manual states** the rest (1922–1927) | [naval](naval.md) | Core | generated |
+| **How a naval battle sinks ships, the interception chances and the outcome split** | **`guess` — labelled placeholders** (chosen rules 13, 22, 25): hull-scale health, armour as a percentage cut, 25% / 50%, a uniform three-way draw; want the `0x005578A0` trace (`wanted-values.md` §7) | [naval](naval.md) | Core | generated |
+| **Who fights whom, routes, escorts, settled money and which hull sinks** | **chosen rules 11–12, 14–21, 23–24, 26–28** — capital-to-capital routes, the carrier at war, anchored fleets left alone, money never refunded | [naval](naval.md) | Core | generated |
 | The raw-resource yield curves | **`verified`** — the executable's table agrees with the manual row for row | [extraction](extraction.md) | Core, Content, LegacyImport | generated + local corpus |
 | What the Capitol charges per recruit | **`verified`** — the worker-conversion help string | [migration](migration.md) | Core, Content, LegacyImport | generated |
 | What the Trade School charges per promotion | **`verified`** — the same worker-conversion help string | [migration](migration.md) | Core, Content, LegacyImport | generated |

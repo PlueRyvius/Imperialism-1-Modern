@@ -115,6 +115,9 @@ public sealed class TurnReportRenderer
             TradePolicyClearedEvent cleared => [PolicyCleared(cleared)],
             TaskForceAssembledEvent assembled => [Assembled(assembled)],
             TaskForcePatrolOrderedEvent patrol => [Patrolling(patrol)],
+            TaskForceBlockadeOrderedEvent blockade => [Blockading(blockade)],
+            NavalBattleFoughtEvent battle => [NavalBattle(battle)],
+            MerchantInterceptedEvent intercepted => [Intercepted(intercepted)],
             TaskForceSailedEvent sailed => [Sailed(sailed)],
             NavalOrderRefusedEvent refused => [NavalRefused(refused)],
             CommodityTradedEvent traded => [Traded(traded)],
@@ -267,6 +270,61 @@ public sealed class TurnReportRenderer
         null,
         $"{Country(patrol.Country)}'s task force {patrol.TaskForce.Value} is patrolling " +
         $"{SeaZone(patrol.SeaZone)}.");
+
+    private TurnReportLine Blockading(TaskForceBlockadeOrderedEvent blockade) => Line(
+        blockade,
+        TurnReportKind.Outcome,
+        blockade.Country,
+        null,
+        $"{Country(blockade.Country)}'s task force {blockade.TaskForce.Value} is blockading " +
+        $"{Country(blockade.Target)}'s capital from {SeaZone(blockade.SeaZone)}.");
+
+    private TurnReportLine NavalBattle(NavalBattleFoughtEvent battle)
+    {
+        var loser = battle.Winner == battle.Attacker ? battle.Defender : battle.Attacker;
+        var sunk = battle.Participants.Where(static ship => ship.ShipsSunk > 0).ToArray();
+        var losses = sunk.Length == 0
+            ? "no ship was sunk"
+            : $"{Join(sunk.Select(ship => $"{Country(Owner(battle, ship.Side))} lost {Hulls(ship.ShipsSunk, ship.Type)}"))}";
+        var opening = battle.Kind == NavalBattleKind.Escort
+            ? $"{Country(battle.Attacker)}'s raiders met {Country(battle.Defender)}'s merchant escort"
+            : $"{Country(battle.Attacker)}'s patrol engaged {Country(battle.Defender)}'s ships in {SeaZone(battle.SeaZone)}";
+        return Line(
+            battle,
+            TurnReportKind.Outcome,
+            battle.Attacker,
+            null,
+            $"{opening}; {Country(battle.Winner)} beat {Country(loser)} after {Count(battle.Rounds)} " +
+            $"{(battle.Rounds == 1 ? "round" : "rounds")} and {losses}.");
+    }
+
+    private static CountryId Owner(NavalBattleFoughtEvent battle, BattleSide side) =>
+        side == BattleSide.Attacker ? battle.Attacker : battle.Defender;
+
+    private TurnReportLine Intercepted(MerchantInterceptedEvent intercepted)
+    {
+        var by = intercepted.Mission == TaskForceActivity.Blockading ? "blockade" : "patrol";
+        var cargo = $"{Count(intercepted.Quantity)} {Commodity(intercepted.Commodity)}";
+        var what = intercepted.Outcome switch
+        {
+            InterceptionOutcome.TurnedBack =>
+                $"turned back; the cargo returns to {Country(intercepted.Seller)}",
+            InterceptionOutcome.Captured =>
+                $"seized, and {Country(intercepted.Interceptor)} takes the cargo",
+            InterceptionOutcome.Sunk => intercepted.HullSunk is { } hull
+                ? $"sunk with its cargo, at the cost of a {Ship(hull)}"
+                : "sunk with its cargo",
+            _ => throw new ArgumentOutOfRangeException(nameof(intercepted)),
+        };
+        return Line(
+            intercepted,
+            TurnReportKind.Loss,
+            intercepted.Carrier,
+            null,
+            $"{Country(intercepted.Interceptor)}'s {by} (task force {intercepted.TaskForce.Value}) intercepted " +
+            $"{Country(intercepted.Carrier)}'s merchant carrying {cargo} from {Country(intercepted.Seller)} " +
+            $"to {Country(intercepted.Buyer)}: it was {what}. The money already paid stands.");
+    }
 
     private TurnReportLine Sailed(TaskForceSailedEvent sailed) => Line(
         sailed,
@@ -986,8 +1044,8 @@ public sealed class TurnReportRenderer
             : $"Sea zone {seaZone.Value}";
 
     private string Fleet(FleetId fleet) =>
-        (ulong)(fleet.Value - 1) < (ulong)_state.Fleets.Count
-            ? $"fleet {fleet.Value} ({Hulls(_state.GetFleet(fleet).Count, _state.GetFleet(fleet).Type)})"
+        _state.TryGetFleet(fleet, out var found)
+            ? $"fleet {fleet.Value} ({Hulls(found.Count, found.Type)})"
             : $"fleet {fleet.Value}";
 
     private string Technology(TechnologyId technology) =>

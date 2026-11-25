@@ -121,7 +121,7 @@ internal static class NavalPlanner
 
         // All or nothing: a mission that would be refused stops the grouping too, so a
         // refused order never leaves a half-done task force behind.
-        refusal ??= CheckMission(state, order.Mission, seaZone, order.Fleets);
+        refusal ??= CheckMission(state, country, order.Mission, seaZone, order.Fleets);
         if (refusal is { } reason)
         {
             events.Add(new NavalOrderRefusedEvent(
@@ -146,13 +146,12 @@ internal static class NavalPlanner
     {
         NavalOrderRefusal? refusal = null;
         TaskForceState? force = null;
-        if ((ulong)(order.TaskForce.Value - 1) >= (ulong)state.TaskForces.Count)
+        if (!state.TryGetTaskForce(order.TaskForce, out force))
         {
             refusal = NavalOrderRefusal.NoSuchTaskForce;
         }
         else
         {
-            force = state.GetTaskForce(order.TaskForce);
             if (force.Country != country)
             {
                 refusal = NavalOrderRefusal.TaskForceNotYours;
@@ -169,7 +168,7 @@ internal static class NavalPlanner
             }
             else
             {
-                refusal = CheckMission(state, order.Mission, force.SeaZone, force.Fleets);
+                refusal = CheckMission(state, country, order.Mission, force.SeaZone, force.Fleets);
             }
         }
 
@@ -202,12 +201,11 @@ internal static class NavalPlanner
         SeaZoneId? shared = null;
         foreach (var id in fleets.OrderBy(static fleet => fleet.Value))
         {
-            if ((ulong)(id.Value - 1) >= (ulong)state.Fleets.Count)
+            if (!state.TryGetFleet(id, out var fleet))
             {
                 return NavalOrderRefusal.NoSuchFleet;
             }
 
-            var fleet = state.GetFleet(id);
             if (fleet.Country != country)
             {
                 return NavalOrderRefusal.FleetNotYours;
@@ -236,8 +234,17 @@ internal static class NavalPlanner
     }
 
     private static NavalOrderRefusal? CheckMission(
-        WorldState state, NavalMission mission, SeaZoneId current, IReadOnlyList<FleetId> fleets)
+        WorldState state,
+        CountryId country,
+        NavalMission mission,
+        SeaZoneId current,
+        IReadOnlyList<FleetId> fleets)
     {
+        if (mission is NavalMission.BlockadeMission blockade)
+        {
+            return CheckBlockade(state, country, blockade.Target, current);
+        }
+
         if (mission is not NavalMission.MoveMission move)
         {
             return null;
@@ -260,6 +267,34 @@ internal static class NavalPlanner
         var reach = fleets.Min(id => state.Definition.ShipTypes[state.GetFleet(id).Type.Value].SeaZones);
         var distance = SeaZoneDistance(state.Definition.Map.SeaTopology, current, move.Destination);
         return distance is { } zones && zones <= reach ? null : NavalOrderRefusal.OutOfRange;
+    }
+
+    /// <summary>
+    /// A blockade names a country and acts on its capital (chosen rule 11), so the capital
+    /// must exist and touch the zone the task force lies in. No war is needed to order
+    /// one, as with a patrol: it acts only against a carrier effectively at war.
+    /// </summary>
+    private static NavalOrderRefusal? CheckBlockade(
+        WorldState state, CountryId country, CountryId target, SeaZoneId current)
+    {
+        if ((uint)target.Value >= (uint)state.Definition.Countries.Count)
+        {
+            return NavalOrderRefusal.NoSuchCountry;
+        }
+
+        if (target == country)
+        {
+            return NavalOrderRefusal.BlockadeOwnCountry;
+        }
+
+        if (state.GetCountryCapital(target) is not { } capital)
+        {
+            return NavalOrderRefusal.TargetHasNoCapital;
+        }
+
+        return PortAccess.AdjacentSeaZones(state.Definition.Map, capital).Contains(current)
+            ? null
+            : NavalOrderRefusal.CapitalNotOnThisSeaZone;
     }
 
     /// <summary>Sea zones between two zones, or null when no sea path joins them.</summary>
@@ -305,6 +340,11 @@ internal static class NavalPlanner
                 state.PatrolTaskForce(country, force.Id);
                 events.Add(new TaskForcePatrolOrderedEvent(
                     turnNumber, country, force.Id, force.SeaZone));
+                break;
+            case NavalMission.BlockadeMission blockade:
+                state.BlockadeTaskForce(country, force.Id, blockade.Target);
+                events.Add(new TaskForceBlockadeOrderedEvent(
+                    turnNumber, country, force.Id, force.SeaZone, blockade.Target));
                 break;
             case NavalMission.MoveMission move:
                 // The plan switches the task force out of patrol at once, and the leg

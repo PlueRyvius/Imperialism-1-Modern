@@ -853,8 +853,10 @@ public sealed class WorldState
     private readonly byte[] _diplomaticTies;
     private readonly byte[] _tradePolicies;
     private readonly List<FleetState> _fleets;
+    private readonly List<FleetState?> _fleetSlots;
     private System.Collections.ObjectModel.ReadOnlyCollection<FleetState>? _fleetsView;
     private readonly List<TaskForceState> _taskForces = [];
+    private readonly List<TaskForceState?> _taskForceSlots = [];
     private System.Collections.ObjectModel.ReadOnlyCollection<TaskForceState>? _taskForcesView;
     private readonly List<PendingDelivery> _pendingDeliveries = [];
     private readonly Dictionary<CivilianUnitId, CivilianUnit> _civilians = [];
@@ -1032,6 +1034,7 @@ public sealed class WorldState
         }
 
         _fleets = fleets;
+        _fleetSlots = [.. fleets];
 
         // The original country manager initializes its 23-by-23 mode table to
         // 4 and its separate effective-token table to -1. Scenario `rela`
@@ -1653,9 +1656,11 @@ public sealed class WorldState
     /// ships remain abstract cargo capacity until their placement rule is known.
     /// </summary>
     /// <remarks>
-    /// Ids are dense and never reused: fleet <c>n</c> is always at index
-    /// <c>n - 1</c>, and a new fleet takes the next id. The view is the state's own
-    /// and cannot be edited by a caller.
+    /// Ids are never reused: a new fleet takes the next id after every fleet ever
+    /// created. A fleet whose last ship is sunk leaves this list (see
+    /// <see cref="SinkShips"/>), so after a sinking fleet <c>n</c> is no longer
+    /// necessarily at index <c>n - 1</c>; look one up with <see cref="TryGetFleet"/>.
+    /// The view is the state's own and cannot be edited by a caller.
     /// </remarks>
     public IReadOnlyList<FleetState> Fleets => _fleetsView ??= _fleets.AsReadOnly();
 
@@ -1691,18 +1696,74 @@ public sealed class WorldState
         }
 
         var created = new FleetState(
-            new FleetId(checked(_fleets.Count + 1L)), country, type, count, seaZone: null);
+            new FleetId(checked(_fleetSlots.Count + 1L)), country, type, count, seaZone: null);
         _fleets.Add(created);
+        _fleetSlots.Add(created);
         _ships[offset] = total;
         return created.Id;
     }
 
-    public FleetState GetFleet(FleetId fleet)
+    public FleetState GetFleet(FleetId fleet) =>
+        TryGetFleet(fleet, out var found)
+            ? found
+            : throw new ArgumentOutOfRangeException(nameof(fleet));
+
+    /// <summary>Finds a fleet that exists now: never created and sunk both answer false.</summary>
+    public bool TryGetFleet(FleetId fleet, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out FleetState? found)
     {
         var index = fleet.Value - 1;
-        return (ulong)index < (ulong)_fleets.Count
-            ? _fleets[(int)index]
-            : throw new ArgumentOutOfRangeException(nameof(fleet));
+        found = (ulong)index < (ulong)_fleetSlots.Count ? _fleetSlots[(int)index] : null;
+        return found is not null;
+    }
+
+    /// <summary>
+    /// Sinks ships of one fleet. They leave the fleet and the country's ship count; a
+    /// fleet left with none is removed, and a task force left with no fleet is dissolved.
+    /// Neither id is ever reused.
+    /// </summary>
+    internal void SinkShips(FleetId fleet, long count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        var target = GetFleet(fleet);
+        var sunk = Math.Min(count, target.Count);
+        if (sunk == 0)
+        {
+            return;
+        }
+
+        var offset = (target.Country.Value * Definition.ShipTypes.Count) + target.Type.Value;
+        _ships[offset] = Math.Max(0, _ships[offset] - sunk);
+        if (sunk < target.Count)
+        {
+            target.Count -= sunk;
+            return;
+        }
+
+        _ = _fleets.Remove(target);
+        _fleetSlots[(int)(fleet.Value - 1)] = null;
+        if (target.TaskForce is not { } forceId)
+        {
+            return;
+        }
+
+        var force = GetTaskForce(forceId);
+        force.RemoveFleet(fleet);
+        target.TaskForce = null;
+        if (force.Fleets.Count == 0)
+        {
+            _ = _taskForces.Remove(force);
+            _taskForceSlots[(int)(forceId.Value - 1)] = null;
+        }
+    }
+
+    /// <summary>
+    /// Takes one abstract hull of a class from a country's ship count, for merchants
+    /// the fair start gives as cargo capacity without a fleet record.
+    /// </summary>
+    internal void SinkAbstractShip(CountryId country, ShipTypeId type)
+    {
+        var offset = (country.Value * Definition.ShipTypes.Count) + type.Value;
+        _ships[offset] = Math.Max(0, _ships[offset] - 1);
     }
 
     /// <summary>
@@ -1753,7 +1814,7 @@ public sealed class WorldState
         }
 
         var taskForce = new TaskForceState(
-            new TaskForceId(checked(_taskForces.Count + 1L)),
+            new TaskForceId(checked(_taskForceSlots.Count + 1L)),
             country,
             seaZone!.Value,
             members);
@@ -1763,18 +1824,50 @@ public sealed class WorldState
         }
 
         _taskForces.Add(taskForce);
+        _taskForceSlots.Add(taskForce);
         return taskForce;
     }
 
-    /// <summary>Task forces in deterministic assembly order.</summary>
+    /// <summary>
+    /// Task forces that exist now, in deterministic assembly order. One whose last
+    /// fleet was sunk is dissolved and leaves this list; its id is never reused.
+    /// </summary>
     public IReadOnlyList<TaskForceState> TaskForces => _taskForcesView ??= _taskForces.AsReadOnly();
 
-    public TaskForceState GetTaskForce(TaskForceId taskForce)
+    public TaskForceState GetTaskForce(TaskForceId taskForce) =>
+        TryGetTaskForce(taskForce, out var found)
+            ? found
+            : throw new ArgumentOutOfRangeException(nameof(taskForce));
+
+    /// <summary>Finds a task force that exists now: never assembled and dissolved both answer false.</summary>
+    public bool TryGetTaskForce(
+        TaskForceId taskForce, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out TaskForceState? found)
     {
         var index = taskForce.Value - 1;
-        return (ulong)index < (ulong)_taskForces.Count
-            ? _taskForces[(int)index]
-            : throw new ArgumentOutOfRangeException(nameof(taskForce));
+        found = (ulong)index < (ulong)_taskForceSlots.Count ? _taskForceSlots[(int)index] : null;
+        return found is not null;
+    }
+
+    /// <summary>
+    /// Puts a task force on blockade of a country's capital: the executable's state 6.
+    /// It persists like a patrol, a move clears it, and it never cuts a port.
+    /// </summary>
+    internal void BlockadeTaskForce(CountryId country, TaskForceId taskForce, CountryId target)
+    {
+        ValidateCountry(country);
+        ValidateCountry(target);
+        var force = GetTaskForce(taskForce);
+        if (force.Country != country)
+        {
+            throw new InvalidOperationException("A country cannot blockade with a foreign task force.");
+        }
+
+        if (force.PlannedSeaZone is not null)
+        {
+            throw new InvalidOperationException("A sailing leg must resolve before a task force can blockade.");
+        }
+
+        force.Blockade(target);
     }
 
     /// <summary>

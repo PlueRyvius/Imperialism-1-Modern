@@ -407,6 +407,40 @@ public sealed class TurnReportRendererTests
     }
 
     [Fact]
+    public void ANavalBattleAndAnInterceptionSayWhoLostWhatAndThatTheMoneyStands()
+    {
+        var renderer = CreateRenderer();
+
+        var blockade = Assert.Single(renderer.Render(
+            new TaskForceBlockadeOrderedEvent(1, Blue, new TaskForceId(2), new SeaZoneId(0), Red)));
+        Assert.Contains("task force 2 is blockading Red Empire's capital from Northern Sea", blockade.Text, StringComparison.Ordinal);
+
+        var battle = Assert.Single(renderer.Render(new NavalBattleFoughtEvent(
+            1, NavalBattleKind.Escort, new SeaZoneId(0), Blue, Red,
+            [
+                new NavalBattleParticipant(new FleetId(1), new ShipTypeId(0), BattleSide.Attacker, 2, 0),
+                new NavalBattleParticipant(new FleetId(2), new ShipTypeId(0), BattleSide.Defender, 1, 1),
+            ],
+            Blue, 4)));
+        Assert.Equal(TurnReportKind.Outcome, battle.Kind);
+        Assert.Contains("merchant escort", battle.Text, StringComparison.Ordinal);
+        Assert.Contains("after 4 rounds", battle.Text, StringComparison.Ordinal);
+
+        var quiet = Assert.Single(renderer.Render(new NavalBattleFoughtEvent(
+            1, NavalBattleKind.Patrol, new SeaZoneId(0), Blue, Red,
+            [new NavalBattleParticipant(new FleetId(1), new ShipTypeId(0), BattleSide.Attacker, 1, 0)], Red, 20)));
+        Assert.Contains("no ship was sunk", quiet.Text, StringComparison.Ordinal);
+
+        var sunk = Assert.Single(renderer.Render(new MerchantInterceptedEvent(
+            1, Blue, new TaskForceId(2), Red, Blue, Red, new CommodityId(0), 2,
+            InterceptionOutcome.Sunk, TaskForceActivity.Blockading, new ShipTypeId(0))));
+        Assert.Equal((TurnReportKind.Loss, Red), (sunk.Kind, sunk.Country));
+        Assert.Contains("blockade (task force 2)", sunk.Text, StringComparison.Ordinal);
+        Assert.Contains("sunk with its cargo", sunk.Text, StringComparison.Ordinal);
+        Assert.Contains("The money already paid stands.", sunk.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ALineCarriesTheCountryItIsAboutSoTheClientNeedNotReadIt()
     {
         var renderer = CreateRenderer();
@@ -494,6 +528,13 @@ public sealed class TurnReportRendererTests
                 1, Blue, new TaskForceId(1), new SeaZoneId(0), new SeaZoneId(0), new SeaZoneId(0)),
             new NavalOrderRefusedEvent(
                 1, Blue, NavalOrderKind.Command, new TaskForceId(1), NavalOrderRefusal.AlreadyOrderedThisTurn),
+            new TaskForceBlockadeOrderedEvent(1, Blue, new TaskForceId(1), new SeaZoneId(0), Red),
+            new NavalBattleFoughtEvent(
+                1, NavalBattleKind.Patrol, new SeaZoneId(0), Blue, Red,
+                [new NavalBattleParticipant(new FleetId(1), new ShipTypeId(0), BattleSide.Attacker, 1, 0)], Blue, 2),
+            new MerchantInterceptedEvent(
+                1, Blue, new TaskForceId(1), Red, Blue, Red, grain, 2,
+                InterceptionOutcome.Captured, TaskForceActivity.Patrolling, null),
             new CiviliansPurchasedEvent(1, Blue, new CivilianTypeId(0), 1, 1, some, 1000),
             new CivilianPurchaseRefusedEvent(
                 1, Blue, new CivilianTypeId(0), 1, CivilianPurchaseRefusal.NotEnoughExperts),

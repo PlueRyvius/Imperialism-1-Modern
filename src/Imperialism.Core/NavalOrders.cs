@@ -1,15 +1,15 @@
 namespace Imperialism.Core;
 
 /// <summary>
-/// What a task force is told to do this turn: nothing, patrol where it is, or sail.
+/// What a task force is told to do this turn: nothing, patrol where it is, blockade a
+/// capital it lies beside, or sail.
 /// </summary>
 /// <remarks>
 /// "Mission orders are carried out in the sea zone where the fleet is already located.
 /// Movement sends the fleet to a new location. Fleets cannot do both a mission and a
 /// move in the same turn." So a task force takes one of these a turn, never two. The
-/// manual's other two missions — the port blockade and the landing — are not here:
-/// the executable's port predicate counts only the patrol state, and landings want
-/// armies. See <c>docs/formulas/naval.md</c>.
+/// landing is not here yet (row 6d). A blockade never cuts a port: the executable's port
+/// predicate counts only the patrol state. See <c>docs/formulas/naval.md</c>.
 /// </remarks>
 public abstract class NavalMission
 {
@@ -23,6 +23,12 @@ public abstract class NavalMission
     /// <summary>Patrol the task force's present sea zone, the Telescope cursor.</summary>
     public static NavalMission Patrol { get; } = new PatrolMission();
 
+    /// <summary>
+    /// Blockade a country's capital from the task force's present sea zone, the red "X"
+    /// cursor. A blockade names a country and acts on its capital (chosen rule 11).
+    /// </summary>
+    public static NavalMission Blockade(CountryId target) => new BlockadeMission(target);
+
     /// <summary>Sail towards another sea zone, the Wheel cursor.</summary>
     public static NavalMission MoveTo(SeaZoneId destination) => new MoveMission(destination);
 
@@ -34,6 +40,16 @@ public abstract class NavalMission
     internal sealed class PatrolMission : NavalMission
     {
         public override string ToString() => "Patrol";
+    }
+
+    /// <summary>A blockade order. The target is checked when the turn resolves.</summary>
+    public sealed class BlockadeMission : NavalMission
+    {
+        internal BlockadeMission(CountryId target) => Target = target;
+
+        public CountryId Target { get; }
+
+        public override string ToString() => $"Blockade({Target})";
     }
 
     /// <summary>A move order. The destination is checked when the turn resolves.</summary>
