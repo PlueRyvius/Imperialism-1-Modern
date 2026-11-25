@@ -129,6 +129,30 @@ public sealed class WorldDefinitionTests
     }
 
     [Fact]
+    public void WorldStateRestoresActiveRelationModeTokensAndGeneration()
+    {
+        var scenario = new ScenarioDefinition(
+            "Relations",
+            1815,
+            [new CountryId(0)],
+            initialRelationStates:
+            [
+                new InitialRelationState(
+                    new CountryId(0), new CountryId(1), (short)CountryRelationMode.Hostile, 16),
+            ],
+            initialRelationSequence: 17);
+        var state = new WorldState(new WorldDefinition(
+            CreateOneProvinceMap(),
+            [new CountryDefinition(new CountryId(0), "A"), new CountryDefinition(new CountryId(1), "B")],
+            scenario));
+
+        Assert.Equal((short)17, state.RelationSequence);
+        Assert.Equal(CountryRelationMode.Hostile, state.GetRelationMode(new CountryId(1), new CountryId(0)));
+        Assert.Equal((short)16, state.GetRelationToken(new CountryId(1), new CountryId(0)));
+        Assert.True(state.HasEffectiveHostility(new CountryId(0), new CountryId(1)));
+    }
+
+    [Fact]
     public void SetCountryCapitalRequiresOwnershipOfTheProvince()
     {
         var state = CreateTwoProvinceCapitalState();

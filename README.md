@@ -124,7 +124,7 @@ still an optional local source with the procedural palette as its fallback.
 - [x] Technology gates on improvement and rail, and technology purchase (`TechnologyGateTests`, `TechnologyInvestmentTests`)
 - [x] Treasury, gold and gems income, and the Engineer's rail, depots and ports (`TreasuryTests`, `EngineerTests`)
 - [x] World market and merchant-marine cargo holds (`TradeTests`)
-- [ ] River and sea connectivity for ports, sea zones and fleets (PR #35)
+- [x] River and sea connectivity for ports, sea zones, fleets and task forces (`SeaZoneTopologyTests`, `FleetStateTests`, `TaskForceMovementTests`)
 - [ ] Transient power and research progress
 - [ ] Trade subsidies, sea routes between ports, and blockade
 - [ ] Moving regiments by rail, building ships, the University, the newspaper, fortifications
@@ -137,7 +137,9 @@ load-bearing infrastructure rather than a late feature.
 
 The 108x60 grid is a limit of the 1997 file format and binary, not of this
 engine. Import takes a format profile; the in-memory model carries its own
-dimensions. Keeping that boundary clean is what makes larger maps cheap —
+dimensions. Its base sea-zone movement graph is derived from those dimensions,
+not from a legacy cell count; a map opts into an east-west seam explicitly.
+Keeping that boundary clean is what makes larger maps cheap —
 the remaining cost is authoring effort, not engine work.
 
 The generated Core regression uses 360x180 (64,800 cells), exactly ten times

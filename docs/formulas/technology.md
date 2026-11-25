@@ -38,10 +38,10 @@ own section below: a **price list** the owner supplied, a **reordering** of the
 table that the corpus turned out to be unable to judge, and a **live bug** — a
 scenario's `year` field is an offset from 1815 and this importer read it as a year.
 
-**Two of those three have since been overturned by the executable itself.** The
+**All three have since been overturned by the executable itself.** The
 reordering is retracted — the recovered order is the manual's printed one — and
 twelve of the price list's twenty-six prices were wrong, all in the same direction
-and for the same reason. Both sections below now record what happened rather than
+and for the same reason, and the prerequisite graph is now read directly. The sections below record what happened rather than
 what was believed; nothing here is quietly swapped.
 
 ## Confidence
@@ -60,7 +60,7 @@ against the corpus rather than assumed.
 | **The table's order** | **the executable**, and it is the manual's printed order |
 | Arrival dates | **derived** from the executable's turn-offset windows; the price list corroborates 25 of 26 |
 | **One fixed year per technology** | **a simplification** of the executable's pseudo-random window |
-| Prerequisites | **the price list**, and internally consistent: every one points earlier. **The weakest column here** |
+| Prerequisites | **the executable** — a 29-row table of two raw 16-bit IDs read by the technology store |
 | **A scenario `year` field is an offset from 1815** | **the scenarios' own briefing text**, and corpus-corroborated |
 | Research runs last, after construction and improvement | **a chosen rule** |
 | A prerequisite chain cannot be bought in one turn | **the original's behaviour**, from the owner |
@@ -71,8 +71,10 @@ against the corpus rather than assumed.
 twenty-eight names in progression order, and the technology store reads a 28-entry
 cash table at `0x0066AAE8` indexed by that same position. Both are recorded in
 [`../disasm/definitive-original-data.md`](../disasm/definitive-original-data.md).
-Prerequisites are still the price list's — the executable's prerequisite graph has
-not been recovered.
+The technology-store reader at `0x005B0A90` reads a 29-row table at `0x0066AC10`.
+Rows are the 1-based technology IDs, row 0 is the zero sentinel, and each row holds
+up to two raw 16-bit prerequisite IDs. See
+[`../disasm/definitive-original-data.md`](../disasm/definitive-original-data.md).
 
 Cost in cash; a dash is no prerequisite. Years are derived; see below.
 
@@ -82,10 +84,10 @@ Cost in cash; a dash is no prerequisite. Years are derived; see below.
 | 2 | Seed Drill | — | 1815 | — |
 | 3 | Cotton Gin | 1,000 | 1816 | — |
 | 4 | Streamlined Hulls | 1,000 | 1821 | — |
-| 5 | Square-Set Timbering | 1,500 | 1821 | — |
-| 6 | Iron Railroad Bridge | 1,500 | 1821 | — |
+| 5 | Square-Set Timbering | 1,500 | 1821 | High Pressure Steam Engine |
+| 6 | Iron Railroad Bridge | 1,500 | 1821 | High Pressure Steam Engine |
 | 7 | Feed Grasses | 1,500 | 1821 | — |
-| 8 | Spinning Jenny | 1,500 | 1826 | Cotton Gin, Feed Grasses |
+| 8 | Spinning Jenny | 1,500 | 1826 | Feed Grasses, Cotton Gin |
 | 9 | Paddlewheels | 3,000 | 1826 | — |
 | 10 | Steel and Iron Plows | 3,000 | 1831 | Seed Drill |
 | 11 | Bessemer Converter | 3,000 | 1836 | — |
@@ -100,10 +102,10 @@ Cost in cash; a dash is no prerequisite. Years are derived; see below.
 | 20 | Barbed Wire | 25,000 | 1861 | Feed Grasses |
 | 21 | Steel Armour Plate | 20,000 | 1866 | Advanced Iron Working |
 | 22 | Large Artillery | 40,000 | 1871 | Rifled Artillery |
-| 23 | Dynamite | 40,000 | 1871 | Compound Steam Engine, Square-Set Timbering |
-| 24 | Marine Engineering | 40,000 | 1871 | Steel Armour Plate |
+| 23 | Dynamite | 40,000 | 1871 | Square-Set Timbering, Compound Steam Engine |
+| 24 | Marine Engineering | 40,000 | 1871 | Paddlewheels, Steel and Iron Plows |
 | 25 | Machine Guns | 40,000 | 1876 | Breech-Loading Rifles |
-| 26 | Chemistry | 100,000 | 1876 | Oil Drilling, Barbed Wire |
+| 26 | Chemistry | 100,000 | 1876 | Oil Drilling |
 | 27 | Improved Range-Finding | 120,000 | 1881 | Marine Engineering |
 | 28 | Internal Combustion | 150,000 | 1881 | Chemistry |
 
@@ -148,9 +150,9 @@ twenty-four consecutive rows is not two sources disagreeing about a game; **it i
 one source wrong in a legible way** — a column read one row down, most likely
 against the header.
 
-That is a reason to trust the list's remaining column less rather than more. **The
-prerequisites are still its**, because nothing else has them, and they are now the
-weakest thing on this page.
+That was a reason to trust the list's remaining column less rather than more. The
+executable has now settled it too: its reader and raw table recover the prerequisite
+graph exactly, including the rows where the list was wrong.
 
 ### The years are derived, and 25 of 26 corroborate the derivation
 
@@ -271,12 +273,10 @@ open and none discriminated, so the reversion ought to leave every count where i
 | Rail ends permitted / not | **1,140 / 0** | **no** |
 | Grants ahead of their arrival year | 56 of 491 | **no** |
 
-**Why not: the tests holding those numbers return silently without a corpus.** Each reads
-`IMPERIALISM_SCENARIO_DIR` and returns when it is unset, and the machine the reversion was
-done on holds only `s1` of the ten. So a suite that passes says nothing here — it is the
-C# form of the "skip visibly, never iterate an empty corpus" rule in `CLAUDE.md`, and it
-caught this document out. **Anyone with the full corpus should run these three before the
-row above is read as confirmation.**
+**The corpus tests now skip visibly when the directory is unset.** Each is a
+discovery-time `CorpusFact`, so a passing suite can no longer quietly mean that it
+iterated no scenarios. Set `IMPERIALISM_SCENARIO_DIR` to the complete legal local
+corpus to run these measurements; the tests require at least the ten original files.
 
 The reason the corpus was silent is worth keeping, because it is the shape of a
 question the corpus will be silent about again:
@@ -301,8 +301,8 @@ same fact the table above states.
 
 ### Prefix closure is a vacuous control, and is kept anyway
 
-Every prerequisite in the table points strictly earlier — 16 of the 28 entries
-name one, 19 edges in all. So any contiguous prefix `1..N` is prerequisite-closed,
+Every prerequisite in the table points strictly earlier — 18 of the 28 entries
+name one, 21 edges in all. So any contiguous prefix `1..N` is prerequisite-closed,
 which is exactly the shape a `tech` record has.
 
 **This proves nothing about the ordering**, because it holds under the manual's
@@ -334,11 +334,9 @@ data says, not rounded to 1815 to look tidier.
 
 Reading each scenario's grants against the arrival years. **These are the counts from
 before the reorder and the seven years that moved with it**, and they have not been
-re-measured since, for the reason given above — `HowMuchTheCorpusGrantsAheadOfItsArrivalDates`
-needs the full corpus and returns silently without it. Working through the changed years
-by hand leaves every row below unchanged, because the years that moved are all later than
-any grant a corpus scenario makes early. **Confirm it against the files rather than
-against this paragraph.**
+re-measured since. `HowMuchTheCorpusGrantsAheadOfItsArrivalDates` now skips visibly
+without the full corpus, so rerun it with `IMPERIALISM_SCENARIO_DIR` set before treating
+the table below as confirmed.
 
 | Scenario | Year | Grants | Available then | Ahead of their date |
 |---|---|---|---|---|
@@ -630,10 +628,8 @@ link in this chain and is now the strongest: recovered outright, and it is the
 manual's. The prices are recovered too, and twelve of them were wrong. Both are
 recorded above.
 
-- **The prerequisite graph.** Still the price list's, and now the only column of
-  that source still standing — which the price slip is a reason to weigh less, not
-  more. The executable has one and it has not been read; that is the next thing to
-  want from the binary.
+- **The prerequisite graph** is closed: the executable's 29-row table is imported
+  directly, including the six corrections to the old price-list transcription.
 - **Mountains' rail price**, the one ground the price list does not price. See
   [engineer.md](engineer.md).
 - **Civilian buildability.** Feed Grasses gates the Rancher, Iron Railroad Bridge

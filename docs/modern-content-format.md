@@ -147,6 +147,12 @@ trades at the opening price forever, which is what keeps the transcribed prices 
 from the guessed curve. A version 19 package migrates to a world that trades nothing, which
 is how it behaved.
 
+Version 21 adds `map.wrapsHorizontally`. It controls only whether the map's east and west
+hex edges are neighbours when deriving the base sea-zone movement graph; it is independent
+of width and height. Legacy conversion sets it because the original map seam wraps. Older
+modern packages migrate as non-wrapping maps because they had no naval movement behaviour
+to preserve.
+
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the
@@ -196,15 +202,18 @@ The top-level document contains:
   rails, capitals, optional positive initial commodity quantities, sparse
   positive capacities for limited facilities, sparse starting cell development,
   which technologies each country begins knowing, the cells carrying a port or a
-  rail depot, each country's starting workforce, and the civilians on the map at
-  the start, each naming its owner, its type and the land cell it stands on.
+  rail depot, each country's starting workforce, the civilians on the map at
+  the start, and army stacks. An army stack names its province, the original
+  executable's zero-based 30-row unit-table index, and its positive count;
+  province ownership deliberately remains the single owner source.
 
 Each cell references one terrain key, zero or more unique resource keys, and
 at most one province or sea-zone key. Settlement sites and river paths are map
 geography. A river path is an undirected pair drawn from `northEast`,
 `eastUpper`, `eastLower`, `southEast`, `southWest`, `westUpper`, `westLower`,
 `northWest`, `source`, and `mouth`. It records only the shape inside that cell;
-the package does not infer cross-cell river connectivity.
+the package does not store a derived cross-cell graph. The core derives the
+original source-to-mouth connectivity when it evaluates an inland port.
 
 Rails are pairs of adjacent cell indices represented internally as canonical
 undirected `CellLink` values.

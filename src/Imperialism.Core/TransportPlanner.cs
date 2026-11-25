@@ -35,6 +35,34 @@ public readonly record struct InitialCash
     public long Amount { get; }
 }
 
+/// <summary>One raw 1997 <c>rela</c> record.</summary>
+/// <remarks>
+/// The original loader stores the value symmetrically in its 23-by-23 signed
+/// 16-bit country matrix. Shipped scenarios use the unsigned byte range; keeping
+/// that range prevents a modern package from claiming an unproven wider meaning.
+/// </remarks>
+public readonly record struct InitialRelation
+{
+    public InitialRelation(CountryId first, CountryId second, int value)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(value);
+        if (value > byte.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), "Initial relation values must be at most 255.");
+        }
+
+        First = first;
+        Second = second;
+        Value = value;
+    }
+
+    public CountryId First { get; }
+
+    public CountryId Second { get; }
+
+    public int Value { get; }
+}
+
 internal sealed record PlannedTransport(
     CountryId Country,
     long CapacityUsed,

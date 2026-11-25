@@ -185,9 +185,9 @@ internal static class ExtractionPlanner
     /// <remarks>
     /// The capital is always both a connected depot and a connected port, so it
     /// seeds unconditionally. A port needs no railroad at all — its goods leave
-    /// by water — so an owned port always seeds. The two ways a port can lose
-    /// that (the province downstream of a river port falling, and an undisputed
-    /// enemy fleet) are not modelled, so no port is ever disconnected here.
+    /// by water — but an inland river port must retain the recovered clear trace
+    /// to a sea mouth. The undisputed-naval-control branch remains deferred until
+    /// persisted fleet state and its turn ordering are recovered.
     ///
     /// <para>
     /// <b>A depot has two ways to be connected and the manual gives both.</b>
@@ -231,7 +231,9 @@ internal static class ExtractionPlanner
 
         foreach (var port in state.GetPorts())
         {
-            if (Owns(state, map, port, country) && stamp[port.Value] != pass)
+            if (Owns(state, map, port, country) &&
+                PortAccess.HasAccess(state, port, country) &&
+                stamp[port.Value] != pass)
             {
                 stamp[port.Value] = pass;
                 frontier.Add(port.Value);
@@ -251,6 +253,7 @@ internal static class ExtractionPlanner
         {
             if (state.HasDepot(port) &&
                 Owns(state, map, port, country) &&
+                PortAccess.HasAccess(state, port, country) &&
                 rail.GetComponentId(port) is { } seaward)
             {
                 gateways.Add(seaward);
