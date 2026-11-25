@@ -51,7 +51,4 @@ public sealed class FleetState
 
     /// <summary>The task force this fleet record belongs to, if assembled.</summary>
     public TaskForceId? TaskForce { get; internal set; }
-
-    /// <summary>The turn ships were most recently delivered into this fleet, if any.</summary>
-    internal int? DeliveredTurn { get; set; }
 }

@@ -121,8 +121,6 @@ public static class TurnReportText
         NavalOrderRefusal.NoSuchFleet => "no fleet carries that id",
         NavalOrderRefusal.FleetNotYours => "a fleet belongs to another country",
         NavalOrderRefusal.FleetNotPlaced => "a fleet has not been placed at sea yet",
-        NavalOrderRefusal.FleetDeliveredThisTurn =>
-            "ships were delivered to this fleet this turn; it can be assembled next turn",
         NavalOrderRefusal.FleetAlreadyInTaskForce => "a fleet already sails in a task force",
         NavalOrderRefusal.FleetsInDifferentSeaZones => "the fleets lie in different sea zones",
         NavalOrderRefusal.NoSuchTaskForce => "no task force carries that id",

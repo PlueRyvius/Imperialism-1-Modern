@@ -1307,7 +1307,7 @@ public sealed class WorldState
     /// capital exists, they remain unplaced. A fleet already in a task force is never
     /// merged into, because doing so would move the new ships with it.
     /// </remarks>
-    internal FleetId DeliverShips(CountryId country, ShipTypeId type, long count, int turnNumber)
+    internal FleetId DeliverShips(CountryId country, ShipTypeId type, long count)
     {
         ValidateCountry(country);
         ValidateShipType(type);
@@ -1327,7 +1327,6 @@ public sealed class WorldState
             if (fleet.Country == country && fleet.Type == type && matchingZone && fleet.TaskForce is null)
             {
                 fleet.Count = checked(fleet.Count + count);
-                fleet.DeliveredTurn = turnNumber;
                 _ships[offset] = total;
                 return fleet.Id;
             }
@@ -1335,7 +1334,6 @@ public sealed class WorldState
 
         var created = new FleetState(
             new FleetId(checked(_fleets.Count + 1L)), country, type, count, seaZone);
-        created.DeliveredTurn = turnNumber;
         _fleets.Add(created);
         _ships[offset] = total;
         return created.Id;

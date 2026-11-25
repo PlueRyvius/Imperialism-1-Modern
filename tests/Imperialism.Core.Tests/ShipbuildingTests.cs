@@ -208,10 +208,10 @@ public sealed class ShipbuildingTests
     }
 
     /// <summary>
-    /// The ship's holds join the merchant marine at the end of Construction, which runs
-    /// after Trade. So the market that clears this turn never sees them, and next turn's
-    /// does. That is the manual's "all new units … are announced … at the start of the
-    /// next turn".
+    /// The ship's holds join the merchant marine in Delivery, which runs after Trade.
+    /// So the market that clears this turn never sees them, and next turn's does. That
+    /// delivery timing follows the manual's "all new units … are announced … at the
+    /// start of the next turn".
     /// </summary>
     [Fact]
     public void NewHoldsCountInNextTurnsTradeButNotThisTurns()
@@ -314,7 +314,7 @@ public sealed class ShipbuildingTests
     }
 
     [Fact]
-    public void AWarshipBuiltAtTheEndOfConstructionCanBeAssembledNextTurnButNotThisTurn()
+    public void AWarshipDeliveredAfterConflictCanBeAssembledNextTurnButNotThisTurn()
     {
         var state = CreateState(stock: [(Lumber, 50), (Fabric, 50), (Arms, 50)]);
 
@@ -324,8 +324,10 @@ public sealed class ShipbuildingTests
             shipBuilds: [new ShipBuildOrder(new ShipTypeId(Frigate), 1)]));
 
         var tooEarly = Assert.Single(first.Events.OfType<NavalOrderRefusedEvent>());
-        Assert.Equal(NavalOrderRefusal.FleetDeliveredThisTurn, tooEarly.Reason);
+        Assert.Equal(NavalOrderRefusal.NoSuchFleet, tooEarly.Reason);
         var built = Assert.Single(first.Events.OfType<ShipsBuiltEvent>());
+        Assert.Equal(TurnPhase.Delivery, built.Phase);
+        Assert.Equal(new FleetId(2), built.Fleet);
         Assert.Equal(new SeaZoneId(0), built.SeaZone);
         Assert.Equal(new SeaZoneId(0), state.GetFleet(built.Fleet).SeaZone);
         Assert.Null(state.GetFleet(built.Fleet).TaskForce);
@@ -336,6 +338,29 @@ public sealed class ShipbuildingTests
         var assembled = Assert.Single(second.Events.OfType<TaskForceAssembledEvent>());
         Assert.Equal(built.Fleet, Assert.Single(state.TaskForces).Fleets.Single());
         Assert.Equal(new SeaZoneId(0), assembled.SeaZone);
+    }
+
+    [Fact]
+    public void AnExistingWarshipCanBeAssembledWhileAnotherOfItsClassIsBuilt()
+    {
+        var state = CreateState(
+            stock: [(Lumber, 50), (Fabric, 50), (Arms, 50)],
+            homeShips: [(Frigate, 1, new SeaZoneId(0))]);
+        var existingFleet = new FleetId(2);
+
+        var result = Resolve(state, new CountryTurnOrders(
+            Home,
+            naval: [NavalOrder.Assemble([existingFleet], NavalMission.None)],
+            shipBuilds: [new ShipBuildOrder(new ShipTypeId(Frigate), 1)]));
+
+        var assembled = Assert.Single(result.Events.OfType<TaskForceAssembledEvent>());
+        var built = Assert.Single(result.Events.OfType<ShipsBuiltEvent>());
+        Assert.Equal(existingFleet, Assert.Single(assembled.Fleets));
+        Assert.Equal(1, state.GetFleet(existingFleet).Count);
+        Assert.NotNull(state.GetFleet(existingFleet).TaskForce);
+        Assert.NotEqual(existingFleet, built.Fleet);
+        Assert.Equal(1, state.GetFleet(built.Fleet).Count);
+        Assert.Null(state.GetFleet(built.Fleet).TaskForce);
     }
 
     [Fact]

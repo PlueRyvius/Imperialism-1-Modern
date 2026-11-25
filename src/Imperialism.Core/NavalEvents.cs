@@ -125,9 +125,6 @@ public enum NavalOrderRefusal : byte
     /// no sea path reaches: "you cannot move the fleet that far in one turn".
     /// </summary>
     OutOfRange,
-
-    /// <summary>A ship was delivered to this fleet this turn; it can be assembled next turn.</summary>
-    FleetDeliveredThisTurn,
 }
 
 /// <summary>Records fleets grouped into a new task force.</summary>

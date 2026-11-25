@@ -217,8 +217,8 @@ public sealed record FacilityExpansionRefusedEvent : TurnEvent
 }
 
 /// <summary>
-/// Records ships the Shipyard built. They were counted at the end of Construction, so
-/// they add their holds to the merchant marine from next turn's trade.
+/// Records ships the Shipyard delivered. They add their holds to the merchant marine
+/// from next turn's trade.
 /// </summary>
 public sealed record ShipsBuiltEvent : TurnEvent
 {
@@ -232,7 +232,7 @@ public sealed record ShipsBuiltEvent : TurnEvent
         FleetId fleet,
         IEnumerable<CommodityQuantity> paid,
         SeaZoneId? seaZone = null)
-        : base(turnNumber, TurnPhase.Construction)
+        : base(turnNumber, TurnPhase.Delivery)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
         ArgumentNullException.ThrowIfNull(paid);

@@ -298,18 +298,10 @@ public static class TurnResolver
                         turnNumber, entry.Country, entry.Facility, entry.Reason));
                 }
 
-                // Last in Construction, and so after Trade: a hull built now adds its
-                // holds to next turn's market, never this one's. Merchants stay
-                // unplaced; warships use the capital's adjacent sea zone when available.
+                // Successful Shipyard orders are paid in Construction. Their materials
+                // were reserved before Trade when the plan was created; the ships
+                // themselves arrive in Delivery, after Conflict.
                 state.CommitProduction(shipyard.InventoryDeltas);
-                foreach (var entry in shipyard.Entries)
-                {
-                    var fleet = state.DeliverShips(entry.Country, entry.Type, entry.Count, turnNumber);
-                    events.Add(new ShipsBuiltEvent(
-                        turnNumber, entry.Country, entry.Type, entry.Count, fleet, entry.Paid,
-                        state.GetFleet(fleet).SeaZone));
-                }
-
                 foreach (var entry in shipyard.Refusals)
                 {
                     events.Add(new ShipBuildRefusedEvent(
@@ -488,6 +480,17 @@ public static class TurnResolver
                 foreach (var delivery in state.CommitPendingDeliveries())
                 {
                     events.Add(new CommodityDeliveredEvent(turnNumber, delivery));
+                }
+
+                // Ship delivery follows Conflict, so existing fleets were available
+                // for orders this turn and newly built hulls become orderable next turn.
+                // Trade ran before Construction, so merchant holds first count next turn.
+                foreach (var entry in shipyard.Entries)
+                {
+                    var fleet = state.DeliverShips(entry.Country, entry.Type, entry.Count);
+                    events.Add(new ShipsBuiltEvent(
+                        turnNumber, entry.Country, entry.Type, entry.Count, fleet, entry.Paid,
+                        state.GetFleet(fleet).SeaZone));
                 }
             }
             else if (phase == TurnPhase.Investment)

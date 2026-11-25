@@ -112,7 +112,7 @@ internal static class NavalPlanner
         Dictionary<TaskForceId, SeaZoneId> requested,
         List<TurnEvent> events)
     {
-        var refusal = CheckAssembly(state, country, order.Fleets, turnNumber, out var seaZone);
+        var refusal = CheckAssembly(state, country, order.Fleets, out var seaZone);
 
         // All or nothing: a mission that would be refused stops the grouping too, so a
         // refused order never leaves a half-done task force behind.
@@ -182,7 +182,6 @@ internal static class NavalPlanner
         WorldState state,
         CountryId country,
         IReadOnlyList<FleetId> fleets,
-        int turnNumber,
         out SeaZoneId seaZone)
     {
         seaZone = default;
@@ -215,11 +214,6 @@ internal static class NavalPlanner
             if (fleet.SeaZone is not { } position)
             {
                 return NavalOrderRefusal.FleetNotPlaced;
-            }
-
-            if (fleet.DeliveredTurn == turnNumber)
-            {
-                return NavalOrderRefusal.FleetDeliveredThisTurn;
             }
 
             if (fleet.TaskForce is not null)

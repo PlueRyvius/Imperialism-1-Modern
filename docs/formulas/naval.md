@@ -132,6 +132,12 @@ out by country id and then list order. The manual orders none of this.
 mission. Carrying the mission in the same order lets a player group and send a fleet in one
 turn without predicting a `TaskForceId`, as the original's select-then-click does.
 
+Successful Shipyard orders are paid in `Construction` and delivered in `Delivery`, after
+`Trade` and `Conflict`. This is a **chosen rule following** the manual's "at the start of
+the next turn" (see `shipbuilding.md`). An existing fleet can be assembled while another
+hull of its class is being built; the new hull arrives after orders resolve and can be
+assembled starting next turn.
+
 It is refused when:
 
 | Reason | When |
@@ -141,7 +147,6 @@ It is refused when:
 | `NoSuchFleet` | no fleet carries an id |
 | `FleetNotYours` | a fleet belongs to another country |
 | `FleetNotPlaced` | a fleet has no sea zone — a merchant ship, a warship without a capital-adjacent sea zone, or a legacy record naming a zone this map does not have (`shipbuilding.md`) |
-| `FleetDeliveredThisTurn` | ships were delivered into the fleet during Construction; it can be assembled next turn |
 | `FleetAlreadyInTaskForce` | a fleet is already in a task force |
 | `FleetsInDifferentSeaZones` | the fleets do not share one zone |
 

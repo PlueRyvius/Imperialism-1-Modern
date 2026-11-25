@@ -3,9 +3,9 @@
 ## Summary
 
 A country orders hulls at the Shipyard. Each order names a class and a count; the
-Shipyard charges that class's bill once per hull from the Available warehouse, and the
-ships join the country's fleets at the end of `Construction`. A merchant's holds
-therefore first count in **next** turn's trade. Ships cost no cash and no labour.
+Shipyard charges that class's bill once per hull from the Available warehouse in
+`Construction`, and the ships join the country's fleets in `Delivery`. A merchant's
+holds therefore first count in **next** turn's trade. Ships cost no cash and no labour.
 
 There is no new turn phase and no content version bump. The thirteen hulls, their bills
 and their technology requirements were already in content (`trade.md`); this slice is
@@ -30,11 +30,11 @@ rules are labelled where they appear and in the table.
 | Each order is all or nothing | **chosen rule** |
 | A refused order does not stop the orders after it | **chosen rule** |
 | A class may appear more than once in one turn's orders, each entry standing alone | **chosen rule** |
-| The Shipyard is paid after production, facility expansion and the railyard, and before Capitol recruitment and the market | **chosen rule** |
+| The Shipyard reserves materials before Trade; payment commits in Construction after Trade | **chosen rule** |
 | Merchant ships remain unplaced; warships are delivered to a water cell adjacent to the capital | **chosen rule**, implementing the manual's capital-port location |
 | When multiple sea zones touch the capital, the lowest `SeaZoneId` wins | **chosen rule** |
 | With no capital or no adjacent sea zone, a warship stays unplaced and starts a new fleet | **chosen rule** |
-| A fleet that receives ships in Construction cannot be assembled until the next turn | **chosen rule**, because Conflict resolves later in the same turn |
+| Ships are paid for in Construction and delivered in Delivery | **chosen rule**, following the manual's "at the start of the next turn" (lines 2677–2680) |
 | Merchants merge into the **first** unplaced, unassembled fleet of their class; warships merge into the **first** unassembled fleet of their class in the capital's sea zone | **chosen rule** |
 | No cap on how many hulls a turn, other than materials | **chosen rule** |
 | A hull with an empty bill builds for nothing | **chosen rule** (no imported hull has one) |
@@ -92,12 +92,12 @@ manual's "you cannot sell items … that you have ordered industry to use this t
 
 ## Delivery
 
-At the end of `Construction` the hulls are added to the country's ship count, which is
-what `GetMerchantMarine` sums. `Trade` runs earlier in the same turn and was planned
-before the pipeline started, so **the market that clears this turn never sees them**.
-Their holds first count next turn. That is the manual's "appear … at the start of the
-next turn", and it falls out of phase order, as "completes next turn" does for facility
-expansion.
+Successful orders are paid in `Construction`; hulls are added to the country's ship
+count in `Delivery`, which is what `GetMerchantMarine` sums. Delivery follows `Conflict`,
+`Extraction`, `Transport` and `Feeding`, and it follows `Trade`, so **the market that
+clears this turn never sees them**. Their holds first count in next turn's market. This
+delivery timing is a chosen rule following the manual's "appear … at the start of the
+next turn" (lines 2677–2680).
 
 ### Where the ships go (chosen rules)
 
@@ -108,8 +108,8 @@ merchant ship when its imported `Combat` data is absent or has zero firepower. I
 merchants; **Frigate, Ship-of-the-Line, Raider, Ironclad, Advanced Ironclad, Armoured
 Cruiser, Dreadnought and Battle Cruiser** are warships.
 
-Merchant hulls remain unplaced (`SeaZone` null) and in no task force. Their holds still
-count in the merchant marine as soon as Construction ends, and they **join the first
+Merchant hulls remain unplaced (`SeaZone` null) and in no task force. Their holds count
+in the merchant marine when Delivery runs, and they **join the first
 fleet of the same country and class that is unplaced and in no task force**, or start an
 unplaced fleet with the next dense `FleetId`.
 
@@ -121,10 +121,11 @@ the manual does not specify those cases. A placed warship **joins the first flee
 sea zone and in no task force**, or starts a new fleet there. A fleet in a task force is
 never merged into, because doing so would move the new ships with it. Fleet ids stay
 dense and are never reused. Fleet `n` is always at index `n - 1` of `WorldState.Fleets`,
-and that list is appendable but read-only to callers. Since `Conflict` runs after
-`Construction`, a fleet that receives ships during Construction is not assembleable until
-the next turn. `ShipsBuiltEvent.SeaZone` records the delivery zone, or null when the fleet
-remains unplaced.
+and that list is appendable but read-only to callers. Since `Conflict` runs before
+`Delivery`, a fleet delivered this turn cannot be assembled until next turn; fleets that
+already existed can still be assembled while a matching ship is being built. This is a
+chosen rule following the manual's "at the start of the next turn". `ShipsBuiltEvent.SeaZone`
+records the delivery zone, or null when the fleet remains unplaced.
 
 The fair start's three Traders have never been fleets. They are ship counts without a
 `FleetState` (see `FleetStateTests.DefaultMerchantShipsDoNotInventAPositionedFleet`). So
