@@ -49,7 +49,7 @@ Technology Investment screen the microscope reaches.
 | Transport | Transport screen | Commodity sliders against one shared capacity bar, in the order the player sets them. `Transport`, `BuildTransportCapacity`. |
 | Industry | Industry screen | Warehouse, buildings, production orders, the workforce down the left border. `Production`, `Expansions`, `RecruitWorkers`. |
 | Bid and Offers | Bid and Offers screen | Offers and bids per commodity in a fixed order. `TradeOffers`, `TradeBids`. |
-| Diplomacy | Diplomacy screen | Waiting on rules, not on interface: Core's `Diplomacy` phase is still empty. |
+| Diplomacy | Diplomacy screen | Consulates, embassies, pacts, peace, war and trade policy per country. `Overtures`, `DeclareWar`, `TradePolicies`; previewed by `OrdersPreview.Diplomacy` (row 4e-1). The screen itself is not built. |
 | Investment | Invest in Technology | The Benefits of Technology Table, its prices and arrival dates. `BuyTechnology`. |
 
 The Transport, Industry, Bid and Offers and Investment rows have their model now:
@@ -114,8 +114,40 @@ off first; that is the **worst case**, since an unfilled bid costs nothing and
 sales are credited before Development too, so a `NotEnoughCash` warning may be one
 Core does not issue. `Investment` pays for research after Development, so the
 technology preview now affords purchases from cash less `ClaimedByCivilians`.
-Training, the University, the Armoury and overtures also spend before Development
-but are not in the draft yet.
+Overtures spend first of all, in `Diplomacy` (row 4e-1, below), so
+`ClaimedByOvertures` comes off ahead of bids. Training, the University and the
+Armoury also spend before Development but are not in the draft yet.
+
+### Diplomacy orders (row 4e-1)
+
+The draft holds overtures (`SetOverture(kind, target, offer)`: consulate, embassy,
+pact, peace), declarations (`SetDeclareWar`) and **one trade policy per target**
+(`SetTradePolicy`: none, a subsidy at one of the world's `SubsidyPercents`, or a
+boycott). A new policy for the same target replaces the old one in place. A subsidy
+percent the world does not offer throws, as an undefined enum does. One entry is kept
+per (kind, target). `Build` maps the lists one to one, in draft order, onto
+`Overtures`, `DeclareWar` and `TradePolicies`. `ClearDiplomacy` empties all three.
+
+`OrdersPreview.Diplomacy` gives one row per other country, **labelled a preview**.
+Each row shows:
+
+- whether the country is a Great Power or eliminated;
+- the relation mode, and whether a war or peace is pending;
+- the posts each way, both pacts, and both standing policies;
+- the drafted policy and Core's refusal of it;
+- each overture with its price and refusal;
+- what a declaration would cut (pacts, posts, policies, trade).
+
+An overture that is not drafted is judged as if it were added to the end of the
+list. `DiplomacySimulation` restates `DiplomacyPlanner` and the declaration rules in
+`NavalPlanner`, on an overlay that never touches the state. Cash is the turn-open
+cash, less what production claims, spent in list order.
+
+**Peace offered to a Great Power always previews as `Declined`**, because Core
+accepts it only if the other power offers peace back the same turn, and rivals
+submit nothing. `DiplomacyOrdersTests` ends every turn through `TurnResolver` and
+compares the preview against Core's overture, policy, declaration and ties-cut
+events.
 
 **One disagreement with the manual, and the preview sides with Core.** The manual
 lets a player "cancel or change" a working unit's orders (1065–1069); Core refuses
@@ -140,6 +172,9 @@ Where the manual speaks it decides; elsewhere the rule is chosen and labelled.
 | Capitol recruitment | cleared | **Chosen** — the manual is silent |
 | Trade offers and bids | cleared | **Chosen** — the manual is silent |
 | Civilian unit orders (deploy, work, Engineer jobs) | cleared | **Manual** 1206–1214: a unit told to do nothing "appears normally in the cycle next turn", and "next turn, if circumstances change, you can order the civilian at that time"; 1065–1069: a unit whose orders take more than one turn does not appear in the cycle while working and "returns to the cycle automatically" when done. Core keeps a job running with no new order, so nothing needs carrying |
+| Overtures (consulate, embassy, pact, peace) | cleared | **Manual** 3466–3469: an overture may be cancelled "before the end of the turn", with its money returned, so it is an order for that turn; 3516–3518: the consulate "opens starting the turn after", and from then on Core holds it, not the order |
+| War declarations | cleared | **Manual** 3477–3479: the other country is told "as soon as you click the End Turn button, and the war begins on the next turn". Core records the relation, so nothing needs carrying |
+| Trade policy (subsidy, boycott) | cleared | **Chosen**, reading manual 3688–3690: a change "can be cancelled before the end of the turn". Core keeps the policy standing once set, so the order is a change and not the policy itself |
 
 **Production is kept unclamped on purpose.** A mill asked for more than it can
 make keeps asking, because the manual's building keeps trying to fill the order;

@@ -67,7 +67,7 @@ public sealed class UnitOrdersView
 
     /// <summary>
     /// Cash left for this civilian's own job once everything Core charges before it
-    /// has been charged: the bids, every other civilian's work order, and — for an
+    /// has been charged: the overtures, the bids, every other civilian's work order, and — for an
     /// Engineer — the lower-numbered Engineers' jobs.
     /// </summary>
     public long CashBeforeOrder { get; }
@@ -94,9 +94,10 @@ public sealed record CivilianPreview(
 /// The drafting country's civilians and what their drafted orders will cost.
 /// </summary>
 /// <remarks>
-/// Cash in the order Core spends it: Trade pays for bids before Development, so
-/// <see cref="ClaimedByBids"/> — every bid at world price, as if all of them fill —
-/// comes off first. That is the worst case: a bid that finds no seller costs
+/// Cash in the order Core spends it: Diplomacy pays for overtures first, so
+/// <see cref="ClaimedByOvertures"/> comes off before anything; then Trade pays for
+/// bids before Development, so <see cref="ClaimedByBids"/> — every bid at world
+/// price, as if all of them fill — comes off next. That is the worst case: a bid that finds no seller costs
 /// nothing, and what the market <em>sells</em> is credited before Development too,
 /// so a warning of <see cref="CivilianOrderRefusal.NotEnoughCash"/> can be one Core
 /// does not issue. Investment pays for research after Development, so it never
@@ -105,6 +106,7 @@ public sealed record CivilianPreview(
 /// <param name="OtherOrders">Drafted orders for units the country does not hold.</param>
 public sealed record CivilianOrdersPreview(
     long CashAtOpen,
+    long ClaimedByOvertures,
     long ClaimedByBids,
     long CashBeforeCivilians,
     long CommittedCost,
@@ -718,12 +720,14 @@ public sealed partial class OrdersPreview
     };
 
     /// <summary>
-    /// Cash as Development finds it, at worst: every bid paid at world price, no sale
-    /// credited. Trade runs before Development, and the draft holds no other order
-    /// that spends cash ahead of it.
+    /// Cash as Development finds it, at worst: the drafted overtures paid in Diplomacy,
+    /// every bid paid at world price, no sale credited. Both run before Development,
+    /// and the draft holds no other order that spends cash ahead of it.
     /// </summary>
     private static long CashBeforeCivilians(WorldState state, OrdersDraft draft) =>
-        Math.Max(0, state.GetCash(draft.Country) - ClaimedByBids(state, draft));
+        Math.Max(
+            0,
+            state.GetCash(draft.Country) - ClaimedByOvertures(state, draft) - ClaimedByBids(state, draft));
 
     private static long ClaimedByBids(WorldState state, OrdersDraft draft) => draft.TradeBids
         .Where(static row => row.Quantity > 0)
@@ -746,6 +750,7 @@ public sealed partial class OrdersPreview
             .ToArray();
         return new CivilianOrdersPreview(
             state.GetCash(country),
+            ClaimedByOvertures(state, draft),
             ClaimedByBids(state, draft),
             before,
             outcomes.Where(static row => row.Outcome.IsAccepted).Sum(static row => row.Outcome.CashCost),

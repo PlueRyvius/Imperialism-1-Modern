@@ -85,10 +85,15 @@ public sealed partial class OrdersPreview
         var claimed = new long[available.Length];
         var industry = PreviewIndustry(state, draft, names, available, claimed);
         var transport = PreviewTransport(state, draft, names);
+        var diplomacy = PreviewDiplomacy(state, draft, names);
         var civilians = PreviewCivilians(state, draft);
-        var technology = PreviewTechnology(state, draft, names, civilians.CommittedCost);
-        var trade = PreviewTrade(state, draft, names, claimed);
-        return new OrdersPreview(industry, transport, technology, trade, civilians);
+        var technology = PreviewTechnology(
+            state, draft, names, diplomacy.ClaimedByOvertures, civilians.CommittedCost);
+        var trade = PreviewTrade(state, draft, names, claimed, diplomacy.ClaimedByOvertures);
+        return new OrdersPreview(industry, transport, technology, trade, civilians)
+        {
+            Diplomacy = diplomacy,
+        };
     }
 
     private static IndustryPreview PreviewIndustry(
@@ -359,7 +364,7 @@ public sealed partial class OrdersPreview
     }
 
     private static TechnologyPreview PreviewTechnology(
-        WorldState state, OrdersDraft draft, Names names, long claimedByCivilians)
+        WorldState state, OrdersDraft draft, Names names, long claimedByOvertures, long claimedByCivilians)
     {
         var world = state.Definition;
         var country = draft.Country;
@@ -386,8 +391,8 @@ public sealed partial class OrdersPreview
         // In the draft's order, as Investment spends: an unaffordable entry is
         // skipped and a cheaper one after it may still be bought. Development pays
         // for civilians' work before Investment runs, so their drafted cost comes off
-        // first.
-        var left = Math.Max(0, cash - claimedByCivilians);
+        // first, and Diplomacy pays for overtures before either.
+        var left = Math.Max(0, cash - claimedByOvertures - claimedByCivilians);
         var committed = 0L;
         var purchases = new List<TechnologyPurchasePreview>();
         foreach (var id in draft.BuyTechnology)
@@ -406,6 +411,7 @@ public sealed partial class OrdersPreview
 
         return new TechnologyPreview(
             cash,
+            claimedByOvertures,
             claimedByCivilians,
             committed,
             Array.AsReadOnly(offered.ToArray()),
@@ -416,7 +422,8 @@ public sealed partial class OrdersPreview
         WorldState state,
         OrdersDraft draft,
         Names names,
-        long[] claimed)
+        long[] claimed,
+        long claimedByOvertures)
     {
         var world = state.Definition;
         var country = draft.Country;
@@ -444,6 +451,7 @@ public sealed partial class OrdersPreview
         return new TradePreview(
             state.GetMerchantMarine(country),
             state.GetCash(country),
+            claimedByOvertures,
             draft.TradeBids.Count(static row => row.Quantity > 0),
             Array.AsReadOnly(rows.ToArray()));
     }
@@ -465,6 +473,8 @@ public sealed partial class OrdersPreview
         public string Key(CommodityId id) => package.Catalog.GetKey(id);
 
         public string Key(TechnologyId id) => package.Catalog.GetKey(id);
+
+        public string Key(CountryId id) => package.Catalog.GetKey(id);
 
         public IReadOnlyList<CommodityAmountView> Amounts(IEnumerable<CommodityQuantity> quantities) =>
             Array.AsReadOnly(quantities
@@ -576,8 +586,9 @@ public sealed record TechnologyOfferPreview(
 
 /// <summary>
 /// One purchase in the draft. <see cref="IsAffordable"/> is against cash as the
-/// turn opens less what the drafted civilians' work claims, since Development pays
-/// before Investment; research is paid last, from what the market leaves.
+/// turn opens less what the drafted overtures and civilians' work claim, since
+/// Diplomacy and Development pay before Investment; research is paid last, from what
+/// the market leaves.
 /// </summary>
 public sealed record TechnologyPurchasePreview(
     string TechnologyKey,
@@ -587,12 +598,13 @@ public sealed record TechnologyPurchasePreview(
 
 public sealed record TechnologyPreview(
     long Cash,
+    long ClaimedByOvertures,
     long ClaimedByCivilians,
     long CommittedCost,
     IReadOnlyList<TechnologyOfferPreview> Offered,
     IReadOnlyList<TechnologyPurchasePreview> Purchases)
 {
-    public bool IsOverCash => CommittedCost > Cash - ClaimedByCivilians;
+    public bool IsOverCash => CommittedCost > Cash - ClaimedByOvertures - ClaimedByCivilians;
 }
 
 public sealed record TradeRowPreview(
@@ -610,9 +622,13 @@ public sealed record TradeRowPreview(
     public bool IsOverOffered => Offer > Sellable;
 }
 
+/// <param name="ClaimedByOvertures">
+/// Paid in Diplomacy before the market clears, so bids see it gone.
+/// </param>
 public sealed record TradePreview(
     long MerchantMarine,
     long Cash,
+    long ClaimedByOvertures,
     int BidCount,
     IReadOnlyList<TradeRowPreview> Rows)
 {
@@ -621,5 +637,5 @@ public sealed record TradePreview(
     /// <summary>The manual's four-bid limit (3107). Core does not enforce it yet.</summary>
     public bool IsOverBidLimit => BidCount > OrdersPreview.MaximumBids;
 
-    public bool BidsExceedCash => TotalBidCost > Cash;
+    public bool BidsExceedCash => TotalBidCost > Cash - ClaimedByOvertures;
 }
