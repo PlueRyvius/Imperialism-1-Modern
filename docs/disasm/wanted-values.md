@@ -400,6 +400,32 @@ pieces combine into a loss is a placeholder**: `loss = max(1, shot × 5 / DEF)`,
 `LandBattleTests` pins no casualty figure that only the placeholder produces, so it should
 survive the replacement unchanged.
 
+## 7. Naval war: what `0x005578A0` decides
+
+Row 6c ships naval battles, the blockade mission, interception and escorts. The naval table
+(firepower, range, armour, hull scale), the patrol-only port predicate and blockade as
+task-force state 6 are the binary's. **Everything `0x005578A0` decides is a placeholder**:
+chosen rules 13, 22 and 25 in `docs/formulas/naval.md`, and the structural rules 14–27 that
+stand in for its control flow. `definitive-original-data.md` records only that it "resolves
+task-force interactions with randomized checks".
+
+| Target | Question | What it replaces |
+|---|---|---|
+| `0x005578A0`, the interaction checks | Which task-force pairs it tests, in what order, and whether a blockade (state 6) is ever the one to start a battle | rules 16, 18, 19 |
+| Interception odds inside it | The patrol and blockade chances, and whether they depend on ship count, speed or the merchant's class | rule 22: 25% and 50% |
+| The outcome split | How turned back, captured and sunk are chosen, and in what proportion | rule 25: uniform `rng mod 3` |
+| What an interception does to the money | **Does an intercepted deal refund the buyer?** And does a captured cargo become the captor's warehouse stock or something else | rule 26: money stands |
+| The naval loss combination | How firepower, range, armour and hull scale combine into a sunk ship; whether the 6b loop shape (half-health test, 1-or-2 weight, mod 7, [70, 80, 90, 90]) is shared with ships at all; whether armour reduces damage and how | rules 13–15 |
+| Escort selection | What "docked at your capital" means in the data: a fleet's zone, a port flag, an unassigned state; and whether escorts fight once a turn or once per interception | rule 24 |
+| State 6 duration | Whether a blockade lapses after some turns, or persists like a patrol | rule 12's persistence (not its port effect, which is verified) |
+| Which merchant is lost | When a merchant is sunk, which hull goes | rule 27 |
+
+**Wanted once traced:** replace `StrategicNavalBattleResolver` behind `INavalBattleResolver`
+and the constants and draws in `NavalWarPlanner`. `NavalWarTests` drives outcomes by
+searching turn seeds and asserts directions (a blockade beats a patrol) rather than exact
+rates, so most of it should survive a change of numbers; the range test pins the opening
+volley and will need the traced rule.
+
 ---
 
 ## What is *not* wanted

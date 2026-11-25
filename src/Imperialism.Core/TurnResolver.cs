@@ -142,6 +142,11 @@ public static class TurnResolver
             .Select(province => state.GetProvinceOwner(new ProvinceId(province)))
             .ToArray();
         IReadOnlyList<PlannedExtraction> gathered = [];
+
+        // Each deal's delivery, kept for TradeCancellation to cancel: turn-local, never
+        // world state. Naval battle ordinals run on across Conflict and TradeCancellation.
+        var settled = new List<(PlannedTrade Deal, DeliveryId Delivery)>(trade.Trades.Count);
+        var navalOrdinals = new NavalWarPlanner.Ordinals();
         var events = new List<TurnEvent>(Pipeline.Length + production.Entries.Count);
         foreach (var phase in Pipeline)
         {
@@ -160,6 +165,12 @@ public static class TurnResolver
                 // Before Extraction, so a patrol set or a leg sailed this turn already
                 // decides this turn's port access, through hostility already in effect.
                 events.AddRange(NavalPlanner.ResolveConflict(state, orders, turnNumber));
+
+                // Then the sea battles, after every order and leg and before the army: a
+                // patrol finds a hostile task force in its zone. Still before Extraction,
+                // so a beaten patrol stops cutting a port this turn.
+                events.AddRange(NavalWarPlanner.ResolveBattles(
+                    state, turnNumber, seed, StrategicNavalBattleResolver.Instance, navalOrdinals));
 
                 // Then the army: marches and rail moves, after every naval order. The
                 // rail budget is the whole network as the turn opened, separate from
@@ -193,8 +204,8 @@ public static class TurnResolver
                     // for your use in the Industry screen next turn." That is the same
                     // machinery extraction already uses, and the reason this needed no
                     // new state.
-                    _ = state.QueuePendingDelivery(
-                        entry.Buyer, entry.Commodity, entry.Quantity, PendingDeliverySource.Trade);
+                    settled.Add((entry, state.QueuePendingDelivery(
+                        entry.Buyer, entry.Commodity, entry.Quantity, PendingDeliverySource.Trade)));
                     events.Add(new CommodityTradedEvent(
                         turnNumber,
                         entry.Seller,
@@ -519,6 +530,14 @@ public static class TurnResolver
                         entry.SizeLimit,
                         entry.Paid));
                 }
+            }
+            else if (phase == TurnPhase.TradeCancellation)
+            {
+                // "Intercepted or blockaded trades are cancelled", after the military
+                // conflicts. The deliveries are still pending, so cancelling one is all
+                // it takes; the money settled in Trade stands.
+                events.AddRange(NavalWarPlanner.ResolveInterception(
+                    state, settled, turnNumber, seed, StrategicNavalBattleResolver.Instance, navalOrdinals));
             }
             else if (phase == TurnPhase.Extraction)
             {

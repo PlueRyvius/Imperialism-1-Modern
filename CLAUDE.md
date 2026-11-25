@@ -885,6 +885,28 @@ chosen**, numbered 12–30 in `docs/formulas/army.md`. A content `army` record s
 medals, and the compiler multiplies by 100. Building forts, landings (6c), elimination and
 anarchy (6d), Generals, and the tactical battlefield are not modelled. No soak number moved.
 
+**Row 6c fights at sea, with no content bump and no new phase.** A third mission,
+`Blockade(country)`, sits a task force off a capital; it persists like a patrol and **does not
+cut a port**, because the executable builds it as task-force state 6 and the port predicate
+counts only 3 and 4 — `PortAccess` is unchanged. In `Conflict`, after the naval orders and
+before any regiment moves, **a patrol fights every effectively hostile task force in its zone**
+(two blockades or two idle forces never seek each other; a fleet in no task force is anchored
+and left alone). `StrategicNavalBattleResolver`, behind `INavalBattleResolver`, carries 6b's loop
+shape over to ships with hull-scale health, armour as a percentage cut and **only the longer
+range firing in the opening round**. Sunk ships leave their fleets, an empty fleet is removed and
+an empty task force dissolved — **ids are never reused**, so `Fleets` and `TaskForces` are live
+views and `TryGetFleet` / `TryGetTaskForce` exist — and the loser's survivors go idle, so a
+beaten patrol stops cutting its port the same turn. `TradeCancellation` finally has a body: each
+deal sails **capital to capital** in its carrier's holds, and a task force at war with the
+**carrier** may intercept it — 25% patrolling beside either capital, 50% blockading either
+country — after fighting the carrier's anchored warships beside its capital once per (task
+force, carrier). An intercepted cargo is turned back to the seller, captured by the
+interceptor, or sunk with one merchant hull; **the money already paid stands**. **The resolver's
+combination, both chances and the uniform outcome split are placeholders** until
+`0x005578A0` is traced (`wanted-values.md` §7). Eighteen rules are chosen, numbered 11–28 in
+`docs/formulas/naval.md`. Ship damage and repair, experience, Admirals, aggressiveness,
+landings (6d) and routes between non-capital ports are not modelled. No soak number moved.
+
 **Production spends labour: two per cycle, flat**, from one pool per country shared
 across every facility. The manual prices exactly one recipe — a unit of clothing
 costs two fabric and two labour — and the original's own help resources charge the

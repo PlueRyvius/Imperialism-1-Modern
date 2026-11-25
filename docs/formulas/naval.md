@@ -16,8 +16,23 @@ legs and the port-access predicate — could only be set up from test code. Noth
   `None`, `Patrol` or `MoveTo(seaZone)`. They are applied in `Conflict`.
 
 A hostile patrol in every sea zone next to a port, with none of the owner's own patrols
-there, cuts that port's route in `Extraction` (`PortAccess`, unchanged). So a blockade is
-now something a player can order.
+there, cuts that port's route in `Extraction` (`PortAccess`, unchanged).
+
+**Row 6c makes war at sea do something.** A third mission, `Blockade(country)`, sits a task
+force off a capital. In `Conflict`, after every naval order and sailing leg and before any
+regiment moves, a **patrol finds every hostile task force in its zone and fights it**;
+`StrategicNavalBattleResolver` sinks ships, an empty fleet is removed and an empty task
+force dissolved, and the loser's survivors go idle — so a beaten patrol stops cutting its
+port in the same turn's `Extraction`. The empty `TradeCancellation` phase now has a body:
+each deal settled in `Trade` sails capital to capital in its carrier's holds, and a hostile
+patrol beside either capital (25%) or a blockade of either country (50%) may intercept it,
+after first fighting the carrier's anchored escorts. An intercepted cargo is **turned back**
+to the seller, **captured** by the interceptor, or **sunk** with one of the carrier's
+merchant hulls. **The money already paid stands.**
+
+**The resolver's combination, both chances and the outcome split are placeholders** until
+the executable's `0x005578A0` is traced on the PC (`wanted-values.md` §7). The loop's shape
+is 6b's recovered one; what is invented is labelled below as chosen rules 11–28.
 
 There is **no new turn phase** (the client smoke test still counts fourteen), **no content
 version bump**, and **no soak number moved**: no soak policy declares war or orders a fleet.
@@ -26,8 +41,9 @@ version bump**, and **no soak number moved**: no soak policy declares war or ord
 
 `inferred`. The manual states that a declaration cannot be refused and takes effect next
 turn, and that a fleet takes a mission or a move in a turn but not both. The patrol state
-and the sailing leg are PR #35's executable readings. Ten rules below are chosen, and
-are labelled where they appear and in the table.
+and the sailing leg are PR #35's executable readings. Twenty-eight rules below are chosen,
+and are labelled where they appear and in the table. Rules 13, 22 and 25 are
+**placeholders**, not readings: they stand until `0x005578A0` is traced.
 
 | Claim | Support |
 |---|---|
@@ -50,6 +66,30 @@ are labelled where they appear and in the table.
 | 9. A declaration against a pair already at war is refused, not restamped | **chosen rule** |
 | 10. Only whole fleet records are assembled; no ship-by-ship selection | **chosen rule** |
 | A destination beyond the slowest hull's reach, or one no sea path reaches, is refused | **manual**, lines 1916–1917 |
+| A fleet may blockade; a blockade intercepts more often than a patrol and seeks no battle, but a hostile patrol finds it | **manual**, lines 1919–1933 |
+| A blockade is task-force state 6, which the port predicate does not count | **executable**, `definitive-original-data.md` ("Strategic mission construction") |
+| Battles and interceptions both end in sinking, capture or a cargo turned back | **manual**, lines 1929–1933 and 4696–4707 |
+| Ships docked at the capital escort merchants; interception needs a war | **manual**, lines 2123–2132 and 3176–3185 |
+| The loop shape: snapshot, half-health test, attacker first, 1-or-2 weight, mod 7, [70, 80, 90, 90] | **executable**, 6b's land loop (`army.md`), carried over by analogy — not traced for ships |
+| Firepower, range, armour and hull scale per class | **executable**, the verified naval table |
+| 11. A blockade names a country and acts on its capital | **chosen rule** |
+| 12. A blockade persists like a patrol until moved or re-ordered, and does not cut ports | **chosen rule** for persistence; **executable** for the ports (state 6) |
+| 13. The resolver's combination: health = hull scale, `shot = weight × multiplier × firepower × scale`, `damage = max(1, shot × (100 − armour) / 100)` | **chosen rule — a placeholder** until `0x005578A0` |
+| 14. In the opening round only ships whose range matches or beats the enemy's longest fire | **chosen rule**, from "superior range is the most important statistic" (line 2113) |
+| 15. Twenty rounds without a decision is a defender win | **chosen rule** |
+| 16. The attacker is the patrolling side, or the lower id when both patrol | **chosen rule** |
+| 17. A beaten side's surviving task forces go idle; survivors are undamaged | **chosen rule** |
+| 18. A fleet in no task force is anchored and a patrol does not engage it | **chosen rule** |
+| 19. Battles are pairwise in (zone, lower id, higher id) order, against live state, before land moves | **chosen rule** |
+| 20. A deal sails capital to capital, exposed only in the zones touching either capital | **chosen rule** |
+| 21. The carrier, not the buyer or seller as such, must be at war with the interceptor | **chosen rule** |
+| 22. 25% for a patrol, 50% for a blockade | **chosen rule — a placeholder** until `0x005578A0` |
+| 23. Deals in the order `Trade` settled them; interceptors in live task-force order, one try each, until one succeeds | **chosen rule** |
+| 24. Escorts are warships in no task force in a zone touching the carrier's capital; one escort battle per (task force, carrier) a turn | **chosen rule** |
+| 25. The three outcomes are drawn uniformly | **chosen rule — a placeholder** until `0x005578A0` |
+| 26. Money settled in `Trade` is never reversed | **chosen rule** |
+| 27. A sunk merchant comes from the carrier's lowest-id merchant fleet | **chosen rule** |
+| 28. The generator streams and salts | **chosen rule** |
 
 ## Declaring war
 
@@ -177,6 +217,7 @@ mission's reasons.
 |---|---|
 | `None` | nothing |
 | `Patrol` | `PatrolTaskForce`: the task force patrols its present zone. `TaskForcePatrolOrderedEvent` |
+| `Blockade(country)` | `BlockadeTaskForce`: the task force blockades `country`'s capital from its present zone. `TaskForceBlockadeOrderedEvent`. See [The blockade](#the-blockade) |
 | `MoveTo(zone)` | `PlanTaskForceMove`: a leg towards `zone`, applied after every order |
 
 A mission is refused when:
@@ -201,8 +242,8 @@ already patrolling changes nothing on the map but still counts as its order for 
 **A patrol stays in place, turn after turn, until the task force is ordered to move.**
 Nothing re-orders it and nothing tires it. The manual's tutorial supports a mission lasting
 — "It might take more than one turn for your blockading frigate to succeed" (line 4698) —
-but that sentence is about a blockade, which is not modelled, so this is a reading and not a
-quotation of a rule.
+but that sentence is about a blockade, so this is a reading for patrols and not a quotation
+of a rule. A blockade persists the same way (chosen rule 12).
 
 ### A move arrives idle (chosen rule 2)
 
@@ -235,16 +276,159 @@ can change, between the orders being written and the turn resolving — so the p
 (`NavalPlanner`) checks every condition the `WorldState` methods throw on before calling
 them. Only a `null` order is malformed, and `CountryTurnOrders` rejects it on construction.
 
+## The blockade
+
+> A fleet can blockade a designated port, using a ship with a red "X" cursor, by clicking
+> near the port when that cursor appears. Both of these commands are used against enemy
+> forces. A blockade has greater chance of success than a mere patrol against ships that
+> enter or leave the selected port. A blockade does not seek other ships in the sea zone,
+> however, hostile patrolling fleets can intercept your ships on blockade.
+> — manual lines 1922–1927
+
+`NavalMission.Blockade(country)` is accepted through `Assemble` and `Command` like `Patrol`,
+spends the turn like `Patrol`, and needs no war to be ordered — it acts only against a
+hostile carrier.
+
+**A blockade names a country and acts on its capital (chosen rule 11).** Merchants in this
+model sail only between capitals (rule 20), so a capital is the one port a blockade can
+watch; the tutorial's own example is "a blockade of Deneb's capital" (lines 4689–4690). It is refused,
+with a `NavalOrderRefusedEvent` and nothing changed, when:
+
+| Reason | When |
+|---|---|
+| `NoSuchCountry` | the target id is not a country in this world |
+| `BlockadeOwnCountry` | the target is the ordering country |
+| `TargetHasNoCapital` | the target has no capital |
+| `CapitalNotOnThisSeaZone` | the target's capital cell touches no cell of the task force's present zone (`PortAccess.AdjacentSeaZones`, now shared) |
+
+**It persists, and it never cuts a port (chosen rule 12).** A blockade lasts like a patrol
+until the task force is moved or given another mission; a move clears both the activity and
+`TaskForceState.BlockadeTarget`. That it does not cut a port is the executable's, not ours:
+the mission builder sets task-force **state 6** for a blockade, and the port predicate
+counts only states 3 and 4. `PortAccess` is unchanged. If the target later loses or moves
+its capital, a blockade whose zone no longer touches the new one intercepts nothing until
+re-ordered.
+
+## Naval battles
+
+Resolved in `Conflict`, after every naval order and every sailing leg, and **before** any
+regiment moves or attacks (chosen rule 19).
+
+> Both blockades and patrols can result in battle against hostile warships, or in
+> interception of merchant ships.
+> — manual lines 1929–1930
+
+**Who fights whom.** For each sea zone holding a task force, in id order, and each pair of
+countries there with lower id first: the pair fights when it is **effectively hostile** and
+**at least one side patrols** there. Two blockades or two idle task forces never seek each
+other (lines 1925–1927); a patrol finds a blockade and an idle task force alike. All of each
+country's task forces in the zone fight together. **The attacker is the patrolling side, or
+the lower id when both patrol (chosen rule 16).** A fleet in no task force is **anchored and
+not engaged (chosen rule 18)** — which is what keeps escorts at home safe until they escort.
+Three or more countries in one zone are resolved pairwise against live state, so a country
+sunk in an earlier pair has nothing left for a later one.
+
+**The resolver — `StrategicNavalBattleResolver`, behind `INavalBattleResolver`.** One
+combatant per ship. A class with no combat stats stands aside, is not listed and cannot be
+sunk; a merchant has stats and firepower 0, so it is a target that never fires. Then, as in
+6b's land loop:
+
+- health is the class's `HullScale` (600–2,800), snapshotted at the start;
+- rounds go on while both sides hold a ship above half its snapshot, to at most twenty;
+  **twenty rounds without a decision is a defender win (chosen rule 15)**;
+- the attacker volleys before the defender each round;
+- each firer draws `multiplier = 1 + rng mod 7`, has weight 2 above half health and 1 below,
+  and the round scale is `[70, 80, 90, 90]` (the last repeating);
+- **`shot = weight × multiplier × firepower × scale`** and the target is a uniform draw among
+  the enemy's live ships; **`damage = max(1, shot × (100 − armour) / 100)`**, and a ship at 0
+  is sunk.
+
+**Every combination in that last bullet is a placeholder (chosen rule 13)** until
+`0x005578A0` is traced. `ShipCombatStats` holds firepower in whole units (a Frigate is 3), so
+there is no `/ 100`: a Frigate's shot at multiplier 1, full health, round 0 is
+2 × 1 × 3 × 70 = 420 against a 900-point hull.
+
+**Range opens the battle (chosen rule 14).** "Superior range is the most important statistic"
+(line 2113): in round 0 a ship fires only if its range matches or beats the enemy side's
+longest. From round 1 everyone fires. An outranged ship skips without drawing.
+
+**After a battle.** Sunk ships leave their fleets (`WorldState.SinkShips`). A fleet at zero
+is removed, and a task force with no fleets left is dissolved; **ids are never reused**, so
+`Fleets` and `TaskForces` are live views and fleet *n* is no longer necessarily at index
+*n* − 1. Use `TryGetFleet` / `TryGetTaskForce`; a command to a dissolved task force is
+refused as `NoSuchTaskForce`. **The loser's surviving task forces go idle and the winner keeps
+its mission (chosen rule 17)**, so a beaten patrol stops cutting its port in this turn's
+`Extraction`. Survivors come out undamaged: damage is not stored. `NavalBattleFoughtEvent`
+names the attacker, defender, winner, rounds and each fleet's ships before and sunk.
+
+## Interception and escorts
+
+Resolved in `TradeCancellation`, which runs after `Conflict` and before `Extraction` — the
+manual's "Intercepted or blockaded trades are cancelled" (lines 630–641). `TurnResolver`'s
+`Trade` branch keeps each deal's `DeliveryId` beside its `PlannedTrade` in a turn-local list;
+nothing is added to world state.
+
+**The route (chosen rule 20).** A deal's cargo is carried by its `HoldsPaidBy` country between
+the seller's capital and the buyer's. It is exposed only in the sea zones touching either
+capital; an inland capital exposes nothing at its end. There is no route geometry between
+ports.
+
+**Who may intercept.** A task force of a country effectively hostile to the **carrier (chosen
+rule 21)** — not to the buyer or seller as such. Between two Great Powers the buyer carries,
+so a war with the seller alone leaves the cargo alone. The force must be:
+
+- **patrolling** a zone the deal is exposed in: **25%**; or
+- **blockading** the seller or the buyer from a zone that still touches that country's
+  current capital: **50%** — "a greater chance of success".
+
+**Both chances are placeholders (chosen rule 22).** **Deals go in the order `Trade` settled
+them; for each, the task forces try in live task-force order, once each, until one succeeds
+(chosen rule 23).** A deal's draws come from their own stream, keyed by its index.
+
+**Escorts (chosen rule 24).** "Any ship docked at your capital and fully repaired is used to
+escort merchants during that turn" (lines 3184–3185). A carrier's escorts are its warship
+fleets (firepower above 0) **in no task force** whose zone touches its capital. Damage is not
+stored, so every ship is fully repaired. The first time a task force tries a deal of a
+carrier that has escorts, it fights them first, as the attacker; the battle is a
+`NavalBattleFoughtEvent` of kind `Escort`. A task force that loses is beaten — idle — and
+intercepts nothing more this turn. One that wins goes on to its draw. **An escort battle is
+fought at most once per (task force, carrier) a turn.**
+
+**What happens to the cargo (chosen rule 25).** On success the deal's pending delivery is
+cancelled and `rng mod 3` picks, uniformly — another placeholder:
+
+| Outcome | Effect |
+|---|---|
+| `TurnedBack` | the goods return to the **seller**, arriving next turn ("take their cargo back to port", line 4706) |
+| `Captured` | the goods go to the **interceptor**, arriving next turn |
+| `Sunk` | the goods are lost, and the carrier loses one merchant hull |
+
+**Settled money stands (chosen rule 26).** The seller may already have spent it in
+`Production` or `Construction`, and no treasury may go negative, so an intercepted buyer has
+paid for nothing. Whether the original refunds is a trace target.
+
+**Which hull sinks (chosen rule 27).** The carrier's lowest-id fleet of a merchant class (cargo
+above 0, firepower 0) that still has a ship. A country whose holds are counted but not held in
+any fleet record loses one of those instead, lowest class first; one with neither loses
+nothing, and the event says so.
+
+**The generator (chosen rule 28).** `SplitMix64.ForBattle(seed ^ salt, ordinal)`. Battles salt
+with `"NAVALBAT"` and number their ordinals from 0 in the order fought, escort battles
+continuing the same count; interceptions salt with `"INTERCEP"` and use the deal index. No
+naval stream shares a land battle's.
+
 ## What this does not do
 
-- **Interception, capture and trade cancellation.** A patrol cuts ports and does nothing
-  else; `TradeCancellation` stays empty. These need combat odds (row 6).
-- **The port blockade mission** (the red "X" cursor, lines 1922–1923). The executable's port
-  predicate counts only the patrol state, so patrol is what cuts a port.
-- **Peace and treaties** (row 5), **landings**, and **warships built for a country with no
+- **Ship damage and repair**, and so the manual's "fully repaired" condition on escorts.
+  **Ship experience** and **Admirals**.
+- **Aggressiveness** (lines 4664–4668). Not stored.
+- **Landings and their interception** (row 6d), and **warships built for a country with no
   capital or capital-adjacent sea zone**: these ships remain unplaced and are refused as
   `FleetNotPlaced`.
-- **Aggressiveness** (lines 4664–4668). Not stored.
+- **Routes between ports other than capitals.**
+- **Minor Nations' own merchants**: they own none (`trade.md`), so a minor carrier never
+  arises.
+- **AI**: nothing orders a blockade or a patrol for a country that has no player.
 
 ## Soak
 
@@ -274,3 +458,21 @@ Each of these mutations was run and fails at least one test:
 | Restamp a war already declared | `EveryInvalidDeclarationIsRefusedWithItsReasonAndChangesNothing`, `AMutualDeclarationInOneTurnCountsOnceForTheLowerCountryId` |
 | Assemble before checking the mission (not all or nothing) | `EveryInvalidAssemblyIsRefusedWithItsReasonAndChangesNothing` |
 | Allow a move to the current zone | both `EveryInvalid…` tests above |
+
+Row 6c's tests are `NavalWarTests` (Core) and
+`ANavalBattleAndAnInterceptionSayWhoLostWhatAndThatTheMoneyStands` (Presentation). Core
+exposes no seam for a stub generator, so a test needing a given outcome searches the turn
+seeds for one, and the chance test counts successes over 200 seeds. Each of these mutations
+was run, turned at least one test red, and was reverted:
+
+| Mutation | Caught by |
+|---|---|
+| Drop the range rule | `InTheOpeningRoundOnlyTheLongerRangeFiresSoTheOutrangedSideTakesNothingBack` |
+| Let a blockade cut ports (`PortAccess` counts `Blockading`) | `ABlockadeDoesNotCutAPortButAPatrolDoes` |
+| Drop the war check on interception | `InterceptionNeedsTheCarrierAtWarWithTheInterceptor` |
+| Drop the war check on battle | `ANonHostilePairDoesNotFight` |
+| Swap the patrol and blockade chances | `ABlockadeInterceptsMoreOftenThanAPatrol` |
+| Refund the buyer on interception | the three outcome tests, `InterceptionNeeds…`, `ABlockadeInterceptsMore…` |
+| Let anchored fleets be engaged | `AnAnchoredFleetIsNotEngagedByAPatrol`, `ABeatenPatrolGoesIdle…`, the three escort tests |
+| Skip the escort battle | `EscortsFightOncePerTaskForceAndCarrierEvenAcrossSeveralDeals`, `ABeatenInterceptorGoesIdleAndInterceptsNothingMore` |
+| Make every outcome a capture | `ATurnedBackCargoReturnsToTheSellerAndTheMoneyStands`, `ASunkMerchantLosesTheCargoAndOneHull` |

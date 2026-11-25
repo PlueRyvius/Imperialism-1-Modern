@@ -44,7 +44,12 @@ internal static class PortAccess
         return false;
     }
 
-    private static IEnumerable<SeaZoneId> AdjacentSeaZones(MapDefinition map, CellIndex port)
+    /// <summary>
+    /// The sea zones touching a cell, one per adjacent water cell (so possibly
+    /// repeated). Shared with the naval war code: a capital's route is exposed only in
+    /// these zones, and a blockade must lie in one of them.
+    /// </summary>
+    internal static IEnumerable<SeaZoneId> AdjacentSeaZones(MapDefinition map, CellIndex port)
     {
         foreach (var direction in HexDirections.All.ToArray())
         {

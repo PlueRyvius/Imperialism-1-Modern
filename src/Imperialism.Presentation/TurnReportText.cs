@@ -129,6 +129,10 @@ public static class TurnReportText
         NavalOrderRefusal.NoSuchSeaZone => "no such sea zone exists",
         NavalOrderRefusal.AlreadyInThatSeaZone => "it is already in that sea zone",
         NavalOrderRefusal.OutOfRange => "that sea zone is out of range this turn",
+        NavalOrderRefusal.NoSuchCountry => "no such country exists to blockade",
+        NavalOrderRefusal.BlockadeOwnCountry => "a country cannot blockade its own capital",
+        NavalOrderRefusal.TargetHasNoCapital => "that country holds no capital to blockade",
+        NavalOrderRefusal.CapitalNotOnThisSeaZone => "that capital does not lie on the task force's sea zone",
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 
