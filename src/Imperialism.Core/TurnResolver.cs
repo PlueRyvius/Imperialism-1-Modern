@@ -133,6 +133,12 @@ public static class TurnResolver
         // expansion". Transport runs long after Construction in the pipeline, so
         // it reads the figure the turn opened with rather than the live one.
         var capacityAtTurnStart = state.CopyTransportCapacity();
+
+        // Whose each province was as the turn opened: a regiment may only be sent to
+        // its own country's ground, read here rather than live — a chosen rule.
+        var ownersAtTurnStart = Enumerable.Range(0, state.Definition.Map.Provinces.Count)
+            .Select(province => state.GetProvinceOwner(new ProvinceId(province)))
+            .ToArray();
         IReadOnlyList<PlannedExtraction> gathered = [];
         var events = new List<TurnEvent>(Pipeline.Length + production.Entries.Count);
         foreach (var phase in Pipeline)
@@ -152,6 +158,13 @@ public static class TurnResolver
                 // Before Extraction, so a patrol set or a leg sailed this turn already
                 // decides this turn's port access, through hostility already in effect.
                 events.AddRange(NavalPlanner.ResolveConflict(state, orders, turnNumber));
+
+                // Then the army: marches and rail moves, after every naval order. The
+                // rail budget is the whole network as the turn opened, separate from
+                // what Transport will carry — "moving regiments does not in itself use
+                // capacity already assigned to transport resources".
+                events.AddRange(RegimentMovePlanner.Resolve(
+                    state, orders, turnNumber, ownersAtTurnStart, capacityAtTurnStart));
             }
             else if (phase == TurnPhase.Trade)
             {
@@ -277,6 +290,38 @@ public static class TurnResolver
                 {
                     events.Add(new CivilianPurchaseRefusedEvent(
                         turnNumber, entry.Country, entry.Type, entry.Requested, entry.Reason));
+                }
+
+                // The Armoury's workers "can never return to industry" and leave now;
+                // they were already withheld from this turn's pool.
+                foreach (var entry in production.RegimentPurchases)
+                {
+                    if (entry.CashPaid > 0 && !state.TrySpendCash(entry.Country, entry.CashPaid))
+                    {
+                        throw new InvalidOperationException(
+                            "The Armoury was planned against cash the treasury no longer holds.");
+                    }
+
+                    state.SetWorkers(
+                        entry.Country,
+                        entry.WorkerGrade,
+                        state.GetWorkers(entry.Country, entry.WorkerGrade) - entry.WorkersTaken);
+                    events.Add(new RegimentsPurchasedEvent(
+                        turnNumber,
+                        entry.Country,
+                        entry.Category,
+                        entry.Type,
+                        entry.Count,
+                        entry.WorkerGrade,
+                        entry.WorkersTaken,
+                        entry.Paid,
+                        entry.CashPaid));
+                }
+
+                foreach (var entry in production.RegimentPurchaseRefusals)
+                {
+                    events.Add(new RegimentPurchaseRefusedEvent(
+                        turnNumber, entry.Country, entry.Category, entry.Requested, entry.Reason));
                 }
 
 
@@ -588,6 +633,30 @@ public static class TurnResolver
 
                     events.Add(new CiviliansDeliveredEvent(
                         turnNumber, entry.Country, entry.Type, capital, units));
+                }
+
+                // Regiments bought at the Armoury arrive in the capital's province:
+                // "new units start their first turn on the Terrain Map, in the province
+                // of the capital". After Conflict, so none moves the turn it was bought.
+                foreach (var entry in production.RegimentPurchases)
+                {
+                    if (state.GetCountryCapital(entry.Country) is not { } capital ||
+                        state.Definition.Map[capital].Region.Kind != CellRegionKind.Province)
+                    {
+                        events.Add(new RegimentDeliveryLostEvent(
+                            turnNumber, entry.Country, entry.Type, entry.Count));
+                        continue;
+                    }
+
+                    var province = new ProvinceId(state.Definition.Map[capital].Region.Value);
+                    var regiments = new List<RegimentId>();
+                    for (var index = 0L; index < entry.Count; index++)
+                    {
+                        regiments.Add(state.CreateRegiment(entry.Country, province, entry.Type));
+                    }
+
+                    events.Add(new RegimentsDeliveredEvent(
+                        turnNumber, entry.Country, entry.Type, province, regiments));
                 }
             }
             else if (phase == TurnPhase.Investment)

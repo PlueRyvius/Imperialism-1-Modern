@@ -467,6 +467,106 @@ public sealed class LegacyWorldConverterTests
     }
 
     [Fact]
+    public void ImportedWorldsCarryTheExecutablesThirtyArmyTypesInItsOrder()
+    {
+        // The order is the executable's role-slot table repeated per era, then the
+        // engineers and the Generals; a scenario `army` record's 0-based type indexes it.
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(1, 1, LandCell(0, 0)),
+            new ScenarioDocument(
+            [
+                Record("year", 1815),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "armoury");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var types = result.Document!.ArmyTypes!;
+        Assert.Equal(30, types.Length);
+        Assert.Equal(
+            [
+                "army.minutemen", "army.skirmishers", "army.regulars", "army.grenadiers",
+                "army.hussars", "army.cuirassiers", "army.light-artillery", "army.artillery",
+                "army.militia", "army.sharpshooters", "army.rifle-infantry", "army.guards",
+                "army.scouts", "army.carbine-cavalry", "army.field-artillery", "army.siege-artillery",
+                "army.conscripts", "army.rangers", "army.modern-infantry", "army.machinegunners",
+                "army.mechanized-infantry", "army.armor", "army.mobile-artillery", "army.railroad-gun",
+                "army.sappers", "army.combat-engineers", "army.saboteurs",
+                "army.general-1", "army.general-2", "army.general-3",
+            ],
+            types.Select(static type => type.Key));
+
+        // Militia is never built and never leaves home; the Generals are never built.
+        foreach (var type in types)
+        {
+            var militia = type.Category == ArmyCategory.Militia;
+            Assert.Equal(!militia, type.MovesByRail);
+            Assert.Equal(!militia, type.LeavesProvince);
+            if (militia || type.Category == ArmyCategory.General)
+            {
+                Assert.Null(type.Purchase);
+                Assert.Null(type.Arms);
+                continue;
+            }
+
+            // ARMS is the armaments in the bill, which is what rail costs five apiece for.
+            var price = Assert.IsType<ArmyPurchaseContent>(type.Purchase);
+            var armaments = Assert.Single(price.Bill, static item => item.Commodity == "commodity.armaments");
+            Assert.Equal(type.Arms, armaments.Quantity);
+            Assert.True(price.Cash > 0);
+        }
+
+        var byKey = types.ToDictionary(static type => type.Key);
+        Assert.Equal(1_000, byKey["army.grenadiers"].Purchase!.Cash);
+        Assert.Equal(WorkerGrade.Trained, byKey["army.grenadiers"].Purchase!.WorkerGrade);
+        Assert.Equal(12.5m, byKey["army.grenadiers"].Stats!.FirepowerVsInfantry);
+        Assert.Null(byKey["army.hussars"].Stats!.EntrenchedDefence);
+        Assert.Equal(WorkerGrade.Expert, byKey["army.saboteurs"].Purchase!.WorkerGrade);
+        Assert.Equal(10, byKey["army.armor"].Arms);
+        Assert.Contains(byKey["army.armor"].Purchase!.Bill, static item => item.Commodity == "commodity.fuel" && item.Quantity == 4);
+
+        // The era gates: the manual's Regimental Upgrade Requirement Table, with "Rifled
+        // Guns" and "Heavy Guns" read as Rifled Artillery and Large Artillery — the
+        // reading STR#ENU.GOB's technology effect strings corroborate.
+        var gates = new Dictionary<string, string?>
+        {
+            ["army.regulars"] = null,
+            ["army.sappers"] = null,
+            ["army.militia"] = "technology.breech-loading-rifles",
+            ["army.sharpshooters"] = "technology.bessemer-converter",
+            ["army.scouts"] = "technology.bessemer-converter",
+            ["army.rifle-infantry"] = "technology.breech-loading-rifles",
+            ["army.guards"] = "technology.breech-loading-rifles",
+            ["army.carbine-cavalry"] = "technology.breech-loading-rifles",
+            ["army.field-artillery"] = "technology.rifled-artillery",
+            ["army.siege-artillery"] = "technology.rifled-artillery",
+            ["army.conscripts"] = "technology.machine-guns",
+            ["army.rangers"] = "technology.machine-guns",
+            ["army.modern-infantry"] = "technology.machine-guns",
+            ["army.machinegunners"] = "technology.machine-guns",
+            ["army.mechanized-infantry"] = "technology.internal-combustion",
+            ["army.armor"] = "technology.internal-combustion",
+            ["army.mobile-artillery"] = "technology.large-artillery",
+            ["army.railroad-gun"] = "technology.large-artillery",
+            ["army.combat-engineers"] = "technology.bessemer-converter",
+            ["army.saboteurs"] = "technology.dynamite",
+        };
+        foreach (var (key, technology) in gates)
+        {
+            Assert.Equal(technology, byKey[key].RequiredTechnology);
+        }
+
+        // Every gate names a technology the importer emits, so the whole table compiles.
+        var compiled = WorldContentCompiler.Compile(result.Document!);
+        Assert.Equal(30, compiled.World.ArmyTypes.Count);
+        var armor = compiled.World.ArmyTypes[21];
+        Assert.Equal("Armor", armor.Name);
+        Assert.Equal("Internal Combustion", compiled.World.Technologies[armor.RequiredTechnology!.Value.Value].Name);
+    }
+
+    [Fact]
     public void ImportedWorldsPriceConsulatesAndEmbassiesAtTheManualsFigures()
     {
         // "The overture costs you $500" and "The Embassy overture costs $5000"

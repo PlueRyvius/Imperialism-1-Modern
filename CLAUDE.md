@@ -34,6 +34,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | What the University charges for a civilian | `docs/formulas/university.md` |
 | What an overture costs, and what a war cuts | `docs/formulas/diplomacy.md` |
 | How a player changes what the network reaches | `docs/formulas/engineer.md` |
+| What a regiment costs, and how it marches or rides the rail | `docs/formulas/army.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
 | Does the economy hold up over 100 turns? | `docs/formulas/soak.md` |
@@ -692,7 +693,7 @@ happens to match our remembered depot cost. **Do not promote a candidate without
 selector.**
 
 Research *progress*, conflict, diplomacy, trade subsidies, sea routes
-between ports, blockade, moving regiments by rail, the
+between ports, blockade, land battles, the
 newspaper and fortifications remain explicitly pending. So does
 **whether a civilian's work costs cash generally** — the manual implies it does, and
 `docs/formulas/money.md` records the finding without acting on it, because pricing
@@ -836,6 +837,28 @@ effect **next turn**; ranking is by **subsidy alone** until relations exist; a d
 closes the posts **clears the policy** both ways; and the percentages are **5 and 10**, the
 tutorial's buttons, because the executable names none. **Mutual subsidies no longer net**:
 no deal can carry two, so that rule retired.
+
+`.iworld` **v32** puts **regiments** on the map: thirty `armyTypes` in the executable's
+order, a **`RegimentPurchaseOrder(category, count)`** resolved in `Production` after the
+University, and a **`RegimentMoveOrder(regiments, province)`** resolved in `Conflict` after
+the naval orders, so **no new phase**. **Every price and every category/era is the
+executable's** (`0x00695CD0`, `0x00695528`); the era technologies are the manual's
+Regimental Upgrade Requirement Table, and **the binary has no structured era gate** — but
+its `STR#ENU.GOB` technology effect strings name the same gates for every regular type,
+which settles the manual's "Rifled Guns" and "Heavy Guns" as Rifled Artillery and Large
+Artillery. Engineers, Saboteurs, Militia and Conscripts are gated by the manual alone. A
+category builds its best type **known as the turn opens**; each regiment takes **one healthy
+worker for good**, its bill and cash, all or nothing, and stands in the **capital's
+province from `Delivery`**, so it cannot move the turn it is bought. An adjacent own
+province is a **free march**; anything further is **rail**, needing one component of own
+rail and **five capacity per armaments point** from a budget of total capacity **separate
+from commodity transport** ("does not in itself use capacity already assigned"). Militia
+never leaves its province. **Eleven rules are chosen**, each labelled in
+`docs/formulas/army.md`; destination ownership read as the turn opens cannot be observed
+until something changes ownership mid-turn, and militia growth is not modelled. 6a fights
+nothing: battles, health, experience, fortifications and capture are 6b. The v31 migration
+adds no catalogue, so a migrated world buys, places and moves no regiments. No soak number
+moved.
 
 **Production spends labour: two per cycle, flat**, from one pool per country shared
 across every facility. The manual prices exactly one recipe — a unit of clothing

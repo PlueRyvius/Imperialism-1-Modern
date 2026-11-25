@@ -22,6 +22,8 @@ public sealed class CountryTurnOrders
     private readonly IReadOnlyList<CivilianUnitId> _civilianDisbands;
     private readonly IReadOnlyList<DiplomaticOverture> _overtures;
     private readonly IReadOnlyList<TradePolicyOrder> _tradePolicies;
+    private readonly IReadOnlyList<RegimentPurchaseOrder> _regimentPurchases;
+    private readonly IReadOnlyList<RegimentMoveOrder> _regimentMoves;
 
     public CountryTurnOrders(
         CountryId country,
@@ -44,7 +46,9 @@ public sealed class CountryTurnOrders
         IEnumerable<CivilianPurchaseOrder>? civilianPurchases = null,
         IEnumerable<CivilianUnitId>? civilianDisbands = null,
         IEnumerable<DiplomaticOverture>? overtures = null,
-        IEnumerable<TradePolicyOrder>? tradePolicies = null)
+        IEnumerable<TradePolicyOrder>? tradePolicies = null,
+        IEnumerable<RegimentPurchaseOrder>? regimentPurchases = null,
+        IEnumerable<RegimentMoveOrder>? regimentMoves = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(recruitWorkers);
         ArgumentOutOfRangeException.ThrowIfNegative(burnFuel);
@@ -181,8 +185,26 @@ public sealed class CountryTurnOrders
             throw new ArgumentOutOfRangeException(nameof(tradePolicies));
         }
 
+        // Kept as given, like the University's list: a count of zero or less, a category
+        // with nothing to buy and anything unaffordable are refused when the turn
+        // resolves. Only a category the Armoury has no row for is malformed.
+        var regimentPurchaseArray = regimentPurchases?.ToArray() ?? [];
+        if (regimentPurchaseArray.Any(static item => !Enum.IsDefined(item.Category)))
+        {
+            throw new ArgumentOutOfRangeException(nameof(regimentPurchases));
+        }
+
+        // Kept as given: every illegal move is refused with an event when it resolves.
+        var regimentMoveArray = regimentMoves?.ToArray() ?? [];
+        if (regimentMoveArray.Any(static item => item is null))
+        {
+            throw new ArgumentException("Regiment moves cannot contain null entries.", nameof(regimentMoves));
+        }
+
         Country = country;
         RecruitWorkers = recruitWorkers;
+        _regimentPurchases = Array.AsReadOnly(regimentPurchaseArray);
+        _regimentMoves = Array.AsReadOnly(regimentMoveArray);
         _tradePolicies = Array.AsReadOnly(policyArray);
         _civilianPurchases = Array.AsReadOnly(purchaseArray);
         _overtures = Array.AsReadOnly(overtureArray);
@@ -362,6 +384,55 @@ public sealed class CountryTurnOrders
     /// and is first felt by next turn's market. See <c>docs/formulas/diplomacy.md</c>.
     /// </remarks>
     public IReadOnlyList<TradePolicyOrder> TradePolicies => _tradePolicies;
+
+    /// <summary>
+    /// Regiments to order at the Armoury this turn, in the order they are paid for.
+    /// </summary>
+    /// <remarks>
+    /// Resolved in <c>Production</c>, after the University and before any recipe. Each
+    /// entry is all or nothing, a refused entry does not stop later ones, and a category
+    /// may be named more than once. The workers leave the workforce at once; the
+    /// regiments stand in the capital's province from <c>Delivery</c>. See
+    /// <c>docs/formulas/army.md</c>.
+    /// </remarks>
+    public IReadOnlyList<RegimentPurchaseOrder> RegimentPurchases => _regimentPurchases;
+
+    /// <summary>
+    /// Regiments to march or send by rail this turn, in list order.
+    /// </summary>
+    /// <remarks>
+    /// Resolved in <c>Conflict</c> after the naval orders. Each order is all or nothing,
+    /// and a regiment moves at most once a turn. See <c>docs/formulas/army.md</c>.
+    /// </remarks>
+    public IReadOnlyList<RegimentMoveOrder> RegimentMoves => _regimentMoves;
+}
+
+/// <summary>
+/// One Armoury order: build this many regiments of a category. The category resolves
+/// to its best type known as the turn opens.
+/// </summary>
+/// <remarks>
+/// The count is not checked here; zero or less is refused when the turn resolves.
+/// </remarks>
+public readonly record struct RegimentPurchaseOrder(ArmyCategory Category, long Count);
+
+/// <summary>
+/// One deployment: these regiments, all standing in one province, to that province.
+/// An adjacent destination is a march; any other is a rail move.
+/// </summary>
+public sealed record RegimentMoveOrder
+{
+    public RegimentMoveOrder(IEnumerable<RegimentId> regiments, ProvinceId destination)
+    {
+        ArgumentNullException.ThrowIfNull(regiments);
+        Regiments = Array.AsReadOnly(regiments.ToArray());
+        Destination = destination;
+    }
+
+    /// <summary>The regiments to move, kept as given; a repeat or an empty list is refused when it resolves.</summary>
+    public IReadOnlyList<RegimentId> Regiments { get; }
+
+    public ProvinceId Destination { get; }
 }
 
 /// <summary>

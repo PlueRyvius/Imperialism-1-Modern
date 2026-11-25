@@ -9,6 +9,8 @@ public sealed class WorldDefinition
     private readonly IReadOnlyList<TechnologyDefinition> _technologies;
     private readonly IReadOnlyList<CivilianTypeDefinition> _civilianTypes;
     private readonly IReadOnlyList<ShipTypeDefinition> _shipTypes;
+    private readonly IReadOnlyList<ArmyTypeDefinition> _armyTypes;
+    private ProvinceAdjacency? _provinceAdjacency;
 
     public WorldDefinition(
         MapDefinition map,
@@ -31,7 +33,8 @@ public sealed class WorldDefinition
         ITradeMarket? trade = null,
         WorkerTrainingSettings? workerTraining = null,
         PowerSettings? power = null,
-        DiplomacySettings? diplomacy = null)
+        DiplomacySettings? diplomacy = null,
+        IEnumerable<ArmyTypeDefinition>? armyTypes = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
@@ -67,6 +70,23 @@ public sealed class WorldDefinition
                     $"Modern ship type IDs must be dense and ordered; expected {index}, " +
                     $"got {shipTypeArray[index].Id.Value}.",
                     nameof(shipTypes));
+            }
+        }
+
+        var armyTypeArray = armyTypes?.ToArray() ?? [];
+        if (armyTypeArray.Any(static type => type is null))
+        {
+            throw new ArgumentException("Army types cannot contain null entries.", nameof(armyTypes));
+        }
+
+        for (var index = 0; index < armyTypeArray.Length; index++)
+        {
+            if (armyTypeArray[index].Id.Value != index)
+            {
+                throw new ArgumentException(
+                    $"Modern army type IDs must be dense and ordered; expected {index}, " +
+                    $"got {armyTypeArray[index].Id.Value}.",
+                    nameof(armyTypes));
             }
         }
 
@@ -233,6 +253,25 @@ public sealed class WorldDefinition
                 throw new ArgumentException(
                     $"Civilian type {civilianType.Id.Value} requires missing technology {required.Value}.",
                     nameof(civilianTypes));
+            }
+        }
+
+        foreach (var armyType in armyTypeArray)
+        {
+            if (armyType.RequiredTechnology is { } required &&
+                (uint)required.Value >= (uint)technologyArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Army type {armyType.Id.Value} requires missing technology {required.Value}.",
+                    nameof(armyTypes));
+            }
+
+            if (armyType.Purchase is { } purchase &&
+                purchase.Bill.Any(item => (uint)item.Commodity.Value >= (uint)commodityArray.Length))
+            {
+                throw new ArgumentException(
+                    $"Army type {armyType.Id.Value} is priced in a missing commodity.",
+                    nameof(armyTypes));
             }
         }
 
@@ -531,6 +570,15 @@ public sealed class WorldDefinition
             }
 
             ArgumentOutOfRangeException.ThrowIfNegative(army.Experience);
+
+            // A world without a catalogue keeps its army records inert, exactly as
+            // every world did before version 32; once one exists every record names it.
+            if (armyTypeArray.Length > 0 && (uint)army.Type.Value >= (uint)armyTypeArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Initial army refers to missing army type {army.Type.Value}.",
+                    nameof(scenario));
+            }
         }
 
         foreach (var ship in startingDefaults?.Ships ?? [])
@@ -590,6 +638,7 @@ public sealed class WorldDefinition
         _technologies = Array.AsReadOnly(technologyArray);
         _civilianTypes = Array.AsReadOnly(civilianTypeArray);
         _shipTypes = Array.AsReadOnly(shipTypeArray);
+        _armyTypes = Array.AsReadOnly(armyTypeArray);
         _countries = Array.AsReadOnly(countryArray);
         _commodities = Array.AsReadOnly(commodityArray);
         _productionFacilities = Array.AsReadOnly(facilityArray);
@@ -624,6 +673,16 @@ public sealed class WorldDefinition
     /// before version 20.
     /// </summary>
     public IReadOnlyList<ShipTypeDefinition> ShipTypes => _shipTypes;
+
+    /// <summary>
+    /// The executable's army table, in its order, or empty where the world has no
+    /// regiments — which is how every world behaved before version 32. Empty also leaves
+    /// a scenario's <c>army</c> records inert: nothing is placed on the map.
+    /// </summary>
+    public IReadOnlyList<ArmyTypeDefinition> ArmyTypes => _armyTypes;
+
+    /// <summary>Which provinces border which, derived from the map on first use and cached.</summary>
+    public ProvinceAdjacency ProvinceAdjacency => _provinceAdjacency ??= new ProvinceAdjacency(Map);
 
     /// <summary>
     /// How this world's prices answer to supply and demand, or null where prices never
@@ -799,6 +858,9 @@ public sealed class WorldState
     private readonly Dictionary<CivilianUnitId, CivilianUnit> _civilians = [];
     private long _nextDeliveryId = 1;
     private long _nextCivilianId = 1;
+    private readonly Dictionary<RegimentId, Regiment> _regiments = [];
+    private readonly List<InitialArmy> _unplacedInitialArmies = [];
+    private long _nextRegimentId = 1;
     private short _relationSequence;
 
     public WorldState(WorldDefinition definition)
@@ -1056,6 +1118,90 @@ public sealed class WorldState
         {
             _ = CreateCivilian(civilian.Country, civilian.Type, civilian.Cell);
         }
+
+        // Each authored regiment belongs to whoever owns its province as the world
+        // opens. A record on unowned ground has nobody to belong to; it is set aside
+        // and reported rather than thrown, because an authored mission is not a bug.
+        // Without a catalogue the records stay inert, as they were before version 32.
+        if (definition.ArmyTypes.Count > 0)
+        {
+            foreach (var army in definition.Scenario.InitialArmies)
+            {
+                if (_provinceOwners[army.Province.Value] is { } owner)
+                {
+                    _ = CreateRegiment(owner, army.Province, army.Type, army.Experience);
+                }
+                else
+                {
+                    _unplacedInitialArmies.Add(army);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Authored <c>army</c> records skipped at world creation because their province had
+    /// no owner — the warning the blueprint asks for, kept where a caller can count it.
+    /// </summary>
+    public IReadOnlyList<InitialArmy> UnplacedInitialArmies => _unplacedInitialArmies.AsReadOnly();
+
+    /// <summary>
+    /// Puts a new regiment on the map and issues it an id. Ids are never reused.
+    /// </summary>
+    public RegimentId CreateRegiment(CountryId owner, ProvinceId province, ArmyTypeId type, long experience = 0)
+    {
+        ValidateCountry(owner);
+        if ((uint)province.Value >= (uint)Definition.Map.Provinces.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(province));
+        }
+
+        if ((uint)type.Value >= (uint)Definition.ArmyTypes.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(type));
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegative(experience);
+        var id = new RegimentId(_nextRegimentId);
+        _nextRegimentId = checked(_nextRegimentId + 1);
+        _regiments[id] = new Regiment(id, owner, province, type, experience);
+        return id;
+    }
+
+    public Regiment? GetRegiment(RegimentId regiment) =>
+        _regiments.TryGetValue(regiment, out var value) ? value : null;
+
+    /// <summary>Every regiment on the map, oldest first.</summary>
+    public IReadOnlyList<Regiment> GetRegiments() => Array.AsReadOnly(_regiments.Values
+        .OrderBy(static regiment => regiment.Id.Value)
+        .ToArray());
+
+    public IReadOnlyList<Regiment> GetRegiments(CountryId owner)
+    {
+        ValidateCountry(owner);
+        return Array.AsReadOnly(_regiments.Values
+            .Where(regiment => regiment.Owner == owner)
+            .OrderBy(static regiment => regiment.Id.Value)
+            .ToArray());
+    }
+
+    /// <summary>
+    /// Moves a regiment. Legality belongs to the phase that issues the order; this is
+    /// the primitive it commits through.
+    /// </summary>
+    internal void MoveRegiment(RegimentId regiment, ProvinceId province)
+    {
+        if (!_regiments.TryGetValue(regiment, out var value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(regiment), $"No regiment {regiment} exists.");
+        }
+
+        if ((uint)province.Value >= (uint)Definition.Map.Provinces.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(province));
+        }
+
+        _regiments[regiment] = value with { Province = province };
     }
 
     public WorldDefinition Definition { get; }

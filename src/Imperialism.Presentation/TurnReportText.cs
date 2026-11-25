@@ -219,6 +219,50 @@ public static class TurnReportText
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 
+    public static string Describe(RegimentPurchaseRefusal reason) => reason switch
+    {
+        RegimentPurchaseRefusal.NonPositiveCount => "an order must ask for at least one regiment",
+        RegimentPurchaseRefusal.NotPurchasable => "the Armoury builds nothing of that kind",
+        RegimentPurchaseRefusal.NoCapital => "there is no capital to muster them in",
+        RegimentPurchaseRefusal.NotEnoughWorkers => "it has fewer healthy workers of the grade than they cost",
+        RegimentPurchaseRefusal.NotEnoughCommodities => "the warehouse does not hold the whole bill",
+        RegimentPurchaseRefusal.NotEnoughCash => "the treasury will not cover it",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason)),
+    };
+
+    public static string Describe(RegimentMoveRefusal reason) => reason switch
+    {
+        RegimentMoveRefusal.NoRegiments => "the order names no regiments",
+        RegimentMoveRefusal.DuplicateRegiment => "the order names a regiment twice",
+        RegimentMoveRefusal.NoSuchRegiment => "no regiment carries that id",
+        RegimentMoveRefusal.NotYours => "a regiment named belongs to another country",
+        RegimentMoveRefusal.AlreadyMoved => "a regiment named has already moved this turn",
+        RegimentMoveRefusal.NotTogether => "the regiments named do not stand in one province",
+        RegimentMoveRefusal.CannotLeaveProvince => "militia cannot be ordered out of its home province",
+        RegimentMoveRefusal.UnknownProvince => "no such province exists",
+        RegimentMoveRefusal.SameProvince => "they are already there",
+        RegimentMoveRefusal.NotOwnProvince => "the province was not ours as the turn began",
+        RegimentMoveRefusal.NotConnectedByRail => "it is not next door and no line of our own rail joins the two",
+        RegimentMoveRefusal.CannotMoveByRail => "a regiment named cannot travel by rail",
+        RegimentMoveRefusal.NotEnoughRailCapacity => "the railways cannot carry that many armaments this turn",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason)),
+    };
+
+    public static string Describe(ArmyCategory category) => category switch
+    {
+        ArmyCategory.Militia => "militia",
+        ArmyCategory.LightInfantry => "light infantry",
+        ArmyCategory.RegularInfantry => "regular infantry",
+        ArmyCategory.HeavyInfantry => "heavy infantry",
+        ArmyCategory.LightCavalry => "light cavalry",
+        ArmyCategory.HeavyCavalry => "heavy cavalry",
+        ArmyCategory.LightArtillery => "light artillery",
+        ArmyCategory.HeavyArtillery => "heavy artillery",
+        ArmyCategory.CombatEngineers => "combat engineers",
+        ArmyCategory.General => "generals",
+        _ => throw new ArgumentOutOfRangeException(nameof(category)),
+    };
+
     public static string Describe(WorkerGrade grade) => grade switch
     {
         WorkerGrade.Untrained => "untrained",

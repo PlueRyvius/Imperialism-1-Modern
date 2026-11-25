@@ -120,9 +120,89 @@ public sealed class WorldContentDocument
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DiplomacyContentSettings? Diplomacy { get; set; }
 
+    /// <summary>
+    /// The executable's thirty-entry army table, in its order, or absent where the world
+    /// has no regiments — which is how every world behaved before version 32. A scenario
+    /// <c>army</c> record's 0-based type indexes it.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ArmyTypeContentDefinition[]? ArmyTypes { get; set; }
+
     public CountryContentDefinition[] Countries { get; set; } = [];
 
     public ScenarioContentDocument[] Scenarios { get; set; } = [];
+}
+
+/// <summary>
+/// One regiment type: its Armoury category and era, what opens it, what it costs, how it
+/// may move and what it does in a fight. See <c>docs/formulas/army.md</c>.
+/// </summary>
+public sealed class ArmyTypeContentDefinition
+{
+    public string Key { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// <c>militia</c>, <c>lightInfantry</c>, <c>regularInfantry</c>, <c>heavyInfantry</c>,
+    /// <c>lightCavalry</c>, <c>heavyCavalry</c>, <c>lightArtillery</c>,
+    /// <c>heavyArtillery</c>, <c>combatEngineers</c> or <c>general</c>.
+    /// </summary>
+    public ArmyCategory Category { get; set; }
+
+    /// <summary>1 to 3.</summary>
+    public int Era { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequiredTechnology { get; set; }
+
+    /// <summary>What the Armoury charges, or absent where it never builds the type.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ArmyPurchaseContent? Purchase { get; set; }
+
+    /// <summary>The ARMS column: rail cost at five capacity points apiece. Absent for militia and Generals.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Arms { get; set; }
+
+    public bool MovesByRail { get; set; } = true;
+
+    public bool LeavesProvince { get; set; } = true;
+
+    /// <summary>Fighting numbers, recorded and read by nothing.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ArmyStatsContent? Stats { get; set; }
+}
+
+/// <summary>The Armoury's price for one regiment: a worker, a bill and cash.</summary>
+public sealed class ArmyPurchaseContent
+{
+    public WorkerGrade WorkerGrade { get; set; }
+
+    public CommodityQuantityContent[] Bill { get; set; } = [];
+
+    public long Cash { get; set; }
+}
+
+/// <summary>The manual's Regiment Abilities row, with the executable winning where they disagree.</summary>
+public sealed class ArmyStatsContent
+{
+    public decimal FirepowerVsInfantry { get; set; }
+
+    public decimal FirepowerVsMounted { get; set; }
+
+    public long Range { get; set; }
+
+    /// <summary>An artillery type's parenthesised range when defending.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? DefendingRange { get; set; }
+
+    public long Defence { get; set; }
+
+    /// <summary>The parenthesised entrenched defence; absent for cavalry, which has none.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? EntrenchedDefence { get; set; }
+
+    public long Movement { get; set; }
 }
 
 /// <summary>

@@ -200,6 +200,23 @@ that carries the field is rejected at `diplomacy.subsidyPercents`. Legacy conver
 the tutorial's `[5, 10]` (manual lines 5121–5126), a chosen set: the executable names no
 subsidy level. See the trade-policy section of `docs/formulas/diplomacy.md`.
 
+Version 32 adds an optional world-level `armyTypes` array, **in the executable's order**,
+since a scenario `army` record's 0-based `type` indexes it. Each row has a `key`, a `name`,
+a `category` (`militia`, `lightInfantry`, `regularInfantry`, `heavyInfantry`,
+`lightCavalry`, `heavyCavalry`, `lightArtillery`, `heavyArtillery`, `combatEngineers` or
+`general`), an `era` from 1 to 3, an optional `requiredTechnology`, an optional `purchase`
+`{workerGrade, bill, cash}` (absent where the Armoury never builds the type), an optional
+`arms`, `movesByRail` and `leavesProvince` (both default true), and optional `stats`
+`{firepowerVsInfantry, firepowerVsMounted, range, defendingRange?, defence,
+entrenchedDefence?, movement}`, recorded and read by nothing. Errors are reported at
+`armyTypes[i]`, `armyTypes[i].purchase.bill[j]` and `armyTypes[i].requiredTechnology`.
+**Absent means no Armoury**: a version 31 package migrates with none, so it buys no
+regiments, places none of its `army` records and moves nothing; a version 31 document that
+carries the array is rejected at `armyTypes`. When a catalogue is present, every scenario
+`army` record must name a row of it (`scenarios[i].armies[j].type`). Legacy conversion
+emits all thirty rows from the executable's purchase and role-slot tables, with the
+manual's era technologies and Regiment Abilities. See `docs/formulas/army.md`.
+
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the

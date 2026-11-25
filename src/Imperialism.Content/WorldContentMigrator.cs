@@ -161,6 +161,11 @@ internal static class WorldContentMigrator
             MigrateVersionThirtyToThirtyOne(document);
         }
 
+        if (document.FormatVersion == 31)
+        {
+            MigrateVersionThirtyOneToThirtyTwo(document);
+        }
+
         if (document.FormatVersion == WorldContentCodec.CurrentVersion)
         {
             RejectLegacyArmyCount(document);
@@ -1224,6 +1229,21 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 31;
+    }
+
+    /// <summary>
+    /// Version 32 adds the army table. A migrated world gets none, so it buys no
+    /// regiments, moves none, and its authored <c>army</c> records stay inert — exactly
+    /// how it behaved at version 31.
+    /// </summary>
+    private static void MigrateVersionThirtyOneToThirtyTwo(WorldContentDocument document)
+    {
+        if (document.ArmyTypes is not null)
+        {
+            throw new ContentValidationException("armyTypes", "Version 31 cannot declare army types.");
+        }
+
+        document.FormatVersion = 32;
     }
 
     private static void RejectLegacyArmyCount(WorldContentDocument document)
