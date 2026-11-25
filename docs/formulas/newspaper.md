@@ -41,8 +41,8 @@ screen, so there is nothing to invest in. Tests: `TechnologyAvailableEventTests`
 Headlines, in priority order:
 
 1. `TechnologyAvailableEvent`: "New Invention", the manual's own title. The body is
-   the technology's name, because content carries no description of what an
-   invention does.
+   the paper's own sentence around the technology's name ("Word arrives of a new
+   invention: …"), because content carries no description of what an invention does.
 2. `CountryEliminatedEvent`.
 3. `WarDeclaredEvent`, and peace accepted (`DiplomaticOvertureAcceptedEvent` of kind
    `Peace`).
@@ -50,7 +50,7 @@ Headlines, in priority order:
 5. `NavalBattleFoughtEvent`, `RegimentsLandedEvent`, `BattleFoughtEvent`.
 6. `MerchantInterceptedEvent`.
 7. Warnings to the reader: a `WorkersFedEvent` with workers sick or starved,
-   `CivilianDeliveryLostEvent`, `RegimentDeliveryLostEvent`,
+   `CivilianDeliveryLostEvent`, `RegimentDeliveryLostEvent`, `ShipDeliveryLostEvent`,
    `DiplomaticTiesCutEvent`.
 
 Items, the "doings of the little people": `WorldPriceChangedEvent`, a
@@ -59,8 +59,9 @@ Items, the "doings of the little people": `WorldPriceChangedEvent`, a
 by any Great Power, and `ConstructionCompletedEvent`.
 
 A story's body is the turn report's own sentence for the same event, so names and
-numbers are formatted in one place. A hunger story carries only the report's loss
-line. The masthead, "The *reader* Gazette", is a placeholder.
+numbers are formatted in one place, with two exceptions: the New Invention headline
+and the quiet quarter's fixed item carry the paper's own text. A hunger story carries
+only the report's loss line. The masthead, "The *reader* Gazette", is a placeholder.
 
 **N3 — who reads what.** Inventions, eliminations, war, peace and captures go to
 every reader. A naval battle appears if a Great Power fought it or the reader did.

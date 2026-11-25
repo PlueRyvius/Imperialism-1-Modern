@@ -20,6 +20,7 @@ public enum NewspaperStoryKind : byte
     Hunger,
     CiviliansLost,
     RegimentsLost,
+    ShipsLost,
     TiesCut,
 
     // ---- Items: "the newsworthy doings of the little people" ----
@@ -262,6 +263,8 @@ public sealed class NewspaperView
                 7, NewspaperStoryKind.CiviliansLost, NewspaperText.CiviliansLost(), Body(lost)),
             RegimentDeliveryLostEvent lost when IsParty(lost.Country) => Headline(
                 7, NewspaperStoryKind.RegimentsLost, NewspaperText.RegimentsLost(), Body(lost)),
+            ShipDeliveryLostEvent lost when IsParty(lost.Country) => Headline(
+                7, NewspaperStoryKind.ShipsLost, NewspaperText.ShipsLost(), Body(lost)),
             DiplomaticTiesCutEvent cut when IsParty(cut.Country, cut.Target) => Headline(
                 7,
                 NewspaperStoryKind.TiesCut,

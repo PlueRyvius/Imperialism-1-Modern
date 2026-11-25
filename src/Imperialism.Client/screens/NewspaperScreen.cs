@@ -61,7 +61,7 @@ public sealed partial class NewspaperScreen : Control
             {
                 ThemeTypeVariation = "ImperialismQuiet",
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
-                Text = $"and {paper.StoriesOmitted} more stories",
+                Text = NewspaperText.MoreStories(paper.StoriesOmitted),
             });
         }
 

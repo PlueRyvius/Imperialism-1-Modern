@@ -54,6 +54,12 @@ public static class NewspaperText
 
     public static string RegimentsLost() => "Regiments Lost for Want of a Capital";
 
+    public static string ShipsLost() => "Ships Lost for Want of a Capital";
+
+    /// <summary>The line under a full paper counting what the cap left out.</summary>
+    public static string MoreStories(int omitted) =>
+        omitted == 1 ? "and 1 more story" : $"and {omitted} more stories";
+
     public static string TiesCut(string country, string target) =>
         $"Ties Cut Between {country} and {target}";
 
