@@ -217,8 +217,8 @@ public sealed record FacilityExpansionRefusedEvent : TurnEvent
 }
 
 /// <summary>
-/// Records ships the Shipyard built. They were counted at the end of Construction, so
-/// they add their holds to the merchant marine from next turn's trade.
+/// Records ships the Shipyard delivered. They add their holds to the merchant marine
+/// from next turn's trade.
 /// </summary>
 public sealed record ShipsBuiltEvent : TurnEvent
 {
@@ -230,8 +230,9 @@ public sealed record ShipsBuiltEvent : TurnEvent
         ShipTypeId type,
         long count,
         FleetId fleet,
-        IEnumerable<CommodityQuantity> paid)
-        : base(turnNumber, TurnPhase.Construction)
+        IEnumerable<CommodityQuantity> paid,
+        SeaZoneId? seaZone = null)
+        : base(turnNumber, TurnPhase.Delivery)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
         ArgumentNullException.ThrowIfNull(paid);
@@ -239,6 +240,7 @@ public sealed record ShipsBuiltEvent : TurnEvent
         Type = type;
         Count = count;
         Fleet = fleet;
+        SeaZone = seaZone;
         _paid = Array.AsReadOnly(paid.ToArray());
     }
 
@@ -250,6 +252,9 @@ public sealed record ShipsBuiltEvent : TurnEvent
 
     /// <summary>The fleet the new ships joined or started.</summary>
     public FleetId Fleet { get; }
+
+    /// <summary>The delivery sea zone, or null when the fleet remains unplaced.</summary>
+    public SeaZoneId? SeaZone { get; }
 
     /// <summary>The whole bill, for every hull in the order. Never cash.</summary>
     public IReadOnlyList<CommodityQuantity> Paid => _paid;

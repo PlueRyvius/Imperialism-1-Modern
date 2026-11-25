@@ -742,17 +742,21 @@ committed in `Construction`: it charges the hull's bill once per hull and **spen
 labour and no cash** — "ships do not require workers", and no bill names cash. A hull with
 an unknown technology is refused before it is priced, against knowledge as the turn opens.
 Affordability is checked by division, so an overflowing count is refused, never thrown.
-**Delivery is at the end of `Construction`, after `Trade`**, so a merchant's holds first
-count in next turn's market — the manual's "at the start of the next turn", arrived at by
-phase order. Eight chosen rules, each labelled in `docs/formulas/shipbuilding.md`: an order
+Successful shipbuilding orders are paid in `Construction` and delivered in `Delivery`,
+after `Trade` and `Conflict`, so merchant holds count in next turn's market. This delivery
+timing is a **chosen rule following** the manual's "at the start of the next turn".
+Chosen rules, each labelled in `docs/formulas/shipbuilding.md`: an order
 is **all or nothing**, and **a refused order does not stop later ones**; a class **may repeat**
-in one turn's orders, each entry standing alone; the Shipyard is paid **after production,
-facility expansion and the railyard, and before Capitol recruitment and the market**, so a
-hull's materials cannot also be sold; new ships are **unplaced and in no task force**,
-because the capital's sea zone is not modelled; they **merge into the first unplaced,
-unassembled fleet** of their class or start one with the next dense `FleetId`; there is
-**no cap but materials**; and a hull with an **empty bill builds free** (no imported hull
-has one). No soak number moved.
+in one turn's orders, each entry standing alone; its inputs are reserved before `Trade`,
+after production, facility expansion and the railyard, so hull materials cannot also be
+sold; payment commits in `Construction`, before Capitol recruitment; merchant hulls
+(Trader, Indiaman, Paddlewheeler, Clipper and Freighter) stay **unplaced and in no task
+force**, while warships are delivered to the capital's lowest-id adjacent sea zone; with
+no capital or adjacent sea zone, they stay unplaced; merchants merge into the first
+unplaced unassembled fleet of their class, and warships into the first unassembled fleet
+of their class in that zone, or start one with the next dense `FleetId`; there is **no
+cap but materials**; and a hull with an **empty bill builds free** (no imported hull has
+one). No soak number moved.
 **One gap is open in content, not code**: the importer gates only the three hulls the
 executable's naval table gates, so an imported power can build an Ironclad or a Freighter
 from 1816 although the manual's technology table gates both.
@@ -777,8 +781,9 @@ not restamped**, so a mutual declaration counts once, for the lower id; and **on
 records** are assembled. A move beyond the slowest hull's reach, or to a zone no sea path
 reaches, is **refused** — the manual's, not chosen: "you cannot move the f leet that far in one
 turn" (lines 1916–1917). PR #35's planner still trims a long leg for direct callers; the order
-never reaches it. New ships stay unplaced, so they cannot be assembled yet. No soak
-number moved.
+never reaches it. Merchant ships stay unplaced, and a warship without a capital-adjacent
+sea zone does too; a warship delivered into a sea zone can be assembled on the next turn.
+No soak number moved.
 
 `.iworld` **v29** opens the **University**: a civilian type may carry a `purchase` block,
 and a country may buy civilians and disband them. A `CivilianPurchaseOrder(type, count)`
