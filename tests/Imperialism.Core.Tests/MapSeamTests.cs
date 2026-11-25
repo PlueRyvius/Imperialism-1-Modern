@@ -12,8 +12,8 @@ namespace Imperialism.Core.Tests;
 /// Port access is measured through the deposit on the port's own tile: with a
 /// catchment radius of zero, that tile is collected only if the port itself is
 /// a collection point, so the count moves exactly with whether access was
-/// granted. Fishing-port counts cannot discriminate here because fishing water
-/// is counted on the unwrapped grid either way.
+/// granted. Fishing goes through the same seam rule (issue #40), so fishing
+/// counts discriminate too; the fishing tests below check that directly.
 /// </remarks>
 public sealed class MapSeamTests
 {
@@ -54,6 +54,110 @@ public sealed class MapSeamTests
         Assert.Equal(expectedStrandedCells, extraction.StrandedCellCount);
     }
 
+    [Theory]
+    [InlineData(true, 2)]
+    [InlineData(false, 1)]
+    public void APortFishesWaterAcrossTheEdgeOnlyWhereTheMapHasASeam(
+        bool wrapsHorizontally,
+        int expectedFishingPorts)
+    {
+        // The capital fishes the river on cell 0 either way. The port on cell 0
+        // has no water on its own side, so it fishes only if the sea on cell 3
+        // counts as its neighbour.
+        var state = CreateState(wrapsHorizontally);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(1), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(expectedFishingPorts, extraction.FishingPortCount);
+        Assert.Equal(0, extraction.StrandedPortCount);
+    }
+
+    [Theory]
+    [InlineData(true, 1, 0)]
+    [InlineData(false, 0, 1)]
+    public void ACatchmentReachesAcrossTheEdgeOnlyWhereTheMapHasASeam(
+        bool wrapsHorizontally,
+        int expectedCollectedCells,
+        int expectedStrandedCells)
+    {
+        // The capital sits on column 0 with a radius of one; the only deposit
+        // is on the last column, one step west across the edge.
+        var state = CreateCatchmentState(wrapsHorizontally);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(1), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(expectedCollectedCells, extraction.CollectedCellCount);
+        Assert.Equal(expectedStrandedCells, extraction.StrandedCellCount);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ARailLinkAcrossTheEdgeIsAdjacentOnlyWhereTheMapHasASeam(bool wrapsHorizontally)
+    {
+        // Cells 0 and 3 are the first and last columns of a 4x1 map: one step
+        // apart across the seam, three along the row.
+        var state = CreateCatchmentState(wrapsHorizontally);
+        var across = new CellLink(new CellIndex(0), new CellIndex(3));
+
+        Assert.Equal(wrapsHorizontally, state.Definition.Map.AreAdjacent(across.First, across.Second));
+        if (wrapsHorizontally)
+        {
+            Assert.True(state.BuildRail(across));
+            Assert.True(state.HasRail(across));
+        }
+        else
+        {
+            Assert.Throws<ArgumentException>(() => state.BuildRail(across));
+        }
+    }
+
+    [Theory]
+    [InlineData(true, null)]
+    [InlineData(false, CivilianOrderRefusal.RailNeedsAnAdjacentTile)]
+    public void AnEngineerLaysRailAcrossTheEdgeOnlyWhereTheMapHasASeam(
+        bool wrapsHorizontally,
+        CivilianOrderRefusal? expectedRefusal)
+    {
+        // The Engineer stands on cell 0; cell 3 is its west neighbour only
+        // across the seam.
+        var state = CreateEngineerState(wrapsHorizontally, seaAtLastColumn: false);
+
+        var ordered = ResolveBuild(state, 3, EngineerConstruction.Rail);
+        _ = TurnResolver.Resolve(state, TurnOrders.Empty(1), 0);
+
+        Assert.Equal(
+            expectedRefusal,
+            ordered.Events.OfType<CivilianOrderRefusedEvent>().SingleOrDefault()?.Reason);
+        Assert.Equal(
+            wrapsHorizontally,
+            state.HasRail(new CellLink(new CellIndex(0), new CellIndex(3))));
+    }
+
+    [Theory]
+    [InlineData(true, null)]
+    [InlineData(false, CivilianOrderRefusal.PortNeedsWater)]
+    public void AnEngineerBuildsAPortOnWaterAcrossTheEdgeOnlyWhereTheMapHasASeam(
+        bool wrapsHorizontally,
+        CivilianOrderRefusal? expectedRefusal)
+    {
+        // Cell 0 has no river and no water on its own side; the sea on cell 3
+        // is its neighbour only across the seam.
+        var state = CreateEngineerState(wrapsHorizontally, seaAtLastColumn: true);
+
+        var ordered = ResolveBuild(state, 0, EngineerConstruction.Port);
+        _ = TurnResolver.Resolve(state, TurnOrders.Empty(1), 0);
+
+        Assert.Equal(
+            expectedRefusal,
+            ordered.Events.OfType<CivilianOrderRefusedEvent>().SingleOrDefault()?.Reason);
+        Assert.Equal(wrapsHorizontally, state.HasPort(new CellIndex(0)));
+    }
+
     [Fact]
     public void SeaTopologyNeighbourListsCannotBeWrittenThrough()
     {
@@ -63,6 +167,158 @@ public sealed class MapSeamTests
         Assert.IsNotType<SeaZoneId[]>(neighbours);
         Assert.Throws<NotSupportedException>(() =>
             ((IList<SeaZoneId>)neighbours).Add(new SeaZoneId(0)));
+    }
+
+    [Theory]
+    [InlineData(2, false, 1)]
+    [InlineData(2, true, 1)]
+    [InlineData(4, false, 1)]
+    [InlineData(4, true, 2)]
+    public void ACapitalFishesEachAdjacentWaterTileOnceHoweverManyDirectionsReachIt(
+        int width,
+        bool wrapsHorizontally,
+        int expectedFish)
+    {
+        // One row: the capital on column 0 and water everywhere else. At width
+        // 2 with a seam, east and west both reach column 1 — one tile, not two.
+        // At width 4 with a seam, west reaches column 3, a second tile.
+        var state = CreateNarrowState(
+            width,
+            height: 1,
+            wrapsHorizontally,
+            index => index != 0,
+            capitalRiver: null,
+            depositOn: static _ => false,
+            catchmentRadius: 0);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(1), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(
+            new CommodityQuantity(new CommodityId(Fish), expectedFish),
+            Assert.Single(extraction.Collected));
+    }
+
+    [Fact]
+    public void ACapitalOnAOneColumnMapFishesTheWaterBelowItOnce()
+    {
+        // At width 1 south-east and south-west are the same tile, and east and
+        // west are the capital itself. Its own river is not a neighbour.
+        var state = CreateNarrowState(
+            width: 1,
+            height: 2,
+            wrapsHorizontally: true,
+            static index => index == 1,
+            new RiverPath(RiverEndpoint.EastUpper, RiverEndpoint.Source),
+            depositOn: static _ => false,
+            catchmentRadius: 0);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(1), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(
+            new CommodityQuantity(new CommodityId(Fish), 1),
+            Assert.Single(extraction.Collected));
+    }
+
+    [Fact]
+    public void ACapitalNeverFishesTheRiverOnItsOwnTile()
+    {
+        // A single wrapping cell is every one of its own east/west neighbours.
+        var state = CreateNarrowState(
+            width: 1,
+            height: 1,
+            wrapsHorizontally: true,
+            static _ => false,
+            new RiverPath(RiverEndpoint.EastUpper, RiverEndpoint.Source),
+            depositOn: static _ => false,
+            catchmentRadius: 0);
+
+        // A country that gathers nothing reports no extraction at all.
+        Assert.Empty(
+            TurnResolver.Resolve(state, TurnOrders.Empty(1), 0)
+                .Events.OfType<ResourceExtractedEvent>()
+                .SelectMany(static extraction => extraction.Collected));
+    }
+
+    [Theory]
+    [InlineData(2, 1)]
+    [InlineData(1, 2)]
+    public void ACatchmentCollectsEachTileOnceOnANarrowWrappingMap(int width, int height)
+    {
+        // Every land tile carries a deposit and the capital gathers radius one,
+        // which on these maps covers the whole world: two tiles, two units,
+        // however many directions reach the second one.
+        var state = CreateNarrowState(
+            width,
+            height,
+            wrapsHorizontally: true,
+            static _ => false,
+            capitalRiver: null,
+            depositOn: static _ => true,
+            catchmentRadius: 1);
+
+        var extraction = Assert.Single(
+            TurnResolver.Resolve(state, TurnOrders.Empty(1), 0)
+                .Events.OfType<ResourceExtractedEvent>());
+
+        Assert.Equal(2, extraction.CollectedCellCount);
+        Assert.Equal(
+            new CommodityQuantity(new CommodityId(Fish), 2),
+            Assert.Single(extraction.Collected));
+    }
+
+    private static WorldState CreateNarrowState(
+        int width,
+        int height,
+        bool wrapsHorizontally,
+        Func<int, bool> isWater,
+        RiverPath? capitalRiver,
+        Func<int, bool> depositOn,
+        int catchmentRadius)
+    {
+        var dimensions = new MapDimensions(width, height);
+        var count = width * height;
+        var cells = new CellDefinition[count];
+        for (var index = 0; index < count; index++)
+        {
+            var water = isWater(index);
+            cells[index] = new CellDefinition(
+                new CellIndex(index),
+                dimensions.GetCoordinate(new CellIndex(index)),
+                new TerrainId(0),
+                water
+                    ? CellRegion.ForSeaZone(new SeaZoneId(0))
+                    : CellRegion.ForProvince(new ProvinceId(0)),
+                !water && depositOn(index) ? [new ResourceId(0)] : null,
+                index == 0 ? SettlementSiteKind.Urban : SettlementSiteKind.None,
+                index == 0 ? capitalRiver : null);
+        }
+
+        var map = new MapDefinition(
+            dimensions,
+            cells,
+            [new ProvinceDefinition(new ProvinceId(0), "Capital")],
+            [new SeaZoneDefinition(new SeaZoneId(0), "Water")],
+            [new ResourceDefinition(new ResourceId(0), new CommodityId(Fish), [1])],
+            wrapsHorizontally: wrapsHorizontally);
+        var scenario = new ScenarioDefinition(
+            "Narrow",
+            1815,
+            [new CountryId(0)],
+            null,
+            [new CountryCapital(new CountryId(0), new CellIndex(0))]);
+        var definition = new WorldDefinition(
+            map,
+            [new CountryDefinition(new CountryId(0), "Country 0")],
+            scenario,
+            [new CommodityDefinition(new CommodityId(Fish), "Fish", CommodityCategory.Raw)],
+            null,
+            null,
+            new ExtractionSettings(catchmentRadius, new PortFishing(new CommodityId(Fish), 1)));
+        return new WorldState(definition);
     }
 
     private static WorldState CreateState(bool wrapsHorizontally)
@@ -113,6 +369,124 @@ public sealed class MapSeamTests
             null,
             null,
             new ExtractionSettings(0, new PortFishing(new CommodityId(Fish), 1)));
+        return new WorldState(definition);
+    }
+
+    private static TurnResolution ResolveBuild(
+        WorldState state,
+        int cell,
+        EngineerConstruction structure) =>
+        TurnResolver.Resolve(
+            state,
+            new TurnOrders(
+            [
+                new CountryTurnOrders(
+                    new CountryId(0),
+                    engineerWork:
+                    [
+                        new EngineerOrder(new CivilianUnitId(1), new CellIndex(cell), structure),
+                    ]),
+            ]),
+            0);
+
+    /// <summary>
+    /// A 4x1 strip of owned plains with an Engineer on cell 0, and optionally
+    /// a sea on the last column.
+    /// </summary>
+    private static WorldState CreateEngineerState(bool wrapsHorizontally, bool seaAtLastColumn)
+    {
+        const int width = 4;
+        const int plains = 0;
+        const int ocean = 1;
+        var dimensions = new MapDimensions(width, 1);
+        var cells = new CellDefinition[width];
+        for (var index = 0; index < width; index++)
+        {
+            var sea = seaAtLastColumn && index == width - 1;
+            cells[index] = new CellDefinition(
+                new CellIndex(index),
+                dimensions.GetCoordinate(new CellIndex(index)),
+                new TerrainId(sea ? ocean : plains),
+                sea
+                    ? CellRegion.ForSeaZone(new SeaZoneId(0))
+                    : CellRegion.ForProvince(new ProvinceId(index)),
+                null,
+                index == 1 ? SettlementSiteKind.Urban : SettlementSiteKind.None);
+        }
+
+        var map = new MapDefinition(
+            dimensions,
+            cells,
+            Enumerable.Range(0, width)
+                .Select(static index => new ProvinceDefinition(new ProvinceId(index), $"Province {index}")),
+            seaAtLastColumn ? [new SeaZoneDefinition(new SeaZoneId(0), "Far Sea")] : [],
+            [],
+            [
+                new TerrainDefinition(new TerrainId(plains), "Plains", true, rail: RailRule.Unrestricted),
+                new TerrainDefinition(new TerrainId(ocean), "Ocean"),
+            ],
+            wrapsHorizontally: wrapsHorizontally);
+        var scenario = new ScenarioDefinition(
+            "Seam engineer",
+            1815,
+            Enumerable.Repeat<CountryId?>(new CountryId(0), width),
+            initialCountryCapitals: [new CountryCapital(new CountryId(0), new CellIndex(1))],
+            initialCivilians:
+            [
+                new InitialCivilian(new CountryId(0), new CivilianTypeId(0), new CellIndex(0)),
+            ],
+            initialCash: [new InitialCash(new CountryId(0), 10_000)]);
+        return new WorldState(new WorldDefinition(
+            map,
+            [new CountryDefinition(new CountryId(0), "Country 0")],
+            scenario,
+            [new CommodityDefinition(new CommodityId(Fish), "Fish", CommodityCategory.Raw)],
+            civilianTypes:
+            [
+                new CivilianTypeDefinition(
+                    new CivilianTypeId(0), "Engineer", 1, CivilianWorkKind.Construct),
+            ],
+            construction: new ConstructionSettings(100, 100)));
+    }
+
+    private static WorldState CreateCatchmentState(bool wrapsHorizontally)
+    {
+        const int width = 4;
+        var dimensions = new MapDimensions(width, 1);
+        var cells = new CellDefinition[width];
+        for (var index = 0; index < width; index++)
+        {
+            cells[index] = new CellDefinition(
+                new CellIndex(index),
+                dimensions.GetCoordinate(new CellIndex(index)),
+                new TerrainId(0),
+                CellRegion.ForProvince(new ProvinceId(index)),
+                index == width - 1 ? [new ResourceId(0)] : null,
+                index == 0 ? SettlementSiteKind.Urban : SettlementSiteKind.None);
+        }
+
+        var map = new MapDefinition(
+            dimensions,
+            cells,
+            Enumerable.Range(0, width)
+                .Select(static index => new ProvinceDefinition(new ProvinceId(index), $"Province {index}")),
+            [],
+            [new ResourceDefinition(new ResourceId(0), new CommodityId(Fish), [1])],
+            wrapsHorizontally: wrapsHorizontally);
+        var scenario = new ScenarioDefinition(
+            "Seam catchment",
+            1815,
+            Enumerable.Repeat<CountryId?>(new CountryId(0), width),
+            null,
+            [new CountryCapital(new CountryId(0), new CellIndex(0))]);
+        var definition = new WorldDefinition(
+            map,
+            [new CountryDefinition(new CountryId(0), "Country 0")],
+            scenario,
+            [new CommodityDefinition(new CommodityId(Fish), "Fish", CommodityCategory.Raw)],
+            null,
+            null,
+            new ExtractionSettings(1));
         return new WorldState(definition);
     }
 }

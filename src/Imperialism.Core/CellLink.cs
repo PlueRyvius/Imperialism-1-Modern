@@ -28,15 +28,21 @@ public readonly record struct CellLink
 
     public bool Contains(CellIndex cell) => cell == First || cell == Second;
 
-    internal void Validate(MapDimensions dimensions, string description)
+    /// <summary>
+    /// Adjacency is the map's, not the plane's: on a map with an east-west seam
+    /// the first and last columns touch, so a link across it is as adjacent as
+    /// any other. Planar distance would call it the width of the world.
+    /// </summary>
+    internal void Validate(MapDefinition map, string description)
     {
+        var dimensions = map.Dimensions;
         if (!dimensions.Contains(First) || !dimensions.Contains(Second))
         {
             throw new ArgumentException(
                 $"{description} link {First}-{Second} refers to a cell outside the map.");
         }
 
-        if (dimensions.GetCoordinate(First).DistanceTo(dimensions.GetCoordinate(Second)) != 1)
+        if (!map.AreAdjacent(First, Second))
         {
             throw new ArgumentException(
                 $"{description} link {First}-{Second} does not join adjacent hexes.");

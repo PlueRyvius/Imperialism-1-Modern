@@ -101,4 +101,23 @@ public sealed class HexMapProjectionTests
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new HexMapProjection(new MapDimensions(1, 1), radius));
     }
+
+    [Fact]
+    public void ALinkAcrossTheSeamIsDrawnAsTwoStubsNotAcrossTheMap()
+    {
+        var projection = new HexMapProjection(new MapDimensions(4, 1), radius: 10);
+        var inside = projection.GetLinkSegments(new CellIndex(1), new CellIndex(2));
+        var (from, to) = Assert.Single(inside);
+        Assert.Equal(projection.GetCenter(new CellIndex(1)), from);
+        Assert.Equal(projection.GetCenter(new CellIndex(2)), to);
+
+        var across = projection.GetLinkSegments(new CellIndex(0), new CellIndex(3));
+        Assert.Equal(2, across.Count);
+        Assert.All(across, segment =>
+            Assert.Equal(projection.HexWidth / 2, Math.Abs(segment.To.X - segment.From.X), 9));
+        Assert.Equal(projection.GetCenter(new CellIndex(0)), across[0].From);
+        Assert.True(across[0].To.X < across[0].From.X, "cell 0's stub runs off the west edge");
+        Assert.Equal(projection.GetCenter(new CellIndex(3)), across[1].From);
+        Assert.True(across[1].To.X > across[1].From.X, "cell 3's stub runs off the east edge");
+    }
 }

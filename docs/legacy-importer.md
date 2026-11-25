@@ -148,7 +148,8 @@ That is the manual's own rule rather than a gap. See `formulas/technology.md` an
 experience]`; the province supplies ownership, and type is the executable's zero-based
 index into its fixed 30-row army table. Each record is one regiment; repeated records
 retain their source order. An unknown province is an error; an unknown type is warned
-and dropped; zero experience is preserved. This preserves the tactical roster without guessing
+and dropped — the 30-row limit is the importer's alone (`OriginalArmyTypeCount`), since
+Core's `ArmyTypeId` accepts any non-negative id; zero experience is preserved. This preserves the tactical roster without guessing
 deployment, movement, losses, capture, or combat resolution.
 
 `civi` records are converted rather than deferred. The record is `[type, cell]`
@@ -172,11 +173,19 @@ sit within two tiles of each other, both of which the manual predicts. A depot
 on a cell with no rail is a warning; no original does it, though our own
 generated `s5` does it on all 32 of its depots.
 
+Track itself comes from the map's rail byte: a direction bit becomes a link
+when the neighbour it points at carries the opposite bit, and an unmatched end
+is dropped with `map.asymmetric-rail-endpoint`. **That neighbour wraps
+east-west**, like the port check below, because the converted map declares the
+same seam. Until issue #45 it did not, so a line across the seam lost both ends
+under a warning that blamed the map. Whether any shipped scenario rails across
+the seam is a corpus question nobody has asked yet.
+
 `port` records are converted too. Each names a land cell; repeats collapse with
 a warning. The importer also checks that a port touches sea or a river, using
-**wrapping** east-west adjacency because the 1997 grid wraps and
-`Imperialism.Core`'s does not — `s3` has a port whose only water is across the
-seam. A failure is a warning, not an error: it means our adjacency is wrong
+**wrapping** east-west adjacency because the 1997 grid wraps — `s3` has a
+port whose only water is across the seam. Core now follows the map's
+`wrapsHorizontally`, so the converted world agrees. A failure is a warning, not an error: it means our adjacency is wrong
 before it means the map is.
 
 The importer also emits the evidenced standard industrial catalog: seven
@@ -196,8 +205,12 @@ validation rule for imported state. Tutorial scenarios contain capacities 3,
 Keys are deterministic. Known terrain and resources use semantic keys;
 countries, provinces, and sea zones retain padded numeric legacy IDs. Only
 `zone` IDs referenced by ocean cells become modern sea zones. The ocean byte
-uses a combined region namespace, so its scenario zone ID is decoded by
-subtracting the country namespace size. Other zone
+uses a combined region namespace whose ocean part begins at `0x17`: the
+executable's `UOcean` resolves byte `r` as `records[r - 0x17]`
+(`0x00563300`), so a scenario `zone` or `ship` id `z` is ocean byte `z + 23`.
+The importer subtracts that constant. It used to subtract the highest country
+id the file names plus one, which agrees only when that id is 22 (#41); an
+ocean byte below `0x17` is reported as `map.invalid-sea-zone-reference`. Other zone
 records, all unsupported scenario tags (including legacy `rail` records), INF
 briefings and metadata, scenario trailing bytes, and map trailer records are
 reported as deferred information.

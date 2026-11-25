@@ -165,25 +165,17 @@ public readonly record struct ShipTypeId
 }
 
 /// <summary>
-/// Identifies one of the original executable's 30 army-unit rows. A legacy
-/// <c>army</c> record uses this as a <b>zero-based</b> index; unlike ships, no
-/// one-based conversion is involved. See <c>docs/scenario-semantics.md</c>.
+/// Identifies an army-unit type. The only constraint Core places on it is that
+/// it is non-negative: the original executable's 30-row army table is a limit of
+/// the 1997 files and is enforced by <c>Imperialism.LegacyImport</c>, not here.
+/// Core has no army type catalogue yet, so there is nothing further to check the
+/// id against. See <c>docs/scenario-semantics.md</c>.
 /// </summary>
 public readonly record struct ArmyTypeId
 {
-    /// <summary>The number of army rows in the original executable table.</summary>
-    public const int OriginalTypeCount = 30;
-
     public ArmyTypeId(int value)
     {
-        if ((uint)value >= OriginalTypeCount)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(value),
-                value,
-                $"Army type must be between 0 and {OriginalTypeCount - 1}.");
-        }
-
+        ArgumentOutOfRangeException.ThrowIfNegative(value);
         Value = value;
     }
 
