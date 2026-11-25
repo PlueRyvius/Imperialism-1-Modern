@@ -1109,6 +1109,39 @@ public sealed class LegacyWorldConverterTests
             armies.Select(static item => (item.Province, item.Type, item.Experience)));
     }
 
+    /// <summary>
+    /// The 30-row limit lives in the importer now (issue #47): index 29 is the
+    /// last row and converts, index 30 is warned about and dropped exactly as
+    /// before, even though Core would accept it.
+    /// </summary>
+    [Fact]
+    public void LegacyArmyIndexThirtyIsStillWarnedAndDropped()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+                Record("army", 0, 29, 1),
+                Record("army", 0, 30, 1),
+            ]),
+            null,
+            "army-limit-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Equal([29], result.Document!.Scenarios[0].Armies.Select(static item => item.Type));
+        var warning = Assert.Single(
+            result.Report.Diagnostics,
+            static item => item.Code == "scenario.unknown-army-type");
+        Assert.Equal(LegacyImportSeverity.Warning, warning.Severity);
+        Assert.Equal("scenario.records[4]", warning.Location);
+        Assert.Equal(
+            "Army type 30 is outside the table of 30; no army regiment was placed.",
+            warning.Message);
+    }
+
     [Fact]
     public void RelationRecordsArePreservedInSourceOrderWithoutAssigningMeaning()
     {
