@@ -76,6 +76,17 @@ internal readonly record struct LegacyShipCombat(
 public static class LegacyWorldConverter
 {
     /// <summary>
+    /// The first raw map region the original treats as ocean. <c>UOcean</c>
+    /// resolves ocean byte <c>r</c> as <c>records[r - 0x17]</c>
+    /// (<c>0x00563300</c>), and the <c>zone</c> and <c>ship</c> handlers use a
+    /// scenario zone id <c>z</c> in that same lookup, so <c>z</c> is ocean byte
+    /// <c>z + 0x17</c>. It is a constant of the executable, not of a scenario:
+    /// deriving it from the highest country id a file happens to name agreed
+    /// only while that id was 22 (#41).
+    /// </summary>
+    internal const uint LegacyOceanRegionBase = 0x17;
+
+    /// <summary>
     /// The seventeen legacy terrain codes, their display names from the
     /// manual's Terrain Tiles Table, and whether a civilian can improve them.
     /// </summary>
@@ -659,7 +670,6 @@ public static class LegacyWorldConverter
             .Distinct()
             .Order()
             .ToArray();
-        var countryNamespaceSize = countryIds.Length == 0 ? 0u : checked(countryIds[^1] + 1);
         var cellSeaZoneIds = new uint[map.Cells.Count];
         for (var index = 0; index < map.Cells.Count; index++)
         {
@@ -669,18 +679,18 @@ public static class LegacyWorldConverter
                 continue;
             }
 
-            if (cell.NationZoneA < countryNamespaceSize)
+            if (cell.NationZoneA < LegacyOceanRegionBase)
             {
                 report.Add(
                     LegacyImportSeverity.Error,
                     "map.invalid-sea-zone-reference",
                     $"map.cells[{index}]",
-                    $"Ocean region value {cell.NationZoneA} is below the country namespace size {countryNamespaceSize}.");
+                    $"Ocean region value {cell.NationZoneA} is below the executable's ocean region base {LegacyOceanRegionBase}.");
                 cellSeaZoneIds[index] = cell.NationZoneA;
             }
             else
             {
-                cellSeaZoneIds[index] = cell.NationZoneA - countryNamespaceSize;
+                cellSeaZoneIds[index] = cell.NationZoneA - LegacyOceanRegionBase;
             }
         }
 
