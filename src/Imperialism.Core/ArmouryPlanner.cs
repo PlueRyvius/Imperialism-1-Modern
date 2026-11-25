@@ -173,27 +173,44 @@ internal static class RegimentMovePlanner
     /// <summary>"Five points of transport capacity are needed to move each armaments point."</summary>
     public const long CapacityPerArmament = 5;
 
+    /// <summary>
+    /// Pass 1 of <c>Conflict</c>: every move. An order whose destination was not the
+    /// country's own as the turn opened is an <b>attack</b>, set aside in
+    /// <paramref name="attacks"/> for <see cref="LandBattlePlanner"/> without being
+    /// checked here — the destination decides the verb.
+    /// </summary>
     /// <param name="ownersAtTurnStart">Province owners as the turn opened.</param>
     /// <param name="railBudget">
     /// Each country's total transport capacity as the turn opened — the regiment rail
     /// budget, separate from commodity transport and not carried over.
     /// </param>
+    /// <param name="acted">Regiments named in an accepted order; moves are added here.</param>
+    /// <param name="attacks">Receives every attack, countries in id order, orders in list order.</param>
     public static IReadOnlyList<TurnEvent> Resolve(
         WorldState state,
         TurnOrders orders,
         int turnNumber,
         IReadOnlyList<CountryId?> ownersAtTurnStart,
-        long[] railBudget)
+        long[] railBudget,
+        HashSet<RegimentId> acted,
+        List<(CountryId Country, RegimentMoveOrder Order)> attacks)
     {
         var events = new List<TurnEvent>();
-        var moved = new HashSet<RegimentId>();
         var remaining = railBudget.ToArray();
+        var provinceCount = state.Definition.Map.Provinces.Count;
         for (var countryValue = 0; countryValue < orders.Count; countryValue++)
         {
             var country = new CountryId(countryValue);
             foreach (var order in orders[country].RegimentMoves)
             {
-                if (Check(state, country, order, ownersAtTurnStart, moved, remaining, out var from, out var mode, out var cost)
+                if ((uint)order.Destination.Value < (uint)provinceCount &&
+                    ownersAtTurnStart[order.Destination.Value] != country)
+                {
+                    attacks.Add((country, order));
+                    continue;
+                }
+
+                if (Check(state, country, order, acted, remaining, out var from, out var mode, out var cost)
                     is { } refusal)
                 {
                     events.Add(new RegimentMoveRefusedEvent(
@@ -205,7 +222,7 @@ internal static class RegimentMovePlanner
                 foreach (var regiment in order.Regiments)
                 {
                     state.MoveRegiment(regiment, order.Destination);
-                    moved.Add(regiment);
+                    acted.Add(regiment);
                 }
 
                 events.Add(new RegimentsMovedEvent(
@@ -216,20 +233,20 @@ internal static class RegimentMovePlanner
         return events;
     }
 
-    private static RegimentMoveRefusal? Check(
+    /// <summary>
+    /// The checks a move and an attack share, against live state: who is named, that they
+    /// stand together and may leave, and that the destination is another province.
+    /// </summary>
+    internal static RegimentMoveRefusal? CheckCommon(
         WorldState state,
         CountryId country,
         RegimentMoveOrder order,
-        IReadOnlyList<CountryId?> ownersAtTurnStart,
-        HashSet<RegimentId> moved,
-        long[] remaining,
+        HashSet<RegimentId> acted,
         out ProvinceId from,
-        out RegimentMoveMode mode,
-        out long cost)
+        out IReadOnlyList<(Regiment Regiment, ArmyTypeDefinition Type)> named)
     {
         from = default;
-        mode = RegimentMoveMode.March;
-        cost = 0;
+        named = [];
         var definition = state.Definition;
         if (order.Regiments.Count == 0)
         {
@@ -254,7 +271,7 @@ internal static class RegimentMovePlanner
                 return RegimentMoveRefusal.NotYours;
             }
 
-            if (moved.Contains(id))
+            if (acted.Contains(id))
             {
                 return RegimentMoveRefusal.AlreadyMoved;
             }
@@ -262,6 +279,7 @@ internal static class RegimentMovePlanner
             regiments.Add((regiment, definition.ArmyTypes[regiment.Type.Value]));
         }
 
+        named = regiments;
         from = regiments[0].Regiment.Province;
         var source = from;
         if (regiments.Any(item => item.Regiment.Province != source))
@@ -285,11 +303,28 @@ internal static class RegimentMovePlanner
             return RegimentMoveRefusal.SameProvince;
         }
 
-        if (ownersAtTurnStart[destination.Value] != country)
+        return null;
+    }
+
+    private static RegimentMoveRefusal? Check(
+        WorldState state,
+        CountryId country,
+        RegimentMoveOrder order,
+        HashSet<RegimentId> acted,
+        long[] remaining,
+        out ProvinceId from,
+        out RegimentMoveMode mode,
+        out long cost)
+    {
+        mode = RegimentMoveMode.March;
+        cost = 0;
+        if (CheckCommon(state, country, order, acted, out from, out var regiments) is { } refusal)
         {
-            return RegimentMoveRefusal.NotOwnProvince;
+            return refusal;
         }
 
+        var definition = state.Definition;
+        var destination = order.Destination;
         if (definition.ProvinceAdjacency.AreAdjacent(from, destination))
         {
             return null;

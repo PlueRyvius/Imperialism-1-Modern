@@ -374,6 +374,39 @@ public sealed class TurnReportRendererTests
     }
 
     [Fact]
+    public void ABattleSaysWhoWonWhatWasTakenAndWhatWasLost()
+    {
+        var renderer = CreateRenderer();
+        var province = new ProvinceId(0);
+
+        var battle = Assert.Single(renderer.Render(new BattleFoughtEvent(
+            1, province, Blue, Red,
+            [
+                new BattleParticipant(new RegimentId(1), new ArmyTypeId(2), BattleSide.Attacker, 500, 300, 35),
+                new BattleParticipant(new RegimentId(2), new ArmyTypeId(2), BattleSide.Defender, 500, 0, 0),
+            ],
+            [new RegimentId(2)], Blue, 3)));
+        Assert.Equal(TurnReportKind.Outcome, battle.Kind);
+        Assert.Equal(Blue, battle.Country);
+        Assert.Contains("after 3 rounds and 1 regiment was destroyed", battle.Text, StringComparison.Ordinal);
+
+        var captured = Assert.Single(renderer.Render(new ProvinceCapturedEvent(
+            1, province, Red, Blue, uncontested: true, [new RegimentId(1)], [new CivilianUnitId(4)], capitalLost: true)));
+        Assert.Contains(", undefended; 1 civilian there was killed;", captured.Text, StringComparison.Ordinal);
+        Assert.Contains("Red Empire's capital, which is lost", captured.Text, StringComparison.Ordinal);
+
+        var anarchy = Assert.Single(renderer.Render(new ProvinceCapturedEvent(
+            1, province, null, Blue, uncontested: true, [new RegimentId(1)], [], capitalLost: false)));
+        Assert.DoesNotContain(" from ", anarchy.Text, StringComparison.Ordinal);
+
+        var surrendered = Assert.Single(renderer.Render(new RegimentsSurrenderedEvent(1, Red, [new RegimentId(2)], province)));
+        Assert.Equal(TurnReportKind.Loss, surrendered.Kind);
+
+        var healed = Assert.Single(renderer.Render(new RegimentsHealedEvent(1, Blue, [new RegimentId(1), new RegimentId(3)], 150)));
+        Assert.Contains("2 resting regiments recovered 150 health", healed.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ALineCarriesTheCountryItIsAboutSoTheClientNeedNotReadIt()
     {
         var renderer = CreateRenderer();
@@ -485,6 +518,14 @@ public sealed class TurnReportRendererTests
                 1, Blue, [new RegimentId(1)], new ProvinceId(0), new ProvinceId(0), RegimentMoveMode.Rail, 5),
             new RegimentMoveRefusedEvent(
                 1, Blue, [new RegimentId(1)], new ProvinceId(0), RegimentMoveRefusal.NotConnectedByRail),
+            new BattleFoughtEvent(
+                1, new ProvinceId(0), Blue, Red,
+                [new BattleParticipant(new RegimentId(1), new ArmyTypeId(2), BattleSide.Attacker, 500, 300, 35)],
+                [], Blue, 4),
+            new ProvinceCapturedEvent(1, new ProvinceId(0), Red, Blue, false, [new RegimentId(1)], [unit], true),
+            new RegimentsRetreatedEvent(1, Red, [new RegimentId(2)], new ProvinceId(0), new ProvinceId(0)),
+            new RegimentsSurrenderedEvent(1, Red, [new RegimentId(2)], new ProvinceId(0)),
+            new RegimentsHealedEvent(1, Blue, [new RegimentId(1)], 100),
         ];
     }
 }

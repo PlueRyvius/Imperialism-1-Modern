@@ -135,7 +135,8 @@ still an optional local source with the procedural palette as its fallback.
 - [x] The University: buying and disbanding civilians (`UniversityTests`)
 - [x] Buying regiments and moving them by march and rail (`RegimentTests`)
 - [ ] The newspaper
-- [ ] Land battles and fortifications
+- [x] Land battles and capture (`LandBattleTests`)
+- [ ] Fortification construction
 
 The tactical battle engine is deliberately early: the original runs it for
 every AI-vs-AI battle in the world every turn, just unrendered, so it's

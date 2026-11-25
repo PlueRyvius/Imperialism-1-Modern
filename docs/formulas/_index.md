@@ -216,6 +216,10 @@ bottom of this file.
 | Marching, rail, five capacity per armaments point, militia never leaving home | `inferred` — **the manual states all of it** | [army](army.md) | Core | generated |
 | **When a category upgrades, where a regiment appears, what rail needs and draws on** | **chosen rules 1–9** — as the turn opens; the capital's province in `Delivery`; one component of own rail; a budget of total capacity separate from commodity transport | [army](army.md) | Core | generated |
 | **Militia growth and its free upgrade** | **open** — not modelled (chosen rule 11) | [army](army.md) | — | — |
+| Health snapshot, the half-health loop, attacker first, the 1-or-2 weight, mod 7, artillery half, the [70, 80, 90, 90] scale, +35/+20, +100 healing to 500, experience in hundredths to 400 | **`verified`** — the executable (`definitive-original-data.md`) | [army](army.md) | Core | generated |
+| **How a land battle turns those pieces into casualties** | **`guess` — a labelled placeholder** (chosen rules 17–25): loss = max(1, shot × 5 / DEF); wants the `0x004A8040` trace (`wanted-values.md` §6) | [army](army.md) | Core | generated |
+| **Attack orders, capture, retreat and healing timing** | **chosen rules 12–16, 26–30** — attack by turn-open ownership, moves before attacks, checked live; retreat to the lowest-id own neighbour or surrender; capital cleared without elimination | [army](army.md) | Core | generated |
+| Entrenchment, forts at 10% a level, artillery never entrenching, civilians killed on capture | `inferred` — **the manual** (3947–3959, 1162–1164); artillery from the **release notes** | [army](army.md) | Core | generated |
 | Diplomatic relation deltas | `guess` | _relations_ | — | — |
 | Council nomination + abstention curve | `guess` | _council_ | — | — |
 | Tactical initiative order | `guess` | _initiative_ | — | — |

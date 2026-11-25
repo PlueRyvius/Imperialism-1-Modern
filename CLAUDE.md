@@ -693,8 +693,8 @@ happens to match our remembered depot cost. **Do not promote a candidate without
 selector.**
 
 Research *progress*, conflict, diplomacy, trade subsidies, sea routes
-between ports, blockade, land battles, the
-newspaper and fortifications remain explicitly pending. So does
+between ports, blockade, the
+newspaper and building fortifications remain explicitly pending. So does
 **whether a civilian's work costs cash generally** — the manual implies it does, and
 `docs/formulas/money.md` records the finding without acting on it, because pricing
 every civilian's work would move every number in the soak.
@@ -855,10 +855,30 @@ rail and **five capacity per armaments point** from a budget of total capacity *
 from commodity transport** ("does not in itself use capacity already assigned"). Militia
 never leaves its province. **Eleven rules are chosen**, each labelled in
 `docs/formulas/army.md`; destination ownership read as the turn opens cannot be observed
-until something changes ownership mid-turn, and militia growth is not modelled. 6a fights
-nothing: battles, health, experience, fortifications and capture are 6b. The v31 migration
-adds no catalogue, so a migrated world buys, places and moves no regiments. No soak number
-moved.
+until something changes ownership mid-turn, and militia growth is not modelled. The v31
+migration adds no catalogue, so a migrated world buys, places and moves no regiments. No soak
+number moved.
+
+**Row 6b fights land battles, with no content bump and no new phase.** The destination
+decides the verb, as with the Engineer: a province owned as the turn opened is a move, and
+anything else is an **attack**. `Conflict` runs the naval orders, then every move, then every
+attack, then healing. An attack is **checked live**, so a province taken earlier the same
+turn is judged by its new owner; "the invasion does not take place" (manual 3798–3817) falls
+out of that. It needs an adjacent province (no rail attack) and a war in effect, except
+against an ownerless province. A headless `StrategicBattleResolver`, behind `IBattleResolver`,
+fights the binary's recovered loop: the health snapshot, the half-health test, attacker
+first, the 1-or-2 weight, mod 7, the artillery half branch, [70, 80, 90, 90], and +35/+20
+experience in **hundredths, capped at 400**. **How those combine into a loss is a placeholder
+and not the original's**: `max(1, shot × 5 / DEF)`. Its trace targets are
+`wanted-values.md` §6. A win takes the province **at once**, kills the old owner's
+civilians there, clears a captured capital without elimination, and sends the defenders to
+their lowest-id own neighbour or into surrender. Entrenchment is the entrenched DEF, never
+for artillery, and a fort takes 10% a level. A regiment named in no accepted order heals
++100 to 500 at the end of `Conflict`. A battle's generator is SplitMix64 from the turn seed
+and the battle's ordinal, so the same seed fights the same battle. **Nineteen rules are
+chosen**, numbered 12–30 in `docs/formulas/army.md`. A content `army` record still counts
+medals, and the compiler multiplies by 100. Building forts, landings (6c), elimination and
+anarchy (6d), Generals, and the tactical battlefield are not modelled. No soak number moved.
 
 **Production spends labour: two per cycle, flat**, from one pool per country shared
 across every facility. The manual prices exactly one recipe — a unit of clothing

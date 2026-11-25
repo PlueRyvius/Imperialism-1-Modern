@@ -1,4 +1,4 @@
-# The army: the Armoury, marching and moving by rail
+# The army: the Armoury, marching, moving by rail, and land battles
 
 ## Summary
 
@@ -9,7 +9,8 @@ also horses or fuel) and cash. The worker leaves industry for good the moment th
 given. The regiment stands in the capital's province from `Delivery` and may be moved from
 the next turn.
 
-A move names regiments standing together and a destination province the country owns. An
+A move names regiments standing together and a destination province the country owned as
+the turn opened; any other destination is an **attack** (6b, under Battles below). An
 **adjacent** destination is a march and costs nothing; anything further is **rail**, which
 needs an unbroken line of the country's own rail and costs **five transport capacity per
 armaments point**, from a budget equal to the country's whole network and separate from
@@ -20,9 +21,10 @@ a scenario `army` record's 0-based type indexes. There is **no new turn phase**:
 resolve in `Production` after the University, deliveries in `Delivery`, moves in
 `Conflict` after the naval orders. The client smoke still counts fourteen phases.
 
-6a **fights nothing**. Every move goes to the country's own province; entering anyone
-else's is an attack, which is the land-battle slice (6b), along with health, experience,
-fortifications and capture.
+6a fought nothing. **6b** adds attacks, a headless strategic battle, health and healing,
+experience, entrenchment, the *effect* of a fort, and capture — with **no content bump and
+no new phase**: attacks resolve in `Conflict` after the moves, and healing closes it.
+Building a fort is still pending.
 
 ## Confidence
 
@@ -31,6 +33,10 @@ Armoury's bill for all thirty types and which category and era each fills; the m
 supplies the movement rules and the technology per era; the binary's technology effect
 strings corroborate the manual's eras for every regular type. Eleven rules are chosen and
 labelled where they appear and in the table.
+
+**Battles (6b) are weaker.** The battle loop's shape, healing and experience are `verified`.
+Casualties are a **`guess`**: a labelled placeholder until the PC trace. Rules 12–30 have
+their own table under Battles.
 
 | Claim | Support |
 |---|---|
@@ -139,9 +145,9 @@ price, no ARMS and no stats.
 
 1. Every regiment named must exist, belong to the ordering country, stand in one province
    with the others, and not have moved this turn. The destination must be a different
-   province **the country owned as the turn opened** (**chosen rule 9**). Nothing changes
-   ownership mid-turn yet, so this rule cannot be observed until 6b; it is a snapshot taken
-   in `TurnResolver` so that capture will not need a second rule.
+   province **the country owned as the turn opened** (**chosen rule 9**). Since 6b a
+   destination outside that snapshot is not refused: it is an attack (rule 12), and the old
+   `NotOwnProvince` refusal is retired, kept only so no later enum value moves.
 2. Militia (`leavesProvince` false) is refused on every move, march or rail.
 3. **Adjacent → march**, free. Two provinces are adjacent when a cell of one is a hex
    neighbour of a cell of the other (`ProvinceAdjacency`, derived once per map at any size).
@@ -159,13 +165,147 @@ price, no ARMS and no stats.
 ## Initial armies
 
 A scenario's `army` records become regiments at world creation, owned by the **province's
-initial owner** — the owner is then stored on the regiment, so 6b can put one country's
-regiments in another's province without a model change. A record on an unowned province is
+initial owner** — the owner is then stored on the regiment, so a capture can put one
+country's regiments in another's province without a model change. The record's experience
+field counts **medals**; the compiler stores **hundredths**, medals × 100 clamped to 400, as
+the executable does. Every imported regiment starts at health 500. A record on an unowned province is
 not placed and is listed in `WorldState.UnplacedInitialArmies`. A world with no catalogue
 (any migrated package) places none, exactly as it behaved at v31.
 
+## Battles
+
+An order whose destination the country **did not own as the turn opened** is an attack.
+`Conflict` runs the naval orders, then **every move** (6a, unchanged), then **every attack**,
+then **healing**. A regiment that moved cannot attack (`AlreadyMoved`), so a regiment still
+acts once a turn.
+
+**The loss formula below is a placeholder.** The recovered loop sets its shape, but it is
+not the original's formula. The executable gives the loop's shape: the snapshot, the
+half-health test, attacker first, the 1-or-2 weight, mod 7, the artillery half branch, the
+[70, 80, 90, 90] scale and +35/+20. It does not say how those pieces combine, whether
+defence enters, or how a target is chosen. Every number that depends on the combination is
+chosen, and each will be replaced once the PC trace in `docs/disasm/wanted-values.md` §
+"Land battles" is done. The tests are built so that no test pins a casualty figure only the
+placeholder produces.
+
+### Checking an attack
+
+An attack is checked **when it comes to resolve**, against the live state. It needs 6a's
+common checks: the regiments exist, are the country's own, stand together, are not militia,
+have not moved, and the destination is a different province on the map. It is then refused
+with an event, never an exception, when:
+
+- the destination does **not border** the regiments' province: `NotAdjacent`. There is no
+  attack by rail (manual 1765–1770). Landings are 6c.
+- the destination is **already the attacker's**, for instance because it was taken earlier
+  this turn: `AlreadyOwn`.
+- its **current** owner has **no war in effect** with the attacker as the turn opened:
+  `NotAtWar`. This uses the same `HasEffectiveHostility` reading as naval patrols and
+  boycotts, so a war declared this turn does not count yet. A province that changed hands
+  earlier in the turn is judged by its new owner, so "the invasion does not take place"
+  (manual 3798–3817).
+
+### Fighting
+
+**Defenders** are every regiment of the province's current owner standing in it, militia
+and regiments that marched in this turn included. A type with **no combat stats** (the
+Generals) is not a combatant: it travels, retreats and surrenders with its side and is never
+fired on. If no defender is a combatant, the province is taken **uncontested**. If no
+attacker is a combatant, the attack loses after 0 rounds.
+
+`StrategicBattleResolver`, behind the internal `IBattleResolver` in the same way the price
+rule sits behind `ITradeMarket`, works as follows:
+
+1. Snapshot every combatant's health. *(binary)*
+2. Loop while both sides hold a regiment with `health > snapshot / 2`. *(binary)* Stop after
+   **20 rounds** regardless, and count that as a **defender win** (rule 17).
+3. Each round the attackers fire, then the defenders. The order is the binary's; firing in
+   sequence within a round is chosen. Within a side, regiments fire in id order, and every
+   regiment above health 0 fires once:
+   - `w` = 2 if `health > snapshot / 2`, else 1. *(binary)*
+   - `m` = 1 + draw mod 7 (rule 18). For artillery, `m` = (m + 1) / 2 (rule 19).
+   - `fp` = FPN × (100 + 25 × medals) / 100 (rule 20).
+   - `scale` = [70, 80, 90, 90][min(round, 3)] (rule 21).
+   - `shot` = ⌊w × m × fp × scale / 100⌋, in decimal.
+   - The target is a uniformly drawn opposing regiment above health 0 (rule 22).
+   - `loss` = max(1, shot × 5 / DEF), or 0 when shot is 0, with DEF ≤ 0 read as 1
+     (rule 23). A defender's DEF is its entrenched figure unless it is artillery (rule 24).
+     A defender's loss is then × (100 − 10 × fort) / 100 (rule 25).
+   - Health is floored at 0. *(binary)*
+4. The attacker wins if it still holds an eligible regiment and the battle was not stopped.
+   The attacker is checked first. *(binary)*
+5. Every survivor gains **+35 if its side won and +20 if not**, capped at 400. *(binary)*
+   Regiments at health 0 are removed.
+
+**Experience is stored in hundredths**: 100 is one medal and 400, four medals, is the cap.
+"Three victories or five defeats earns one medal" (manual 1847–1857) is the binary's
++35/+20 against 100.
+
+### Capture
+
+When the attacker wins, or the province is undefended:
+
+- `SetProvinceOwner` runs **at once**, so a later attack the same turn sees the new owner. If
+  the province held the previous owner's capital, that capital is cleared through the same
+  call (rule 27).
+- The **previous owner's civilians** in the province are killed (manual 1162–1164). Other
+  countries' civilians are untouched.
+- The attackers move in.
+- The defenders' survivors **retreat** to the lowest-id adjacent province their owner still
+  holds, or **surrender** and are removed (rule 26).
+- The province's fort level is **kept** (rule 28).
+- `Conflict` runs before `Extraction`, so the captured ground **pays its new owner this
+  turn**: "economic changes begin" (line 1570). This is a consequence of phase order, not a
+  rule of its own.
+
+When the defender wins, the attackers stay where they attacked from.
+
+### Healing
+
+At the end of `Conflict`, every regiment **not named in an accepted move or attack** this
+turn gains **+100, capped at 500**. The amount, the cap and the "no movement order" sentinel
+are the binary's; the timing is chosen (rule 29). A defender gave no order, so it heals the
+same turn it fought. One `RegimentsHealedEvent` is emitted per country, and only when
+something healed.
+
+### Battle chosen rules
+
+The numbering continues from 6a.
+
+| # | Rule | Standing |
+|---|---|---|
+| 12 | The verb is decided by ownership as the turn opened: owned is a move, anything else an attack | chosen |
+| 13 | Every move resolves before every attack | chosen |
+| 14 | Attacks run countries in id order, orders in list order; the manual's army initiative is not modelled | chosen |
+| 15 | An attack is checked live, so an earlier capture the same turn changes whom it is against | chosen, **manual**-shaped (3798–3817) |
+| 16 | An ownerless province may be attacked without war: the anarchy rule (line 700) applied to Core's one ownerless state | chosen reading |
+| 17 | The battle stops after 20 rounds, counted as a defender win | chosen |
+| 18 | The multiplier is 1 + draw mod 7. The mod 7 is the **binary's**; the +1 is chosen | half binary |
+| 19 | Artillery's half multiplier rounds up, (m + 1) / 2. The half branch is the **binary's**; the rounding is chosen | half binary |
+| 20 | +25% firepower per medal, linear, to match "roughly twice as powerful" at four medals | chosen |
+| 21 | The scale array is indexed by the 0-based round, clamped at 3. The array is the **binary's** | half binary |
+| 22 | The target is drawn uniformly from the opposing regiments above 0 | chosen |
+| 23 | loss = max(1, shot × 5 / DEF). The 5 calibrates an even fight of Regulars to break in about four rounds | **chosen placeholder** |
+| 24 | Entrenchment is the entrenched DEF, so the manual's 20% is not applied twice; artillery never entrenches | chosen reading; artillery from the **release notes** |
+| 25 | The fort reduction, 10% a level and at most three levels, applies to artillery too | **manual** amount (3947–3959); the scope is chosen |
+| 26 | Survivors retreat to the lowest-id own neighbour, else surrender | chosen, from the manual's flee-or-surrender (3913–3915) |
+| 27 | A captured capital is cleared with no elimination or anarchy | chosen gap; elimination is 6d |
+| 28 | A captured province keeps its fort level | chosen |
+| 29 | Healing comes after every battle | chosen timing; the amount and cap are the **binary's** |
+| 30 | Each battle's generator is SplitMix64 seeded `turnSeed ^ Mix(ordinal + 1)`, with ordinal the 0-based battle index in the turn | chosen |
+
+The same seed and the same orders give the same battles
+(`TheSameSeedFightsTheSameBattleAndAnotherSeedNeedNot`).
+
+**A sample battle.** Seed 42: two Regulars attack two Regulars in the open. The defender
+holds after **8 rounds**. Attacker health goes 500 → 240 and 500 → 63, and each survivor
+gains +20. Defender health goes 500 → 187 (+35) and 500 → 0, killed. This shows what the
+placeholder does. It is not evidence for it.
+
 ## What is not modelled
 
-Land battles, health, healing, experience gain, fortifications, entrenchment and capture
-(6b); militia growth and its free upgrade (rule 11); Generals; regiments aboard ships. No
-soak policy orders regiments, so no soak number moved.
+Building forts (an Engineer order with no known price or gate); the tactical battlefield and
+initiative; Generals in battle and morale; Combat Engineers against forts; landings and
+interception (6c); elimination and anarchy (6d); alliances joining a war; militia growth and
+its free upgrade (rule 11); regiments aboard ships. No soak policy orders regiments, so no
+soak number moved.

@@ -135,6 +135,11 @@ public sealed class TurnReportRenderer
             RegimentDeliveryLostEvent lost => [RegimentDeliveryLost(lost)],
             RegimentsMovedEvent moved => [RegimentsMoved(moved)],
             RegimentMoveRefusedEvent refused => [RegimentMoveRefused(refused)],
+            BattleFoughtEvent battle => [BattleFought(battle)],
+            ProvinceCapturedEvent captured => [ProvinceCaptured(captured)],
+            RegimentsRetreatedEvent retreated => [RegimentsRetreated(retreated)],
+            RegimentsSurrenderedEvent surrendered => [RegimentsSurrendered(surrendered)],
+            RegimentsHealedEvent healed => [RegimentsHealed(healed)],
             PowerGeneratedEvent generated => Powered(generated),
             PowerRefusedEvent refused => [PowerRefused(refused)],
             FacilityExpandedEvent expanded => [Expanded(expanded)],
@@ -524,6 +529,78 @@ public sealed class TurnReportRenderer
             null,
             $"{Country(refused.Country)} could not move {Count(count)} {(count == 1 ? "regiment" : "regiments")} " +
             $"to {Province(refused.Destination)}: {TurnReportText.Describe(refused.Reason)}.");
+    }
+
+    private TurnReportLine BattleFought(BattleFoughtEvent battle)
+    {
+        var loser = battle.Winner == battle.Attacker ? battle.Defender : battle.Attacker;
+        var killed = battle.Killed.Count;
+        var losses = killed == 0
+            ? "no regiment was destroyed"
+            : $"{Count(killed)} {(killed == 1 ? "regiment was" : "regiments were")} destroyed";
+        return Line(
+            battle,
+            TurnReportKind.Outcome,
+            battle.Attacker,
+            null,
+            $"{Country(battle.Attacker)} attacked {Country(battle.Defender)} in {Province(battle.Province)}; " +
+            $"{Country(battle.Winner)} beat {Country(loser)} after {Count(battle.Rounds)} " +
+            $"{(battle.Rounds == 1 ? "round" : "rounds")} and {losses}.");
+    }
+
+    private TurnReportLine ProvinceCaptured(ProvinceCapturedEvent captured)
+    {
+        var from = captured.PreviousOwner is { } previous ? $" from {Country(previous)}" : string.Empty;
+        var how = captured.Uncontested ? ", undefended" : string.Empty;
+        var civilians = captured.CiviliansKilled.Count;
+        var killed = civilians == 0
+            ? string.Empty
+            : $"; {Count(civilians)} {(civilians == 1 ? "civilian" : "civilians")} there {(civilians == 1 ? "was" : "were")} killed";
+        var capital = captured.CapitalLost
+            ? $"; it held {Country(captured.PreviousOwner!.Value)}'s capital, which is lost"
+            : string.Empty;
+        return Line(
+            captured,
+            TurnReportKind.Outcome,
+            captured.NewOwner,
+            null,
+            $"{Country(captured.NewOwner)} took {Province(captured.Province)}{from}{how}{killed}{capital}.");
+    }
+
+    private TurnReportLine RegimentsRetreated(RegimentsRetreatedEvent retreated)
+    {
+        var count = retreated.Regiments.Count;
+        return Line(
+            retreated,
+            TurnReportKind.Loss,
+            retreated.Country,
+            null,
+            $"{Country(retreated.Country)} fell back from {Province(retreated.From)} to {Province(retreated.To)} " +
+            $"with {Count(count)} {(count == 1 ? "regiment" : "regiments")}.");
+    }
+
+    private TurnReportLine RegimentsSurrendered(RegimentsSurrenderedEvent surrendered)
+    {
+        var count = surrendered.Regiments.Count;
+        return Line(
+            surrendered,
+            TurnReportKind.Loss,
+            surrendered.Country,
+            null,
+            $"{Country(surrendered.Country)} surrendered {Count(count)} {(count == 1 ? "regiment" : "regiments")} " +
+            $"in {Province(surrendered.Province)}, with no province of its own to fall back to.");
+    }
+
+    private TurnReportLine RegimentsHealed(RegimentsHealedEvent healed)
+    {
+        var count = healed.Regiments.Count;
+        return Line(
+            healed,
+            TurnReportKind.Outcome,
+            healed.Country,
+            null,
+            $"{Country(healed.Country)}'s {Count(count)} resting {(count == 1 ? "regiment" : "regiments")} " +
+            $"recovered {Count(healed.HealthRestored)} health.");
     }
 
     private string Regiments(long count, ArmyTypeId type) =>

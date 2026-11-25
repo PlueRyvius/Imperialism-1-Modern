@@ -23,9 +23,10 @@ public static class TurnResolver
 
     /// <summary>
     /// Runs one simultaneous turn. The <paramref name="seed"/> is recorded on the
-    /// returned <see cref="TurnResolution"/> for replay and is reserved for the
-    /// explicit seeded tiebreaks future contention rules will use; no phase
-    /// consumes it yet because the current pipeline makes no random decisions.
+    /// returned <see cref="TurnResolution"/> for replay. Land battles are the one
+    /// consumer: each battle draws from its own stream, seeded from this seed and the
+    /// battle's ordinal within the turn, so the same seed and orders fight the same
+    /// battles.
     /// </summary>
     public static TurnResolution Resolve(WorldState state, TurnOrders orders, ulong seed)
     {
@@ -134,8 +135,9 @@ public static class TurnResolver
         // it reads the figure the turn opened with rather than the live one.
         var capacityAtTurnStart = state.CopyTransportCapacity();
 
-        // Whose each province was as the turn opened: a regiment may only be sent to
-        // its own country's ground, read here rather than live — a chosen rule.
+        // Whose each province was as the turn opened: an order to the country's own
+        // ground is a move and to anything else is an attack, read here rather than
+        // live — a chosen rule.
         var ownersAtTurnStart = Enumerable.Range(0, state.Definition.Map.Provinces.Count)
             .Select(province => state.GetProvinceOwner(new ProvinceId(province)))
             .ToArray();
@@ -163,8 +165,17 @@ public static class TurnResolver
                 // rail budget is the whole network as the turn opened, separate from
                 // what Transport will carry — "moving regiments does not in itself use
                 // capacity already assigned to transport resources".
+                var acted = new HashSet<RegimentId>();
+                var attacks = new List<(CountryId Country, RegimentMoveOrder Order)>();
                 events.AddRange(RegimentMovePlanner.Resolve(
-                    state, orders, turnNumber, ownersAtTurnStart, capacityAtTurnStart));
+                    state, orders, turnNumber, ownersAtTurnStart, capacityAtTurnStart, acted, attacks));
+
+                // Pass 2: every attack, after every move, checked live as it resolves;
+                // a capture changes the owner at once. Still before Extraction, so a
+                // province taken now pays its new owner this turn. Healing last.
+                events.AddRange(LandBattlePlanner.ResolveAttacks(
+                    state, attacks, acted, turnNumber, seed, StrategicBattleResolver.Instance));
+                events.AddRange(LandBattlePlanner.Heal(state, acted, turnNumber));
             }
             else if (phase == TurnPhase.Trade)
             {
