@@ -224,6 +224,13 @@ public sealed class NewspaperViewTests(ITestOutputHelper output)
         Assert.Contains("Red Empire had 0 fall ill and 2 starve", red.Stories[1].Body, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(1, "and 1 more story")]
+    [InlineData(2, "and 2 more stories")]
+    [InlineData(17, "and 17 more stories")]
+    public void TheCountOfOmittedStoriesAgreesWithItsNumber(int omitted, string expected) =>
+        Assert.Equal(expected, NewspaperText.MoreStories(omitted));
+
     [Fact]
     public void HullsLostToAFallenCountryAreAWarningToItsOwnReaderOnly()
     {
