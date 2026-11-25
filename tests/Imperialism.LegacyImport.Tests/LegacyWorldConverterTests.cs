@@ -3376,13 +3376,7 @@ public sealed class LegacyWorldConverterTests
 
     private static string RequireScenarioDirectory()
     {
-        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            throw new InvalidOperationException("CorpusFact should have skipped this test because IMPERIALISM_SCENARIO_DIR is unset.");
-        }
-
-        return directory;
+        return CorpusFactAttribute.RequireScenarioDirectory();
     }
 
     private static MapDocument CreateMap(int width, int height, params HexCell[] cells)
