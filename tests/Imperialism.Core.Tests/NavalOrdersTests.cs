@@ -403,6 +403,37 @@ public sealed class NavalOrdersTests
     }
 
     [Fact]
+    public void AMoveToASeaZoneNoSeaPathReachesIsRefusedAndAPatrolStandsUnchanged()
+    {
+        // Sea zones: 0 Home, 1 Open, then a reef, then 2 Far. Far is one cell past Open,
+        // within a one-zone hull's reach if any sea path joined them, so only the missing
+        // path can refuse it (manual lines 1916-1917).
+        var state = CreateState(
+            zones: 3,
+            ships: [Ship(Raider, OpenSea), Ship(Raider, OpenSea)],
+            reefBeforeLastZone: true);
+        var far = new SeaZoneId(2);
+
+        var assembly = Resolve(state, raider: new CountryTurnOrders(
+            Raider, naval: [NavalOrder.Assemble([new FleetId(1)], NavalMission.MoveTo(far))]));
+        var refusedAssembly = Assert.Single(assembly.Events.OfType<NavalOrderRefusedEvent>());
+        Assert.Equal((NavalOrderKind.Assemble, NavalOrderRefusal.OutOfRange), (refusedAssembly.Kind, refusedAssembly.Reason));
+        Assert.Empty(state.TaskForces);
+        Assert.Empty(assembly.Events.OfType<TaskForceSailedEvent>());
+
+        _ = Resolve(state, raider: new CountryTurnOrders(
+            Raider, naval: [NavalOrder.Assemble([new FleetId(1)], NavalMission.Patrol)]));
+        var command = Resolve(state, raider: new CountryTurnOrders(
+            Raider, naval: [NavalOrder.Command(new TaskForceId(1), NavalMission.MoveTo(far))]));
+        var refusedCommand = Assert.Single(command.Events.OfType<NavalOrderRefusedEvent>());
+        Assert.Equal((NavalOrderKind.Command, NavalOrderRefusal.OutOfRange), (refusedCommand.Kind, refusedCommand.Reason));
+        Assert.Empty(command.Events.OfType<TaskForceSailedEvent>());
+        var force = state.GetTaskForce(new TaskForceId(1));
+        Assert.Equal((OpenSea, TaskForceActivity.Patrolling), (force.SeaZone, force.Activity));
+        Assert.All(force.Fleets, id => Assert.Equal(OpenSea, state.GetFleet(id).SeaZone));
+    }
+
+    [Fact]
     public void ANullNavalOrderIsMalformedButAnImpossibleOneIsNot()
     {
         Assert.Throws<ArgumentException>(() =>
@@ -447,35 +478,44 @@ public sealed class NavalOrdersTests
     /// <summary>
     /// Capital, inland, port, then <paramref name="zones"/> sea cells in a row, each its
     /// own sea zone. Ships carry one zone a turn, so a leg is never longer than one.
+    /// With <paramref name="reefBeforeLastZone"/> a land cell separates the last zone from
+    /// the rest, so no sea path reaches it although it lies one cell further on.
     /// </summary>
-    private static WorldState CreateState(int zones, InitialShip[] ships)
+    private static WorldState CreateState(int zones, InitialShip[] ships, bool reefBeforeLastZone = false)
     {
-        var width = 3 + zones;
+        var reef = reefBeforeLastZone ? 3 + zones - 1 : -1;
+        var width = 3 + zones + (reefBeforeLastZone ? 1 : 0);
         var dimensions = new MapDimensions(width, 1);
         var cells = new CellDefinition[width];
         for (var index = 0; index < width; index++)
         {
+            var zone = index - 3 - (reefBeforeLastZone && index > reef ? 1 : 0);
             cells[index] = new CellDefinition(
                 new CellIndex(index),
                 dimensions.GetCoordinate(new CellIndex(index)),
                 new TerrainId(0),
-                index >= 3
-                    ? CellRegion.ForSeaZone(new SeaZoneId(index - 3))
-                    : CellRegion.ForProvince(new ProvinceId(index)),
+                index == reef
+                    ? CellRegion.ForProvince(new ProvinceId(3))
+                    : index >= 3
+                        ? CellRegion.ForSeaZone(new SeaZoneId(zone))
+                        : CellRegion.ForProvince(new ProvinceId(index)),
                 null,
                 index == 0 ? SettlementSiteKind.Urban : SettlementSiteKind.None,
                 null);
         }
 
         string[] names = ["Home Waters", "Open Sea", "Far Sea"];
+        ProvinceDefinition[] provinces =
+        [
+            new ProvinceDefinition(new ProvinceId(0), "Capital"),
+            new ProvinceDefinition(new ProvinceId(1), "Inland"),
+            new ProvinceDefinition(new ProvinceId(2), "Shore"),
+            .. reefBeforeLastZone ? [new ProvinceDefinition(new ProvinceId(3), "Reef")] : Array.Empty<ProvinceDefinition>(),
+        ];
         var map = new MapDefinition(
             dimensions,
             cells,
-            [
-                new ProvinceDefinition(new ProvinceId(0), "Capital"),
-                new ProvinceDefinition(new ProvinceId(1), "Inland"),
-                new ProvinceDefinition(new ProvinceId(2), "Shore"),
-            ],
+            provinces,
             Enumerable.Range(0, zones)
                 .Select(zone => new SeaZoneDefinition(new SeaZoneId(zone), names[zone])),
             [new ResourceDefinition(new ResourceId(0), new CommodityId(0), [1])]);
@@ -483,7 +523,7 @@ public sealed class NavalOrdersTests
         var scenario = new ScenarioDefinition(
             "Naval orders",
             1815,
-            [Owner, Owner, Owner],
+            Enumerable.Repeat<CountryId?>(Owner, provinces.Length).ToArray(),
             [new CellLink(new CellIndex(0), new CellIndex(1)), new CellLink(new CellIndex(1), new CellIndex(2))],
             [new CountryCapital(Owner, new CellIndex(0))],
             null,
