@@ -50,6 +50,14 @@ internal static class NavalPlanner
                 state.SetRelationMode(country, target, CountryRelationMode.Hostile);
                 _ = declared.Add(target);
                 events.Add(new WarDeclaredEvent(turnNumber, country, target));
+
+                // A declaration breaks a pact and, between Great Powers, closes the posts
+                // both ways. Cut now; every reader plans against the state the turn
+                // opened with, so the loss is first felt next turn, when the war begins.
+                if (DiplomacyPlanner.CutTiesForWar(state, country, target, turnNumber) is { } cut)
+                {
+                    events.Add(cut);
+                }
             }
         }
 

@@ -30,7 +30,8 @@ public sealed class WorldDefinition
         IEnumerable<ShipTypeDefinition>? shipTypes = null,
         ITradeMarket? trade = null,
         WorkerTrainingSettings? workerTraining = null,
-        PowerSettings? power = null)
+        PowerSettings? power = null,
+        DiplomacySettings? diplomacy = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(countries);
@@ -585,6 +586,7 @@ public sealed class WorldDefinition
         Trade = trade;
         WorkerTraining = workerTraining;
         Power = power;
+        Diplomacy = diplomacy;
         _technologies = Array.AsReadOnly(technologyArray);
         _civilianTypes = Array.AsReadOnly(civilianTypeArray);
         _shipTypes = Array.AsReadOnly(shipTypeArray);
@@ -691,6 +693,13 @@ public sealed class WorldDefinition
     public PowerSettings? Power { get; }
 
     /// <summary>
+    /// What a consulate and an embassy cost, or null where neither can be bought — which
+    /// is how every world behaved before version 30. Peace and pacts cost nothing and do
+    /// not need it.
+    /// </summary>
+    public DiplomacySettings? Diplomacy { get; }
+
+    /// <summary>
     /// A port stands on land. Verified against every <c>port</c> record in the
     /// shipped corpus: 124 of 124 are on a land cell.
     /// </summary>
@@ -779,6 +788,8 @@ public sealed class WorldState
     private readonly long[] _ships;
     private readonly short[] _relationModes;
     private readonly short[] _relationTokens;
+    private readonly short[] _relationPriorModes;
+    private readonly byte[] _diplomaticTies;
     private readonly List<FleetState> _fleets;
     private System.Collections.ObjectModel.ReadOnlyCollection<FleetState>? _fleetsView;
     private readonly List<TaskForceState> _taskForces = [];
@@ -963,12 +974,34 @@ public sealed class WorldState
         var relationSlots = checked(definition.Countries.Count * definition.Countries.Count);
         _relationModes = new short[relationSlots];
         _relationTokens = new short[relationSlots];
+        _relationPriorModes = new short[relationSlots];
         Array.Fill(_relationModes, (short)CountryRelationMode.Standard);
         Array.Fill(_relationTokens, (short)-1);
+        Array.Fill(_relationPriorModes, (short)CountryRelationMode.Standard);
         _relationSequence = definition.Scenario.InitialRelationSequence;
         foreach (var relationState in definition.Scenario.InitialRelationStates)
         {
             SetInitialRelationState(relationState);
+        }
+
+        // "At the beginning of the game, your Great Power already has embassies, which
+        // include trade consulates, in every Great Power" (manual lines 3574-3577). A pair the
+        // scenario authors at war starts without them, because a war between Great
+        // Powers is what closes them.
+        _diplomaticTies = new byte[relationSlots];
+        foreach (var owner in definition.Countries)
+        {
+            foreach (var host in definition.Countries)
+            {
+                if (owner.Id == host.Id || !owner.IsGreatPower || !host.IsGreatPower ||
+                    GetRelationMode(owner.Id, host.Id) == CountryRelationMode.Hostile)
+                {
+                    continue;
+                }
+
+                _diplomaticTies[GetRelationOffset(owner.Id, host.Id)] =
+                    (byte)((1 << (int)DiplomaticTie.Consulate) | (1 << (int)DiplomaticTie.Embassy));
+            }
         }
 
         if (definition.StartingDefaults?.Ships is { Count: > 0 } fleet)
@@ -1053,6 +1086,17 @@ public sealed class WorldState
 
         var firstOffset = GetRelationOffset(first, second);
         var secondOffset = GetRelationOffset(second, first);
+
+        // Remember the mode in effect as this generation opened, once, so a second
+        // change in the same turn cannot overwrite it. That is what lets peace take
+        // effect next turn the same way war does: the mode changes now and the war
+        // stays in effect until the generation advances.
+        if (_relationTokens[firstOffset] != _relationSequence)
+        {
+            _relationPriorModes[firstOffset] = _relationModes[firstOffset];
+            _relationPriorModes[secondOffset] = _relationModes[secondOffset];
+        }
+
         _relationModes[firstOffset] = (short)mode;
         _relationModes[secondOffset] = (short)mode;
         _relationTokens[firstOffset] = _relationSequence;
@@ -1072,9 +1116,57 @@ public sealed class WorldState
     }
 
     /// <summary>Whether the original sea-port predicate treats this pair as hostile.</summary>
-    public bool HasEffectiveHostility(CountryId first, CountryId second) =>
-        GetRelationMode(first, second) == CountryRelationMode.Hostile &&
-        GetRelationToken(first, second) != _relationSequence;
+    /// <remarks>
+    /// A mode stamped in the current generation is not in effect yet; the mode before it
+    /// is. For a war declared this turn that is the original's predicate exactly — the
+    /// prior mode was not hostile. It also makes peace made this turn leave the war in
+    /// effect until next turn: "any changes in diplomatic status take effect next turn"
+    /// (manual lines 626-629). See <c>docs/formulas/diplomacy.md</c>.
+    /// </remarks>
+    public bool HasEffectiveHostility(CountryId first, CountryId second)
+    {
+        var offset = GetRelationOffset(first, second);
+        var mode = _relationTokens[offset] == _relationSequence
+            ? _relationPriorModes[offset]
+            : _relationModes[offset];
+        return mode == (short)CountryRelationMode.Hostile;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="owner"/> holds this tie in <paramref name="host"/>.
+    /// </summary>
+    /// <remarks>
+    /// A tie granted this turn is held at once but cannot be built on until next turn:
+    /// every overture is planned against the state the turn opened with, before any is
+    /// carried out. That ordering is the whole of "the new consulate opens starting the
+    /// turn after you make the overture" (manual lines 3516-3518), the same way
+    /// <c>Investment</c> running last is the whole of "bought this turn, known next".
+    /// </remarks>
+    public bool HoldsDiplomaticTie(CountryId owner, CountryId host, DiplomaticTie tie) =>
+        (_diplomaticTies[GetRelationOffset(owner, host)] & TieBit(tie)) != 0;
+
+    /// <summary>Grants a tie. See <see cref="HoldsDiplomaticTie"/> for when it opens.</summary>
+    internal void GrantDiplomaticTie(CountryId owner, CountryId host, DiplomaticTie tie) =>
+        _diplomaticTies[GetRelationOffset(owner, host)] |= TieBit(tie);
+
+    /// <summary>Removes a tie at once. Returns whether there was one to remove.</summary>
+    internal bool RemoveDiplomaticTie(CountryId owner, CountryId host, DiplomaticTie tie)
+    {
+        var offset = GetRelationOffset(owner, host);
+        var bit = TieBit(tie);
+        if ((_diplomaticTies[offset] & bit) == 0)
+        {
+            return false;
+        }
+
+        _diplomaticTies[offset] &= (byte)~bit;
+        return true;
+    }
+
+    private static byte TieBit(DiplomaticTie tie) =>
+        Enum.IsDefined(tie)
+            ? (byte)(1 << (int)tie)
+            : throw new ArgumentOutOfRangeException(nameof(tie));
 
     public long GetAvailableQuantity(CountryId country, CommodityId commodity) =>
         _availableInventory[GetInventoryOffset(country, commodity)];

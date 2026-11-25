@@ -418,6 +418,10 @@ public sealed class TurnReportRendererTests
             new CivilianDeliveryLostEvent(1, Blue, new CivilianTypeId(0), 1),
             new CivilianDisbandedEvent(1, Blue, unit, new CivilianTypeId(0), 1),
             new CivilianDisbandRefusedEvent(1, Blue, unit, CivilianDisbandRefusal.NotYours),
+            new DiplomaticOvertureAcceptedEvent(1, Blue, Red, DiplomaticOvertureKind.Consulate, 500),
+            new DiplomaticOvertureRefusedEvent(
+                1, Blue, Red, DiplomaticOvertureKind.Embassy, DiplomaticOvertureRefusal.NoConsulate),
+            new DiplomaticTiesCutEvent(1, Blue, Red, pactBroken: true, postsClosed: true),
         ];
     }
 }

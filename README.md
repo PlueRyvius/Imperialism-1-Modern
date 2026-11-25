@@ -129,6 +129,7 @@ still an optional local source with the procedural palette as its fallback.
 - [x] Building ships (`ShipbuildingTests`)
 - [x] Declaring war and commanding fleets (`NavalOrdersTests`)
 - [x] Research progress: the original has none beyond purchase ([`docs/formulas/research-progress.md`](docs/formulas/research-progress.md))
+- [x] Consulates, embassies, pacts, peace and war boycotts (`DiplomacyTests`)
 - [ ] Trade subsidies, sea routes between ports, and blockade
 - [x] The University: buying and disbanding civilians (`UniversityTests`)
 - [ ] Moving regiments by rail, the newspaper, fortifications

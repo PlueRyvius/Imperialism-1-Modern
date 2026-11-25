@@ -32,6 +32,7 @@ documentation and tests are authoritative when a summary here becomes stale.
 | What the Shipyard charges, and when a new ship counts | `docs/formulas/shipbuilding.md` |
 | How war is declared, and what a fleet may be ordered to do | `docs/formulas/naval.md` |
 | What the University charges for a civilian | `docs/formulas/university.md` |
+| What an overture costs, and what a war cuts | `docs/formulas/diplomacy.md` |
 | How a player changes what the network reaches | `docs/formulas/engineer.md` |
 | What does the manual actually specify? | `docs/reference/manual-mechanics.md` |
 | What's still unknown? | `docs/formulas/_index.md` |
@@ -800,6 +801,22 @@ repeat; **only healthy experts**; delivery on the **capital cell**, with nothing
 and nothing refunded if the capital is gone; a disbanded civilian's expert **works from
 next turn**; knowledge read **as the turn opens**. The v28 migration adds no block, so a
 migrated University sells nothing. No soak number moved.
+
+`.iworld` **v30** opens **diplomacy**: a Great Power may buy a **consulate** ($500), then an
+**embassy** ($5,000), then sign a free **pact** with a Minor Nation, and may offer **peace**.
+Every price and prerequisite is the manual's (lines 3516–3545). The v30 block is only the two
+prices, `diplomacy {consulateCost, embassyCost}`, because **Core could already tell a Great
+Power from a minor**: `isGreatPower` has been content since v20, read from `labo`, so the
+fair-start line above that says otherwise is stale. Overtures resolve in `Diplomacy` ahead of
+declarations, so **no new phase**. Great Power pairs start holding both posts both ways
+(lines 3574–3577). **Peace goes through the same next-turn token as war**, which needed one
+fix: the token only ever delayed *hostility*, so `HasEffectiveHostility` now reads the mode in
+effect as the turn opened. A war breaks pacts, closes Great Power posts both ways, and
+**boycotts trade** between the pair while it is in effect. Six rules are chosen, each labelled
+in `docs/formulas/diplomacy.md`, the sharpest being that **a Great Power accepts peace only if
+it offers peace back the same turn**. Relation scores, alliances, colonies and civilians
+entering a minor are still open. The v29 migration adds no block, so a migrated world sells no
+posts. No soak number moved.
 
 **Production spends labour: two per cycle, flat**, from one pool per country shared
 across every facility. The manual prices exactly one recipe — a unit of clothing

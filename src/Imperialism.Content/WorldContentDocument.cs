@@ -113,6 +113,13 @@ public sealed class WorldContentDocument
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PowerContentSettings? Power { get; set; }
 
+    /// <summary>
+    /// What a consulate and an embassy cost, or absent where neither can be bought —
+    /// which is how every world behaved before version 30.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DiplomacyContentSettings? Diplomacy { get; set; }
+
     public CountryContentDefinition[] Countries { get; set; } = [];
 
     public ScenarioContentDocument[] Scenarios { get; set; } = [];
@@ -152,6 +159,18 @@ public sealed class PowerContentSettings
     public long PowerPerFuel { get; set; }
 
     public long MaxFuelPerTurn { get; set; }
+}
+
+/// <summary>
+/// The Diplomacy screen's prices. Both are the manual's: a consulate "costs you $500"
+/// (line 3517) and an embassy "costs $5000" (lines 3530-3531). Pacts and peace are free
+/// and carry no price. Added in version 30. See <c>docs/formulas/diplomacy.md</c>.
+/// </summary>
+public sealed class DiplomacyContentSettings
+{
+    public long ConsulateCost { get; set; }
+
+    public long EmbassyCost { get; set; }
 }
 
 public sealed class MapContentDocument

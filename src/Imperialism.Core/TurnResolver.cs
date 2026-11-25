@@ -111,7 +111,17 @@ public static class TurnResolver
         // Training is paid for on the Industry screen before the market clears, the
         // same first claim industry has on the warehouse, so trade bids only with
         // what the Trade School leaves.
-        var trade = TradePlanner.Create(state, orders, claimed, production.CashClaimed);
+        // Overtures are paid for from what the Industry screen leaves, and trade bids
+        // only with what both leave. Diplomacy runs first, so its cash is planned here.
+        var diplomacy = DiplomacyPlanner.Create(state, orders, production.CashClaimed);
+        var cashClaimed = new long[state.Definition.Countries.Count];
+        for (var index = 0; index < cashClaimed.Length; index++)
+        {
+            cashClaimed[index] = checked(
+                production.CashClaimed[index] + diplomacy.CashClaimed[index]);
+        }
+
+        var trade = TradePlanner.Create(state, orders, claimed, cashClaimed);
         for (var index = 0; index < combined.Length; index++)
         {
             combined[index] += trade.InventoryDeltas[index];
@@ -132,6 +142,9 @@ public static class TurnResolver
                 // First, and harmless there: a war declared now is stamped with this
                 // turn's relation generation and so takes effect next turn — "the war
                 // begins on the next turn" — whatever runs after it.
+                // Overtures before declarations, so a war declared this turn still
+                // cuts a tie granted earlier in the same phase.
+                events.AddRange(DiplomacyPlanner.Apply(state, diplomacy, turnNumber));
                 events.AddRange(NavalPlanner.ResolveDiplomacy(state, orders, turnNumber));
             }
             else if (phase == TurnPhase.Conflict)

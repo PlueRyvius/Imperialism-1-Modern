@@ -107,6 +107,9 @@ public sealed class TurnReportRenderer
             TurnPhaseCompletedEvent => [],
             WarDeclaredEvent declared => [WarDeclared(declared)],
             WarDeclarationRefusedEvent refused => [WarRefused(refused)],
+            DiplomaticOvertureAcceptedEvent accepted => [OvertureAccepted(accepted)],
+            DiplomaticOvertureRefusedEvent refused => [OvertureRefused(refused)],
+            DiplomaticTiesCutEvent cut => [TiesCut(cut)],
             TaskForceAssembledEvent assembled => [Assembled(assembled)],
             TaskForcePatrolOrderedEvent patrol => [Patrolling(patrol)],
             TaskForceSailedEvent sailed => [Sailed(sailed)],
@@ -166,6 +169,45 @@ public sealed class TurnReportRenderer
         null,
         $"{Country(refused.Country)} could not declare war on {Country(refused.Target)}: " +
         $"{TurnReportText.Describe(refused.Reason)}.");
+
+    private TurnReportLine OvertureAccepted(DiplomaticOvertureAcceptedEvent accepted)
+    {
+        var who = Country(accepted.Country);
+        var whom = Country(accepted.Target);
+        var cost = accepted.CashCost == 0 ? string.Empty : $" for {Money(accepted.CashCost)}";
+        var text = accepted.Kind switch
+        {
+            DiplomaticOvertureKind.Consulate => $"{who} established a trade consulate in {whom}{cost}; it opens next turn.",
+            DiplomaticOvertureKind.Embassy => $"{who} established an embassy in {whom}{cost}; it opens next turn.",
+            DiplomaticOvertureKind.Pact => $"{whom} accepted a non-aggression pact with {who}; it takes effect next turn.",
+            _ => $"{who} made peace with {whom}; the war ends next turn.",
+        };
+        return Line(accepted, TurnReportKind.Outcome, accepted.Country, null, text);
+    }
+
+    private TurnReportLine OvertureRefused(DiplomaticOvertureRefusedEvent refused) => Line(
+        refused,
+        TurnReportKind.Refusal,
+        refused.Country,
+        null,
+        $"{Country(refused.Country)} could not {TurnReportText.Describe(refused.Kind)} " +
+        $"{Country(refused.Target)}: {TurnReportText.Describe(refused.Reason)}.");
+
+    private TurnReportLine TiesCut(DiplomaticTiesCutEvent cut)
+    {
+        var lost = (cut.PactBroken, cut.PostsClosed) switch
+        {
+            (true, true) => "broke its non-aggression pact and closed both countries' embassies and consulates",
+            (true, false) => "broke the non-aggression pact between them",
+            _ => "closed both countries' embassies and consulates; they must be re-established after peace",
+        };
+        return Line(
+            cut,
+            TurnReportKind.Outcome,
+            cut.Country,
+            null,
+            $"{Country(cut.Country)}'s war on {Country(cut.Target)} {lost}.");
+    }
 
     private TurnReportLine Assembled(TaskForceAssembledEvent assembled) => Line(
         assembled,

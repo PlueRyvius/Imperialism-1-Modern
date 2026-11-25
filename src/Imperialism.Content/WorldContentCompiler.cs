@@ -430,6 +430,7 @@ public static class WorldContentCompiler
 
         var workerTraining = CompileWorkerTraining(document.WorkerTraining, commodityIds);
         var power = CompilePower(document.Power, commodityIds, facilityIds, facilities);
+        var diplomacy = CompileDiplomacy(document.Diplomacy);
         var recipes = CompileProductionRecipes(recipeContent, facilityIds, commodityIds);
 
         MapDimensions dimensions;
@@ -542,7 +543,8 @@ public static class WorldContentCompiler
                     shipTypeIds,
                     tradeMarket,
                     workerTraining,
-                    power));
+                    power,
+                    diplomacy));
         }
 
         return new CompiledWorldPackage(mapContent.Key, mapContent.Name, catalog, worlds);
@@ -578,7 +580,8 @@ public static class WorldContentCompiler
         IReadOnlyDictionary<string, int> shipTypeIds,
         ITradeMarket? tradeMarket,
         WorkerTrainingSettings? workerTraining,
-        PowerSettings? power)
+        PowerSettings? power,
+        DiplomacySettings? diplomacy)
     {
         var owners = CompileOwners(
             RequireArray(scenarioContent.ProvinceOwners, $"{path}.provinceOwners"),
@@ -833,7 +836,8 @@ public static class WorldContentCompiler
                 shipTypes,
                 tradeMarket,
                 workerTraining,
-                power);
+                power,
+                diplomacy);
         }
         catch (ArgumentException exception)
         {
@@ -1185,6 +1189,26 @@ public static class WorldContentCompiler
         {
             throw Error("power", exception.Message, exception);
         }
+    }
+
+    private static DiplomacySettings? CompileDiplomacy(DiplomacyContentSettings? content)
+    {
+        if (content is null)
+        {
+            return null;
+        }
+
+        if (content.ConsulateCost < 0)
+        {
+            throw Error("diplomacy.consulateCost", "A consulate cannot cost a negative amount.");
+        }
+
+        if (content.EmbassyCost < 0)
+        {
+            throw Error("diplomacy.embassyCost", "An embassy cannot cost a negative amount.");
+        }
+
+        return new DiplomacySettings(content.ConsulateCost, content.EmbassyCost);
     }
 
     private static MigrationSettings? CompileMigration(
