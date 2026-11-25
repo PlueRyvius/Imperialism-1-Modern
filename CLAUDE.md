@@ -764,18 +764,18 @@ runs `Assemble(fleets, mission)` and `Command(taskForce, mission)`, the mission 
 `None`, `Patrol` or `MoveTo(zone)`, and a task force takes **one mission or move a turn**:
 "Fleets cannot do both a mission and a move in the same turn". Conflict sits before
 `Extraction`, so a patrol ordered now cuts a port this turn if the war is already in effect.
-Eleven chosen rules, each labelled in `docs/formulas/naval.md`: **a patrol persists** until
+Ten chosen rules, each labelled in `docs/formulas/naval.md`: **a patrol persists** until
 ordered to move; **a moved task force arrives idle** and patrols only on a later turn;
 **countries in id order, orders in list order, every move after every order**; **assembly is
 permanent**, with no disband or split; **war is unilateral, on any country, with no peace
 order**; **an invalid order is refused with an event, never thrown**; **an assembly is all or
 nothing**, so a refused mission refuses the grouping; **a `None` mission spends nothing**
 while re-ordering a patrol spends the turn; **declaring on a pair already at war is refused,
-not restamped**, so a mutual declaration counts once, for the lower id; **only whole fleet
-records** are assembled; and **an out-of-range move sails as far as it can** rather than
-being refused. The last is PR #35's planner kept as it is, and the manual disagrees (lines
-1916–1917: "you cannot move the f leet that far in one turn") — read the executable's cursor
-check before changing it. New ships stay unplaced, so they cannot be assembled yet. No soak
+not restamped**, so a mutual declaration counts once, for the lower id; and **only whole fleet
+records** are assembled. A move beyond the slowest hull's reach, or to a zone no sea path
+reaches, is **refused** — the manual's, not chosen: "you cannot move the f leet that far in one
+turn" (lines 1916–1917). PR #35's planner still trims a long leg for direct callers; the order
+never reaches it. New ships stay unplaced, so they cannot be assembled yet. No soak
 number moved.
 
 **Production spends labour: two per cycle, flat**, from one pool per country shared

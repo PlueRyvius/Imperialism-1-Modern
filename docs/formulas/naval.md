@@ -26,7 +26,7 @@ version bump**, and **no soak number moved**: no soak policy declares war or ord
 
 `inferred`. The manual states that a declaration cannot be refused and takes effect next
 turn, and that a fleet takes a mission or a move in a turn but not both. The patrol state
-and the sailing leg are PR #35's executable readings. Eleven rules below are chosen, and
+and the sailing leg are PR #35's executable readings. Ten rules below are chosen, and
 are labelled where they appear and in the table.
 
 | Claim | Support |
@@ -49,7 +49,7 @@ are labelled where they appear and in the table.
 | 8. A mission of `None` spends nothing; re-ordering a patrol does spend the turn | **chosen rule** |
 | 9. A declaration against a pair already at war is refused, not restamped | **chosen rule** |
 | 10. Only whole fleet records are assembled; no ship-by-ship selection | **chosen rule** |
-| 11. A destination out of range is sailed towards, not refused | **chosen rule** (inherited from PR #35's planner; the manual disagrees, see "Open") |
+| A destination beyond the slowest hull's reach, or one no sea path reaches, is refused | **manual**, lines 1916–1917 |
 
 ## Declaring war
 
@@ -207,13 +207,19 @@ one order per turn this means a fleet sent to blockade a port takes two turns: o
 and one to start patrolling. The same holds for a defender: the owner's warship that sails
 into a blockaded zone does not lift the blockade until it patrols there.
 
-### Leg length (chosen rule 11)
+### Leg length
 
-A leg is no longer than the slowest hull's `SeaZones`, and a zone it cannot reach at all
-gives a leg of length zero. That is PR #35's `PlanTaskForceMove`, unchanged. **A destination
-beyond range is therefore sailed towards rather than refused**, and the event reports both
-where the task force got to and where it was bound; the turn report calls a short leg a
-shortfall. See "Open" for why this is labelled.
+**A move beyond the slowest selected hull's `SeaZones`, or to a zone no sea path reaches, is
+refused** (`NavalOrderRefusal.OutOfRange`), charged nothing, and leaves the task force free for
+another order the same turn. The manual's interface never accepts the order: "If the new zone
+is out of range you see a red slashed circle cursor; you cannot move the f leet that far in one
+turn" (lines 1916–1917). An unreachable zone is out of range at any distance, so it falls under
+the same sentence. Orders stand for what a player can enter, so they follow the cursor.
+
+PR #35's `PlanTaskForceMove` still trims a long request to the furthest leg it can sail, which
+it reads from the executable's planning routine. That is not a contradiction: the cursor stops
+the order and the planner never sees one out of range. The planner is unchanged for direct
+callers, and the turn report still words a short leg as a shortfall should one ever arrive.
 
 ### Never throwing (chosen rule 6)
 
@@ -232,16 +238,6 @@ them. Only a `null` order is malformed, and `CountryTurnOrders` rejects it on co
 - **Peace and treaties** (row 5), **landings**, and **placing newly built ships**: a new
   ship is unplaced, so it is refused as `FleetNotPlaced` until placement is modelled.
 - **Aggressiveness** (lines 4664–4668). Not stored.
-
-## Open: an out-of-range move
-
-The manual says an out-of-range destination is refused at the cursor: "If the new zone is
-out of range you see a red slashed circle cursor; you cannot move the f leet that far in one
-turn" (lines 1916–1917). PR #35's planner instead sails the furthest leg it can towards the
-destination, which it reads from the executable's planning routine, and its own comment says
-the routine's "relative place in the wider simultaneous turn is still unproven". This slice
-keeps the planner as it is and labels the result (chosen rule 11). If the executable's cursor
-check is read and agrees with the manual, the change is one more refusal reason.
 
 ## Soak
 

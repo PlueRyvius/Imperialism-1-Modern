@@ -116,7 +116,7 @@ internal static class NavalPlanner
 
         // All or nothing: a mission that would be refused stops the grouping too, so a
         // refused order never leaves a half-done task force behind.
-        refusal ??= CheckMission(state, order.Mission, seaZone);
+        refusal ??= CheckMission(state, order.Mission, seaZone, order.Fleets);
         if (refusal is { } reason)
         {
             events.Add(new NavalOrderRefusedEvent(
@@ -164,7 +164,7 @@ internal static class NavalPlanner
             }
             else
             {
-                refusal = CheckMission(state, order.Mission, force.SeaZone);
+                refusal = CheckMission(state, order.Mission, force.SeaZone, force.Fleets);
             }
         }
 
@@ -231,7 +231,7 @@ internal static class NavalPlanner
     }
 
     private static NavalOrderRefusal? CheckMission(
-        WorldState state, NavalMission mission, SeaZoneId current)
+        WorldState state, NavalMission mission, SeaZoneId current, IReadOnlyList<FleetId> fleets)
     {
         if (mission is not NavalMission.MoveMission move)
         {
@@ -243,7 +243,43 @@ internal static class NavalPlanner
             return NavalOrderRefusal.NoSuchSeaZone;
         }
 
-        return move.Destination == current ? NavalOrderRefusal.AlreadyInThatSeaZone : null;
+        if (move.Destination == current)
+        {
+            return NavalOrderRefusal.AlreadyInThatSeaZone;
+        }
+
+        // The manual's interface never lets a player give this order: "If the new zone
+        // is out of range you see a red slashed circle cursor; you cannot move the f leet
+        // that far in one turn." So an order beyond the slowest hull's reach, or to a zone
+        // no sea path reaches, is refused rather than handed to the executable's clamp.
+        var reach = fleets.Min(id => state.Definition.ShipTypes[state.GetFleet(id).Type.Value].SeaZones);
+        var distance = SeaZoneDistance(state.Definition.Map.SeaTopology, current, move.Destination);
+        return distance is { } zones && zones <= reach ? null : NavalOrderRefusal.OutOfRange;
+    }
+
+    /// <summary>Sea zones between two zones, or null when no sea path joins them.</summary>
+    private static long? SeaZoneDistance(SeaZoneTopology topology, SeaZoneId from, SeaZoneId to)
+    {
+        var distance = new Dictionary<SeaZoneId, long> { [from] = 0 };
+        var frontier = new Queue<SeaZoneId>();
+        frontier.Enqueue(from);
+        while (frontier.TryDequeue(out var current))
+        {
+            if (current == to)
+            {
+                return distance[current];
+            }
+
+            foreach (var neighbor in topology.GetNeighbors(current))
+            {
+                if (distance.TryAdd(neighbor, distance[current] + 1))
+                {
+                    frontier.Enqueue(neighbor);
+                }
+            }
+        }
+
+        return null;
     }
 
     private static void Apply(

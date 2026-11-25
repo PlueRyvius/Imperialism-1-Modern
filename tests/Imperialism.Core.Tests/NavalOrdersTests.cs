@@ -369,17 +369,37 @@ public sealed class NavalOrdersTests
     }
 
     [Fact]
-    public void ALegLongerThanTheSlowestHullStopsShortAndReportsWhereItWasBound()
+    public void AMoveBeyondTheSlowestHullsReachIsRefusedAndOneWithinItSails()
     {
-        // Sea zones: 0 Home, 1 Open, and a third beyond; a one-zone hull goes one step.
+        // Sea zones: 0 Home, 1 Open, 2 Far; a one-zone hull reaches Open and not Far.
+        // "If the new zone is out of range you see a red slashed circle cursor; you
+        // cannot move the fleet that far in one turn" (manual lines 1916-1917).
         var state = CreateState(
             zones: 3,
-            ships: [Ship(Raider, HomeWaters)]);
-        var resolution = Resolve(state, raider: new CountryTurnOrders(
-            Raider, naval: [NavalOrder.Assemble([new FleetId(1)], NavalMission.MoveTo(new SeaZoneId(2)))]));
+            ships: [Ship(Raider, HomeWaters), Ship(Raider, HomeWaters)]);
+        var far = new SeaZoneId(2);
 
-        var leg = Assert.Single(resolution.Events.OfType<TaskForceSailedEvent>());
-        Assert.Equal((HomeWaters, OpenSea, new SeaZoneId(2)), (leg.From, leg.To, leg.RequestedDestination));
+        var assembled = Resolve(state, raider: new CountryTurnOrders(
+            Raider, naval: [NavalOrder.Assemble([new FleetId(1)], NavalMission.MoveTo(far))]));
+        var refusedAssembly = Assert.Single(assembled.Events.OfType<NavalOrderRefusedEvent>());
+        Assert.Equal((NavalOrderKind.Assemble, NavalOrderRefusal.OutOfRange), (refusedAssembly.Kind, refusedAssembly.Reason));
+        Assert.Empty(state.TaskForces);
+
+        _ = state.AssembleTaskForce(Raider, [new FleetId(1)]);
+        var commanded = Resolve(state, raider: new CountryTurnOrders(
+            Raider,
+            naval:
+            [
+                NavalOrder.Command(new TaskForceId(1), NavalMission.MoveTo(far)),
+
+                // The refusal spent nothing, so a move within reach may follow it.
+                NavalOrder.Command(new TaskForceId(1), NavalMission.MoveTo(OpenSea)),
+            ]));
+        var refusedCommand = Assert.Single(commanded.Events.OfType<NavalOrderRefusedEvent>());
+        Assert.Equal((NavalOrderKind.Command, NavalOrderRefusal.OutOfRange), (refusedCommand.Kind, refusedCommand.Reason));
+        var leg = Assert.Single(commanded.Events.OfType<TaskForceSailedEvent>());
+        Assert.Equal((HomeWaters, OpenSea, OpenSea), (leg.From, leg.To, leg.RequestedDestination));
+        Assert.Equal(OpenSea, state.GetTaskForce(new TaskForceId(1)).SeaZone);
     }
 
     [Fact]

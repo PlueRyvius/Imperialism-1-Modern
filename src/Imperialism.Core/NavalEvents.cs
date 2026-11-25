@@ -119,6 +119,12 @@ public enum NavalOrderRefusal : byte
     /// appear in the fleet's current sea zone".
     /// </summary>
     AlreadyInThatSeaZone,
+
+    /// <summary>
+    /// The move names a zone beyond the slowest selected hull's reach this turn, or one
+    /// no sea path reaches: "you cannot move the fleet that far in one turn".
+    /// </summary>
+    OutOfRange,
 }
 
 /// <summary>Records fleets grouped into a new task force.</summary>

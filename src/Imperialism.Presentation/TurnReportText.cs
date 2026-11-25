@@ -128,6 +128,7 @@ public static class TurnReportText
         NavalOrderRefusal.AlreadyOrderedThisTurn => "it already has its mission or move this turn",
         NavalOrderRefusal.NoSuchSeaZone => "no such sea zone exists",
         NavalOrderRefusal.AlreadyInThatSeaZone => "it is already in that sea zone",
+        NavalOrderRefusal.OutOfRange => "that sea zone is out of range this turn",
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 
