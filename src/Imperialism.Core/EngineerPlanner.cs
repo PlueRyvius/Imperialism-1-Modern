@@ -75,7 +75,7 @@ internal static class EngineerPlanner
         // Which cursor was used is decided by which tile was clicked, so an
         // order whose structure disagrees with its target is not an order the
         // original could have produced.
-        var adjacent = IsAdjacent(definition.Map, engineer.Cell, order.Cell);
+        var adjacent = definition.Map.AreAdjacent(engineer.Cell, order.Cell);
         if (order.Structure == EngineerConstruction.Rail)
         {
             if (order.Cell == engineer.Cell || !adjacent)
@@ -234,15 +234,14 @@ internal static class EngineerPlanner
             return null;
         }
 
-        var coordinate = map.Dimensions.GetCoordinate(cell);
         foreach (var direction in HexDirections.All)
         {
-            if (!coordinate.TryGetNeighbor(direction, map.Dimensions, out var neighbor))
+            if (!map.TryGetNeighbor(cell, direction, out var neighbor))
             {
                 continue;
             }
 
-            if (map[map.Dimensions.GetIndex(neighbor)].Region.Kind == CellRegionKind.SeaZone)
+            if (map[neighbor].Region.Kind == CellRegionKind.SeaZone)
             {
                 return null;
             }
@@ -265,21 +264,6 @@ internal static class EngineerPlanner
         return rule.RequiredTechnology is { } required && !state.HasTechnology(country, required)
             ? CivilianOrderRefusal.ConstructionTechnologyNotKnown
             : null;
-    }
-
-    private static bool IsAdjacent(MapDefinition map, CellIndex from, CellIndex to)
-    {
-        var coordinate = map.Dimensions.GetCoordinate(from);
-        foreach (var direction in HexDirections.All)
-        {
-            if (coordinate.TryGetNeighbor(direction, map.Dimensions, out var neighbor) &&
-                map.Dimensions.GetIndex(neighbor) == to)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static CivilianOrderRefusal? LegalityOfEntry(

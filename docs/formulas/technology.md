@@ -665,7 +665,10 @@ recorded above.
   `prospecting.md` called permanently shut is open. Nothing has run a soak on it.
 - **The Refinery and the Power Plant**, both behind Oil Drilling. **Closed with
   v28**: expansion is refused without it; authored capacity and running are not.
-- **Research progress.** The manual has purchase as instant and this models it that
-  way; nothing accumulates points.
+- **Research progress** is closed: the original has no such mechanic.
+  [research-progress.md](research-progress.md) checks the executable and the
+  manual. A technology is bought outright, takes effect next turn, and nothing
+  accumulates points, which is what this models. Its one optional follow-up is
+  drawing each arrival date within its window.
 - **The newspaper**, which is how the original tells you a technology has arrived.
   The events exist and nothing presents them.
