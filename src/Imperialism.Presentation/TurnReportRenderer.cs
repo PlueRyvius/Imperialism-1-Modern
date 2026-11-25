@@ -168,6 +168,7 @@ public sealed class TurnReportRenderer
             WorkersFedEvent fed => Fed(fed),
             CommodityDeliveredEvent delivered => [Delivered(delivered)],
             TechnologyPurchasedEvent bought => [TechnologyBought(bought)],
+            TechnologyAvailableEvent available => [TechnologyAvailable(available)],
             TechnologyPurchaseRefusedEvent refused => [TechnologyRefused(refused)],
             _ => throw new InvalidOperationException(
                 $"No words exist for a {turnEvent.GetType().Name}."),
@@ -740,7 +741,7 @@ public sealed class TurnReportRenderer
             ? _world.ArmyTypes[type.Value].Name
             : $"army type {type.Value}";
 
-    private string Province(ProvinceId province) =>
+    internal string Province(ProvinceId province) =>
         (uint)province.Value < (uint)_world.Map.Provinces.Count
             ? _world.Map.Provinces[province.Value].Name
             : $"province {province.Value}";
@@ -1059,6 +1060,13 @@ public sealed class TurnReportRenderer
         null,
         $"{Country(bought.Country)} bought {Technology(bought.Technology)} for {Money(bought.Paid)}.");
 
+    private TurnReportLine TechnologyAvailable(TechnologyAvailableEvent available) => Line(
+        available,
+        TurnReportKind.Outcome,
+        null,
+        null,
+        $"{Technology(available.Technology)} is now available to every power, from next turn.");
+
     private TurnReportLine TechnologyRefused(TechnologyPurchaseRefusedEvent refused) => Line(
         refused,
         TurnReportKind.Refusal,
@@ -1082,11 +1090,11 @@ public sealed class TurnReportRenderer
             cell,
             text);
 
-    private string Country(CountryId country) => (uint)country.Value < (uint)_world.Countries.Count
+    internal string Country(CountryId country) => (uint)country.Value < (uint)_world.Countries.Count
         ? _world.Countries[country.Value].Name
         : $"Country {country.Value}";
 
-    private string Commodity(CommodityId commodity) =>
+    internal string Commodity(CommodityId commodity) =>
         (uint)commodity.Value < (uint)_world.Commodities.Count
             ? _world.Commodities[commodity.Value].Name
             : $"Commodity {commodity.Value}";
@@ -1104,12 +1112,12 @@ public sealed class TurnReportRenderer
     private string Hulls(long count, ShipTypeId type) =>
         $"{Count(count)} {Ship(type)} {(count == 1 ? "hull" : "hulls")}";
 
-    private string Ship(ShipTypeId type) =>
+    internal string Ship(ShipTypeId type) =>
         (uint)type.Value < (uint)_world.ShipTypes.Count
             ? _world.ShipTypes[type.Value].Name
             : $"Ship {type.Value}";
 
-    private string SeaZone(SeaZoneId seaZone) =>
+    internal string SeaZone(SeaZoneId seaZone) =>
         (uint)seaZone.Value < (uint)_world.Map.SeaZones.Count
             ? _world.Map.SeaZones[seaZone.Value].Name
             : $"Sea zone {seaZone.Value}";
@@ -1119,7 +1127,7 @@ public sealed class TurnReportRenderer
             ? $"fleet {fleet.Value} ({Hulls(found.Count, found.Type)})"
             : $"fleet {fleet.Value}";
 
-    private string Technology(TechnologyId technology) =>
+    internal string Technology(TechnologyId technology) =>
         (uint)technology.Value < (uint)_world.Technologies.Count
             ? _world.Technologies[technology.Value].Name
             : $"Technology {technology.Value}";

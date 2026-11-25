@@ -227,7 +227,7 @@ prerequisite graph. The first three are recovered and the graph is still open.
 | Arrival date **drawn** from a window | exe 195, manual 4145 "Approximate" | One fixed year, the window's minimum | **simplification**, listed in technology.md:62 |
 | A chain of prerequisites takes a turn per link | owner's reading (technology.md:427–433) | `known` snapshotted at the start of the phase | matches |
 | The cash comes out **when the player clicks** | manual 4121 | Charged in `Investment` after `Development` has paid for building | **diverges**. See below |
-| "New Invention" newspaper story, Minister reminder, lit toolbar button | manual 1014–1016, 4096–4102 | The events exist and nothing shows them | presentation, pending (technology.md:648) |
+| "New Invention" newspaper story, Minister reminder, lit toolbar button | manual 1014–1016, 4096–4102 | `TechnologyAvailableEvent` marks the arrival and `NewspaperView` prints "New Invention"; the screen, the Minister and the microscope show nothing yet | event and view match ([newspaper.md](newspaper.md) N1); screen pending |
 
 ## What is left to build
 

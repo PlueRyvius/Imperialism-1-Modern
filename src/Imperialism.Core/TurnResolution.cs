@@ -1257,6 +1257,33 @@ public sealed record TechnologyPurchasedEvent : TurnEvent
 }
 
 /// <summary>
+/// Records one technology becoming available to everybody: the newspaper's
+/// "New Invention".
+/// </summary>
+/// <remarks>
+/// <b>A crossing, not a level</b> (chosen rule N1 in <c>docs/formulas/newspaper.md</c>).
+/// It is emitted in <see cref="TurnPhase.Investment"/> for every priced technology whose
+/// <see cref="TechnologyDefinition.AvailableFrom"/> lies after the year the turn started in
+/// and no later than the year of the date the turn ends on. So the turn that ends on the
+/// first quarter of 1830 announces every 1830 invention, and the next turn's orders are the
+/// first that can buy them. A technology already available as the turn opened is never
+/// announced, and an unpriced one never is, because it was never on the Investment screen.
+/// "When a new technology first becomes available, you see a story with a large bold
+/// headline in the newspaper titled 'New Invention.'" (manual, lines 4096–4099). World-wide,
+/// so it names no country: "advances become available on a world-wide basis".
+/// </remarks>
+public sealed record TechnologyAvailableEvent : TurnEvent
+{
+    public TechnologyAvailableEvent(int turnNumber, TechnologyId technology)
+        : base(turnNumber, TurnPhase.Investment)
+    {
+        Technology = technology;
+    }
+
+    public TechnologyId Technology { get; }
+}
+
+/// <summary>
 /// Records one country failing to buy one technology, and why.
 /// </summary>
 /// <remarks>
