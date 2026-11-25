@@ -179,7 +179,10 @@ internal static class NavalPlanner
     }
 
     private static NavalOrderRefusal? CheckAssembly(
-        WorldState state, CountryId country, IReadOnlyList<FleetId> fleets, out SeaZoneId seaZone)
+        WorldState state,
+        CountryId country,
+        IReadOnlyList<FleetId> fleets,
+        out SeaZoneId seaZone)
     {
         seaZone = default;
         if (fleets.Count == 0)

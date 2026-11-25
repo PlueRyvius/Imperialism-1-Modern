@@ -92,6 +92,24 @@ public sealed class NavalOrdersTests
     }
 
     [Fact]
+    public void AWarshipDeliveredAtTheCapitalCanBeAssembledThroughTurnOrders()
+    {
+        var state = CreateShipyardState();
+
+        var builtTurn = Resolve(state, owner: new CountryTurnOrders(
+            Owner, shipBuilds: [new ShipBuildOrder(new ShipTypeId(0), 1)]));
+        var built = Assert.Single(builtTurn.Events.OfType<ShipsBuiltEvent>());
+        Assert.Equal(HomeWaters, built.SeaZone);
+
+        var assembledTurn = Resolve(state, owner: new CountryTurnOrders(
+            Owner, naval: [NavalOrder.Assemble([built.Fleet], NavalMission.None)]));
+
+        var assembled = Assert.Single(assembledTurn.Events.OfType<TaskForceAssembledEvent>());
+        Assert.Equal((Owner, HomeWaters), (assembled.Country, assembled.SeaZone));
+        Assert.Equal(assembled.TaskForce, state.GetFleet(built.Fleet).TaskForce);
+    }
+
+    [Fact]
     public void APatrolPersistsAcrossTurnsWithoutBeingReordered()
     {
         var state = CreateState(Ship(Raider, HomeWaters));
@@ -472,6 +490,43 @@ public sealed class NavalOrdersTests
 
     private static InitialShip Ship(CountryId country, SeaZoneId zone) =>
         new(country, new ShipTypeId(0), 0, 1, zone);
+
+    private static WorldState CreateShipyardState()
+    {
+        var dimensions = new MapDimensions(3, 1);
+        var map = new MapDefinition(
+            dimensions,
+            [
+                new CellDefinition(new CellIndex(0), dimensions.GetCoordinate(new CellIndex(0)),
+                    new TerrainId(0), CellRegion.ForProvince(new ProvinceId(0)), null,
+                    SettlementSiteKind.Urban),
+                new CellDefinition(new CellIndex(1), dimensions.GetCoordinate(new CellIndex(1)),
+                    new TerrainId(0), CellRegion.ForSeaZone(HomeWaters)),
+                new CellDefinition(new CellIndex(2), dimensions.GetCoordinate(new CellIndex(2)),
+                    new TerrainId(0), CellRegion.ForProvince(new ProvinceId(1))),
+            ],
+            [
+                new ProvinceDefinition(new ProvinceId(0), "Capital"),
+                new ProvinceDefinition(new ProvinceId(1), "Coast"),
+            ],
+            [new SeaZoneDefinition(HomeWaters, "Home Waters")]);
+        var scenario = new ScenarioDefinition(
+            "Ship delivery",
+            1815,
+            [Owner, Owner],
+            initialCountryCapitals: [new CountryCapital(Owner, new CellIndex(0))]);
+
+        return new WorldState(new WorldDefinition(
+            map,
+            [new CountryDefinition(Owner, "Owner"), new CountryDefinition(Raider, "Raider")],
+            scenario,
+            shipTypes:
+            [
+                new ShipTypeDefinition(
+                    new ShipTypeId(0), "Frigate", seaZones: 1,
+                    combat: new ShipCombatStats(3, 5, 10, 900, 4)),
+            ]));
+    }
 
     private static WorldState CreateState(params InitialShip[] ships) => CreateState(2, ships);
 
