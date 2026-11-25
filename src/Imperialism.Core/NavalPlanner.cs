@@ -37,6 +37,7 @@ internal static class NavalPlanner
                 var refusal =
                     target.Value >= countryCount ? WarDeclarationRefusal.NoSuchCountry
                     : target == country ? WarDeclarationRefusal.Itself
+                    : state.IsEliminated(target) ? WarDeclarationRefusal.CountryEliminated
                     : declared.Contains(target) ? WarDeclarationRefusal.AlreadyDeclaredThisTurn
                     : state.GetRelationMode(country, target) == CountryRelationMode.Hostile
                         ? WarDeclarationRefusal.AlreadyAtWar

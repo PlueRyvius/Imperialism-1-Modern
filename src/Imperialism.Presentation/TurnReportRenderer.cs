@@ -145,12 +145,15 @@ public sealed class TurnReportRenderer
             ProvinceCapturedEvent captured => [ProvinceCaptured(captured)],
             RegimentsRetreatedEvent retreated => [RegimentsRetreated(retreated)],
             RegimentsSurrenderedEvent surrendered => [RegimentsSurrendered(surrendered)],
+            CountryEliminatedEvent eliminated => [Eliminated(eliminated)],
+            EliminatedCountryOrdersIgnoredEvent ignored => [OrdersIgnored(ignored)],
             RegimentsHealedEvent healed => [RegimentsHealed(healed)],
             PowerGeneratedEvent generated => Powered(generated),
             PowerRefusedEvent refused => [PowerRefused(refused)],
             FacilityExpandedEvent expanded => [Expanded(expanded)],
             FacilityExpansionRefusedEvent refused => [ExpansionRefused(refused)],
             ShipsBuiltEvent built => [ShipsBuilt(built)],
+            ShipDeliveryLostEvent lost => [ShipDeliveryLost(lost)],
             ShipBuildRefusedEvent refused => [ShipBuildRefused(refused)],
             TransportCapacityBuiltEvent built => [NetworkBuilt(built)],
             CellDevelopedEvent developed => [Developed(developed)],
@@ -641,6 +644,32 @@ public sealed class TurnReportRenderer
             $"{Country(captured.NewOwner)} took {Province(captured.Province)}{from}{how}{killed}{capital}.");
     }
 
+    private TurnReportLine Eliminated(CountryEliminatedEvent eliminated)
+    {
+        var provinces = eliminated.ProvincesInAnarchy;
+        var anarchy = provinces == 0
+            ? "it holds no province, so nothing falls into anarchy"
+            : $"its {Count(provinces)} remaining {(provinces == 1 ? "province falls" : "provinces fall")} into anarchy";
+        var fleets = eliminated.FleetsLost;
+        var ships = eliminated.ShipsLost == 0
+            ? string.Empty
+            : $"; {Count(eliminated.ShipsLost)} {(eliminated.ShipsLost == 1 ? "ship" : "ships")} in " +
+              $"{Count(fleets)} {(fleets == 1 ? "fleet" : "fleets")} went down with it";
+        return Line(
+            eliminated,
+            TurnReportKind.Loss,
+            eliminated.Country,
+            null,
+            $"{Country(eliminated.Country)} has been eliminated by {Country(eliminated.By)}; {anarchy}{ships}.");
+    }
+
+    private TurnReportLine OrdersIgnored(EliminatedCountryOrdersIgnoredEvent ignored) => Line(
+        ignored,
+        TurnReportKind.Refusal,
+        ignored.Country,
+        null,
+        $"{Country(ignored.Country)} has been eliminated; the orders given in its name were set aside.");
+
     private TurnReportLine RegimentsRetreated(RegimentsRetreatedEvent retreated)
     {
         var count = retreated.Regiments.Count;
@@ -789,6 +818,14 @@ public sealed class TurnReportRenderer
         $"{Country(built.Country)} built {Hulls(built.Count, built.Type)}, " +
         $"paying {Quantities(built.Paid)}.");
 
+    private TurnReportLine ShipDeliveryLost(ShipDeliveryLostEvent lost) => Line(
+        lost,
+        TurnReportKind.Loss,
+        lost.Country,
+        null,
+        $"{Country(lost.Country)} lost the {Hulls(lost.Count, lost.Type)} it paid for, " +
+        "because it fell before they could be launched.");
+
     private TurnReportLine ShipBuildRefused(ShipBuildRefusedEvent refused) => Line(
         refused,
         TurnReportKind.Refusal,
@@ -855,8 +892,11 @@ public sealed class TurnReportRenderer
         TurnReportKind.Outcome,
         done.Country,
         done.Target,
-        $"{Country(done.Country)}'s {Civilian(done.Unit)} finished {Structure(done.Structure)} at " +
-        $"{Cell(done.Target)}.");
+        done is { FortProvince: { } province, FortLevel: { } level }
+            ? $"{Country(done.Country)}'s {Civilian(done.Unit)} raised the fort at " +
+              $"{Province(province)} to level {level}."
+            : $"{Country(done.Country)}'s {Civilian(done.Unit)} finished {Structure(done.Structure)} at " +
+              $"{Cell(done.Target)}.");
 
     private TurnReportLine Deployed(CivilianDeployedEvent deployed) => Line(
         deployed,

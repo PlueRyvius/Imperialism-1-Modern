@@ -217,6 +217,13 @@ carries the array is rejected at `armyTypes`. When a catalogue is present, every
 emits all thirty rows from the executable's purchase and role-slot tables, with the
 manual's era technologies and Regiment Abilities. See `docs/formulas/army.md`.
 
+Version 33 adds an optional `construction.fortCashCost`, a non-negative whole number of
+cash per fort level. **Absent means no forts**: an Engineer's fort order is refused
+`FortsNotPricedInThisWorld`. A version 32 package migrates with none, and a version 32
+document that carries the field is rejected at `construction.fortCashCost`; a negative
+price is rejected at `construction`. Legacy conversion writes 2,000, which is a guess: the
+port's figure reused (`docs/formulas/engineer.md`, Forts).
+
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the

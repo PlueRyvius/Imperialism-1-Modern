@@ -374,6 +374,33 @@ public sealed class TurnReportRendererTests
     }
 
     [Fact]
+    public void AFinishedFortNamesItsProvinceAndTheLevelItReached()
+    {
+        var renderer = CreateRenderer();
+        var province = new ProvinceId(0);
+
+        foreach (var level in new[] { 1, 3 })
+        {
+            var done = Assert.Single(renderer.Render(new ConstructionCompletedEvent(
+                1, Blue, new CivilianUnitId(1), Land, EngineerConstruction.Fort, Land, province, level)));
+            Assert.Equal(TurnReportKind.Outcome, done.Kind);
+            Assert.Contains("raised the fort at ", done.Text, StringComparison.Ordinal);
+            Assert.Contains($" to level {level}.", done.Text, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void HullsDueToAFallenCountryAreReportedLost()
+    {
+        var renderer = CreateRenderer();
+
+        var lost = Assert.Single(renderer.Render(new ShipDeliveryLostEvent(1, Blue, new ShipTypeId(0), 2)));
+        Assert.Equal(TurnReportKind.Loss, lost.Kind);
+        Assert.Equal(Blue, lost.Country);
+        Assert.Contains("lost the 2 Trader hulls it paid for", lost.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ABattleSaysWhoWonWhatWasTakenAndWhatWasLost()
     {
         var renderer = CreateRenderer();
@@ -404,6 +431,27 @@ public sealed class TurnReportRendererTests
 
         var healed = Assert.Single(renderer.Render(new RegimentsHealedEvent(1, Blue, [new RegimentId(1), new RegimentId(3)], 150)));
         Assert.Contains("2 resting regiments recovered 150 health", healed.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnEliminationSaysWhoFellToWhomAndWhatFellIntoAnarchy()
+    {
+        var renderer = CreateRenderer();
+
+        var eliminated = Assert.Single(renderer.Render(new CountryEliminatedEvent(1, Red, Blue, 2, 1, 3, 4, 1)));
+        Assert.Equal(TurnReportKind.Loss, eliminated.Kind);
+        Assert.Equal(Red, eliminated.Country);
+        Assert.Contains("Red Empire has been eliminated by", eliminated.Text, StringComparison.Ordinal);
+        Assert.Contains("its 2 remaining provinces fall into anarchy", eliminated.Text, StringComparison.Ordinal);
+        Assert.Contains("3 ships in 1 fleet went down with it", eliminated.Text, StringComparison.Ordinal);
+
+        var bare = Assert.Single(renderer.Render(new CountryEliminatedEvent(1, Red, Blue, 0, 0, 0, 0, 0)));
+        Assert.Contains("nothing falls into anarchy", bare.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("ship", bare.Text, StringComparison.Ordinal);
+
+        var ignored = Assert.Single(renderer.Render(new EliminatedCountryOrdersIgnoredEvent(2, Red)));
+        Assert.Equal(TurnReportKind.Refusal, ignored.Kind);
+        Assert.Contains("set aside", ignored.Text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -549,6 +597,7 @@ public sealed class TurnReportRendererTests
             new PowerGeneratedEvent(1, Blue, lumber, 10, 60, 40),
             new PowerRefusedEvent(1, Blue, 101, PowerRefusal.OverTurnLimit),
             new ShipsBuiltEvent(1, Blue, new ShipTypeId(0), 2, new FleetId(1), some),
+            new ShipDeliveryLostEvent(1, Blue, new ShipTypeId(0), 2),
             new ShipBuildRefusedEvent(1, Blue, new ShipTypeId(0), 3, ShipBuildRefusal.NotEnoughCommodities),
             new WarDeclaredEvent(1, Blue, Red),
             new WarDeclarationRefusedEvent(1, Blue, Blue, WarDeclarationRefusal.Itself),
@@ -601,6 +650,8 @@ public sealed class TurnReportRendererTests
                 1, Blue, new TaskForceId(1), [new RegimentId(1)], new ProvinceId(0), new ProvinceId(0), 1, 0),
             new RegimentsDrownedEvent(1, Blue, new TaskForceId(1), [new RegimentId(1)], new ProvinceId(0)),
             new RegimentsHealedEvent(1, Blue, [new RegimentId(1)], 100),
+            new CountryEliminatedEvent(1, Red, Blue, 2, 1, 3, 4, 1),
+            new EliminatedCountryOrdersIgnoredEvent(1, Red),
         ];
     }
 }

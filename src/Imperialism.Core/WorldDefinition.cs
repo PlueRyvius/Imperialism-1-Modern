@@ -829,6 +829,7 @@ public sealed class WorldState
     private readonly byte[] _fortLevels;
     private readonly HashSet<CellLink> _railLinks;
     private readonly CellIndex?[] _countryCapitals;
+    private readonly int?[] _eliminatedOnTurn;
     private readonly RailConnectivityIndex?[] _railConnectivity;
     private readonly long[] _availableInventory;
     private readonly long[] _productionCapacities;
@@ -876,6 +877,7 @@ public sealed class WorldState
         _fortLevels = new byte[definition.Map.Provinces.Count];
         _railLinks = definition.Scenario.InitialRailLinks.ToHashSet();
         _countryCapitals = new CellIndex?[definition.Countries.Count];
+        _eliminatedOnTurn = new int?[definition.Countries.Count];
         _railConnectivity = new RailConnectivityIndex?[definition.Countries.Count];
         _availableInventory = new long[checked(definition.Countries.Count * definition.Commodities.Count)];
         _productionCapacities = new long[checked(definition.Countries.Count * definition.ProductionFacilities.Count)];
@@ -1220,8 +1222,9 @@ public sealed class WorldState
     }
 
     /// <summary>
-    /// Sets a province's fort level. Nothing in the engine builds forts yet — the
-    /// Engineer's fort order is a later slice — so only content and tests call this.
+    /// Sets a province's fort level. In play only a finished Engineer fort job raises it
+    /// (<see cref="EngineerConstruction.Fort"/>, one level a job); content and tests may
+    /// set it directly.
     /// </summary>
     public void SetFortLevel(ProvinceId province, int level)
     {
@@ -2499,6 +2502,47 @@ public sealed class WorldState
         }
 
         return changed;
+    }
+
+    /// <summary>
+    /// Whether the country has been eliminated (row 6e): its capital was captured, or a
+    /// capture left it no province. Permanent — nothing in the engine revives a country.
+    /// </summary>
+    public bool IsEliminated(CountryId country)
+    {
+        ValidateCountry(country);
+        return _eliminatedOnTurn[country.Value].HasValue;
+    }
+
+    /// <summary>The turn on which the country was eliminated, or null while it stands.</summary>
+    public int? GetEliminatedOnTurn(CountryId country)
+    {
+        ValidateCountry(country);
+        return _eliminatedOnTurn[country.Value];
+    }
+
+    /// <summary>
+    /// A province is in anarchy exactly when its owner has been eliminated. Ownership is
+    /// kept, so the province still reads as the eliminated country's, and anyone may
+    /// attack it without a war.
+    /// </summary>
+    public bool IsInAnarchy(ProvinceId province)
+    {
+        ValidateProvince(province);
+        return _provinceOwners[province.Value] is { } owner && _eliminatedOnTurn[owner.Value].HasValue;
+    }
+
+    /// <summary>Marks the country eliminated. Idempotent: the first turn stands.</summary>
+    internal bool MarkEliminated(CountryId country, int turnNumber)
+    {
+        ValidateCountry(country);
+        if (_eliminatedOnTurn[country.Value].HasValue)
+        {
+            return false;
+        }
+
+        _eliminatedOnTurn[country.Value] = turnNumber;
+        return true;
     }
 
     public CellIndex? GetCountryCapital(CountryId country)

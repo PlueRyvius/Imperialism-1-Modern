@@ -317,6 +317,13 @@ public enum RegimentMoveRefusal : byte
     /// through it used (army rule 33). Refused whole.
     /// </summary>
     NotEnoughLandingCapacity,
+
+    /// <summary>
+    /// The ordering country was eliminated earlier this turn (row 6e), so its later
+    /// attacks do not take place. A country eliminated on an earlier turn has its orders
+    /// ignored before anything resolves and never reaches this refusal.
+    /// </summary>
+    CountryEliminated,
 }
 
 /// <summary>Records one deployment being refused. Nobody moved.</summary>

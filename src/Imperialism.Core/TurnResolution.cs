@@ -260,6 +260,29 @@ public sealed record ShipsBuiltEvent : TurnEvent
     public IReadOnlyList<CommodityQuantity> Paid => _paid;
 }
 
+/// <summary>
+/// Records ships the Shipyard was paid for that never arrived, because their country was
+/// eliminated before <see cref="TurnPhase.Delivery"/>. Nothing is refunded — a chosen rule,
+/// the same as a regiment or civilian due to it (army rule 46).
+/// </summary>
+public sealed record ShipDeliveryLostEvent : TurnEvent
+{
+    public ShipDeliveryLostEvent(int turnNumber, CountryId country, ShipTypeId type, long count)
+        : base(turnNumber, TurnPhase.Delivery)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+        Country = country;
+        Type = type;
+        Count = count;
+    }
+
+    public CountryId Country { get; }
+
+    public ShipTypeId Type { get; }
+
+    public long Count { get; }
+}
+
 /// <summary>Why the Shipyard did not build an order.</summary>
 /// <remarks>
 /// Every refusal charges nothing. An order is all or nothing, so there is no partial
@@ -449,6 +472,19 @@ public enum CivilianOrderRefusal : byte
     /// which is the same all-or-nothing bargain the warehouse already makes.
     /// </summary>
     NotEnoughCash,
+
+    /// <summary>
+    /// A fort order in a world that prices no fort — a package migrated from before
+    /// version 33. Refused before anything is charged.
+    /// </summary>
+    FortsNotPricedInThisWorld,
+
+    /// <summary>
+    /// The province's fort, counting every fort job of this country already under way
+    /// there (including one accepted earlier this turn), would pass
+    /// <see cref="WorldState.MaxFortLevel"/>.
+    /// </summary>
+    FortAtMaximum,
 }
 
 /// <summary>Records one civilian moving without being set to work.</summary>
@@ -620,7 +656,9 @@ public sealed record ConstructionCompletedEvent : TurnEvent
         CivilianUnitId unit,
         CellIndex cell,
         EngineerConstruction structure,
-        CellIndex target)
+        CellIndex target,
+        ProvinceId? fortProvince = null,
+        int? fortLevel = null)
         : base(turnNumber, TurnPhase.Development)
     {
         if (!Enum.IsDefined(structure))
@@ -628,12 +666,26 @@ public sealed record ConstructionCompletedEvent : TurnEvent
             throw new ArgumentOutOfRangeException(nameof(structure));
         }
 
+        if (fortLevel is { } level)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(level, nameof(fortLevel));
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(level, WorldState.MaxFortLevel, nameof(fortLevel));
+        }
+
         Country = country;
         Unit = unit;
         Cell = cell;
         Structure = structure;
         Target = target;
+        FortProvince = fortProvince;
+        FortLevel = fortLevel;
     }
+
+    /// <summary>For a fort, the province it raised; null for anything else.</summary>
+    public ProvinceId? FortProvince { get; }
+
+    /// <summary>For a fort, the province's level once this job finished; null for anything else.</summary>
+    public int? FortLevel { get; }
 
     public CountryId Country { get; }
 

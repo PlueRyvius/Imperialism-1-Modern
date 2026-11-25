@@ -281,6 +281,14 @@ internal static class LandBattlePlanner
             state, turnNumber, seed, navalResolver ?? StrategicNavalBattleResolver.Instance, navalOrdinals ?? new());
         foreach (var (country, order) in attacks)
         {
+            // Row 6e: a country eliminated by an earlier attack this turn attacks no more.
+            if (state.IsEliminated(country))
+            {
+                events.Add(new RegimentMoveRefusedEvent(
+                    turnNumber, country, order.Regiments, order.Destination, RegimentMoveRefusal.CountryEliminated));
+                continue;
+            }
+
             if (Check(state, country, order, acted, landings, out var site, out var load) is { } refusal)
             {
                 events.Add(new RegimentMoveRefusedEvent(turnNumber, country, order.Regiments, order.Destination, refusal));
@@ -445,8 +453,9 @@ internal static class LandBattlePlanner
         }
 
         // An ownerless province may be attacked without war: the manual's anarchy rule
-        // applied to the one ownerless state Core has — a chosen reading.
-        if (owner is { } target && !state.HasEffectiveHostility(country, target))
+        // applied to the one ownerless state Core has — a chosen reading. Row 6e adds the
+        // anarchy itself: a province whose owner is eliminated needs no war either.
+        if (owner is { } target && !state.IsEliminated(target) && !state.HasEffectiveHostility(country, target))
         {
             return RegimentMoveRefusal.NotAtWar;
         }
@@ -549,6 +558,7 @@ internal static class LandBattlePlanner
             .ToArray();
         if (survivors.Length == 0 || previousOwner is not { } owner)
         {
+            EliminateIfFallen(state, attacker, previousOwner, capitalLost, turnNumber, events);
             return;
         }
 
@@ -575,6 +585,22 @@ internal static class LandBattlePlanner
             }
 
             events.Add(new RegimentsSurrenderedEvent(turnNumber, owner, survivors, province));
+        }
+
+        EliminateIfFallen(state, attacker, previousOwner, capitalLost, turnNumber, events);
+    }
+
+    /// <summary>
+    /// Row 6e: after the capture and the defenders' retreat or surrender, eliminates the
+    /// previous owner if it lost its capital here or now owns no province (army rules 38–39).
+    /// </summary>
+    private static void EliminateIfFallen(
+        WorldState state, CountryId attacker, CountryId? previousOwner, bool capitalLost, int turnNumber, List<TurnEvent> events)
+    {
+        if (previousOwner is { } owner &&
+            EliminationPlanner.AfterCapture(state, owner, attacker, capitalLost, turnNumber) is { } eliminated)
+        {
+            events.Add(eliminated);
         }
     }
 }

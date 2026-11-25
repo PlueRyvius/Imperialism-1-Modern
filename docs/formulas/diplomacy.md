@@ -267,6 +267,18 @@ them; its tutorial presses buttons labelled **5%** and **10%** (lines 5121 and 5
 is not ruled out. The importer writes `[5, 10]` into `diplomacy.subsidyPercents`; a
 package migrated from v30 lists none, so it can grant no subsidy but can still boycott.
 
+## An eliminated country (row 6e)
+
+A country whose capital is taken is eliminated (`army.md`, rules 38–48). At that moment
+every pact, consulate, embassy and trade policy involving it is cleared, in both
+directions. The counts ride on `CountryEliminatedEvent`, and no `TradePolicyClearedEvent`
+is raised for them (army rule 42). From then on, a war declaration, overture, peace offer,
+subsidy or boycott naming it is refused with a new `CountryEliminated` reason on
+`WarDeclarationRefusal`, `DiplomaticOvertureRefusal` and `TradePolicyRefusal`, and nothing
+is charged. This is chosen (army rule 48): there is nobody to treat with, and its
+provinces may be attacked without a war anyway. Its own orders are set aside before
+`Diplomacy` runs (army rule 44). Tests: `DiplomacyNamingAnEliminatedCountryIsRefused`.
+
 ## Still open
 
 * **Relation scores**: none of the manual's relation deltas is modelled. A consulate's

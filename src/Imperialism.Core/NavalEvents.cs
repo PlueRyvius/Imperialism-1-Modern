@@ -22,6 +22,12 @@ public enum WarDeclarationRefusal : byte
 
     /// <summary>The same target appears twice in this turn's list; the first one counted.</summary>
     AlreadyDeclaredThisTurn,
+
+    /// <summary>
+    /// The target has been eliminated (row 6e). Its provinces are in anarchy and may be
+    /// attacked without a war, so a declaration would change nothing.
+    /// </summary>
+    CountryEliminated,
 }
 
 /// <summary>Records a declaration of war. The war begins next turn.</summary>

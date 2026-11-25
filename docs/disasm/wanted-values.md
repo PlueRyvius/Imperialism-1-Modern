@@ -450,6 +450,20 @@ will need the traced rules while the refusal and readiness tests should survive.
 
 ---
 
+## 9. Forts and elimination: what row 6e guessed
+
+Row 6e builds forts and eliminates countries. **Three parts are guesses or chosen rules**
+waiting on the binary.
+
+| Target | Question | What it replaces |
+|---|---|---|
+| (a) The Engineer construction dialog's price lookup | What a fort level costs, and whether the price rises per level. The nine-record block at `0x00695C50` is a **candidate only**; its selector is untraced | `fortCashCost` = $2,000, engineer rule F5 — **a guess with no evidence at all**, the port's figure reused |
+| (b) The elimination path after the capture writer (`0x004A5CA0`, already in §6) | What happens to an eliminated power's fleets, treaties, warehouse, treasury and units. Do its ships sink, pass to the conqueror, or stay in limbo? | army rules 40–42 and 46 |
+| (c) The healing pass | Whether regiments in an anarchic province heal | army rule 47's healing |
+
+**Wanted once traced:** (a) is a content edit in `LegacyWorldConverter.CreateStandardConstruction`;
+(b) replaces `EliminationPlanner.Eliminate`; (c) is one guard in `LandBattles` healing.
+
 ## What is *not* wanted
 
 Please do not spend time on these — they are settled well enough that a binary value would

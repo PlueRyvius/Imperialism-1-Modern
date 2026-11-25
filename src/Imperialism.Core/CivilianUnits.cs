@@ -46,9 +46,10 @@ public enum CivilianWorkKind : byte
 /// dialog. So <see cref="Rail"/> is the one that names a tile the Engineer does
 /// not stand on, and the other two are choices from that dialog.
 /// <para>
-/// Fortifications are the dialog's third choice and are out of scope: they are
-/// military, and the manual builds them "throughout the province, not just the
-/// current tile", which is a different shape entirely.
+/// Fortifications are the dialog's third choice, <see cref="Fort"/>, added at version
+/// 33. Ordered on the Engineer's own tile like a depot, they raise the level of the
+/// whole province: the manual builds them "throughout the province, not just the
+/// current tile".
 /// </para>
 /// </remarks>
 public enum EngineerConstruction : byte
@@ -61,6 +62,13 @@ public enum EngineerConstruction : byte
 
     /// <summary>A port on the Engineer's own tile. Needs water, and costs more than a depot.</summary>
     Port,
+
+    /// <summary>
+    /// One fort level for the province of the Engineer's own tile, to at most
+    /// <see cref="WorldState.MaxFortLevel"/>. No terrain or technology gate; priced by
+    /// <see cref="ConstructionSettings.FortCashCost"/>. Appended last so no stored value moves.
+    /// </summary>
+    Fort,
 }
 
 /// <summary>

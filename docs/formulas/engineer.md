@@ -320,6 +320,33 @@ gate per terrain, **the per-terrain rail prices**, the two structure prices and 
 absence of the flat one, the Engineer's work kind, and the corpus falsification
 check above.
 
+## Forts (row 6e, content v33)
+
+The construction dialog's third choice. "Fortifications are built throughout the
+province, not just the current tile" (manual 1284–1305), and a fort cuts a defender's
+losses by 10% a level for three levels (3947–3959, spent by 6b as the *effect*; army rule
+25). Row 6e lets an Engineer build one. An `EngineerOrder` naming the Engineer's own tile
+with `EngineerConstruction.Fort` is accepted, charged at once, and raises the tile's
+**province** one level when the Engineer's `WorkTurns` are done. Forts reuse
+`ConstructionBegunEvent` and `ConstructionCompletedEvent` with the new structure kind, so
+there is no `FortBuiltEvent`.
+
+| # | Rule | Standing |
+|---|---|---|
+| F1 | A fort is built from the Engineer's own tile and stands throughout its province | **manual** (1284–1305) |
+| F2 | The ceiling of three counts this country's fort jobs already under way in the province, accepted this turn or earlier; an order that would pass it is refused `FortAtMaximum` | chosen |
+| F3 | One job raises the province one level, capped at `WorldState.MaxFortLevel` (3) | the three levels are the **manual's**; one a job is chosen |
+| F4 | No terrain restriction and no technology gate | chosen — the manual names neither; its terrain sentence is about depots and ports |
+| F5 | A fort level costs **$2,000**, charged at the order and never refunded | **a guess with no evidence at all**: the port's figure reused rather than a new invented number. `wanted-values.md` §9(a) |
+| F6 | On finishing, a province no longer the country's is refused `TargetNotYourTerritory` and a full one `FortAtMaximum`; the cash stays spent | chosen, the Engineer's existing finishing rule |
+| F7 | A world whose `construction` names no `fortCashCost` builds no forts: `FortsNotPricedInThisWorld`, refused before anything is charged | format — a migrated v32 package builds none, as a v16 one built no depots |
+
+A capture by battle kills the old owner's civilians in the province (6b), so a fort job
+under way is ended by its Engineer's death rather than by F6. F6 is reached only when
+ownership changes without a battle. Tests: `FortTests`, including
+`AFortTheEngineerBuiltCutsTheDefendersLossInTheNextBattle`, which runs one battle with and
+without the fort under the same seed.
+
 ## Open questions
 
 - **What the depot and the port cost.** Two recollections. The binary is the only
@@ -329,9 +356,8 @@ check above.
 - **What mountains' rail costs**, the one ground the price list skips. It takes
   swamp's figure rather than a new invented one, and the corpus cannot check it
   because nobody in it can rail a mountain at all.
-- **Fortifications**, the dialog's third choice — military, and built
-  "throughout the province, not just the current tile", which is a different
-  shape entirely.
+- ~~**Fortifications**, the dialog's third choice.~~ **Built at v33**; see Forts
+  below. Its price is the open question now, and it is a guess.
 - **Whether a depot really follows the rail gate**, and whether fertile hills and
   towns really take the gates assigned here. All three are inferences the corpus
   cannot separate from their alternatives.

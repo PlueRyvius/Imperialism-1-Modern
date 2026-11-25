@@ -5,7 +5,9 @@ internal sealed record PlannedConstruction(
     CivilianUnitId Unit,
     CellIndex Cell,
     EngineerConstruction Structure,
-    CellIndex Target) : PlannedCivilianOutcome(Country, Unit);
+    CellIndex Target,
+    ProvinceId? FortProvince = null,
+    int? FortLevel = null) : PlannedCivilianOutcome(Country, Unit);
 
 /// <summary>
 /// The Engineer's half of <see cref="TurnPhase.Development"/>: what it may
@@ -93,6 +95,9 @@ internal static class EngineerPlanner
             EngineerConstruction.Rail => LegalityOfRail(state, country, engineer.Cell, order.Cell),
             EngineerConstruction.Depot => LegalityOfDepot(state, country, order.Cell),
             EngineerConstruction.Port => LegalityOfPort(state, country, order.Cell),
+            EngineerConstruction.Fort => settings.FortCashCost is null
+                ? CivilianOrderRefusal.FortsNotPricedInThisWorld
+                : LegalityOfFort(state, country, order.Cell, countJobsUnderWay: true),
             _ => throw new ArgumentOutOfRangeException(nameof(order)),
         };
 
@@ -155,6 +160,13 @@ internal static class EngineerPlanner
             case EngineerConstruction.Port:
                 _ = state.BuildPort(job.Target);
                 break;
+            case EngineerConstruction.Fort:
+                // One level a job, never past the cap; LegalityOfFinishing has already
+                // refused a job that would pass it.
+                var province = ProvinceOf(state, job.Target);
+                state.SetFortLevel(
+                    province, Math.Min(WorldState.MaxFortLevel, state.GetFortLevel(province) + 1));
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(job));
         }
@@ -178,8 +190,44 @@ internal static class EngineerPlanner
                 LegalityOfDepot(state, country, job.Target),
             EngineerConstruction.Port => LegalityOfEntry(state, country, job.Target) ??
                 LegalityOfPort(state, country, job.Target),
+            EngineerConstruction.Fort => LegalityOfEntry(state, country, job.Target) ??
+                LegalityOfFort(state, country, job.Target, countJobsUnderWay: false),
             _ => throw new ArgumentOutOfRangeException(nameof(job)),
         };
+
+    /// <summary>
+    /// A fort is built "throughout the province", so its limit is the province's: the
+    /// level standing now plus, when ordering, every fort job of this country already
+    /// under way anywhere in the province — including one accepted earlier this turn,
+    /// because an accepted order is set to work at once. Engineer rule F2.
+    /// </summary>
+    /// <remarks>
+    /// On finishing only the standing level is checked: the job itself is one of those
+    /// under way, and counting the others again would refuse the first of two jobs that
+    /// were together allowed when ordered.
+    /// </remarks>
+    private static CivilianOrderRefusal? LegalityOfFort(
+        WorldState state, CountryId country, CellIndex cell, bool countJobsUnderWay)
+    {
+        var province = ProvinceOf(state, cell);
+        var level = state.GetFortLevel(province);
+        if (countJobsUnderWay)
+        {
+            foreach (var civilian in state.GetCivilians(country))
+            {
+                if (civilian.Work?.Construction is { Kind: EngineerConstruction.Fort } job &&
+                    ProvinceOf(state, job.Target) == province)
+                {
+                    level++;
+                }
+            }
+        }
+
+        return level >= WorldState.MaxFortLevel ? CivilianOrderRefusal.FortAtMaximum : null;
+    }
+
+    internal static ProvinceId ProvinceOf(WorldState state, CellIndex cell) =>
+        state.Definition.Map[cell].Region.Province;
 
     /// <summary>
     /// A line needs railable ground at both ends, because it crosses both. The

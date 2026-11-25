@@ -33,7 +33,10 @@ internal static class FeedingPlanner
         {
             var country = new CountryId(countryValue);
             var headcount = state.GetTotalWorkers(country);
-            if (headcount == 0)
+
+            // Row 6e: an eliminated country's workforce is frozen — it neither eats nor
+            // starves. A chosen rule (army rule 41).
+            if (headcount == 0 || state.IsEliminated(country))
             {
                 continue;
             }

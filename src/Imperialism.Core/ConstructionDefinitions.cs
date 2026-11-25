@@ -31,14 +31,29 @@ public sealed record ConstructionSettings
 {
     private readonly long _depotCashCost;
     private readonly long _portCashCost;
+    private readonly long? _fortCashCost;
 
-    public ConstructionSettings(long depotCashCost, long portCashCost)
+    public ConstructionSettings(long depotCashCost, long portCashCost, long? fortCashCost = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(depotCashCost);
         ArgumentOutOfRangeException.ThrowIfNegative(portCashCost);
+        if (fortCashCost is { } fort)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(fort, nameof(fortCashCost));
+        }
+
         _depotCashCost = depotCashCost;
         _portCashCost = portCashCost;
+        _fortCashCost = fortCashCost;
     }
+
+    /// <summary>
+    /// What one fort level costs, or null when the world prices none — every package
+    /// migrated from before version 33, whose Engineers are then refused
+    /// <see cref="CivilianOrderRefusal.FortsNotPricedInThisWorld"/>. The importer's
+    /// figure is a guess with no evidence at all; see <c>docs/formulas/engineer.md</c>.
+    /// </summary>
+    public long? FortCashCost => _fortCashCost;
 
     /// <summary>
     /// What one of these costs the treasury. Zero is free, not forbidden.
@@ -49,6 +64,8 @@ public sealed record ConstructionSettings
     {
         EngineerConstruction.Depot => _depotCashCost,
         EngineerConstruction.Port => _portCashCost,
+        EngineerConstruction.Fort => _fortCashCost ?? throw new InvalidOperationException(
+            "This world prices no fort; check FortCashCost first."),
         EngineerConstruction.Rail => throw new ArgumentOutOfRangeException(
             nameof(structure),
             "Rail is priced per terrain, on RailRule.CashCost."),

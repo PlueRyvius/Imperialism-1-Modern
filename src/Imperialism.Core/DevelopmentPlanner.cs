@@ -200,6 +200,14 @@ internal static class DevelopmentPlanner
                 continue;
             }
 
+            // Row 6e: an eliminated country's civilians stay on the map but their work
+            // is frozen where it stood — nothing finishes, nothing counts down. A chosen
+            // rule (army rule 41); nobody is left to pay or direct them.
+            if (state.IsEliminated(civilian.Country))
+            {
+                continue;
+            }
+
             if (job.TurnsRemaining > 1)
             {
                 state.SetCivilianWork(
@@ -225,12 +233,17 @@ internal static class DevelopmentPlanner
                 }
 
                 EngineerPlanner.Complete(state, job.Cell, construction);
+                ProvinceId? fortProvince = construction.Kind == EngineerConstruction.Fort
+                    ? EngineerPlanner.ProvinceOf(state, construction.Target)
+                    : null;
                 outcomes.Add(new PlannedConstruction(
                     civilian.Country,
                     civilian.Id,
                     job.Cell,
                     construction.Kind,
-                    construction.Target));
+                    construction.Target,
+                    fortProvince,
+                    fortProvince is { } raised ? state.GetFortLevel(raised) : null));
                 continue;
             }
 

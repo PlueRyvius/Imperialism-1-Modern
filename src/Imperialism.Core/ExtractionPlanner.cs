@@ -50,6 +50,17 @@ internal static class ExtractionPlanner
             Array.Clear(stranded);
             frontier.Clear();
 
+            // Row 6e: a province in anarchy pays nobody. Every eliminated country has
+            // lost its capital, so SeedCollectionPoints already finds nothing; this
+            // states the rule where it applies rather than leaning on that, and an
+            // empty entry keeps the list dense. No test can tell the two apart.
+            if (state.IsEliminated(country))
+            {
+                results[countryValue] = new PlannedExtraction(
+                    country, 0, 0, 0, 0, ToQuantities(collected), ToQuantities(stranded));
+                continue;
+            }
+
             SeedCollectionPoints(state, country, pass, stamp, frontier);
             foreach (var seed in frontier)
             {

@@ -50,6 +50,8 @@ public static class TurnReportText
         CivilianOrderRefusal.PortAlreadyBuilt => "the tile already has a port",
         CivilianOrderRefusal.PortNeedsWater => "a port wants a coast or a river, and the tile is neither",
         CivilianOrderRefusal.NotEnoughCash => "the treasury will not cover it",
+        CivilianOrderRefusal.FortsNotPricedInThisWorld => "this world prices no fort",
+        CivilianOrderRefusal.FortAtMaximum => "the province's fort is already at its highest level, counting work under way",
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 
@@ -78,6 +80,7 @@ public static class TurnReportText
         EngineerConstruction.Rail => "rail",
         EngineerConstruction.Depot => "a depot",
         EngineerConstruction.Port => "a port",
+        EngineerConstruction.Fort => "a fort",
         _ => throw new ArgumentOutOfRangeException(nameof(structure)),
     };
 
@@ -111,6 +114,7 @@ public static class TurnReportText
         WarDeclarationRefusal.Itself => "a country cannot make war on itself",
         WarDeclarationRefusal.AlreadyAtWar => "we are already at war, or they declared first this turn",
         WarDeclarationRefusal.AlreadyDeclaredThisTurn => "the same declaration was already made this turn",
+        WarDeclarationRefusal.CountryEliminated => "that country has been eliminated and its lands are in anarchy",
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 
@@ -187,6 +191,7 @@ public static class TurnReportText
         DiplomaticOvertureRefusal.NotAtWar => "we are not at war with them",
         DiplomaticOvertureRefusal.Declined => "they did not offer peace in return",
         DiplomaticOvertureRefusal.AlreadyMadeThisTurn => "peace was already made this turn on their offer",
+        DiplomaticOvertureRefusal.CountryEliminated => "that country has been eliminated, and there is no government to receive it",
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 
@@ -216,6 +221,7 @@ public static class TurnReportText
         TradePolicyRefusal.AlreadyOrderedThisTurn => "a trade policy toward them was already set this turn",
         TradePolicyRefusal.NoPost => "it needs a trade consulate or an embassy there, open as the turn began",
         TradePolicyRefusal.PercentNotOffered => "this world offers no subsidy of that size",
+        TradePolicyRefusal.CountryEliminated => "that country has been eliminated and trades with nobody",
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 
@@ -258,6 +264,7 @@ public static class TurnReportText
         RegimentMoveRefusal.NotCoastal => "the regiments' province touches no sea to embark from",
         RegimentMoveRefusal.NoSeaPath => "no sea path joins their coast to the landing site",
         RegimentMoveRefusal.NotEnoughLandingCapacity => "the landing site cannot carry that many armaments this turn",
+        RegimentMoveRefusal.CountryEliminated => "our country has been eliminated and no longer commands its regiments",
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 

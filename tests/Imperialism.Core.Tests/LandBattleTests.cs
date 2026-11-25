@@ -427,8 +427,12 @@ public sealed class LandBattleTests
 
     // ---- Capital ----------------------------------------------------------
 
+    /// <summary>
+    /// Row 6b cleared a captured capital "without elimination"; row 6e retracts that, so
+    /// the owner is eliminated and its later orders, Armoury included, are set aside.
+    /// </summary>
     [Fact]
-    public void ACapturedCapitalIsLostAndTheArmouryHasNowhereToMuster()
+    public void ACapturedCapitalIsLostAndItsOwnerIsEliminated()
     {
         var state = AtWar(CreateState());
         state.SetProvinceOwner(Province(4), Home);
@@ -439,12 +443,13 @@ public sealed class LandBattleTests
         var captured = Assert.Single(events.OfType<ProvinceCapturedEvent>());
         Assert.True(captured.CapitalLost);
         Assert.Null(state.GetCountryCapital(Other));
+        Assert.Equal(Other, Assert.Single(events.OfType<CountryEliminatedEvent>()).Country);
 
         var later = Resolve(state, other: new CountryTurnOrders(
             Other, regimentPurchases: [new(ArmyCategory.RegularInfantry, 1)]));
-        Assert.Equal(
-            RegimentPurchaseRefusal.NoCapital,
-            Assert.Single(later.OfType<RegimentPurchaseRefusedEvent>()).Reason);
+        Assert.Single(later.OfType<EliminatedCountryOrdersIgnoredEvent>());
+        Assert.Empty(later.OfType<RegimentPurchaseRefusedEvent>());
+        Assert.Empty(later.OfType<RegimentsPurchasedEvent>());
     }
 
     // ---- Healing ----------------------------------------------------------
