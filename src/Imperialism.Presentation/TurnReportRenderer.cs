@@ -105,6 +105,12 @@ public sealed class TurnReportRenderer
         return turnEvent switch
         {
             TurnPhaseCompletedEvent => [],
+            WarDeclaredEvent declared => [WarDeclared(declared)],
+            WarDeclarationRefusedEvent refused => [WarRefused(refused)],
+            TaskForceAssembledEvent assembled => [Assembled(assembled)],
+            TaskForcePatrolOrderedEvent patrol => [Patrolling(patrol)],
+            TaskForceSailedEvent sailed => [Sailed(sailed)],
+            NavalOrderRefusedEvent refused => [NavalRefused(refused)],
             CommodityTradedEvent traded => [Traded(traded)],
             TradeUnfilledEvent unfilled => [Unfilled(unfilled)],
             WorldPriceChangedEvent price => [PriceMoved(price)],
@@ -136,6 +142,66 @@ public sealed class TurnReportRenderer
                 $"No words exist for a {turnEvent.GetType().Name}."),
         };
     }
+
+    // ---- Diplomacy and fleets -------------------------------------------
+
+    private TurnReportLine WarDeclared(WarDeclaredEvent declared) => Line(
+        declared,
+        TurnReportKind.Outcome,
+        declared.Country,
+        null,
+        $"{Country(declared.Country)} declared war on {Country(declared.Target)}; " +
+        "the war begins next turn.");
+
+    private TurnReportLine WarRefused(WarDeclarationRefusedEvent refused) => Line(
+        refused,
+        TurnReportKind.Refusal,
+        refused.Country,
+        null,
+        $"{Country(refused.Country)} could not declare war on {Country(refused.Target)}: " +
+        $"{TurnReportText.Describe(refused.Reason)}.");
+
+    private TurnReportLine Assembled(TaskForceAssembledEvent assembled) => Line(
+        assembled,
+        TurnReportKind.Outcome,
+        assembled.Country,
+        null,
+        $"{Country(assembled.Country)} assembled task force {assembled.TaskForce.Value} " +
+        $"from {Join(assembled.Fleets.Select(Fleet))} in {SeaZone(assembled.SeaZone)}.");
+
+    private TurnReportLine Patrolling(TaskForcePatrolOrderedEvent patrol) => Line(
+        patrol,
+        TurnReportKind.Outcome,
+        patrol.Country,
+        null,
+        $"{Country(patrol.Country)}'s task force {patrol.TaskForce.Value} is patrolling " +
+        $"{SeaZone(patrol.SeaZone)}.");
+
+    private TurnReportLine Sailed(TaskForceSailedEvent sailed) => Line(
+        sailed,
+        sailed.To == sailed.RequestedDestination ? TurnReportKind.Outcome : TurnReportKind.Shortfall,
+        sailed.Country,
+        null,
+        sailed.From == sailed.To
+            ? $"{Country(sailed.Country)}'s task force {sailed.TaskForce.Value} could not make " +
+              $"way towards {SeaZone(sailed.RequestedDestination)} and stayed in {SeaZone(sailed.From)}."
+            : sailed.To == sailed.RequestedDestination
+                ? $"{Country(sailed.Country)}'s task force {sailed.TaskForce.Value} sailed from " +
+                  $"{SeaZone(sailed.From)} to {SeaZone(sailed.To)}."
+                : $"{Country(sailed.Country)}'s task force {sailed.TaskForce.Value} sailed from " +
+                  $"{SeaZone(sailed.From)} as far as {SeaZone(sailed.To)}, " +
+                  $"bound for {SeaZone(sailed.RequestedDestination)}.");
+
+    private TurnReportLine NavalRefused(NavalOrderRefusedEvent refused) => Line(
+        refused,
+        TurnReportKind.Refusal,
+        refused.Country,
+        null,
+        refused.TaskForce is { } taskForce
+            ? $"{Country(refused.Country)} could not command task force {taskForce.Value}: " +
+              $"{TurnReportText.Describe(refused.Reason)}."
+            : $"{Country(refused.Country)} could not assemble a task force: " +
+              $"{TurnReportText.Describe(refused.Reason)}.");
 
     // ---- Trade -----------------------------------------------------------
 
@@ -581,6 +647,16 @@ public sealed class TurnReportRenderer
         (uint)type.Value < (uint)_world.ShipTypes.Count
             ? _world.ShipTypes[type.Value].Name
             : $"Ship {type.Value}";
+
+    private string SeaZone(SeaZoneId seaZone) =>
+        (uint)seaZone.Value < (uint)_world.Map.SeaZones.Count
+            ? _world.Map.SeaZones[seaZone.Value].Name
+            : $"Sea zone {seaZone.Value}";
+
+    private string Fleet(FleetId fleet) =>
+        (ulong)(fleet.Value - 1) < (ulong)_state.Fleets.Count
+            ? $"fleet {fleet.Value} ({Hulls(_state.GetFleet(fleet).Count, _state.GetFleet(fleet).Type)})"
+            : $"fleet {fleet.Value}";
 
     private string Technology(TechnologyId technology) =>
         (uint)technology.Value < (uint)_world.Technologies.Count

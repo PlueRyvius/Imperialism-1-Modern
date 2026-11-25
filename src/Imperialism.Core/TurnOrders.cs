@@ -16,6 +16,8 @@ public sealed class CountryTurnOrders
     private readonly IReadOnlyList<TradeOrder> _tradeOffers;
     private readonly IReadOnlyList<TradeOrder> _tradeBids;
     private readonly IReadOnlyList<ShipBuildOrder> _shipBuilds;
+    private readonly IReadOnlyList<CountryId> _declareWar;
+    private readonly IReadOnlyList<NavalOrder> _naval;
 
     public CountryTurnOrders(
         CountryId country,
@@ -32,7 +34,9 @@ public sealed class CountryTurnOrders
         IEnumerable<TradeOrder>? tradeBids = null,
         long burnFuel = 0,
         WorkerTrainingOrder training = default,
-        IEnumerable<ShipBuildOrder>? shipBuilds = null)
+        IEnumerable<ShipBuildOrder>? shipBuilds = null,
+        IEnumerable<CountryId>? declareWar = null,
+        IEnumerable<NavalOrder>? naval = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(recruitWorkers);
         ArgumentOutOfRangeException.ThrowIfNegative(burnFuel);
@@ -131,9 +135,22 @@ public sealed class CountryTurnOrders
         // naming a dead civilian is, so the whole list is kept exactly as given.
         var shipBuildArray = shipBuilds?.ToArray() ?? [];
 
+        // Kept exactly as given for the same reason: declaring war on yourself, on a
+        // country that does not exist or twice, and every naval order the world cannot
+        // carry out, are refused with an event when the turn resolves. Only a null
+        // entry is malformed, because it has no meaning to refuse.
+        var declareWarArray = declareWar?.ToArray() ?? [];
+        var navalArray = naval?.ToArray() ?? [];
+        if (navalArray.Any(static item => item is null))
+        {
+            throw new ArgumentException("Naval orders cannot contain null entries.", nameof(naval));
+        }
+
         Country = country;
         RecruitWorkers = recruitWorkers;
         _shipBuilds = Array.AsReadOnly(shipBuildArray);
+        _declareWar = Array.AsReadOnly(declareWarArray);
+        _naval = Array.AsReadOnly(navalArray);
         BurnFuel = burnFuel;
         Training = training;
         BuildTransportCapacity = buildTransportCapacity;
@@ -248,6 +265,24 @@ public sealed class CountryTurnOrders
     /// <c>docs/formulas/shipbuilding.md</c>.
     /// </remarks>
     public IReadOnlyList<ShipBuildOrder> ShipBuilds => _shipBuilds;
+
+    /// <summary>
+    /// Countries to declare war on this turn, from the Diplomacy screen.
+    /// </summary>
+    /// <remarks>
+    /// "Unlike most overtures, a country cannot refuse a declaration of war", so a
+    /// declaration needs nothing from its target and resolves in the <c>Diplomacy</c>
+    /// phase. It is recorded at once and takes effect next turn: "the war begins on the
+    /// next turn". There is no peace order yet. See <c>docs/formulas/naval.md</c>.
+    /// </remarks>
+    public IReadOnlyList<CountryId> DeclareWar => _declareWar;
+
+    /// <summary>
+    /// Orders for this country's fleets, applied in list order in the <c>Conflict</c>
+    /// phase. A task force takes at most one mission or move a turn; a second is refused.
+    /// See <c>docs/formulas/naval.md</c>.
+    /// </summary>
+    public IReadOnlyList<NavalOrder> Naval => _naval;
 }
 
 /// <summary>
