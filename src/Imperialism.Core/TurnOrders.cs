@@ -20,6 +20,7 @@ public sealed class CountryTurnOrders
     private readonly IReadOnlyList<NavalOrder> _naval;
     private readonly IReadOnlyList<CivilianPurchaseOrder> _civilianPurchases;
     private readonly IReadOnlyList<CivilianUnitId> _civilianDisbands;
+    private readonly IReadOnlyList<DiplomaticOverture> _overtures;
 
     public CountryTurnOrders(
         CountryId country,
@@ -40,7 +41,8 @@ public sealed class CountryTurnOrders
         IEnumerable<CountryId>? declareWar = null,
         IEnumerable<NavalOrder>? naval = null,
         IEnumerable<CivilianPurchaseOrder>? civilianPurchases = null,
-        IEnumerable<CivilianUnitId>? civilianDisbands = null)
+        IEnumerable<CivilianUnitId>? civilianDisbands = null,
+        IEnumerable<DiplomaticOverture>? overtures = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(recruitWorkers);
         ArgumentOutOfRangeException.ThrowIfNegative(burnFuel);
@@ -159,9 +161,19 @@ public sealed class CountryTurnOrders
         // event when the turn resolves.
         var purchaseArray = civilianPurchases?.ToArray() ?? [];
 
+        // Kept as given: an overture to nobody, to itself or twice is refused with an
+        // event when the turn resolves. Only a kind the screen has no scroll for is
+        // malformed, the same standing as an Engineer's unknown structure.
+        var overtureArray = overtures?.ToArray() ?? [];
+        if (overtureArray.Any(static item => !Enum.IsDefined(item.Kind)))
+        {
+            throw new ArgumentOutOfRangeException(nameof(overtures));
+        }
+
         Country = country;
         RecruitWorkers = recruitWorkers;
         _civilianPurchases = Array.AsReadOnly(purchaseArray);
+        _overtures = Array.AsReadOnly(overtureArray);
         _civilianDisbands = Array.AsReadOnly(disbandArray);
         _shipBuilds = Array.AsReadOnly(shipBuildArray);
         _declareWar = Array.AsReadOnly(declareWarArray);
@@ -288,7 +300,7 @@ public sealed class CountryTurnOrders
     /// "Unlike most overtures, a country cannot refuse a declaration of war", so a
     /// declaration needs nothing from its target and resolves in the <c>Diplomacy</c>
     /// phase. It is recorded at once and takes effect next turn: "the war begins on the
-    /// next turn". There is no peace order yet. See <c>docs/formulas/naval.md</c>.
+    /// next turn". Peace is an <see cref="Overtures"/> entry. See <c>docs/formulas/naval.md</c>.
     /// </remarks>
     public IReadOnlyList<CountryId> DeclareWar => _declareWar;
 
@@ -316,6 +328,18 @@ public sealed class CountryTurnOrders
     /// supplies labour from next turn; nothing paid for it is refunded.
     /// </summary>
     public IReadOnlyList<CivilianUnitId> CivilianDisbands => _civilianDisbands;
+
+    /// <summary>
+    /// Consulates, embassies, pacts and peace offered this turn, in the order the
+    /// treasury pays for them.
+    /// </summary>
+    /// <remarks>
+    /// Resolved in <c>Diplomacy</c>: countries in id order, overtures in list order, cash
+    /// charged when the order is given, and whatever is granted opens next turn — "any
+    /// changes in diplomatic status take effect next turn". A refused overture costs
+    /// nothing and does not stop later ones. See <c>docs/formulas/diplomacy.md</c>.
+    /// </remarks>
+    public IReadOnlyList<DiplomaticOverture> Overtures => _overtures;
 }
 
 /// <summary>

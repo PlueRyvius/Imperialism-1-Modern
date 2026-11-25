@@ -151,6 +151,11 @@ internal static class WorldContentMigrator
             MigrateVersionTwentyEightToTwentyNine(document);
         }
 
+        if (document.FormatVersion == 29)
+        {
+            MigrateVersionTwentyNineToThirty(document);
+        }
+
         if (document.FormatVersion == WorldContentCodec.CurrentVersion)
         {
             RejectLegacyArmyCount(document);
@@ -1177,6 +1182,25 @@ internal static class WorldContentMigrator
         }
 
         document.FormatVersion = 29;
+    }
+
+    /// <summary>
+    /// Version 30 prices consulates and embassies. None is supplied: absent means
+    /// neither can be bought, so a migrated package opens no posts, and with no embassy
+    /// toward a Minor Nation it can offer no pacts either. Peace needs no price and works
+    /// in a migrated package; so do the embassies Great Powers start with, which follow
+    /// from <c>isGreatPower</c> (version 20) rather than from this block. Re-importing
+    /// legacy content supplies the manual's prices.
+    /// </summary>
+    private static void MigrateVersionTwentyNineToThirty(WorldContentDocument document)
+    {
+        if (document.Diplomacy is not null)
+        {
+            throw new ContentValidationException(
+                "diplomacy", "Version 29 cannot price consulates or embassies.");
+        }
+
+        document.FormatVersion = 30;
     }
 
     private static void RejectLegacyArmyCount(WorldContentDocument document)

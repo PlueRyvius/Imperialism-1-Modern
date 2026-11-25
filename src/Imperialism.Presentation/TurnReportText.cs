@@ -154,6 +154,35 @@ public static class TurnReportText
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
 
+    /// <summary>The verb phrase for an overture, ready to be followed by its target.</summary>
+    public static string Describe(DiplomaticOvertureKind kind) => kind switch
+    {
+        DiplomaticOvertureKind.Consulate => "open a trade consulate in",
+        DiplomaticOvertureKind.Embassy => "open an embassy in",
+        DiplomaticOvertureKind.Pact => "offer a non-aggression pact to",
+        DiplomaticOvertureKind.Peace => "make peace with",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+    };
+
+    public static string Describe(DiplomaticOvertureRefusal reason) => reason switch
+    {
+        DiplomaticOvertureRefusal.NoSuchCountry => "no country carries that id in this world",
+        DiplomaticOvertureRefusal.Itself => "a country cannot make overtures to itself",
+        DiplomaticOvertureRefusal.NotAGreatPower => "only a Great Power makes overtures",
+        DiplomaticOvertureRefusal.AlreadyOrderedThisTurn => "the same overture was already made this turn",
+        DiplomaticOvertureRefusal.NotOffered => "this world sets no price for it",
+        DiplomaticOvertureRefusal.AlreadyEstablished => "we already have one there",
+        DiplomaticOvertureRefusal.AtWar => "we are at war, or going to war, with them",
+        DiplomaticOvertureRefusal.NoConsulate => "an embassy needs an open trade consulate first",
+        DiplomaticOvertureRefusal.NoEmbassy => "a pact needs an open embassy first",
+        DiplomaticOvertureRefusal.TargetIsAGreatPower => "pacts are offered only to Minor Nations",
+        DiplomaticOvertureRefusal.NotEnoughCash => "the treasury will not cover it",
+        DiplomaticOvertureRefusal.NotAtWar => "we are not at war with them",
+        DiplomaticOvertureRefusal.Declined => "they did not offer peace in return",
+        DiplomaticOvertureRefusal.AlreadyMadeThisTurn => "peace was already made this turn on their offer",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason)),
+    };
+
     public static string Describe(CivilianDisbandRefusal reason) => reason switch
     {
         CivilianDisbandRefusal.NoSuchCivilian => "no civilian carries that id, so it has most likely died",

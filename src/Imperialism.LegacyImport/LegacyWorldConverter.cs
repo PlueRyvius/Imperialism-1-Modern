@@ -851,6 +851,7 @@ public static class LegacyWorldConverter
             Migration = CreateStandardMigration(),
             WorkerTraining = CreateStandardWorkerTraining(),
             Power = CreateStandardPower(),
+            Diplomacy = CreateStandardDiplomacy(),
             Resources = resourceCodes.Select(code => new ResourceContentDefinition
             {
                 Key = resourceKeys[code],
@@ -2815,6 +2816,17 @@ public static class LegacyWorldConverter
     /// the resource gives one figure and mentions no size. See
     /// <c>docs/formulas/production.md</c>.
     /// </remarks>
+    /// <summary>
+    /// The Diplomacy screen's two prices, both printed in the manual: a consulate "costs
+    /// you $500" (line 3517), an embassy "costs $5000" (lines 3530-3531). Neither is a
+    /// guess. See <c>docs/formulas/diplomacy.md</c>.
+    /// </summary>
+    private static DiplomacyContentSettings CreateStandardDiplomacy() => new()
+    {
+        ConsulateCost = 500,
+        EmbassyCost = 5_000,
+    };
+
     private static PowerContentSettings CreateStandardPower() => new()
     {
         Fuel = "commodity.fuel",

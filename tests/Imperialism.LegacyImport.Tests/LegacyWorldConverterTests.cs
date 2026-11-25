@@ -467,6 +467,29 @@ public sealed class LegacyWorldConverterTests
     }
 
     [Fact]
+    public void ImportedWorldsPriceConsulatesAndEmbassiesAtTheManualsFigures()
+    {
+        // "The overture costs you $500" and "The Embassy overture costs $5000"
+        // (manual lines 3517 and 3530-3531). Both are the manual's, not guesses.
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(1, 1, LandCell(0, 0)),
+            new ScenarioDocument(
+            [
+                Record("year", 1815),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+            ]),
+            null,
+            "diplomacy");
+
+        var diplomacy = Assert.IsType<DiplomacyContentSettings>(result.Document!.Diplomacy);
+        Assert.Equal((500L, 5_000L), (diplomacy.ConsulateCost, diplomacy.EmbassyCost));
+
+        var world = WorldContentCompiler.Compile(result.Document).World;
+        Assert.Equal(500, world.Diplomacy!.ConsulateCost);
+    }
+
+    [Fact]
     public void TheRefineryAndThePowerPlantAreGatedBehindOilDrillingAndNothingElseIs()
     {
         // "available once Oil Drilling technology is purchased" — the manual opens

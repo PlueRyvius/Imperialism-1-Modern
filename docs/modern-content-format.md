@@ -183,6 +183,15 @@ expert, 2 paper and $1,000 (the paper and cash are guesses) and gates the Ranche
 and Driller behind Feed Grasses, Iron Railroad Bridges and Oil Drilling. See
 `docs/formulas/university.md`.
 
+Version 30 adds an optional world-level `diplomacy` block, `{consulateCost, embassyCost}`:
+what a Great Power pays for a consulate and an embassy. Both must be non-negative
+(`diplomacy.consulateCost`, `diplomacy.embassyCost`). **Absent means no post can be
+bought**: a version 29 package migrates with no block, so its consulate and embassy
+overtures are refused, while peace, pacts toward existing embassies and the starting
+embassies between Great Powers, which follow from `isGreatPower`, work as before. A
+version 29 document that carries the block is rejected at `diplomacy`. Legacy conversion
+emits the manual's $500 and $5,000. See `docs/formulas/diplomacy.md`.
+
 Mixed-version schemas,
 unknown fields, and unsupported versions fail with a path-qualified validation
 error. Generic migrated keys use the

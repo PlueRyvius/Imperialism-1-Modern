@@ -91,6 +91,30 @@ public sealed class NavalOrdersTests
         Assert.Equal((0, 1), Ports(Resolve(state)));
     }
 
+    /// <summary>
+    /// Peace ends a blockade the way war begins one: next turn. "Any changes in
+    /// diplomatic status take effect next turn" (manual lines 626-629). See
+    /// <c>docs/formulas/diplomacy.md</c>.
+    /// </summary>
+    [Fact]
+    public void PeaceMadeThisTurnLiftsTheBlockadeNextTurn()
+    {
+        var state = CreateState(Ship(Raider, HomeWaters));
+        _ = Resolve(state, raider: new CountryTurnOrders(Raider, declareWar: [Owner]));
+        Assert.Equal((0, 1), Ports(Resolve(state, raider: new CountryTurnOrders(
+            Raider, naval: [NavalOrder.Assemble([new FleetId(1)], NavalMission.Patrol)]))));
+
+        // The owner is a Great Power and the raider is not, so the raider accepts.
+        var peace = Resolve(state, owner: new CountryTurnOrders(
+            Owner, overtures: [new DiplomaticOverture(DiplomaticOvertureKind.Peace, Raider)]));
+        Assert.Single(peace.Events.OfType<DiplomaticOvertureAcceptedEvent>());
+        Assert.Equal((0, 1), Ports(peace));
+
+        // The patrol has not moved, but nobody is at war with the port any more.
+        Assert.Equal(TaskForceActivity.Patrolling, state.GetTaskForce(new TaskForceId(1)).Activity);
+        Assert.Equal((1, 0), Ports(Resolve(state)));
+    }
+
     [Fact]
     public void AWarshipDeliveredAtTheCapitalCanBeAssembledThroughTurnOrders()
     {
@@ -591,7 +615,7 @@ public sealed class NavalOrdersTests
         return new WorldState(new WorldDefinition(
             map,
             [
-                new CountryDefinition(Owner, "Owner"),
+                new CountryDefinition(Owner, "Owner", isGreatPower: true),
                 new CountryDefinition(Raider, "Raider"),
             ],
             scenario,

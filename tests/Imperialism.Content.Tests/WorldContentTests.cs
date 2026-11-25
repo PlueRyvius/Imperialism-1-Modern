@@ -322,7 +322,7 @@ public sealed class WorldContentTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(30)]
+    [InlineData(31)]
     [InlineData(999)]
     public void UnsupportedVersionsAreRejected(int version)
     {
@@ -1865,7 +1865,6 @@ public sealed class WorldContentTests
         var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
         var world = WorldContentCompiler.Compile(migrated).World;
 
-        Assert.Equal(29, WorldContentCodec.CurrentVersion);
         Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
         Assert.All(migrated.CivilianTypes, static type => Assert.Null(type.Purchase));
         Assert.All(world.CivilianTypes, static type => Assert.Null(type.Purchase));
@@ -1882,6 +1881,69 @@ public sealed class WorldContentTests
         var exception = Assert.Throws<ContentValidationException>(() =>
             WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
         Assert.Equal("civilianTypes[0].purchase", exception.Path);
+    }
+
+    [Fact]
+    public void DiplomacyPricesRoundTripAndCompile()
+    {
+        var document = CreateValidDocument();
+        document.Diplomacy = new DiplomacyContentSettings { ConsulateCost = 500, EmbassyCost = 5_000 };
+
+        var encoded = WorldContentCodec.Encode(document);
+        var decoded = WorldContentCodec.Decode(encoded);
+        var world = WorldContentCompiler.Compile(decoded).World;
+
+        Assert.Equal(30, WorldContentCodec.CurrentVersion);
+        Assert.Contains("\"consulateCost\": 500", Encoding.UTF8.GetString(encoded), StringComparison.Ordinal);
+        Assert.Equal(encoded, WorldContentCodec.Encode(decoded));
+        var diplomacy = Assert.IsType<DiplomacySettings>(world.Diplomacy);
+        Assert.Equal((500L, 5_000L), (diplomacy.ConsulateCost, diplomacy.EmbassyCost));
+    }
+
+    [Fact]
+    public void AWorldWithoutDiplomacyPricesOmitsTheBlock()
+    {
+        var document = CreateValidDocument();
+
+        var json = Encoding.UTF8.GetString(WorldContentCodec.Encode(document));
+
+        Assert.DoesNotContain("\"diplomacy\"", json, StringComparison.Ordinal);
+        Assert.Null(WorldContentCompiler.Compile(document).World.Diplomacy);
+    }
+
+    [Fact]
+    public void VersionTwentyNineMigratesToAWorldThatPricesNoPosts()
+    {
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(CreateValidDocument())), 29);
+
+        var migrated = WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(WorldContentCodec.CurrentVersion, migrated.FormatVersion);
+        Assert.Null(migrated.Diplomacy);
+        Assert.Null(WorldContentCompiler.Compile(migrated).World.Diplomacy);
+    }
+
+    [Fact]
+    public void VersionTwentyNineCannotPriceAPost()
+    {
+        var document = CreateValidDocument();
+        document.Diplomacy = new DiplomacyContentSettings { ConsulateCost = 500, EmbassyCost = 5_000 };
+        var json = Relabel(Encoding.UTF8.GetString(WorldContentCodec.Encode(document)), 29);
+
+        var exception = Assert.Throws<ContentValidationException>(() =>
+            WorldContentCodec.Decode(Encoding.UTF8.GetBytes(json)));
+        Assert.Equal("diplomacy", exception.Path);
+    }
+
+    [Theory]
+    [InlineData(-1, 5_000, "diplomacy.consulateCost")]
+    [InlineData(500, -1, "diplomacy.embassyCost")]
+    public void ANegativeDiplomacyPriceIsRejected(long consulate, long embassy, string path)
+    {
+        var document = CreateValidDocument();
+        document.Diplomacy = new DiplomacyContentSettings { ConsulateCost = consulate, EmbassyCost = embassy };
+
+        AssertPath(path, document);
     }
 
     [Fact]

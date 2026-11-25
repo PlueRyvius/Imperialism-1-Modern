@@ -201,6 +201,17 @@ internal static class TradePlanner
                     }
 
                     var buyer = new CountryId(buyerIndex);
+
+                    // "A trade boycott goes into effect automatically between countries
+                    // at war" (manual lines 3714-3715). Only a war in effect: one
+                    // declared this turn begins next turn, and peace made this turn
+                    // leaves it in effect until then. The offer passes to the next
+                    // bidder, as it does past one with no hold free.
+                    if (state.HasEffectiveHostility(seller, buyer))
+                    {
+                        continue;
+                    }
+
                     var payer = HoldPayer(definition, seller, buyer);
                     var affordable = price > 0 ? cash[buyerIndex] / price : bids[buyerIndex];
                     var taken = Math.Min(
