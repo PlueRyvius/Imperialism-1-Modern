@@ -88,8 +88,8 @@ public enum NavalOrderRefusal : byte
     FleetNotYours,
 
     /// <summary>
-    /// The fleet has no sea zone — a newly built ship, which waits unplaced, or a legacy
-    /// record naming a zone this map does not have.
+    /// The fleet has no sea zone — a merchant hull, a warship with no capital-adjacent
+    /// sea zone, or a legacy record naming a zone this map does not have.
     /// </summary>
     FleetNotPlaced,
 
@@ -125,6 +125,9 @@ public enum NavalOrderRefusal : byte
     /// no sea path reaches: "you cannot move the fleet that far in one turn".
     /// </summary>
     OutOfRange,
+
+    /// <summary>A ship was delivered to this fleet this turn; it can be assembled next turn.</summary>
+    FleetDeliveredThisTurn,
 }
 
 /// <summary>Records fleets grouped into a new task force.</summary>

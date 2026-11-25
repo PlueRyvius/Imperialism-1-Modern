@@ -231,7 +231,10 @@ public sealed class ShipbuildingTests
         Assert.Contains(
             first.Events.OfType<TradeUnfilledEvent>(),
             item => item.Country == Home && item.Reason == TradeRefusal.NoMerchantCapacity);
-        Assert.Single(first.Events.OfType<ShipsBuiltEvent>());
+        var built = Assert.Single(first.Events.OfType<ShipsBuiltEvent>());
+        Assert.Null(built.SeaZone);
+        Assert.Null(state.GetFleet(built.Fleet).SeaZone);
+        Assert.Null(state.GetFleet(built.Fleet).TaskForce);
         Assert.Equal(2, state.GetMerchantMarine(Home));
 
         var second = Resolve(
@@ -294,13 +297,13 @@ public sealed class ShipbuildingTests
         Assert.Equal(2, state.GetFleet(new FleetId(2)).Count);
         Assert.Equal(6, state.GetShipCount(Home, new ShipTypeId(Trader)));
 
-        // No Frigate fleet existed, so one was started with the next dense id: unplaced,
-        // in no task force.
+        // No Frigate fleet existed, so one was started with the next dense id in the
+        // capital's sea zone, in no task force.
         Assert.Equal(new FleetId(4), built[1].Fleet);
         Assert.Equal(4, state.Fleets.Count);
         var frigates = state.GetFleet(new FleetId(4));
         Assert.Equal((Home, new ShipTypeId(Frigate), 1L), (frigates.Country, frigates.Type, frigates.Count));
-        Assert.Null(frigates.SeaZone);
+        Assert.Equal(new SeaZoneId(0), frigates.SeaZone);
         Assert.Null(frigates.TaskForce);
 
         // A second Frigate next turn joins that new fleet rather than starting another.
@@ -308,6 +311,96 @@ public sealed class ShipbuildingTests
         Assert.Equal(new FleetId(4), Assert.Single(again.Events.OfType<ShipsBuiltEvent>()).Fleet);
         Assert.Equal(2, state.GetFleet(new FleetId(4)).Count);
         Assert.Equal(4, state.Fleets.Count);
+    }
+
+    [Fact]
+    public void AWarshipBuiltAtTheEndOfConstructionCanBeAssembledNextTurnButNotThisTurn()
+    {
+        var state = CreateState(stock: [(Lumber, 50), (Fabric, 50), (Arms, 50)]);
+
+        var first = Resolve(state, new CountryTurnOrders(
+            Home,
+            naval: [NavalOrder.Assemble([new FleetId(2)], NavalMission.None)],
+            shipBuilds: [new ShipBuildOrder(new ShipTypeId(Frigate), 1)]));
+
+        var tooEarly = Assert.Single(first.Events.OfType<NavalOrderRefusedEvent>());
+        Assert.Equal(NavalOrderRefusal.FleetDeliveredThisTurn, tooEarly.Reason);
+        var built = Assert.Single(first.Events.OfType<ShipsBuiltEvent>());
+        Assert.Equal(new SeaZoneId(0), built.SeaZone);
+        Assert.Equal(new SeaZoneId(0), state.GetFleet(built.Fleet).SeaZone);
+        Assert.Null(state.GetFleet(built.Fleet).TaskForce);
+
+        var second = Resolve(state, new CountryTurnOrders(
+            Home, naval: [NavalOrder.Assemble([built.Fleet], NavalMission.None)]));
+
+        var assembled = Assert.Single(second.Events.OfType<TaskForceAssembledEvent>());
+        Assert.Equal(built.Fleet, Assert.Single(state.TaskForces).Fleets.Single());
+        Assert.Equal(new SeaZoneId(0), assembled.SeaZone);
+    }
+
+    [Fact]
+    public void ASecondWarshipMergesIntoItsPlacedFleetButNotIntoAFleetInATaskForce()
+    {
+        var state = CreateState(stock: [(Lumber, 50), (Fabric, 50), (Arms, 50)]);
+        var first = Assert.Single(Resolve(state, Build(Frigate, 1)).Events.OfType<ShipsBuiltEvent>());
+        var second = Assert.Single(Resolve(state, Build(Frigate, 1)).Events.OfType<ShipsBuiltEvent>());
+
+        Assert.Equal(first.Fleet, second.Fleet);
+        Assert.Equal(2, state.GetFleet(first.Fleet).Count);
+        Assert.Equal(new SeaZoneId(0), state.GetFleet(first.Fleet).SeaZone);
+
+        _ = Resolve(state, new CountryTurnOrders(
+            Home, naval: [NavalOrder.Assemble([first.Fleet], NavalMission.None)]));
+        var third = Assert.Single(Resolve(state, Build(Frigate, 1)).Events.OfType<ShipsBuiltEvent>());
+
+        Assert.NotEqual(first.Fleet, third.Fleet);
+        Assert.Equal(new SeaZoneId(0), third.SeaZone);
+        Assert.Equal(2, state.GetFleet(first.Fleet).Count);
+        Assert.Equal(1, state.GetFleet(third.Fleet).Count);
+        Assert.Null(state.GetFleet(third.Fleet).TaskForce);
+    }
+
+    [Fact]
+    public void LowestIdSeaZoneTouchingTheCapitalReceivesTheWarship()
+    {
+        var state = CreateState(
+            stock: [(Lumber, 50), (Fabric, 50), (Arms, 50)],
+            twoAdjacentSeaZones: true);
+
+        var built = Assert.Single(Resolve(state, Build(Frigate, 1)).Events.OfType<ShipsBuiltEvent>());
+
+        Assert.Equal(new SeaZoneId(0), built.SeaZone);
+        Assert.Equal(new SeaZoneId(0), state.GetFleet(built.Fleet).SeaZone);
+    }
+
+    [Fact]
+    public void InlandCapitalLeavesWarshipUnplacedAndReportsNullSeaZone()
+    {
+        var state = CreateState(
+            stock: [(Lumber, 50), (Fabric, 50), (Arms, 50)],
+            inlandCapital: true,
+            homeShips: [(Frigate, 1, null)]);
+
+        var built = Assert.Single(Resolve(state, Build(Frigate, 1)).Events.OfType<ShipsBuiltEvent>());
+
+        Assert.Null(built.SeaZone);
+        Assert.Null(state.GetFleet(built.Fleet).SeaZone);
+        Assert.Null(state.GetFleet(built.Fleet).TaskForce);
+        Assert.NotEqual(new FleetId(2), built.Fleet);
+        Assert.Equal(1, state.GetFleet(new FleetId(2)).Count);
+    }
+
+    [Fact]
+    public void MissingCapitalLeavesWarshipUnplacedAndReportsNullSeaZone()
+    {
+        var state = CreateState(
+            stock: [(Lumber, 50), (Fabric, 50), (Arms, 50)],
+            noCapital: true);
+
+        var built = Assert.Single(Resolve(state, Build(Frigate, 1)).Events.OfType<ShipsBuiltEvent>());
+
+        Assert.Null(built.SeaZone);
+        Assert.Null(state.GetFleet(built.Fleet).SeaZone);
     }
 
     [Fact]
@@ -359,26 +452,52 @@ public sealed class ShipbuildingTests
         (int Commodity, long Quantity)[]? stock = null,
         bool knowsPaddlewheels = false,
         long rivalCoal = 0,
-        (int Type, long Count, SeaZoneId? Zone)[]? homeShips = null)
+        (int Type, long Count, SeaZoneId? Zone)[]? homeShips = null,
+        bool inlandCapital = false,
+        bool twoAdjacentSeaZones = false,
+        bool noCapital = false)
     {
         var dimensions = new MapDimensions(3, 1);
+        CellDefinition Cell(int index, CellRegion region, SettlementSiteKind settlement = SettlementSiteKind.None) =>
+            new(new CellIndex(index), dimensions.GetCoordinate(new CellIndex(index)),
+                new TerrainId(0), region, null, settlement);
+
+        var cells = twoAdjacentSeaZones
+            ? new[]
+            {
+                Cell(0, CellRegion.ForSeaZone(new SeaZoneId(1))),
+                Cell(1, CellRegion.ForProvince(new ProvinceId(0)), SettlementSiteKind.Urban),
+                Cell(2, CellRegion.ForSeaZone(new SeaZoneId(0))),
+            }
+            : inlandCapital
+                ? new[]
+                {
+                    Cell(0, CellRegion.ForProvince(new ProvinceId(0)), SettlementSiteKind.Urban),
+                    Cell(1, CellRegion.ForProvince(new ProvinceId(1)), SettlementSiteKind.Urban),
+                    Cell(2, CellRegion.ForSeaZone(new SeaZoneId(0))),
+                }
+                : new[]
+                {
+                    Cell(0, CellRegion.ForProvince(new ProvinceId(0)), SettlementSiteKind.Urban),
+                    Cell(1, CellRegion.ForSeaZone(new SeaZoneId(0))),
+                    Cell(2, CellRegion.ForProvince(new ProvinceId(1)), SettlementSiteKind.Urban),
+                };
+
+        var seaZones = twoAdjacentSeaZones
+            ? new[]
+            {
+                new SeaZoneDefinition(new SeaZoneId(0), "Channel"),
+                new SeaZoneDefinition(new SeaZoneId(1), "Outer Channel"),
+            }
+            : [new SeaZoneDefinition(new SeaZoneId(0), "Channel")];
         var map = new MapDefinition(
             dimensions,
-            [
-                new CellDefinition(new CellIndex(0), dimensions.GetCoordinate(new CellIndex(0)),
-                    new TerrainId(0), CellRegion.ForProvince(new ProvinceId(0)), null,
-                    SettlementSiteKind.Urban),
-                new CellDefinition(new CellIndex(1), dimensions.GetCoordinate(new CellIndex(1)),
-                    new TerrainId(0), CellRegion.ForProvince(new ProvinceId(1)), null,
-                    SettlementSiteKind.Urban),
-                new CellDefinition(new CellIndex(2), dimensions.GetCoordinate(new CellIndex(2)),
-                    new TerrainId(0), CellRegion.ForSeaZone(new SeaZoneId(0))),
-            ],
+            cells,
             [
                 new ProvinceDefinition(new ProvinceId(0), "Home"),
                 new ProvinceDefinition(new ProvinceId(1), "Rival"),
             ],
-            [new SeaZoneDefinition(new SeaZoneId(0), "Channel")],
+            seaZones,
             [],
             [new TerrainDefinition(new TerrainId(0), "Plains")]);
 
@@ -402,11 +521,13 @@ public sealed class ShipbuildingTests
             "Shipyard",
             1840,
             [Home, Rival],
-            initialCountryCapitals:
-            [
-                new CountryCapital(Home, new CellIndex(0)),
-                new CountryCapital(Rival, new CellIndex(1)),
-            ],
+            initialCountryCapitals: twoAdjacentSeaZones
+                ? [new CountryCapital(Home, new CellIndex(1))]
+                : noCapital
+                    ? [new CountryCapital(Rival, new CellIndex(2))]
+                : inlandCapital
+                    ? [new CountryCapital(Home, new CellIndex(0)), new CountryCapital(Rival, new CellIndex(1))]
+                    : [new CountryCapital(Home, new CellIndex(0)), new CountryCapital(Rival, new CellIndex(2))],
             initialInventory: inventory,
             initialWorkforce:
             [
@@ -459,6 +580,7 @@ public sealed class ShipbuildingTests
             [
                 new ShipTypeDefinition(
                     new ShipTypeId(Trader), "Trader", cargo: 2, seaZones: 1,
+                    combat: new ShipCombatStats(0, 0, 0, 600, 0),
                     buildCost:
                     [
                         new CommodityQuantity(new CommodityId(Lumber), 4),
@@ -466,6 +588,7 @@ public sealed class ShipbuildingTests
                     ]),
                 new ShipTypeDefinition(
                     new ShipTypeId(Frigate), "Frigate", seaZones: 3,
+                    combat: new ShipCombatStats(3, 5, 10, 900, 4, 35),
                     buildCost:
                     [
                         new CommodityQuantity(new CommodityId(Lumber), 5),
@@ -474,6 +597,7 @@ public sealed class ShipbuildingTests
                     ]),
                 new ShipTypeDefinition(
                     new ShipTypeId(Paddlewheeler), "Paddlewheeler", cargo: 8, seaZones: 1,
+                    combat: new ShipCombatStats(0, 0, 5, 900, 0),
                     buildCost:
                     [
                         new CommodityQuantity(new CommodityId(Lumber), 6),

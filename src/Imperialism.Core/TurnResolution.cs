@@ -230,7 +230,8 @@ public sealed record ShipsBuiltEvent : TurnEvent
         ShipTypeId type,
         long count,
         FleetId fleet,
-        IEnumerable<CommodityQuantity> paid)
+        IEnumerable<CommodityQuantity> paid,
+        SeaZoneId? seaZone = null)
         : base(turnNumber, TurnPhase.Construction)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
@@ -239,6 +240,7 @@ public sealed record ShipsBuiltEvent : TurnEvent
         Type = type;
         Count = count;
         Fleet = fleet;
+        SeaZone = seaZone;
         _paid = Array.AsReadOnly(paid.ToArray());
     }
 
@@ -250,6 +252,9 @@ public sealed record ShipsBuiltEvent : TurnEvent
 
     /// <summary>The fleet the new ships joined or started.</summary>
     public FleetId Fleet { get; }
+
+    /// <summary>The delivery sea zone, or null when the fleet remains unplaced.</summary>
+    public SeaZoneId? SeaZone { get; }
 
     /// <summary>The whole bill, for every hull in the order. Never cash.</summary>
     public IReadOnlyList<CommodityQuantity> Paid => _paid;

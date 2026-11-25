@@ -8,10 +8,9 @@ namespace Imperialism.Core;
 /// not attach them to a task force. This object preserves that record-level
 /// placement. Task-force membership, missions, and movement are separate work.
 /// <para>
-/// Ships built during play join an existing fleet of the same country and class
-/// that is unplaced and in no task force, or start a new one; see
-/// <c>docs/formulas/shipbuilding.md</c>. That merge is the only thing that ever
-/// changes <see cref="Count"/>.
+/// Ships built during play join an existing compatible fleet of the same country
+/// and class, or start a new one; see <c>docs/formulas/shipbuilding.md</c>. That
+/// merge is the only thing that ever changes <see cref="Count"/>.
 /// </para>
 /// </remarks>
 public sealed class FleetState
@@ -52,4 +51,7 @@ public sealed class FleetState
 
     /// <summary>The task force this fleet record belongs to, if assembled.</summary>
     public TaskForceId? TaskForce { get; internal set; }
+
+    /// <summary>The turn ships were most recently delivered into this fleet, if any.</summary>
+    internal int? DeliveredTurn { get; set; }
 }

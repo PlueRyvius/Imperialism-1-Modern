@@ -1287,8 +1287,7 @@ public sealed class WorldState
 
     /// <summary>
     /// Scenario-authored fleets in deterministic record order, followed by fleets
-    /// the Shipyard has started, in the order they were built. Default merchant
-    /// ships remain abstract cargo capacity until their placement rule is known.
+    /// the Shipyard has started, in the order they were built.
     /// </summary>
     /// <remarks>
     /// Ids are dense and never reused: fleet <c>n</c> is always at index
@@ -1302,37 +1301,79 @@ public sealed class WorldState
     /// their holds to the merchant marine, and they join a fleet.
     /// </summary>
     /// <remarks>
-    /// They join the first fleet of this country and class that is unplaced and in no
-    /// task force, or start a new fleet with the next id. <b>Unplaced is a chosen
-    /// rule</b>: the manual puts a new ship "in port at the capital", and neither the
-    /// capital's sea zone nor naval movement is modelled, so naming a zone would invent
-    /// one. A fleet that is placed or assembled is never merged into, because doing so
-    /// would move the new ships with it.
+    /// Merchant hulls (null or zero firepower) join the first unplaced fleet of their
+    /// class that is in no task force. Warships join the first fleet of their class in
+    /// the capital's adjacent sea zone that is in no task force; when no such zone or
+    /// capital exists, they remain unplaced. A fleet already in a task force is never
+    /// merged into, because doing so would move the new ships with it.
     /// </remarks>
-    internal FleetId DeliverShips(CountryId country, ShipTypeId type, long count)
+    internal FleetId DeliverShips(CountryId country, ShipTypeId type, long count, int turnNumber)
     {
         ValidateCountry(country);
         ValidateShipType(type);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
 
+        var hull = Definition.ShipTypes[type.Value];
+        var isMerchant = hull.Combat is null || hull.Combat.Firepower == 0;
+        var seaZone = isMerchant ? null : GetCapitalSeaZone(country);
+
         var offset = (country.Value * Definition.ShipTypes.Count) + type.Value;
         var total = checked(_ships[offset] + count);
         foreach (var fleet in _fleets)
         {
-            if (fleet.Country == country && fleet.Type == type &&
-                fleet.SeaZone is null && fleet.TaskForce is null)
+            var matchingZone = isMerchant
+                ? fleet.SeaZone is null
+                : seaZone.HasValue && fleet.SeaZone == seaZone;
+            if (fleet.Country == country && fleet.Type == type && matchingZone && fleet.TaskForce is null)
             {
                 fleet.Count = checked(fleet.Count + count);
+                fleet.DeliveredTurn = turnNumber;
                 _ships[offset] = total;
                 return fleet.Id;
             }
         }
 
         var created = new FleetState(
-            new FleetId(checked(_fleets.Count + 1L)), country, type, count, seaZone: null);
+            new FleetId(checked(_fleets.Count + 1L)), country, type, count, seaZone);
+        created.DeliveredTurn = turnNumber;
         _fleets.Add(created);
         _ships[offset] = total;
         return created.Id;
+    }
+
+    private SeaZoneId? GetCapitalSeaZone(CountryId country)
+    {
+        if (GetCountryCapital(country) is not { } capital)
+        {
+            return null;
+        }
+
+        var map = Definition.Map;
+        var coordinate = map[capital].Coordinate;
+        SeaZoneId? lowest = null;
+        foreach (var direction in HexDirections.All)
+        {
+            // Ship delivery follows the bounded, non-wrapping Core grid, even for
+            // imported maps whose sea topology also models the legacy map seam.
+            if (!coordinate.TryGetNeighbor(direction, map.Dimensions, out var neighborCoordinate))
+            {
+                continue;
+            }
+
+            var neighbor = map[map.Dimensions.GetIndex(neighborCoordinate)];
+            if (neighbor.Region.Kind != CellRegionKind.SeaZone)
+            {
+                continue;
+            }
+
+            var seaZone = neighbor.Region.SeaZone;
+            if (lowest is null || seaZone.Value < lowest.Value.Value)
+            {
+                lowest = seaZone;
+            }
+        }
+
+        return lowest;
     }
 
     public FleetState GetFleet(FleetId fleet)

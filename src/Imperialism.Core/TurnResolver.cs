@@ -299,14 +299,15 @@ public static class TurnResolver
                 }
 
                 // Last in Construction, and so after Trade: a hull built now adds its
-                // holds to next turn's market, never this one's. New ships are
-                // unplaced and in no task force; see WorldState.DeliverShips.
+                // holds to next turn's market, never this one's. Merchants stay
+                // unplaced; warships use the capital's adjacent sea zone when available.
                 state.CommitProduction(shipyard.InventoryDeltas);
                 foreach (var entry in shipyard.Entries)
                 {
-                    var fleet = state.DeliverShips(entry.Country, entry.Type, entry.Count);
+                    var fleet = state.DeliverShips(entry.Country, entry.Type, entry.Count, turnNumber);
                     events.Add(new ShipsBuiltEvent(
-                        turnNumber, entry.Country, entry.Type, entry.Count, fleet, entry.Paid));
+                        turnNumber, entry.Country, entry.Type, entry.Count, fleet, entry.Paid,
+                        state.GetFleet(fleet).SeaZone));
                 }
 
                 foreach (var entry in shipyard.Refusals)

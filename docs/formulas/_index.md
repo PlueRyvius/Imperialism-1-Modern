@@ -187,7 +187,7 @@ bottom of this file.
 | What a ship costs to build: commodities only, no labour, no cash | `inferred` — **the manual states it**, the executable's bills agree | [shipbuilding](shipbuilding.md) | Core | generated |
 | When a new ship's holds first count | `inferred` — the manual's "next turn", by phase order | [shipbuilding](shipbuilding.md) | Core | generated |
 | A Shipyard order the warehouse cannot cover | **a chosen rule** — refused whole, not trimmed | [shipbuilding](shipbuilding.md) | Core | generated |
-| Where a new ship is, and which fleet it joins | **a chosen rule** — unplaced, merged into an unplaced unassembled fleet | [shipbuilding](shipbuilding.md) | Core | generated |
+| Where a new ship is, and which fleet it joins | **chosen rules** — merchants stay unplaced; warships use the capital's lowest-id adjacent sea zone | [shipbuilding](shipbuilding.md) | Core | generated |
 | Which technologies gate the Ironclad and later hulls | **open** — the manual names them; the importer does not emit them | [shipbuilding](shipbuilding.md) | — | — |
 | When a declared war takes effect | `inferred` — **the manual states it**: next turn, by the relation token | [naval](naval.md) | Core | generated |
 | One mission or move per task force per turn | `inferred` — **the manual states it** | [naval](naval.md) | Core | generated |
