@@ -14,8 +14,8 @@ the first code to read `BuildCost` and `RequiredTechnology`.
 ## Confidence
 
 `inferred`. The manual states what a ship consumes and what it does not, and when new
-units appear. The bills are the executable's own (`verified`, see `trade.md`). Five rules
-below are chosen, and are labelled where they appear.
+units appear. The bills are the executable's own (`verified`, see `trade.md`). Eight rules
+below are chosen, and are labelled where they appear and in the table.
 
 | Claim | Support |
 |---|---|
@@ -27,18 +27,22 @@ below are chosen, and are labelled where they appear.
 | New units appear at the start of the next turn | **manual**, lines 2677–2680 |
 | New units start "in port at the capital" | **manual**, lines 2680–2681 — and **not modelled**; see below |
 | Each order is all or nothing | **chosen rule** |
-| The Shipyard is paid after the mills and the railyard | **chosen rule** |
+| A refused order does not stop the orders after it | **chosen rule** |
+| A class may appear more than once in one turn's orders, each entry standing alone | **chosen rule** |
+| The Shipyard is paid after production, facility expansion and the railyard, and before Capitol recruitment and the market | **chosen rule** |
 | New ships are unplaced and in no task force | **chosen rule** |
-| New ships merge into an unplaced, unassembled fleet of their class | **chosen rule** |
+| New ships merge into the **first** unplaced, unassembled fleet of their class | **chosen rule** |
 | No cap on how many hulls a turn, other than materials | **chosen rule** |
+| A hull with an empty bill builds for nothing | **chosen rule** (no imported hull has one) |
 
 ## The order
 
 `ShipBuildOrder(ShipTypeId Type, long Count)`, a list on `CountryTurnOrders.ShipBuilds`.
 Nothing is validated when the order is built. A count of zero or less, or a class the
 world does not define, is refused with an event when the turn resolves, the way an order
-naming a dead civilian is. A class may appear more than once in the list, and each entry
-stands alone.
+naming a dead civilian is. **A class may appear more than once in the list, and each entry
+stands alone (a chosen rule)**: each is checked and paid on its own, in list order, against
+what the entries before it left.
 
 ## Resolution
 
@@ -66,8 +70,13 @@ for two of three Traders build none of them. The manual describes a dialog that 
 shortage in red rather than one that builds fewer, so this is the reading that matches
 the screen. It is still a choice, the same one the Power Plant and the Trade School make.
 
-Orders are paid **in the order given**, and a refused order does not stop the ones after
-it: three Traders refused and then one Trader accepted is a legal turn.
+Orders are paid **in the order given**, and **a refused order does not stop the ones after
+it (a chosen rule)**: three Traders refused and then one Trader accepted is a legal turn.
+
+**A hull with an empty bill builds for nothing (a chosen rule).** `ShipTypeDefinition`
+allows an empty `BuildCost`, and the planner charges exactly the bill, so such a hull is
+limited by nothing. No imported hull has an empty bill (all thirteen carry the
+executable's), so this only matters for hand-authored content.
 
 ### Who is paid first (a chosen rule)
 
