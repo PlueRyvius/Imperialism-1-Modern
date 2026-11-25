@@ -289,6 +289,41 @@ public sealed class TurnReportRendererTests
     }
 
     [Fact]
+    public void TheUniversitySaysWhatACivilianCostAndWhenItArrives()
+    {
+        // The fixture world declares no civilian types, so the type falls back to
+        // its number rather than throwing — the same courtesy an unknown hull gets.
+        var renderer = CreateRenderer();
+        var type = new CivilianTypeId(0);
+
+        var bought = Assert.Single(renderer.Render(new CiviliansPurchasedEvent(
+            1, Blue, type, 2, 2, [new CommodityQuantity(new CommodityId(1), 4)], 2000)));
+        Assert.Equal(TurnReportKind.Outcome, bought.Kind);
+        Assert.Contains("bought 2 civilian type 0s at the University", bought.Text, StringComparison.Ordinal);
+        Assert.Contains("2 expert workers and 4 Lumber and $2,000", bought.Text, StringComparison.Ordinal);
+
+        var refused = Assert.Single(renderer.Render(new CivilianPurchaseRefusedEvent(
+            1, Blue, type, 1, CivilianPurchaseRefusal.TechnologyNotKnown)));
+        Assert.Equal(TurnReportKind.Refusal, refused.Kind);
+        Assert.Contains(
+            TurnReportText.Describe(CivilianPurchaseRefusal.TechnologyNotKnown),
+            refused.Text,
+            StringComparison.Ordinal);
+
+        var delivered = Assert.Single(renderer.Render(new CiviliansDeliveredEvent(
+            1, Blue, type, Land, [new CivilianUnitId(7)])));
+        Assert.Equal(Land, delivered.Cell);
+        Assert.Contains("next turn", delivered.Text, StringComparison.Ordinal);
+
+        var lost = Assert.Single(renderer.Render(new CivilianDeliveryLostEvent(1, Blue, type, 1)));
+        Assert.Equal(TurnReportKind.Loss, lost.Kind);
+
+        var disbanded = Assert.Single(renderer.Render(new CivilianDisbandedEvent(
+            1, Blue, new CivilianUnitId(7), type, 1)));
+        Assert.Contains("returning 1 expert worker who works from next turn", disbanded.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ALineCarriesTheCountryItIsAboutSoTheClientNeedNotReadIt()
     {
         var renderer = CreateRenderer();
@@ -376,6 +411,13 @@ public sealed class TurnReportRendererTests
                 1, Blue, new TaskForceId(1), new SeaZoneId(0), new SeaZoneId(0), new SeaZoneId(0)),
             new NavalOrderRefusedEvent(
                 1, Blue, NavalOrderKind.Command, new TaskForceId(1), NavalOrderRefusal.AlreadyOrderedThisTurn),
+            new CiviliansPurchasedEvent(1, Blue, new CivilianTypeId(0), 1, 1, some, 1000),
+            new CivilianPurchaseRefusedEvent(
+                1, Blue, new CivilianTypeId(0), 1, CivilianPurchaseRefusal.NotEnoughExperts),
+            new CiviliansDeliveredEvent(1, Blue, new CivilianTypeId(0), Land, [unit]),
+            new CivilianDeliveryLostEvent(1, Blue, new CivilianTypeId(0), 1),
+            new CivilianDisbandedEvent(1, Blue, unit, new CivilianTypeId(0), 1),
+            new CivilianDisbandRefusedEvent(1, Blue, unit, CivilianDisbandRefusal.NotYours),
         ];
     }
 }

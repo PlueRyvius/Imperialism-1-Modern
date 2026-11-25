@@ -212,6 +212,29 @@ public sealed class WorldDefinition
             }
         }
 
+        foreach (var civilianType in civilianTypeArray)
+        {
+            if (civilianType.Purchase is not { } purchase)
+            {
+                continue;
+            }
+
+            if (purchase.Cost.Any(item => (uint)item.Commodity.Value >= (uint)commodityArray.Length))
+            {
+                throw new ArgumentException(
+                    $"Civilian type {civilianType.Id.Value} is priced in a missing commodity.",
+                    nameof(civilianTypes));
+            }
+
+            if (purchase.RequiredTechnology is { } required &&
+                (uint)required.Value >= (uint)technologyArray.Length)
+            {
+                throw new ArgumentException(
+                    $"Civilian type {civilianType.Id.Value} requires missing technology {required.Value}.",
+                    nameof(civilianTypes));
+            }
+        }
+
         foreach (var resource in map.Resources)
         {
             if ((uint)resource.Commodity.Value >= (uint)commodityArray.Length)

@@ -364,6 +364,7 @@ None of these blocks anything. All live in content, so correcting one is an edit
 | Improvement, Level III | 3,000 | owner's recollection. **Levels I and II are corroborated at 100 and 1,000; III is not** |
 | Rail across mountains | 300 | **the one ground the price list does not price**; we reuse swamp's figure |
 | Civilian work turns | 3 | observed play, applied to every civilian type |
+| Civilian price at the University | 1 expert + 2 paper + $1,000, every type | **expert is the manual's; paper and cash are guesses** (`docs/formulas/university.md`). **Wanted: trace the selector of the `0x00695C50` block below** — if it is the University's table, its per-type cash replaces the flat $1,000 |
 | ~~Migration cost per worker~~ | 1 each of canned food, clothing, furniture | **RECOVERED** — the help resources state the conversion outright, and the guess was right |
 
 **A candidate for the depot and the port.** The `0x00695C50` block holds nine cost records,

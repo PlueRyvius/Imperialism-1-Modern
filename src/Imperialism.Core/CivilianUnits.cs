@@ -86,7 +86,8 @@ public sealed record CivilianTypeDefinition
         CivilianTypeId id,
         string name,
         int workTurns,
-        CivilianWorkKind work = CivilianWorkKind.Improve)
+        CivilianWorkKind work = CivilianWorkKind.Improve,
+        CivilianPurchase? purchase = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (workTurns <= 0)
@@ -105,6 +106,7 @@ public sealed record CivilianTypeDefinition
         Name = name;
         WorkTurns = workTurns;
         Work = work;
+        Purchase = purchase;
     }
 
     public CivilianTypeId Id { get; }
@@ -124,6 +126,81 @@ public sealed record CivilianTypeDefinition
     /// older content package still means.
     /// </summary>
     public CivilianWorkKind Work { get; }
+
+    /// <summary>
+    /// What the University charges for one of these, or null where it cannot be
+    /// bought at all — the Developer, "cannot be built in the University", and every
+    /// type in a package older than version 29.
+    /// </summary>
+    public CivilianPurchase? Purchase { get; }
+}
+
+/// <summary>
+/// The University's price for one civilian: expert workers taken out of industry for
+/// good, commodities, cash, and the technology that opens the type.
+/// </summary>
+/// <remarks>
+/// "All civilians, with the exception of the Developer, are constructed using an
+/// expert worker, paper, and cash." <b>The expert is the manual's; the paper and the
+/// cash are guesses</b> — the manual names them without a quantity, and the one
+/// candidate table in the executable has no traced reader. They live here, per type,
+/// so a traced value is an edit to content. See <c>docs/formulas/university.md</c>.
+/// </remarks>
+public sealed record CivilianPurchase
+{
+    private readonly IReadOnlyList<CommodityQuantity> _cost;
+
+    public CivilianPurchase(
+        long expertWorkers,
+        IEnumerable<CommodityQuantity> cost,
+        long cashCost,
+        TechnologyId? requiredTechnology = null)
+    {
+        ArgumentNullException.ThrowIfNull(cost);
+        if (expertWorkers < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(expertWorkers),
+                "Every civilian the University builds costs at least one expert worker.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegative(cashCost);
+        var costs = cost.ToArray();
+        if (costs.Any(static item => item.Quantity <= 0))
+        {
+            throw new ArgumentException("A civilian's price must name positive quantities.", nameof(cost));
+        }
+
+        if (costs.Select(static item => item.Commodity).Distinct().Count() != costs.Length)
+        {
+            throw new ArgumentException(
+                "A civilian's price cannot name a commodity twice.", nameof(cost));
+        }
+
+        ExpertWorkers = expertWorkers;
+        _cost = Array.AsReadOnly(costs);
+        CashCost = cashCost;
+        RequiredTechnology = requiredTechnology;
+    }
+
+    /// <summary>
+    /// Healthy expert workers taken out of the workforce permanently, per civilian:
+    /// "each unit constructed costs you an expert worker from your industry".
+    /// </summary>
+    public long ExpertWorkers { get; }
+
+    /// <summary>Commodities charged per civilian.</summary>
+    public IReadOnlyList<CommodityQuantity> Cost => _cost;
+
+    /// <summary>Cash charged per civilian.</summary>
+    public long CashCost { get; }
+
+    /// <summary>
+    /// What a country must know before it may buy this type, or null if anyone may:
+    /// Feed Grasses for the Rancher, Iron Railroad Bridges for the Forester, Oil
+    /// Drilling for the Driller. Read as the turn opens.
+    /// </summary>
+    public TechnologyId? RequiredTechnology { get; }
 }
 
 /// <summary>Work a civilian has begun and not yet finished.</summary>

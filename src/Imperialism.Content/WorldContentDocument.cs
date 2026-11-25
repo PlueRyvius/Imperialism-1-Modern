@@ -579,6 +579,37 @@ public sealed class CivilianTypeContentDefinition
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public Imperialism.Core.CivilianWorkKind Work { get; set; }
+
+    /// <summary>
+    /// What the University charges for one of these, or absent where it cannot be
+    /// bought — the Developer, and every type before version 29.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CivilianPurchaseContent? Purchase { get; set; }
+}
+
+/// <summary>
+/// The University's price for one civilian. The expert worker is the manual's; the
+/// paper and cash the importer writes are guesses. See
+/// <c>docs/formulas/university.md</c>. Added in version 29.
+/// </summary>
+public sealed class CivilianPurchaseContent
+{
+    /// <summary>Expert workers taken out of the workforce for good. At least one.</summary>
+    public long ExpertWorkers { get; set; }
+
+    /// <summary>Commodities charged per civilian.</summary>
+    public CommodityQuantityContent[] Commodities { get; set; } = [];
+
+    /// <summary>Cash charged per civilian.</summary>
+    public long Cash { get; set; }
+
+    /// <summary>
+    /// Technology key a country must hold before it may buy this type, or absent for
+    /// none. Resolved by key, never by table position.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequiredTechnology { get; set; }
 }
 
 /// <summary>One civilian a scenario starts with.</summary>

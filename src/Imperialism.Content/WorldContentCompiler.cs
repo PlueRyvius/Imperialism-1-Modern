@@ -72,23 +72,6 @@ public static class WorldContentCompiler
 
         var terrainIds = BuildTerrainKeyMap(terrainContent);
         var civilianTypeIds = BuildCivilianTypeKeyMap(civilianTypeContent);
-        var civilianTypes = civilianTypeContent.Select((definition, index) =>
-        {
-            if (!Enum.IsDefined(definition!.Work))
-            {
-                throw Error($"civilianTypes[{index}].work", "Unknown work kind.");
-            }
-
-            try
-            {
-                return new CivilianTypeDefinition(
-                    new CivilianTypeId(index), definition.Name, definition.WorkTurns, definition.Work);
-            }
-            catch (ArgumentException exception)
-            {
-                throw Error($"civilianTypes[{index}].workTurns", exception.Message, exception);
-            }
-        }).ToArray();
         var commodityIds = BuildCommodityKeyMap(commodityContent);
         var resourceIds = BuildResourceKeyMap(resourceContent);
         var facilityIds = BuildProductionFacilityKeyMap(facilityContent);
@@ -124,6 +107,29 @@ public static class WorldContentCompiler
         }).ToArray();
         var technologyContent = RequireArray(document.Technologies, "technologies");
         var technologyIds = BuildTechnologyKeyMap(technologyContent);
+        var civilianTypes = civilianTypeContent.Select((definition, index) =>
+        {
+            if (!Enum.IsDefined(definition!.Work))
+            {
+                throw Error($"civilianTypes[{index}].work", "Unknown work kind.");
+            }
+
+            var purchase = CompileCivilianPurchase(
+                definition.Purchase, commodityIds, technologyIds, $"civilianTypes[{index}].purchase");
+            try
+            {
+                return new CivilianTypeDefinition(
+                    new CivilianTypeId(index),
+                    definition.Name,
+                    definition.WorkTurns,
+                    definition.Work,
+                    purchase);
+            }
+            catch (ArgumentException exception)
+            {
+                throw Error($"civilianTypes[{index}].workTurns", exception.Message, exception);
+            }
+        }).ToArray();
         var technologies = technologyContent.Select((definition, index) =>
         {
             var prerequisites = RequireArray(
@@ -1067,6 +1073,47 @@ public static class WorldContentCompiler
         catch (ArgumentException exception)
         {
             throw Error("startingDefaults", exception.Message, exception);
+        }
+    }
+
+    private static CivilianPurchase? CompileCivilianPurchase(
+        CivilianPurchaseContent? content,
+        IReadOnlyDictionary<string, int> commodityIds,
+        IReadOnlyDictionary<string, int> technologyIds,
+        string path)
+    {
+        if (content is null)
+        {
+            return null;
+        }
+
+        if (content.ExpertWorkers < 1)
+        {
+            throw Error(
+                $"{path}.expertWorkers",
+                "Every civilian the University builds costs at least one expert worker.");
+        }
+
+        if (content.Cash < 0)
+        {
+            throw Error($"{path}.cash", "A civilian cannot cost a negative amount.");
+        }
+
+        var cost = CompileCommodityQuantities(
+            RequireArray(content.Commodities, $"{path}.commodities"), commodityIds, $"{path}.commodities");
+
+        // Name-keyed like every other gate, so reordering the technology table can
+        // never silently rewire which civilian it opens.
+        TechnologyId? required = content.RequiredTechnology is null
+            ? null
+            : new TechnologyId(FindKey(technologyIds, content.RequiredTechnology, $"{path}.requiredTechnology"));
+        try
+        {
+            return new CivilianPurchase(content.ExpertWorkers, cost, content.Cash, required);
+        }
+        catch (ArgumentException exception)
+        {
+            throw Error(path, exception.Message, exception);
         }
     }
 
