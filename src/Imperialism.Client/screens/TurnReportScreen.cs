@@ -154,9 +154,9 @@ public sealed partial class TurnReportScreen : Control
         {
             ThemeTypeVariation = "ImperialismQuiet",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            Text = "No country is played by a computer. Every country including yours submitted " +
-                "empty orders, because no orders screen exists yet. A rival that gathered its " +
-                "harvest and did nothing else is the engine as it stands, not a fault.",
+            Text = "No country is played by a computer. Your orders are the ones your screens " +
+                "set; every rival submitted empty orders. A rival that gathered its harvest " +
+                "and did nothing else is the engine as it stands, not a fault.",
         });
 
         // Mandatory rather than tidy: one line is emitted per delivery, and a

@@ -216,10 +216,17 @@ player reads, because `HexMapProjectionTests` forbids Godot there and
 without rebuilding terrain, and offers normal and debug-overlay modes; see
 `docs/map-viewer.md`.
 
-**The client ends turns now, and every country submits empty orders.** No orders
-screen exists and nothing plays the other powers, so a rival that gathered its
-harvest and did nothing else is the engine as it stands rather than a bug. The
-turn report says so on its own face. See `docs/gui-shell.md`.
+**The client ends turns now; the player submits a draft and every rival submits
+nothing.** Phase 4 row 4a gave orders a home: `Presentation.OrdersDraft` holds the
+local country's production, expansions, recruitment, railyard, transport sliders,
+research and trade, and `OrdersPreview` replays the resolver's rules for them as
+warnings that never refuse. No orders *screen* edits it yet, so an untouched draft
+builds empty orders and the smoke turn is unchanged. Nothing plays the other powers,
+so a rival that gathered its harvest and did nothing else is the engine as it stands
+rather than a bug; the turn report says so. **What survives End Turn follows the
+manual where it speaks** — a mill keeps its order as asked, food processing and the
+railyard do not — and is labelled chosen elsewhere. See `docs/gui-shell.md`,
+"What an order remembers".
 
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an

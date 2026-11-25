@@ -6,11 +6,14 @@ navigation, and a session that knows which country you are playing.
 
 ## Scope
 
-The shell navigates, ends turns, and reports what a turn did. It **does not**
-take an order: four of the six screens are stubs that name the manual section
-specifying them and the `CountryTurnOrders` fields they will fill. So every turn
-resolves on empty orders — see below, because that is the single fact most likely
-to be mistaken for a bug.
+The shell navigates, ends turns, and reports what a turn did. The player's
+orders now have a home — `GameSession.Draft`, an `OrdersDraft` for the local
+country, with read-only `OrdersPreview` views for Industry, Transport, Technology
+and Trade (row 4a) — but the four orders screens that will edit it are still
+stubs naming the manual section that specifies them. Until they land, an
+untouched draft builds empty orders, so a turn resolves exactly as it did before
+the draft existed. Rivals submit nothing at all — see below, because that is the
+single fact most likely to be mistaken for a bug.
 
 The demo package ships no cash, workforce or transport, so the border reads zero
 for most of its fields. That is the demo world being small, not the border being
@@ -18,14 +21,16 @@ wrong; open a converted scenario with `--world` to see it move.
 
 ## Nobody is playing the other countries
 
-**There is no AI.** Every country, the player's included, submits
-`TurnOrders.Empty`. No orders screen exists, so there is nothing to submit.
+**There is no AI.** The local country submits its draft; every other country
+submits empty orders, built in the same `TurnOrders` by
+`OrdersDraft.BuildTurnOrders`.
 
 The world is not frozen: Extraction, Transport, Feeding, Delivery, Migration and
 Connectivity run whether or not anybody asked for anything, which is exactly why
 an End Turn button is worth pressing before a single orders screen exists. But
 nobody produces, builds, trades or researches, and a rival that gathered its
 harvest and did nothing else is the engine as it stands rather than a fault.
+The report screen's notice says rivals submitted nothing, not that nobody did.
 
 The report screen says so on its own face, so nobody has to find this document
 to learn it. The report is also deliberately **not** filtered to the local
@@ -46,6 +51,48 @@ Technology Investment screen the microscope reaches.
 | Bid and Offers | Bid and Offers screen | Offers and bids per commodity in a fixed order. `TradeOffers`, `TradeBids`. |
 | Diplomacy | Diplomacy screen | Waiting on rules, not on interface: Core's `Diplomacy` phase is still empty. |
 | Investment | Invest in Technology | The Benefits of Technology Table, its prices and arrival dates. `BuyTechnology`. |
+
+The Transport, Industry, Bid and Offers and Investment rows have their model now:
+`OrdersDraft` holds each field named above, and `OrdersPreview.Create` gives the
+matching `Transport`, `Industry`, `Trade` and `Technology` view. A screen is still
+a stub; what is left for it is drawing and input, not rules.
+
+**A preview warns and never refuses.** It replays the resolver's rules for these
+phases in the resolver's order — recipes in priority order against facility
+capacity, labour and stock; expansion and the railyard against what production
+leaves; the Capitol's cap; what trade may sell after industry claims its inputs;
+the transport bar as the turn opens; research against knowledge as the turn opens
+— and reports what the turn is expected to do. The draft keeps every over-ask and
+Core trims or refuses it with an event, as it always has. Core's planners are
+internal, so the preview is a second statement of their rules;
+`OrdersDraftTests` resolves each preview's fixture through `TurnResolver` and
+compares events, so drift between the two fails a test. Two figures are bounds
+rather than predictions: transport `Used` is trimmed again by what `Extraction`
+actually gathers, and a bid's fill depends on the rest of the market.
+
+The preview also warns where the manual sets a limit Core does not enforce: "You
+may bid on only four commodities each turn" (manual 3107), as
+`TradePreview.IsOverBidLimit`. The order still goes through.
+
+## What an order remembers
+
+`GameSession.EndTurn` calls `OrdersDraft.AdvanceTurn` once the turn resolves.
+Where the manual speaks it decides; elsewhere the rule is chosen and labelled.
+
+| Field | After End Turn | Source |
+|---|---|---|
+| Production at a mill or factory | **kept, as asked** — not clamped | Manual 2863–2867: orders "are saved to the next turn"; the building "remembers" the units wanted |
+| Production at food processing | cleared | Manual 2651–2652: "orders to this centre are not saved". Identified as the facility with no capacity limit |
+| Railyard (`BuildTransportCapacity`) | cleared | Manual 2903–2904: "these orders are not saved" |
+| Technology purchases | cleared | Manual 4125–4126: a purchase cannot be cancelled once End Turn is clicked; the technology is then known |
+| Transport sliders | kept, in order | **Chosen** — the manual is silent |
+| Facility expansion | cleared | **Chosen** — a one-rung order, not a standing one |
+| Capitol recruitment | cleared | **Chosen** — the manual is silent |
+| Trade offers and bids | cleared | **Chosen** — the manual is silent |
+
+**Production is kept unclamped on purpose.** A mill asked for more than it can
+make keeps asking, because the manual's building keeps trying to fill the order;
+the Industry preview shows the shortfall each turn instead.
 
 Shared chrome, from the manual: a title and the hot text narrating whatever the
 cursor is over along the top rail; the Left Arrow that closes a screen, bound
@@ -143,12 +190,14 @@ right-hand column, and carries that warning as its tooltip.
 
 `GameSession.EndTurn` calls the resolver and Presentation factories behind a guard:
 
-1. `TurnResolver.Resolve` with `TurnOrders.Empty(World.Definition.Countries.Count)`
-   — the same count `Resolve` validates against, read from the same place.
+1. `TurnResolver.Resolve` with `Draft.BuildTurnOrders()` — the local draft in
+   its own slot and empty orders for every other country, one per
+   `World.Definition.Countries` entry, the count `Resolve` validates against.
 2. `TurnReportView.Create` and `NewspaperView.Create` against the post-resolve world,
    **before** the refresh, so `Refreshed` sees both snapshots. The newspaper reader
    is `LocalCountry`, the same country shown by the status border.
-3. `Refresh()`, which re-issues both snapshots and moves the border's date on.
+3. `Draft.AdvanceTurn()`, which applies "What an order remembers" above.
+4. `Refresh()`, which re-issues both snapshots and moves the border's date on.
 
 **The seed is the turn number about to resolve, and nothing consumes it.**
 `TurnResolver` says so outright; it is recorded on the resolution for replay. What

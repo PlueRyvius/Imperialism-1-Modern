@@ -43,6 +43,7 @@ public sealed class GameSession
         Map = map;
         WorldView = WorldViewState.Create(package, scenarioKey, world);
         Status = CountryStatusView.Create(package, scenarioKey, world, localCountry);
+        Draft = new OrdersDraft(world.Definition, localCountry);
     }
 
     /// <summary>Raised after both snapshots have been re-issued.</summary>
@@ -61,6 +62,16 @@ public sealed class GameSession
     public WorldViewState WorldView { get; private set; }
 
     public CountryStatusView Status { get; private set; }
+
+    /// <summary>
+    /// The local country's orders as the screens have set them so far. One draft
+    /// for the whole game: End Turn submits it and then clears only what the
+    /// manual says is not saved (<see cref="OrdersDraft.AdvanceTurn"/>).
+    /// </summary>
+    public OrdersDraft Draft { get; }
+
+    /// <summary>What the orders screens draw for <see cref="Draft"/> right now.</summary>
+    public OrdersPreview Preview() => OrdersPreview.Create(Package, ScenarioKey, World, Draft);
 
     /// <summary>The report of the last turn resolved, or null before the first.</summary>
     public TurnReportView? LastReport { get; private set; }
@@ -100,10 +111,12 @@ public sealed class GameSession
     /// Resolves one turn for every country and reports what happened.
     /// </summary>
     /// <remarks>
-    /// <b>Every country submits empty orders, the player's included</b>, because
-    /// no orders screen exists yet and nothing plays the other powers. That is
-    /// not a placeholder for an AI so much as an honest statement of what the
-    /// engine currently is; the report says so on its own face.
+    /// <b>The local country submits its <see cref="Draft"/>, and every other
+    /// country submits empty orders</b>, because nothing plays the other powers.
+    /// That is not a placeholder for an AI so much as an honest statement of what
+    /// the engine currently is; the report says so on its own face. An untouched
+    /// draft builds empty orders, so a turn ended before any screen is used
+    /// resolves exactly as it did before the draft existed.
     ///
     /// Presentation factories and a guard, deliberately. Nothing in this
     /// assembly is under the test suite, so every judgement about what a turn <em>means</em>
@@ -124,7 +137,7 @@ public sealed class GameSession
         {
             var resolution = TurnResolver.Resolve(
                 World,
-                TurnOrders.Empty(World.Definition.Countries.Count),
+                Draft.BuildTurnOrders(),
                 // The turn about to resolve. No phase consumes the seed yet, so
                 // what matters today is only that it is deterministic and
                 // distinct per turn: a clock would make the headless gate's
@@ -136,6 +149,7 @@ public sealed class GameSession
             // observe a session whose report or paper has not been made yet.
             LastReport = TurnReportView.Create(Package, ScenarioKey, World, resolution);
             LastNewspaper = NewspaperView.Create(Package, ScenarioKey, World, resolution, LocalCountry);
+            Draft.AdvanceTurn();
             Refresh();
             return LastReport;
         }
