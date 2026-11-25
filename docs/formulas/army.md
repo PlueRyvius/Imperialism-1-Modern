@@ -415,7 +415,7 @@ diplomaticTiesClosed, tradePoliciesCleared)`. `WorldState.IsEliminated`,
 |---|---|---|
 | 38 | Capturing the province holding a country's capital eliminates it at once, after the capture | **manual** (692–702; both Great Powers and minors, 664–666) |
 | 39 | A capture that leaves a country no province eliminates it even without a capital; a country with no capital that still holds land is not eliminated by losing another province | chosen |
-| 40 | Its task forces and fleets go down, landing sites with them, and its hull counts are zeroed | **chosen — a guess**; the manual is silent. `wanted-values.md` §9(b) |
+| 40 | Its task forces and fleets go down, landing sites with them, and its hull counts are zeroed. Cargo it already carries for a deal settled in that turn's `Trade` is still at sea: a task force at war with it may still intercept it in `TradeCancellation`, and the money paid stands (naval rule 26). It intercepts nothing itself, having no task force left | **chosen — a guess**; the manual is silent. `wanted-values.md` §9(b) |
 | 41 | Its treasury, warehouse, workforce, regiments and civilians stay, frozen: the workforce neither eats nor starves, civilians' work neither counts down nor finishes, nothing is bought in `Investment` | chosen |
 | 42 | Every pact, consulate, embassy and trade policy involving it is cleared, both ways. The counts ride on the elimination event, and no `TradePolicyClearedEvent` is raised | chosen |
 | 43 | Elimination is permanent. Ownership is kept, and a province is in anarchy exactly when its owner is eliminated | chosen representation |
