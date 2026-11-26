@@ -505,6 +505,41 @@ public sealed class InstitutionOrdersTests
     }
 
     /// <summary>
+    /// The Armoury's Regulars take untrained workers the Trade School has already sent to
+    /// school, so <see cref="ArmouryCategoryView.WorkersTaken"/> follows the Armoury's
+    /// refusal after the school's claim. Checked against the workforce the resolved turn
+    /// loses beside a control turn with the same training and no purchase.
+    /// </summary>
+    [Theory]
+    [InlineData(0, 2, 2)]
+    [InlineData(2, 2, 2)]
+    [InlineData(3, 2, 0)]
+    [InlineData(4, 1, 0)]
+    [InlineData(3, 1, 1)]
+    public void WorkersTakenCountsOnlyWhatTheTradeSchoolLeft(long trainees, long regiments, long expected)
+    {
+        var control = new Game(Compile());
+        var game = new Game(Compile());
+        if (trainees > 0)
+        {
+            control.Draft.SetTraining(WorkerGrade.Untrained, trainees);
+            game.Draft.SetTraining(WorkerGrade.Untrained, trainees);
+        }
+
+        game.Draft.SetRegimentPurchase(ArmyCategory.RegularInfantry, regiments);
+        var row = game.Preview().Armoury.Categories.Single(item => item.Category == ArmyCategory.RegularInfantry);
+        Assert.Equal(expected, row.WorkersTaken);
+        Assert.Equal(expected == 0 ? RegimentPurchaseRefusal.NotEnoughWorkers : null, row.Warning?.Refusal);
+
+        control.EndTurn();
+        game.EndTurn();
+
+        long Workforce(Game g) => WorkerGrades.All.ToArray().Sum(grade => g.State.GetWorkers(Blue, grade));
+        Assert.Equal(Workforce(control) - Workforce(game), row.WorkersTaken);
+        Assert.Equal(control.State.GetWorkers(Blue, WorkerGrade.Untrained) - expected, game.State.GetWorkers(Blue, WorkerGrade.Untrained));
+    }
+
+    /// <summary>
     /// The gap the Armoury row left: the warehouse, the labour pool and the treasury count
     /// every claim in Core's order — the Trade School, the University, the Armoury, the
     /// fuel, power before people in the recipes, the railyard, the Capitol, then the market
