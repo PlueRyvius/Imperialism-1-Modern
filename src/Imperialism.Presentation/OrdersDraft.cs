@@ -35,8 +35,17 @@ namespace Imperialism.Presentation;
 /// false, and <see cref="ClearTradePolicy"/>.
 /// </para>
 /// <para>
-/// Ships, regiments, the University, the Trade School and the Power Plant are not
-/// drafted here yet: they are rows 4e-2 and 4e-3, and their
+/// The Armoury and the Shipyard (row 4e-2) are one row per category or hull class,
+/// kept in place like the Industry screen's rows: the dialog's arrows under each
+/// picture. A regiment move names a set of regiments and a province; a regiment is
+/// in at most one move, so a newer move takes its regiments out of any older one,
+/// and a move left with no regiments goes — the Garrison book's selection and the
+/// map cursor. Whether a move marches, rides the rail, attacks or lands is the
+/// destination's to decide, as in Core, and <see cref="OrdersPreview"/>'s to show.
+/// </para>
+/// <para>
+/// Naval orders, the University, the Trade School and the Power Plant are not
+/// drafted here yet: they are rows 4e-2b and 4e-3, and their
 /// <see cref="CountryTurnOrders"/> fields stay empty.
 /// </para>
 /// </remarks>
@@ -53,6 +62,9 @@ public sealed class OrdersDraft
     private readonly List<DiplomaticOverture> _overtures = [];
     private readonly List<CountryId> _declareWar = [];
     private readonly List<TradePolicyOrder> _tradePolicies = [];
+    private readonly List<(ArmyCategory Category, long Count)> _regimentPurchases = [];
+    private readonly List<(ShipTypeId Type, long Count)> _shipBuilds = [];
+    private readonly List<DraftRegimentMove> _regimentMoves = [];
     private long _recruitWorkers;
     private long _buildTransportCapacity;
 
@@ -99,6 +111,19 @@ public sealed class OrdersDraft
 
     /// <summary>One trade policy per target, in the order first set.</summary>
     public IReadOnlyList<TradePolicyOrder> TradePolicies => _tradePolicies.AsReadOnly();
+
+    /// <summary>The Armoury's rows, one per category, in the order first set.</summary>
+    public IReadOnlyList<(ArmyCategory Category, long Count)> RegimentPurchases => _regimentPurchases.AsReadOnly();
+
+    /// <summary>The Shipyard's rows, one per hull class, in the order first set.</summary>
+    public IReadOnlyList<(ShipTypeId Type, long Count)> ShipBuilds => _shipBuilds.AsReadOnly();
+
+    /// <summary>Regiment moves in the order given; no regiment is in two.</summary>
+    public IReadOnlyList<DraftRegimentMove> RegimentMoves => _regimentMoves.AsReadOnly();
+
+    /// <summary>The drafted move a regiment is in, if any.</summary>
+    public DraftRegimentMove? GetRegimentMove(RegimentId regiment) =>
+        _regimentMoves.FirstOrDefault(move => move.Regiments.Contains(regiment));
 
     /// <summary>Untrained workers asked of the Capitol this turn.</summary>
     public long RecruitWorkers
@@ -282,6 +307,78 @@ public sealed class OrdersDraft
         _tradePolicies.Clear();
     }
 
+    /// <summary>
+    /// The Armoury's arrows for a category: how many regiments of its best type to
+    /// raise. Which type that is, is read as the turn opens; the draft keeps only the
+    /// category, as Core's order does.
+    /// </summary>
+    public void SetRegimentPurchase(ArmyCategory category, long count)
+    {
+        if (!Enum.IsDefined(category))
+        {
+            throw new ArgumentOutOfRangeException(nameof(category));
+        }
+
+        Set(_regimentPurchases, category, count);
+    }
+
+    /// <summary>The Shipyard's arrows for a hull class.</summary>
+    public void SetShipBuild(ShipTypeId type, long count)
+    {
+        RequireIndex(type.Value, _world.ShipTypes.Count, nameof(type));
+        Set(_shipBuilds, type, count);
+    }
+
+    /// <summary>
+    /// Order these regiments to a province. Each regiment named leaves any older move
+    /// it was in, so the newest order for a regiment is the one that stands.
+    /// </summary>
+    public void SetRegimentMove(IEnumerable<RegimentId> regiments, ProvinceId destination)
+    {
+        ArgumentNullException.ThrowIfNull(regiments);
+        RequireIndex(destination.Value, _world.Map.Provinces.Count, nameof(destination));
+        var named = regiments.Distinct().ToArray();
+        if (named.Length == 0)
+        {
+            throw new ArgumentException("A move names at least one regiment.", nameof(regiments));
+        }
+
+        foreach (var regiment in named)
+        {
+            _ = ClearRegimentMove(regiment);
+        }
+
+        _regimentMoves.Add(new DraftRegimentMove(Array.AsReadOnly(named), destination));
+    }
+
+    /// <summary>Takes one regiment out of its drafted move; a move left empty goes.</summary>
+    public bool ClearRegimentMove(RegimentId regiment)
+    {
+        var index = _regimentMoves.FindIndex(move => move.Regiments.Contains(regiment));
+        if (index < 0)
+        {
+            return false;
+        }
+
+        var rest = _regimentMoves[index].Regiments.Where(other => other != regiment).ToArray();
+        if (rest.Length == 0)
+        {
+            _regimentMoves.RemoveAt(index);
+        }
+        else
+        {
+            _regimentMoves[index] = _regimentMoves[index] with { Regiments = Array.AsReadOnly(rest) };
+        }
+
+        return true;
+    }
+
+    public void ClearRegimentPurchases() => _regimentPurchases.Clear();
+
+    public void ClearShipBuilds() => _shipBuilds.Clear();
+
+    public void ClearRegimentMoves() => _regimentMoves.Clear();
+
     /// <summary>The inert orders Core resolves. Zero rows are left out.</summary>
     public CountryTurnOrders Build() => new(
         Country,
@@ -308,7 +405,12 @@ public sealed class OrdersDraft
             .Select(static row => new TradeOrder(row.Commodity, row.Quantity)),
         declareWar: _declareWar,
         overtures: _overtures,
-        tradePolicies: _tradePolicies);
+        tradePolicies: _tradePolicies,
+        shipBuilds: _shipBuilds.Where(static row => row.Count > 0)
+            .Select(static row => new ShipBuildOrder(row.Type, row.Count)),
+        regimentPurchases: _regimentPurchases.Where(static row => row.Count > 0)
+            .Select(static row => new RegimentPurchaseOrder(row.Category, row.Count)),
+        regimentMoves: _regimentMoves.Select(static move => new RegimentMoveOrder(move.Regiments, move.Destination)));
 
     /// <summary>
     /// A whole turn's orders: this draft in its own country's slot and empty orders
@@ -353,6 +455,18 @@ public sealed class OrdersDraft
     /// cancellable "before the end of the turn" (3688–3690), and Core keeps the policy
     /// standing from then on, so re-sending it would only repeat a change already made.
     /// </para>
+    /// <para>
+    /// Cleared, chosen with the manual's support: the Armoury's and the Shipyard's rows.
+    /// The manual says they "work exactly like the University" (4874), where an order is
+    /// one unit, its worker "deducted from your work force permanently" when given, and
+    /// the unit appears "next turn" (4866–4872); it never says the order is saved, as it
+    /// does for mills (2863). Carrying it would buy the same regiments again every turn.
+    /// </para>
+    /// <para>
+    /// Cleared, from the manual: regiment moves. Rail capacity limits what moves "in one
+    /// turn" (1757–1758), and a garrison told to do nothing does so "this turn only" and
+    /// "appears normally in the cycle next turn" (1830–1831): a move is that turn's.
+    /// </para>
     /// </remarks>
     public void AdvanceTurn()
     {
@@ -367,6 +481,9 @@ public sealed class OrdersDraft
         _bids.Clear();
         _unitOrders.Clear();
         ClearDiplomacy();
+        _regimentPurchases.Clear();
+        _shipBuilds.Clear();
+        _regimentMoves.Clear();
     }
 
     private void SetUnitOrder(DraftUnitOrder order)
@@ -399,7 +516,7 @@ public sealed class OrdersDraft
     }
 
     private static void Set<TKey>(List<(TKey Key, long Quantity)> rows, TKey key, long quantity)
-        where TKey : struct, IEquatable<TKey>
+        where TKey : struct
     {
         ArgumentOutOfRangeException.ThrowIfNegative(quantity);
         var index = rows.FindIndex(row => row.Key.Equals(key));
@@ -459,3 +576,6 @@ public sealed record DraftUnitOrder(
     UnitOrderKind Kind,
     CellIndex Cell,
     EngineerConstruction? Structure);
+
+/// <summary>One drafted regiment move: the regiments, together, to a province.</summary>
+public sealed record DraftRegimentMove(IReadOnlyList<RegimentId> Regiments, ProvinceId Destination);

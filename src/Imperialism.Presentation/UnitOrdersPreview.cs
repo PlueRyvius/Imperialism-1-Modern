@@ -119,6 +119,9 @@ public sealed record CivilianOrdersPreview(
     IReadOnlyList<CivilianPreview> Civilians,
     IReadOnlyList<(CivilianUnitId Unit, UnitTargetView Order)> OtherOrders)
 {
+    /// <summary>Paid at the Armoury in <c>Production</c>, the first claim of all.</summary>
+    public long ClaimedByArmoury { get; init; }
+
     /// <summary>
     /// The drafting country is eliminated as the turn opens: Core sets every order aside
     /// and reports <see cref="EliminatedCountryOrdersIgnoredEvent"/>, so no civilian
@@ -738,14 +741,15 @@ public sealed partial class OrdersPreview
     };
 
     /// <summary>
-    /// Cash as Development finds it, at worst: the drafted overtures paid in Diplomacy,
-    /// every bid paid at world price, no sale credited. Both run before Development,
-    /// and the draft holds no other order that spends cash ahead of it.
+    /// Cash as Development finds it, at worst: the Armoury paid in Production, the
+    /// drafted overtures paid in Diplomacy, every bid paid at world price, no sale
+    /// credited. All run before Development.
     /// </summary>
     private static long CashBeforeCivilians(WorldState state, OrdersDraft draft) =>
         Math.Max(
             0,
-            state.GetCash(draft.Country) - ClaimedByOvertures(state, draft) - ClaimedByBids(state, draft));
+            state.GetCash(draft.Country) - ClaimedByArmoury(state, draft) - ClaimedByOvertures(state, draft) -
+            ClaimedByBids(state, draft));
 
     private static long ClaimedByBids(WorldState state, OrdersDraft draft) => draft.TradeBids
         .Where(static row => row.Quantity > 0)
@@ -776,6 +780,7 @@ public sealed partial class OrdersPreview
             Array.AsReadOnly(civilians),
             Array.AsReadOnly(others))
         {
+            ClaimedByArmoury = ClaimedByArmoury(state, draft),
             OrdersSetAside = setAside,
         };
     }
