@@ -35,6 +35,7 @@ public sealed partial class GameShell : Control
     private bool _smokeScreens;
     private bool _smokeTurn;
     private bool _smokeOrders;
+    private bool _smokeUnits;
     private string? _screenshotDirectory;
 
     public override void _Ready()
@@ -45,6 +46,7 @@ public sealed partial class GameShell : Control
         _smokeScreens = arguments.Contains("--smoke-screens", StringComparer.Ordinal);
         _smokeTurn = arguments.Contains("--smoke-turn", StringComparer.Ordinal);
         _smokeOrders = arguments.Contains("--smoke-orders", StringComparer.Ordinal);
+        _smokeUnits = arguments.Contains("--smoke-units", StringComparer.Ordinal);
         _screenshotDirectory = ReadArgument(arguments, "--screenshot");
         var worldPath = ReadArgument(arguments, "--world") ??
             (_smokeOrders ? "res://demo/orders.iworld" : DefaultWorldPath);
@@ -60,7 +62,7 @@ public sealed partial class GameShell : Control
             StartSession(
                 ReadArgument(arguments, "--scenario") ?? _package.ScenarioKeys[0],
                 ReadArgument(arguments, "--country"));
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeOrders || _screenshotDirectory is not null)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _smokeOrders || _screenshotDirectory is not null)
             {
                 CallDeferred(nameof(FinishSmoke));
             }
@@ -68,7 +70,7 @@ public sealed partial class GameShell : Control
         catch (Exception exception)
         {
             GD.PushError($"Could not load world package '{worldPath}': {exception.Message}");
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeOrders)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _smokeOrders)
             {
                 GetTree().Quit(1);
                 return;
@@ -114,6 +116,13 @@ public sealed partial class GameShell : Control
                 AcceptEvent();
                 return;
             }
+        }
+
+        if (@event.IsActionPressed("shell_back") && _current == ShellScreen.TerrainMap &&
+            ((TerrainMapScreen)_screens[ShellScreen.TerrainMap]).DeselectCivilian())
+        {
+            AcceptEvent();
+            return;
         }
 
         if (@event.IsActionPressed("shell_back") && _current != ShellScreen.TerrainMap)
@@ -213,20 +222,12 @@ public sealed partial class GameShell : Control
         _screens[ShellScreen.TerrainMap] = terrainMap;
         _screens[ShellScreen.Transport] = new TransportScreen();
         _screens[ShellScreen.Industry] = new IndustryScreen();
-        _screens[ShellScreen.BidAndOffers] = StubScreen.Create(
-            "Bid and Offers",
-            "Offers and bids per commodity in a fixed order, against one price nobody names. " +
-            "Fills CountryTurnOrders.TradeOffers and TradeBids. Manual: Bid and Offers screen, " +
-            "and docs/formulas/trade.md.");
+        _screens[ShellScreen.BidAndOffers] = new TradeScreen();
         _screens[ShellScreen.Diplomacy] = StubScreen.Create(
             "Diplomacy",
             "Policies, treaties and overtures. Core supports diplomacy; this screen " +
             "waits on interface work. Manual: Diplomacy screen.");
-        _screens[ShellScreen.Technology] = StubScreen.Create(
-            "Investment",
-            "The twenty-eight entries of the Benefits of Technology Table, their prices and their " +
-            "arrival dates. Fills CountryTurnOrders.BuyTechnology. Manual: Invest in Technology, " +
-            "and docs/formulas/technology.md.");
+        _screens[ShellScreen.Technology] = new TechnologyScreen();
 
         foreach (var screen in ShellScreens.All)
         {
@@ -366,8 +367,7 @@ public sealed partial class GameShell : Control
 
         if (_smokeOrders)
         {
-            // Exercise the same draft entry points as both orders screens. A package
-            // without recipes/commodities cannot satisfy this smoke contract.
+            // Exercise the same draft entry points as all four orders screens.
             Navigate(ShellScreen.Industry);
             Navigate(ShellScreen.Transport);
             var recipe = _session.Preview().Industry.Recipes.FirstOrDefault();
@@ -381,16 +381,38 @@ public sealed partial class GameShell : Control
 
             _session.Draft.SetProduction(_package.Catalog.GetProductionRecipeId(recipe.RecipeKey), 1);
             _session.Draft.SetTransport(_package.Catalog.GetCommodityId(commodity.CommodityKey), 1);
+            Navigate(ShellScreen.Technology);
+            var technology = _session.Preview().Technology.Offered.FirstOrDefault();
+            if (technology is not null)
+                _session.Draft.SetTechnologyPurchase(_package.Catalog.GetTechnologyId(technology.TechnologyKey), true);
+            Navigate(ShellScreen.BidAndOffers);
+            var trade = _session.Preview().Trade.Rows.FirstOrDefault(row => row.Sellable > 0);
+            if (trade is null)
+            {
+                GD.PushError("ORDERS_SMOKE_FAILED requires a tradable commodity with sellable stock.");
+                GetTree().Quit(1);
+                return;
+            }
+
+            _session.Draft.SetOffer(_package.Catalog.GetCommodityId(trade.CommodityKey), 1);
             var submitted = _session.Draft.Build();
-            var ordersOk = submitted.Production.Count == 1 && submitted.Transport.Count == 1;
+            var ordersOk = submitted.Production.Count == 1 && submitted.Transport.Count == 1 &&
+                submitted.TradeOffers.Count == 1 &&
+                submitted.BuyTechnology.Count == (technology is null ? 0 : 1);
             var turnOk = await ReportTurnSmoke(null);
             foreach (var phase in _session.LastReport!.Phases)
             {
                 foreach (var line in phase.Lines) GD.Print($"ORDERS_EVENT {phase.Phase}: {line.Text}");
             }
 
-            GD.Print($"ORDERS_SMOKE_{(ordersOk && turnOk ? "OK" : "FAILED")} production={submitted.Production.Count} transport={submitted.Transport.Count} events={_session.LastReport.EventCount}");
+            GD.Print($"ORDERS_SMOKE_{(ordersOk && turnOk ? "OK" : "FAILED")} production={submitted.Production.Count} transport={submitted.Transport.Count} technology={submitted.BuyTechnology.Count} offers={submitted.TradeOffers.Count} events={_session.LastReport.EventCount}");
             GetTree().Quit(ordersOk && turnOk ? 0 : 1);
+            return;
+        }
+
+        if (_smokeUnits)
+        {
+            GetTree().Quit(UnitOrdersSmoke.Run(_session) ? 0 : 1);
             return;
         }
 
