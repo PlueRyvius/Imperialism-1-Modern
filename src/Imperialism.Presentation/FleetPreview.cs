@@ -151,16 +151,11 @@ internal sealed class NavalOrderSimulation
     /// Core runs every naval order before any regiment moves, and each such command leaves
     /// its task force without a ready landing site: a move idles it, a patrol or blockade
     /// ends its landing, and a landing order restamps the site to this turn (manual 1943).
-    /// Empty for an eliminated country, whose orders Core sets aside.
+    /// An eliminated country needs no case here: the army preview sets all its moves aside.
     /// </summary>
     public static IReadOnlySet<TaskForceId> Commanded(
         CompiledWorldPackage package, WorldState state, CountryId country, IEnumerable<DraftNavalOrder> orders)
     {
-        if (state.IsEliminated(country))
-        {
-            return new HashSet<TaskForceId>();
-        }
-
         var simulation = new NavalOrderSimulation(state, country);
         foreach (var order in orders)
         {
