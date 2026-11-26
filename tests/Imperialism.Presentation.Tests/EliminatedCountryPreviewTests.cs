@@ -95,6 +95,47 @@ public sealed class EliminatedCountryPreviewTests
     }
 
     [Fact]
+    public void AnEliminatedCountrysInstitutionOrdersPreviewAsSetAsideAndClaimNothing()
+    {
+        var (package, state, _) = EliminateBlue();
+        var draft = new OrdersDraft(package.GetWorld(Scenario), Blue);
+        draft.SetTraining(WorkerGrade.Untrained, 1);
+        draft.SetTraining(WorkerGrade.Trained, 1);
+        draft.BurnFuel = 1;
+        draft.SetCivilianPurchase(new CivilianTypeId(0), 1);
+        draft.SetDisband(Farmer, true);
+
+        var preview = OrdersPreview.Create(package, Scenario, state, draft);
+        Assert.All(preview.TradeSchool.Steps, step =>
+        {
+            Assert.Equal(OrderWarning<WorkerTrainingRefusal>.SetAside, step.Warning);
+            Assert.Equal(0, step.LabourWithheld);
+        });
+        Assert.Equal((0L, 0L), (preview.TradeSchool.CashClaimed, preview.TradeSchool.LabourWithheld));
+        Assert.Equal(OrderWarning<PowerRefusal>.SetAside, preview.PowerPlant.Warning);
+        Assert.Equal(0, preview.PowerPlant.PowerMade);
+        Assert.Equal(OrderWarning<CivilianPurchaseRefusal>.SetAside, preview.University.Types[0].Warning);
+        var disband = Assert.Single(preview.University.Disbands);
+        Assert.Equal(OrderWarning<CivilianDisbandRefusal>.SetAside, disband.Warning);
+        Assert.Equal(0, disband.ExpertsReturned);
+        Assert.Equal((0L, 0L), (preview.University.CashClaimed, preview.University.ExpertsTaken));
+        Assert.Equal((0L, 0L), (preview.Diplomacy.ClaimedByTradeSchool, preview.Diplomacy.ClaimedByUniversity));
+        Assert.Equal(0, preview.Diplomacy.ClaimedBeforeDiplomacy);
+
+        var events = TurnResolver.Resolve(state, draft.BuildTurnOrders(), 3).Events;
+        Assert.Contains(events, item => item is EliminatedCountryOrdersIgnoredEvent { Country.Value: 0 });
+        Assert.DoesNotContain(events, item => item is WorkersTrainedEvent { Country.Value: 0 }
+            or WorkerTrainingRefusedEvent { Country.Value: 0 }
+            or PowerGeneratedEvent { Country.Value: 0 }
+            or PowerRefusedEvent { Country.Value: 0 }
+            or CiviliansPurchasedEvent { Country.Value: 0 }
+            or CivilianPurchaseRefusedEvent { Country.Value: 0 }
+            or CivilianDisbandedEvent { Country.Value: 0 }
+            or CivilianDisbandRefusedEvent { Country.Value: 0 });
+        Assert.NotNull(state.GetCivilian(Farmer));
+    }
+
+    [Fact]
     public void AnEliminatedCountrysNavalOrdersPreviewAsSetAsideAndItsFleetsAreGone()
     {
         // Blue assembles its Frigate on a patrol while it stands, then loses its capital.

@@ -316,6 +316,51 @@ refusal; the preview restates it all the same.
 with Core's refusal event, and each accepted order with its event and the task force
 the turn leaves.
 
+### Trade School, Power Plant and University (row 4e-3)
+
+The draft holds the rest of `Production`'s orders, each mapped one to one by `Build`:
+`SetTraining(step, count)` per Trade School step, `BurnFuel` for the Power Plant,
+`SetCivilianPurchase(type, count)` per civilian type, and `SetDisband(unit, bool)`.
+**A disband and a unit order are exclusive**: setting either one drops the other,
+because a disbanded civilian has nothing left to do.
+
+`OrdersPreview.TradeSchool`, `PowerPlant` and `University`, **labelled previews**,
+restate `ProductionPlanner` in its own order:
+
+- **Trade School** — each step shows its paper and cash per trainee and the bill for
+  the count. A step is refused for a missing step, too few **healthy** workers of the
+  source grade as the turn opens, then paper, then cash. **All or nothing** per step;
+  the cheap promotion is paid before the dear one. The trainees leave **this turn's**
+  labour pool (manual 2592) and work at their new grade from the next.
+- **University** — disbands first, then purchases. Each type shows its expert, paper
+  and cash per civilian and its technology gate; **the Developer is not for sale**
+  (manual 1408), and refusals run unknown type, non-positive count, not purchasable,
+  technology not known, no capital, too few healthy experts, paper, cash. **All or
+  nothing** per order. The expert leaves the workforce at once (4868–4869); the civilian
+  arrives on the capital **next turn**, in `Delivery` (1168–1169). A disband returns one
+  expert that works from next turn and **refunds nothing** (1194–1195).
+- **Power Plant** — fuel requested, held and burnt, and power made. A plant needs Oil
+  Drilling (2659–2661) through its facility gate, an order over 100 fuel is **refused,
+  not trimmed**, and so is one beyond the fuel held. Recipes spend **power before
+  labour** (2669–2670); whatever is left is shown as lost, because power "cannot be
+  sold or stored" (2656, 2663).
+
+**The warehouse, labour and cash now count every claim in Core's order.** Production's
+cash is the Trade School, then the University, then the Armoury; overtures, bids, civilian work, Engineer jobs and research all see what that
+leaves. The paper, fuel and inputs those orders take come out of `Industry`'s available
+stock and `Trade`'s sellable before a recipe or an offer sees them, and the trainees,
+the University's experts and the Armoury's recruits come out of the labour pool before
+the first recipe. `OneTurnOfEveryProductionClaimAgreesWithCore` resolves one turn
+holding all of them and compares every figure with Core's events.
+
+Rivals submit nothing, so a capital lost before `Delivery` cannot be previewed.
+**Disbanding can be taken back until End Turn**, where the manual says it "cannot take
+this order back" (1196) — a chosen softening, since nothing has happened until the turn
+resolves. **Training precedes every recipe**, as in Core; the manual wants labour left
+free after the factories are assigned (2592–2596, 4884–4885), and the preview follows
+Core. An eliminated country's rows preview as `OrderWarning<T>.SetAside` and claim
+nothing.
+
 ### Fleet screen (row 4e-2 client)
 
 The plain **Fleet** button in the right navigation column opens a scrolling
@@ -381,6 +426,9 @@ Where the manual speaks it decides; elsewhere the rule is chosen and labelled.
 | Naval landing sites | cleared | **Manual** 1943–1945: troops cross "on any subsequent turns, as long as you maintain the landing site". Core restamps a re-ordered site, so carrying the order would keep the site unusable for ever |
 | Naval patrols and blockades | cleared | **Chosen** — the manual is silent. Core keeps either mission standing until the task force moves, so re-sending it would only spend the turn repeating it |
 | Naval assemblies | cleared | **Core**: a task force is permanent once assembled, so the order has nothing left to do |
+| Trade School steps | cleared | **Manual** 4888–4890: workers are "educated this turn"; 2592: a trainee is out of the labour pool "for the turn". Carrying the order would train again every turn |
+| Power Plant fuel | cleared | **Chosen** — the manual is silent on saving it. Power "cannot be sold or stored" (2656) and is used the turn it is made (2663), so the order is one turn's burn |
+| University purchases and disbands | cleared | **Manual** 1168–1169: the civilian appears "at the start of the next turn"; 4868–4869: the expert is deducted at once. Core holds the civilian, so nothing needs carrying |
 
 **Production is kept unclamped on purpose.** A mill asked for more than it can
 make keeps asking, because the manual's building keeps trying to fill the order;

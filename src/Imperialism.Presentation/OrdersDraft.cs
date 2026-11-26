@@ -54,8 +54,12 @@ namespace Imperialism.Presentation;
 /// <see cref="OrdersPreview"/>'s warning and Core's ruling, never the draft's.
 /// </para>
 /// <para>
-/// The University, the Trade School and the Power Plant are not drafted here yet: they
-/// are row 4e-3, and their <see cref="CountryTurnOrders"/> fields stay empty.
+/// The Trade School, the Power Plant and the University (row 4e-3). The Trade School is
+/// two counts, one per step a worker may be raised; the Power Plant is one count of
+/// fuel to burn; the University is one row per civilian type, kept in place like the
+/// Armoury's, and a set of civilians to disband. A disband is that civilian's one order
+/// this turn, because Core refuses a civilian named twice: disbanding a unit takes back
+/// its deploy, work or Engineer order, and giving it one takes back its disband.
 /// </para>
 /// </remarks>
 public sealed class OrdersDraft
@@ -75,8 +79,13 @@ public sealed class OrdersDraft
     private readonly List<(ShipTypeId Type, long Count)> _shipBuilds = [];
     private readonly List<DraftRegimentMove> _regimentMoves = [];
     private readonly List<DraftNavalOrder> _naval = [];
+    private readonly List<(CivilianTypeId Type, long Count)> _civilianPurchases = [];
+    private readonly SortedSet<long> _disbands = [];
     private long _recruitWorkers;
     private long _buildTransportCapacity;
+    private long _trainUntrained;
+    private long _trainTrained;
+    private long _burnFuel;
 
     public OrdersDraft(WorldDefinition world, CountryId country)
     {
@@ -165,6 +174,88 @@ public sealed class OrdersDraft
         {
             ArgumentOutOfRangeException.ThrowIfNegative(value);
             _buildTransportCapacity = value;
+        }
+    }
+
+    /// <summary>Fuel the Power Plant is to burn this turn.</summary>
+    public long BurnFuel
+    {
+        get => _burnFuel;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _burnFuel = value;
+        }
+    }
+
+    /// <summary>The University's rows, one per civilian type, in the order first set.</summary>
+    public IReadOnlyList<(CivilianTypeId Type, long Count)> CivilianPurchases => _civilianPurchases.AsReadOnly();
+
+    /// <summary>Civilians to disband this turn, in unit-id order.</summary>
+    public IReadOnlyList<CivilianUnitId> Disbands =>
+        _disbands.Select(static value => new CivilianUnitId(checked((int)value))).ToArray();
+
+    /// <summary>Whether this civilian is drafted to be disbanded.</summary>
+    public bool IsDisbanding(CivilianUnitId unit) => _disbands.Contains(unit.Value);
+
+    /// <summary>
+    /// Workers of this grade sent to the Trade School to be raised one grade. Only the
+    /// untrained and the trained have a step; an expert has nowhere to go.
+    /// </summary>
+    public long GetTraining(WorkerGrade from) => from switch
+    {
+        WorkerGrade.Untrained => _trainUntrained,
+        WorkerGrade.Trained => _trainTrained,
+        _ => 0,
+    };
+
+    /// <summary>The Trade School's arrows for one step.</summary>
+    public void SetTraining(WorkerGrade from, long count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        switch (from)
+        {
+            case WorkerGrade.Untrained:
+                _trainUntrained = count;
+                break;
+            case WorkerGrade.Trained:
+                _trainTrained = count;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(from), "Only the untrained and the trained can be raised.");
+        }
+    }
+
+    /// <summary>The University's arrows for a civilian type.</summary>
+    public void SetCivilianPurchase(CivilianTypeId type, long count)
+    {
+        RequireIndex(type.Value, _world.CivilianTypes.Count, nameof(type));
+        Set(_civilianPurchases, type, count);
+    }
+
+    public void ClearCivilianPurchases() => _civilianPurchases.Clear();
+
+    /// <summary>
+    /// Disband a civilian this turn, or take the disband back. Disbanding takes back the
+    /// civilian's other drafted order: Core accepts one order per civilian.
+    /// </summary>
+    /// <remarks>
+    /// The manual makes the click final — "unlike most orders, you cannot take this order
+    /// back" (1196) — because the original disbands at once. Here nothing happens until
+    /// <c>Production</c> resolves it, so taking it back before End Turn is allowed; a
+    /// screen that wants the original's feel asks for confirmation and offers no undo.
+    /// </remarks>
+    public void SetDisband(CivilianUnitId unit, bool disband)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(unit.Value);
+        if (disband)
+        {
+            _unitOrders.Remove(unit.Value);
+            _disbands.Add(unit.Value);
+        }
+        else
+        {
+            _disbands.Remove(unit.Value);
         }
     }
 
@@ -493,7 +584,12 @@ public sealed class OrdersDraft
         regimentMoves: _regimentMoves.Select(static move => new RegimentMoveOrder(move.Regiments, move.Destination)),
         naval: _naval.Select(static order => order.Kind == DraftNavalOrderKind.Assemble
             ? NavalOrder.Assemble(order.Fleets, order.Mission)
-            : NavalOrder.Command(order.TaskForce!.Value, order.Mission)));
+            : NavalOrder.Command(order.TaskForce!.Value, order.Mission)),
+        burnFuel: _burnFuel,
+        training: new WorkerTrainingOrder(_trainUntrained, _trainTrained),
+        civilianPurchases: _civilianPurchases.Where(static row => row.Count > 0)
+            .Select(static row => new CivilianPurchaseOrder(row.Type, row.Count)),
+        civilianDisbands: Disbands);
 
     /// <summary>
     /// A whole turn's orders: this draft in its own country's slot and empty orders
@@ -562,6 +658,19 @@ public sealed class OrdersDraft
     /// so re-sending it would only spend the turn repeating it. An assembly, from Core:
     /// a task force is permanent once assembled, so the order has nothing left to do.
     /// </para>
+    /// <para>
+    /// Cleared, from the manual: the University's rows and disbands. Civilians ordered
+    /// "appear on the Terrain Map at the start of the next turn" (1168–1169), the expert
+    /// "deducted from your work force permanently" when the order is given (4868–4869),
+    /// so the order is that turn's and carrying it would buy the same civilians again. A
+    /// disband removes the civilian, so it has nothing left to name. Cleared, from the
+    /// manual: the Trade School, which "orders it to be educated … this turn"
+    /// (4888–4890) and takes the trainee "out of the labour pool for the turn" (2592);
+    /// re-sending the count would train a fresh batch every turn. Cleared, chosen: the
+    /// Power Plant's fuel. Power "cannot be sold or stored" (2656) and is "created in the
+    /// Power Plant in the same turn it is used" (2663), but the manual never says whether
+    /// the burn order is saved, as it says for mills (2863).
+    /// </para>
     /// </remarks>
     public void AdvanceTurn()
     {
@@ -580,6 +689,11 @@ public sealed class OrdersDraft
         _shipBuilds.Clear();
         _regimentMoves.Clear();
         _naval.Clear();
+        _trainUntrained = 0;
+        _trainTrained = 0;
+        _burnFuel = 0;
+        _civilianPurchases.Clear();
+        _disbands.Clear();
     }
 
     /// <summary>A mission naming a sea zone, country or province the world lacks is a screen's bug.</summary>
@@ -607,6 +721,7 @@ public sealed class OrdersDraft
             throw new ArgumentOutOfRangeException(nameof(order), "The cell is not on this world's map.");
         }
 
+        _disbands.Remove(order.Unit.Value);
         _unitOrders[order.Unit.Value] = order;
     }
 

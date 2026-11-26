@@ -129,8 +129,8 @@ public sealed record DraftedPolicyView(
 /// Overtures are paid in <c>Diplomacy</c>, the first phase, from the treasury less what
 /// the Industry screen's training, University and Armoury claim — Core plans them against
 /// <c>production.CashClaimed</c>. That earlier claim is
-/// <see cref="ClaimedBeforeDiplomacy"/>; of the three only the Armoury is drafted, so it
-/// is <see cref="ClaimedByArmoury"/>.
+/// <see cref="ClaimedBeforeDiplomacy"/>, the sum of <see cref="ClaimedByTradeSchool"/>,
+/// <see cref="ClaimedByUniversity"/> and <see cref="ClaimedByArmoury"/>.
 /// Bids, civilians and research each see <see cref="ClaimedByOvertures"/> gone.
 /// </para>
 /// <para>
@@ -154,7 +154,8 @@ public sealed record DraftedPolicyView(
 /// The drafting country is eliminated: Core sets every order aside before anything
 /// resolves, so nothing here happens. Each drafted row still carries the check Core
 /// would have made, but no overture is paid for: <see cref="ClaimedByOvertures"/> is
-/// zero, and so is the Armoury's claim, which Core sets aside too.
+/// zero, and so are the Trade School's, the University's and the Armoury's claims, which
+/// Core sets aside too.
 /// </param>
 public sealed record DiplomacyPreview(
     long CashAtOpen,
@@ -170,10 +171,13 @@ public sealed record DiplomacyPreview(
     IReadOnlyList<DraftedWarView> Declarations,
     IReadOnlyList<DraftedPolicyView> Policies)
 {
-    /// <summary>
-    /// Paid at the Armoury in <c>Production</c>, before any overture: so far the only
-    /// drafted part of <see cref="ClaimedBeforeDiplomacy"/>.
-    /// </summary>
+    /// <summary>Paid at the Trade School in <c>Production</c>, before everything else.</summary>
+    public long ClaimedByTradeSchool { get; init; }
+
+    /// <summary>Paid at the University in <c>Production</c>, after the Trade School.</summary>
+    public long ClaimedByUniversity { get; init; }
+
+    /// <summary>Paid at the Armoury in <c>Production</c>, before any overture.</summary>
     public long ClaimedByArmoury { get; init; }
 }
 
@@ -551,11 +555,11 @@ public sealed partial class OrdersPreview
 
     /// <summary>
     /// Cash the drafted Industry-screen orders claim before <c>Diplomacy</c> pays any
-    /// overture — Core's <c>production.CashClaimed</c>. Of training, the University and
-    /// the Armoury, only the Armoury is drafted yet; the others add here when they are.
+    /// overture — Core's <c>production.CashClaimed</c>: the Trade School, the University
+    /// and the Armoury.
     /// </summary>
     private static long ClaimedBeforeDiplomacy(WorldState state, OrdersDraft draft) =>
-        ClaimedByArmoury(state, draft);
+        ClaimedByProduction(state, draft);
 
     /// <summary>Cash the drafted overtures take in <c>Diplomacy</c>, ahead of everything else.</summary>
     private static long ClaimedByOvertures(WorldState state, OrdersDraft draft) =>
@@ -567,6 +571,7 @@ public sealed partial class OrdersPreview
         var country = draft.Country;
         var settings = world.Diplomacy;
         var claimedBefore = ClaimedBeforeDiplomacy(state, draft);
+        var claims = SimulateProductionClaims(state, draft);
         var drafted = SimulateDiplomacy(state, draft);
 
         var countries = new List<DiplomaticCountryView>();
@@ -665,7 +670,9 @@ public sealed partial class OrdersPreview
                 .Select(row => new DraftedPolicyView(names.Key(row.Order.Target), row.Order.Policy, row.Refusal))
                 .ToArray()))
         {
-            ClaimedByArmoury = ClaimedByArmoury(state, draft),
+            ClaimedByTradeSchool = claims.TradeSchoolCash,
+            ClaimedByUniversity = claims.UniversityCash,
+            ClaimedByArmoury = claims.Armoury.CashClaimed,
         };
     }
 }

@@ -94,18 +94,23 @@ public sealed partial class OrdersPreview
         // Consumption only, never net of output: what industry produces this turn is
         // not in the warehouse until Production commits, after the market has cleared.
         var claimed = new long[available.Length];
-        var armoury = SimulateArmoury(state, draft);
-        var industry = PreviewIndustry(state, draft, names, available, claimed, armoury, out var shipyard);
+        var claims = SimulateProductionClaims(state, draft);
+        var armoury = claims.Armoury;
+        var industry = PreviewIndustry(state, draft, names, available, claimed, claims, out var shipyard, out var powerSpent);
         var transport = PreviewTransport(state, draft, names);
         var diplomacy = PreviewDiplomacy(state, draft, names);
         var civilians = PreviewCivilians(state, draft);
         var technology = PreviewTechnology(
             state, draft, names, diplomacy.ClaimedByOvertures, civilians.CommittedCost) with
         {
+            ClaimedByTradeSchool = claims.TradeSchoolCash,
+            ClaimedByUniversity = claims.UniversityCash,
             ClaimedByArmoury = armoury.CashClaimed,
         };
         var trade = PreviewTrade(state, draft, names, claimed, diplomacy.ClaimedByOvertures) with
         {
+            ClaimedByTradeSchool = claims.TradeSchoolCash,
+            ClaimedByUniversity = claims.UniversityCash,
             ClaimedByArmoury = armoury.CashClaimed,
         };
         return new OrdersPreview(industry, transport, technology, trade, civilians)
@@ -115,6 +120,9 @@ public sealed partial class OrdersPreview
             Shipyard = shipyard,
             ArmyMoves = PreviewArmyMoves(package, state, draft),
             Fleet = PreviewFleet(package, state, draft),
+            TradeSchool = PreviewTradeSchool(state, draft, names, claims),
+            PowerPlant = PreviewPowerPlant(state, draft, names, claims, powerSpent),
+            University = PreviewUniversity(state, draft, names, claims),
             OrdersSetAside = state.IsEliminated(country),
         };
     }
@@ -125,8 +133,9 @@ public sealed partial class OrdersPreview
         Names names,
         long[] available,
         long[] claimed,
-        ArmourySimulation armoury,
-        out ShipyardView shipyard)
+        ProductionClaimsSimulation claims,
+        out ShipyardView shipyard,
+        out long powerSpent)
     {
         var world = state.Definition;
         var country = draft.Country;
@@ -134,18 +143,24 @@ public sealed partial class OrdersPreview
         var labourAvailable = state.GetAvailableLabour(country);
         var labourLeft = labourLimited ? labourAvailable : long.MaxValue;
 
-        // (0) The Armoury, before any recipe: its bill leaves the warehouse and its
-        // workers' labour the pool, as in Core's Production planning.
+        // (0) The Trade School, the University, the Armoury and the Power Plant, before
+        // any recipe and in that order: their bills — the fuel burned included — leave the
+        // warehouse, and the trainees', the University's experts' and the regiments'
+        // labour leaves the pool, as in Core's Production planning. Power is a pool of its
+        // own, spent by recipes ahead of any human labour.
         for (var index = 0; index < available.Length; index++)
         {
-            available[index] -= armoury.Bill[index];
-            claimed[index] += armoury.Bill[index];
+            var bill = claims.BillOf(index);
+            available[index] -= bill;
+            claimed[index] += bill;
         }
 
         if (labourLimited)
         {
-            labourLeft -= armoury.LabourWithheld;
+            labourLeft -= claims.TradeSchoolLabour + claims.UniversityLabour + claims.Armoury.LabourWithheld;
         }
+
+        var powerLeft = claims.PowerMade;
         var capacityLeft = world.ProductionFacilities
             .Select(facility => facility.CapacityMode == ProductionCapacityMode.Unlimited
                 ? long.MaxValue
@@ -179,7 +194,7 @@ public sealed partial class OrdersPreview
 
             if (labourLimited)
             {
-                Limit(Math.Max(0, labourLeft) / recipe.LabourCost, RecipeLimit.Labour);
+                Limit(Math.Max(0, powerLeft + labourLeft) / recipe.LabourCost, RecipeLimit.Labour);
             }
 
             foreach (var input in recipe.Inputs)
@@ -194,9 +209,13 @@ public sealed partial class OrdersPreview
                 capacityLeft[facility.Id.Value] -= expected * recipe.CapacityCost;
             }
 
+            // Power first, then people (manual 2669–2670).
+            var labourUsed = expected * recipe.LabourCost;
+            var powerUsed = Math.Min(powerLeft, labourUsed);
+            powerLeft -= powerUsed;
             if (labourLimited)
             {
-                labourLeft -= expected * recipe.LabourCost;
+                labourLeft -= labourUsed - powerUsed;
             }
 
             foreach (var input in recipe.Inputs)
@@ -224,6 +243,8 @@ public sealed partial class OrdersPreview
                 expected < requested ? limitedBy : RecipeLimit.None,
                 facility.CapacityMode == ProductionCapacityMode.Unlimited));
         }
+
+        powerSpent = claims.PowerMade - powerLeft;
 
         // What the recipes make is in the warehouse for everything built after them:
         // Core plans expansion, the railyard and the Capitol against production's net
@@ -436,7 +457,7 @@ public sealed partial class OrdersPreview
         // skipped and a cheaper one after it may still be bought. Development pays
         // for civilians' work before Investment runs, so their drafted cost comes off
         // first, and Diplomacy pays for overtures before either.
-        var left = Math.Max(0, cash - ClaimedByArmoury(state, draft) - claimedByOvertures - claimedByCivilians);
+        var left = Math.Max(0, cash - ClaimedByProduction(state, draft) - claimedByOvertures - claimedByCivilians);
         var committed = 0L;
         var purchases = new List<TechnologyPurchasePreview>();
         foreach (var id in draft.BuyTechnology)
@@ -660,10 +681,17 @@ public sealed record TechnologyPreview(
     IReadOnlyList<TechnologyOfferPreview> Offered,
     IReadOnlyList<TechnologyPurchasePreview> Purchases)
 {
-    /// <summary>Paid at the Armoury in <c>Production</c>, before everything else.</summary>
+    /// <summary>Paid at the Trade School in <c>Production</c>, before everything else.</summary>
+    public long ClaimedByTradeSchool { get; init; }
+
+    /// <summary>Paid at the University in <c>Production</c>, after the Trade School.</summary>
+    public long ClaimedByUniversity { get; init; }
+
+    /// <summary>Paid at the Armoury in <c>Production</c>, after the University.</summary>
     public long ClaimedByArmoury { get; init; }
 
-    public bool IsOverCash => CommittedCost > Cash - ClaimedByArmoury - ClaimedByOvertures - ClaimedByCivilians;
+    public bool IsOverCash => CommittedCost >
+        Cash - ClaimedByTradeSchool - ClaimedByUniversity - ClaimedByArmoury - ClaimedByOvertures - ClaimedByCivilians;
 }
 
 public sealed record TradeRowPreview(
@@ -696,8 +724,15 @@ public sealed record TradePreview(
     /// <summary>The manual's four-bid limit (3107). Core does not enforce it yet.</summary>
     public bool IsOverBidLimit => BidCount > OrdersPreview.MaximumBids;
 
+    /// <summary>Paid at the Trade School in <c>Production</c>, before the market clears.</summary>
+    public long ClaimedByTradeSchool { get; init; }
+
+    /// <summary>Paid at the University in <c>Production</c>, after the Trade School.</summary>
+    public long ClaimedByUniversity { get; init; }
+
     /// <summary>Paid at the Armoury in <c>Production</c>, before the market clears.</summary>
     public long ClaimedByArmoury { get; init; }
 
-    public bool BidsExceedCash => TotalBidCost > Cash - ClaimedByArmoury - ClaimedByOvertures;
+    public bool BidsExceedCash => TotalBidCost >
+        Cash - ClaimedByTradeSchool - ClaimedByUniversity - ClaimedByArmoury - ClaimedByOvertures;
 }
