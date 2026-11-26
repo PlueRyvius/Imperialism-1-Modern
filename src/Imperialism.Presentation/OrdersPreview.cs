@@ -54,6 +54,17 @@ public sealed partial class OrdersPreview
     /// <summary>The drafting country's civilians and their drafted orders.</summary>
     public CivilianOrdersPreview Civilians { get; }
 
+    /// <summary>
+    /// The drafting country is eliminated as the turn opens. Core sets every order it
+    /// gives aside before anything is planned and reports one
+    /// <see cref="EliminatedCountryOrdersIgnoredEvent"/>, so nothing drafted happens:
+    /// military orders say so row by row with <see cref="OrderWarning{TRefusal}.SetAside"/>,
+    /// the Diplomacy and civilian previews carry the same flag, and the Industry,
+    /// Transport, Technology and Bid/Offers figures are what the draft would do were it
+    /// read, which it is not.
+    /// </summary>
+    public bool OrdersSetAside { get; private init; }
+
     public static OrdersPreview Create(
         CompiledWorldPackage package,
         string scenarioKey,
@@ -103,6 +114,7 @@ public sealed partial class OrdersPreview
             Armoury = PreviewArmoury(package, state, draft, names, armoury),
             Shipyard = shipyard,
             ArmyMoves = PreviewArmyMoves(package, state, draft),
+            OrdersSetAside = state.IsEliminated(country),
         };
     }
 

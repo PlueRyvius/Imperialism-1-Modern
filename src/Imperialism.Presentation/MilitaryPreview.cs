@@ -14,7 +14,10 @@ namespace Imperialism.Presentation;
 /// <see cref="RegimentPurchaseRefusal.NoCapital"/> — or null.
 /// </param>
 /// <param name="Drafted">The drafted count; zero rows are not sent.</param>
-/// <param name="Warning">Core's refusal of the drafted order, or null if it is accepted.</param>
+/// <param name="Warning">
+/// Core's refusal of the drafted order, or that Core sets it aside because the country is
+/// eliminated; null if it is accepted.
+/// </param>
 public sealed record ArmouryCategoryView(
     ArmyCategory Category,
     int? TypeIndex,
@@ -25,7 +28,7 @@ public sealed record ArmouryCategoryView(
     long Arms,
     RegimentPurchaseRefusal? Unavailable,
     long Drafted,
-    RegimentPurchaseRefusal? Warning);
+    OrderWarning<RegimentPurchaseRefusal>? Warning);
 
 /// <summary>A regiment the drafting country holds, for the Garrison book.</summary>
 /// <param name="DraftedDestinationKey">The province its drafted move names, if any.</param>
@@ -63,7 +66,7 @@ public sealed record ArmouryView(
 
 /// <summary>One hull class at the Shipyard.</summary>
 /// <param name="IsGated">The country does not know <see cref="TechnologyKey"/> as the turn opens.</param>
-/// <param name="Warning">Core's refusal of the drafted order, or null.</param>
+/// <param name="Warning">Core's refusal of the drafted order, or that Core sets it aside; null if accepted.</param>
 public sealed record ShipyardRowView(
     int TypeIndex,
     string Name,
@@ -74,7 +77,7 @@ public sealed record ShipyardRowView(
     string? TechnologyKey,
     bool IsGated,
     long Drafted,
-    ShipBuildRefusal? Warning);
+    OrderWarning<ShipBuildRefusal>? Warning);
 
 /// <summary>
 /// The Shipyard dialog. Hulls cost materials and never cash or labour; they are paid
@@ -100,13 +103,17 @@ public enum ArmyMoveVerb : byte
 }
 
 /// <summary>One drafted move and what Core would make of it.</summary>
+/// <remarks>
+/// An eliminated country's moves are all <see cref="OrderWarning{TRefusal}.SetAside"/> and
+/// spend no capacity: Core reads none of them, and its regiments stay where they stand.
+/// </remarks>
 /// <param name="CapacityUsed">Rail capacity a rail move spends; zero otherwise.</param>
 public sealed record DraftedRegimentMoveView(
     IReadOnlyList<RegimentId> Regiments,
     string DestinationKey,
     ArmyMoveVerb Verb,
     long CapacityUsed,
-    RegimentMoveRefusal? Warning);
+    OrderWarning<RegimentMoveRefusal>? Warning);
 
 /// <summary>
 /// The drafted moves, with the rail budget they share.
@@ -131,7 +138,7 @@ public sealed record ArmyDestinationView(
     ArmyMoveVerb Verb,
     long CapacityUsed,
     bool IsDrafted,
-    RegimentMoveRefusal? Warning);
+    OrderWarning<RegimentMoveRefusal>? Warning);
 
 /// <summary>
 /// Every province the selected regiments could be sent to, each with its verb and the
@@ -146,7 +153,7 @@ internal sealed class ArmourySimulation
 {
     private ArmourySimulation(int commodityCount) => Bill = new long[commodityCount];
 
-    public List<(ArmyCategory Category, long Count, ArmyTypeDefinition? Type, RegimentPurchaseRefusal? Refusal)> Orders
+    public List<(ArmyCategory Category, long Count, ArmyTypeDefinition? Type, OrderWarning<RegimentPurchaseRefusal>? Refusal)> Orders
     { get; } = [];
 
     public long CashClaimed { get; private set; }
@@ -174,6 +181,7 @@ internal sealed class ArmourySimulation
         }
 
         var cash = state.GetCash(country);
+        var setAside = state.IsEliminated(country);
         foreach (var (category, count) in rows)
         {
             // Build() sends only positive rows, so a zero row never reaches Core.
@@ -183,6 +191,15 @@ internal sealed class ArmourySimulation
             }
 
             var type = ResolveCategory(state, country, category);
+
+            // Core sets an eliminated country's orders aside before Production plans
+            // anything, so nothing is bought and nothing is claimed.
+            if (setAside)
+            {
+                simulation.Orders.Add((category, count, type, OrderWarning<RegimentPurchaseRefusal>.SetAside));
+                continue;
+            }
+
             var refusal = Check(state, country, type, count, available, healthy, cash);
             simulation.Orders.Add((category, count, type, refusal));
             if (refusal is not null)
@@ -296,12 +313,12 @@ internal sealed class ArmyMoveSimulation
     public long RailCommitted { get; private set; }
 
     /// <summary>Results in the orders' own order.</summary>
-    public (ArmyMoveVerb Verb, long CapacityUsed, RegimentMoveRefusal? Refusal)[] Results { get; private set; } = [];
+    public (ArmyMoveVerb Verb, long CapacityUsed, OrderWarning<RegimentMoveRefusal>? Refusal)[] Results { get; private set; } = [];
 
     public static ArmyMoveSimulation Run(WorldState state, CountryId country, IReadOnlyList<DraftRegimentMove> moves)
     {
         var simulation = new ArmyMoveSimulation(state, country);
-        var results = new (ArmyMoveVerb, long, RegimentMoveRefusal?)[moves.Count];
+        var results = new (ArmyMoveVerb Verb, long, OrderWarning<RegimentMoveRefusal>?)[moves.Count];
         var provinceCount = state.Definition.Map.Provinces.Count;
         var attacks = new List<int>();
         for (var index = 0; index < moves.Count; index++)
@@ -316,17 +333,28 @@ internal sealed class ArmyMoveSimulation
             results[index] = simulation.Move(moves[index]);
         }
 
-        // Core sets an eliminated country's orders aside before anything resolves.
         foreach (var index in attacks)
         {
             results[index] = simulation.Attack(moves[index]);
+        }
+
+        // Core sets an eliminated country's orders aside before anything resolves, so
+        // every move keeps its verb and none of them happens or spends the rail.
+        if (state.IsEliminated(country))
+        {
+            for (var index = 0; index < results.Length; index++)
+            {
+                results[index] = (results[index].Verb, 0, OrderWarning<RegimentMoveRefusal>.SetAside);
+            }
+
+            simulation.RailCommitted = 0;
         }
 
         simulation.Results = results;
         return simulation;
     }
 
-    private (ArmyMoveVerb, long, RegimentMoveRefusal?) Move(DraftRegimentMove move)
+    private (ArmyMoveVerb, long, OrderWarning<RegimentMoveRefusal>?) Move(DraftRegimentMove move)
     {
         var (common, from, named) = CheckCommon(move);
         var adjacent = from is { } source && _state.Definition.ProvinceAdjacency.AreAdjacent(source, move.Destination);
@@ -369,7 +397,7 @@ internal sealed class ArmyMoveSimulation
         return (verb, cost, null);
     }
 
-    private (ArmyMoveVerb, long, RegimentMoveRefusal?) Attack(DraftRegimentMove move)
+    private (ArmyMoveVerb, long, OrderWarning<RegimentMoveRefusal>?) Attack(DraftRegimentMove move)
     {
         var (common, from, named) = CheckCommon(move);
         var adjacent = from is null || _state.Definition.ProvinceAdjacency.AreAdjacent(from.Value, move.Destination);
@@ -756,11 +784,19 @@ public sealed partial class OrdersPreview
     {
         var world = state.Definition;
         var country = draft.Country;
-        var warnings = new Dictionary<ShipTypeId, ShipBuildRefusal?>();
+        var warnings = new Dictionary<ShipTypeId, OrderWarning<ShipBuildRefusal>?>();
+        var setAside = state.IsEliminated(country);
         foreach (var (type, count) in draft.ShipBuilds)
         {
             if (count <= 0)
             {
+                continue;
+            }
+
+            // Core sets an eliminated country's orders aside: nothing is built or claimed.
+            if (setAside)
+            {
+                warnings[type] = OrderWarning<ShipBuildRefusal>.SetAside;
                 continue;
             }
 

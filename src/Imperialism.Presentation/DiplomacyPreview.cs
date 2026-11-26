@@ -152,7 +152,9 @@ public sealed record DraftedPolicyView(
 /// <param name="IsOffered">The world prices consulates and embassies.</param>
 /// <param name="OrdersSetAside">
 /// The drafting country is eliminated: Core sets every order aside before anything
-/// resolves, so nothing here happens.
+/// resolves, so nothing here happens. Each drafted row still carries the check Core
+/// would have made, but no overture is paid for: <see cref="ClaimedByOvertures"/> is
+/// zero, and so is the Armoury's claim, which Core sets aside too.
 /// </param>
 public sealed record DiplomacyPreview(
     long CashAtOpen,
@@ -231,6 +233,7 @@ internal sealed class DiplomacySimulation
 
         // Core's DiplomacyPlanner: the treasury less what production claimed first.
         var available = Math.Max(0, _state.GetCash(_country) - claimedBefore);
+        var setAside = _state.IsEliminated(_country);
         var ordered = new HashSet<(DiplomaticOvertureKind, CountryId)>();
         foreach (var overture in overtures)
         {
@@ -247,6 +250,14 @@ internal sealed class DiplomacySimulation
             }
 
             _ = ordered.Add((overture.Kind, overture.Target));
+
+            // Core sets an eliminated country's orders aside before Diplomacy, so an
+            // overture it would have accepted is not paid for.
+            if (setAside)
+            {
+                cost = 0;
+            }
+
             if (refusal is null)
             {
                 CashClaimed += cost;

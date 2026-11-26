@@ -240,7 +240,7 @@ public sealed class MilitaryOrdersTests
             .OrderBy(static item => item.Category);
         Assert.Equal(
             purchases,
-            preview.Armoury.Categories.Where(static row => row.Drafted > 0).Select(static row => (row.Category, row.Warning)));
+            preview.Armoury.Categories.Where(static row => row.Drafted > 0).Select(static row => (row.Category, row.Warning?.Refusal)));
         Assert.Equal(
             events.OfType<RegimentsPurchasedEvent>().Where(static item => item.Country == Blue).Sum(static item => item.CashPaid),
             preview.Armoury.CashClaimed);
@@ -256,7 +256,7 @@ public sealed class MilitaryOrdersTests
             .OrderBy(static item => item.Value);
         Assert.Equal(
             hulls,
-            preview.Shipyard.Hulls.Where(static row => row.Drafted > 0).Select(static row => (row.TypeIndex, row.Warning)));
+            preview.Shipyard.Hulls.Where(static row => row.Drafted > 0).Select(static row => (row.TypeIndex, row.Warning?.Refusal)));
 
         // Core moves before it attacks, so its events come in that order; the preview
         // lists moves in draft order. Match each drafted move to its own event.
