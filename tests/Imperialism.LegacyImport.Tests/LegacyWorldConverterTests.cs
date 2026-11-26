@@ -1361,13 +1361,29 @@ public sealed class LegacyWorldConverterTests
                 dreadnought.Combat.HullScale, dreadnought.Combat.BattleSpeed,
                 dreadnought.Combat.Hull));
 
-        // Two technology entries that gate nothing else in the engine gate a hull here.
-        Assert.Equal(
-            "technology.streamlined-hulls",
-            ships.Single(static item => item.Key == "ship.clipper").RequiredTechnology);
-        Assert.Equal(
-            "technology.paddlewheels",
-            ships.Single(static item => item.Key == "ship.paddlewheeler").RequiredTechnology);
+        // The Benefits of Technology Table gates six more ships than the naval table's
+        // three gates. Keep all thirteen rows explicit, including the four open hulls.
+        var hullGates = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["ship.trader"] = null,
+            ["ship.indiaman"] = null,
+            ["ship.frigate"] = null,
+            ["ship.ship-of-the-line"] = null,
+            ["ship.paddlewheeler"] = "technology.paddlewheels",
+            ["ship.clipper"] = "technology.streamlined-hulls",
+            ["ship.raider"] = "technology.paddlewheels",
+            ["ship.ironclad"] = "technology.advanced-iron-working",
+            ["ship.advanced-ironclad"] = "technology.steel-armour-plate",
+            ["ship.freighter"] = "technology.marine-engineering",
+            ["ship.armoured-cruiser"] = "technology.marine-engineering",
+            ["ship.dreadnought"] = "technology.improved-range-finding",
+            ["ship.battle-cruiser"] = "technology.improved-range-finding",
+        };
+        Assert.Equal(13, hullGates.Count);
+        foreach (var (key, technology) in hullGates)
+        {
+            Assert.Equal(technology, ships.Single(item => item.Key == key).RequiredTechnology);
+        }
 
         // **Every hull is priced, and none of them in cash.** The Frigate's arms figure
         // settles the 2-versus-3 discrepancy the old cost table left open.
@@ -1452,6 +1468,10 @@ public sealed class LegacyWorldConverterTests
                 // put something else.
                 Record("ship", 0, 5, 9, 1),
 
+                // An authored Ironclad loads even though the country has not researched
+                // its building technology; RequiredTechnology governs orders only.
+                Record("ship", 0, 8, 9, 1),
+
                 // Dropped: no such hull, and no ships at all.
                 Record("ship", 0, 14, 9, 1),
                 Record("ship", 0, 2, 9, 0),
@@ -1465,6 +1485,7 @@ public sealed class LegacyWorldConverterTests
                 ("country.legacy.000", "ship.trader", 14, 3L),
                 ("country.legacy.000", "ship.trader", 9, 2L),
                 ("country.legacy.000", "ship.paddlewheeler", 9, 1L),
+                ("country.legacy.000", "ship.ironclad", 9, 1L),
             ],
             result.Document!.Scenarios[0].Ships
                 .Select(static item => (item.Country, item.Type, item.SeaZone, item.Count)));
@@ -1483,8 +1504,29 @@ public sealed class LegacyWorldConverterTests
         var country = new CountryId(0);
         var trader = compiled.World.ShipTypes.Single(static item => item.Name == "Trader").Id;
         Assert.Equal(5, state.GetShipCount(country, trader));
+        var ironclad = compiled.World.ShipTypes.Single(static item => item.Name == "Ironclad");
+        Assert.False(state.HasTechnology(country, ironclad.RequiredTechnology!.Value));
+        Assert.Equal(1, state.GetShipCount(country, ironclad.Id));
 
-        // 5 Traders at 2 holds, plus a Paddlewheeler at 8.
+        foreach (var cost in ironclad.BuildCost)
+        {
+            state.AddAvailableQuantity(country, cost.Commodity, cost.Quantity);
+        }
+
+        var orders = Enumerable.Range(0, compiled.World.Countries.Count)
+            .Select(index => new CountryTurnOrders(
+                new CountryId(index),
+                shipBuilds: index == country.Value
+                    ? [new ShipBuildOrder(ironclad.Id, 1)]
+                    : null))
+            .ToArray();
+        var resolution = TurnResolver.Resolve(state, new TurnOrders(orders), 0);
+        Assert.Equal(
+            ShipBuildRefusal.TechnologyNotKnown,
+            Assert.Single(resolution.Events.OfType<ShipBuildRefusedEvent>()).Reason);
+        Assert.Empty(resolution.Events.OfType<ShipsBuiltEvent>());
+
+        // 5 Traders at 2 holds, plus a Paddlewheeler and Ironclad at 8 and 0.
         Assert.Equal(18, state.GetMerchantMarine(country));
     }
 
@@ -2463,9 +2505,10 @@ public sealed class LegacyWorldConverterTests
     /// <b>If this count moves, either the array or the technology table moved.</b>
     /// </para>
     /// <para>
-    /// Unlike the development ladder there are **no exceptions at all**, which is a
-    /// stronger result than 380/4: a scenario may author a development level past what its
-    /// owner could build, and no scenario authors a hull past it.
+    /// Unlike the development ladder there were **no exceptions at all** in the previous
+    /// corpus run, which is a stronger result than 380/4: a scenario may author a
+    /// development level past what its owner could build. Rerun this after the new hull
+    /// gates against the full corpus to verify that remains true.
     /// </para>
     /// <para>
     /// <b>Provenance of the numbers, because they are not all the same kind.</b> The
@@ -2481,9 +2524,9 @@ public sealed class LegacyWorldConverterTests
     {
         var directory = RequireScenarioDirectory();
 
-        // Measured. s1 is the only scenario fielding a gated hull at all — the
-        // Paddlewheeler and the Raider both need Paddlewheels — which is what stops this
-        // check being vacuous, and it is 1882 holding 21 technologies, so it passes.
+        // Measured. s1 includes a Paddlewheeler and a Raider, both gated by Paddlewheels,
+        // so the check is not vacuous. This 1882 scenario holds 21 technologies; the full
+        // corpus run will also verify the newly recorded late-hull gates.
         var expected = new Dictionary<string, (int Records, long Hulls)>(StringComparer.Ordinal)
         {
             ["s1"] = (29, 59),
@@ -3376,13 +3419,7 @@ public sealed class LegacyWorldConverterTests
 
     private static string RequireScenarioDirectory()
     {
-        var directory = Environment.GetEnvironmentVariable("IMPERIALISM_SCENARIO_DIR");
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            throw new InvalidOperationException("CorpusFact should have skipped this test because IMPERIALISM_SCENARIO_DIR is unset.");
-        }
-
-        return directory;
+        return CorpusFactAttribute.RequireScenarioDirectory();
     }
 
     private static MapDocument CreateMap(int width, int height, params HexCell[] cells)
