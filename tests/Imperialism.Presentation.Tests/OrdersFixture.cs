@@ -16,7 +16,7 @@ internal static class OrdersFixture
     public static readonly CountryId Blue = new(0);
     public static readonly CountryId Red = new(1);
 
-    public static CompiledWorldPackage Compile()
+    public static CompiledWorldPackage Compile(Action<WorldContentDocument>? customise = null)
     {
         var document = TurnReportFixture.CreateDocument();
         document.Commodities =
@@ -140,6 +140,7 @@ internal static class OrdersFixture
             ];
         }
 
+        customise?.Invoke(document);
         return WorldContentCompiler.CompilePackage(document);
     }
 

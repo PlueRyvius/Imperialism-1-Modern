@@ -283,6 +283,15 @@ reach by sea path, all-or-nothing assembly, a None command with no effect, a lan
 usable next turn and restamped when re-ordered. No Core change, no content bump, no new
 phase.
 
+**Row 4e-3 puts the Trade School, the Power Plant and the University in the draft**,
+all **cleared at End Turn**: training and the University follow the manual (4888–4890,
+2592, 1168–1169, 4868–4869); clearing the fuel order is chosen. **The preview now counts
+every Production claim in Core's order** — Trade School, then University, then Armoury,
+in cash, warehouse and labour, with power spent before labour and what is left shown as
+lost — so overtures, bids, civilian work and research see what Production leaves.
+Disbanding may be taken back before End Turn, a chosen softening of manual 1196. No Core
+change, no content bump, no new phase.
+
 Phase 3 is complete; what follows is how it was built. Core has packed,
 ownership-filtered rail connectivity with lazy invalidation and generated coverage at
 64,800 cells. It also has a dense order bundle, unrestricted quarterly `TurnDate`, a

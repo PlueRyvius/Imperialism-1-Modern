@@ -58,11 +58,13 @@ public sealed record RegimentView(
 /// </summary>
 /// <remarks>
 /// The Armoury is planned in <c>Production</c> before any recipe and before the market,
-/// so its <see cref="CashClaimed"/> is the first claim on the treasury — overtures, bids,
-/// civilians and research all see it gone — its bill is gone from the warehouse before
-/// any recipe reads it, and its workers' labour is gone from the pool. Healthy workers
-/// are the turn's workers less the sick; the Trade School and the University, which
-/// Core counts first, are not drafted yet.
+/// after the Trade School and the University, so its <see cref="CashClaimed"/> joins
+/// theirs as the first claim on the treasury — overtures, bids, civilians and research
+/// all see it gone — its bill is gone from the warehouse before any recipe reads it,
+/// and its workers' labour is gone from the pool. Healthy workers are the turn's
+/// workers less the sick, less the Trade School's trainees and the University's experts,
+/// so no worker is counted twice; the cash and warehouse it checks are what those two
+/// left.
 /// </remarks>
 public sealed record ArmouryView(
     long CashClaimed,
@@ -170,23 +172,21 @@ internal sealed class ArmourySimulation
     /// <summary>Labour the accepted orders' workers would have given this turn.</summary>
     public long LabourWithheld { get; private set; }
 
-    public static ArmourySimulation Run(WorldState state, CountryId country, IEnumerable<(ArmyCategory, long)> rows)
+    /// <summary>
+    /// Plans the rows against <paramref name="available"/>, <paramref name="healthy"/> and
+    /// <paramref name="cash"/> as the Trade School and the University left them, and takes
+    /// what it buys out of all three, as Core's <c>ProductionPlanner</c> does.
+    /// </summary>
+    public static ArmourySimulation Run(
+        WorldState state,
+        CountryId country,
+        IEnumerable<(ArmyCategory, long)> rows,
+        long[] available,
+        long[] healthy,
+        ref long cash)
     {
         var world = state.Definition;
         var simulation = new ArmourySimulation(world.Commodities.Count);
-        var available = new long[world.Commodities.Count];
-        for (var index = 0; index < available.Length; index++)
-        {
-            available[index] = state.GetAvailableQuantity(country, new CommodityId(index));
-        }
-
-        var healthy = new long[WorkerGrades.Count];
-        foreach (var grade in WorkerGrades.All)
-        {
-            healthy[(int)grade] = state.GetWorkers(country, grade) - state.GetSickWorkers(country, grade);
-        }
-
-        var cash = state.GetCash(country);
         var setAside = state.IsEliminated(country);
         foreach (var (category, count) in rows)
         {
@@ -674,9 +674,9 @@ public sealed partial class OrdersPreview
     public ArmyMovesPreview ArmyMoves { get; private init; } = null!;
 
     private static ArmourySimulation SimulateArmoury(WorldState state, OrdersDraft draft) =>
-        ArmourySimulation.Run(state, draft.Country, draft.RegimentPurchases);
+        SimulateProductionClaims(state, draft).Armoury;
 
-    /// <summary>Cash the Armoury takes in <c>Production</c>, the first claim on the treasury.</summary>
+    /// <summary>Cash the Armoury takes in <c>Production</c>, after the Trade School and the University.</summary>
     private static long ClaimedByArmoury(WorldState state, OrdersDraft draft) =>
         SimulateArmoury(state, draft).CashClaimed;
 
