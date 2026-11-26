@@ -245,7 +245,10 @@ work, or an Engineer's job — replaced by a new click and **cleared at End Turn
 which is the manual's (1206–1214, 1065–1069). `OrdersPreview.CreateUnitOrders`
 lists each target with its verb, cash and Core's refusal reason, from a
 restatement of the internal planners labelled a preview. Cash is claimed in Core's
-order: bids (worst case), then work orders, then Engineer orders, then research.
+order, read from `TurnResolver`'s planning block: Production's cash first (training,
+the University, the Armoury), then overtures — `DiplomacyPlanner.Create(state, orders,
+production.CashClaimed)` — then bids (worst case), then work orders, then Engineer
+orders, then research.
 Core refuses a busy civilian's new order where the manual lets it be changed; the
 preview follows Core. No Core change, no content bump, no new phase.
 
@@ -254,15 +257,47 @@ policy per target, all **cleared at End Turn**. Overtures and war follow the man
 (3466–3469, 3477–3479). Clearing the policy order is chosen: Core keeps the policy
 standing. `OrdersPreview.Diplomacy` shows each other country's relation, posts,
 pacts and policies, and each overture's price and Core's refusal, restated from
-`DiplomacyPlanner`. Overtures now head the cash chain, ahead of bids. Peace to a
+`DiplomacyPlanner`. Overtures are paid after Production's cash and ahead of bids. Peace to a
 Great Power always previews as Declined while rivals submit nothing. No Core change,
 no content bump, no new phase.
 
-Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
-with lazy invalidation and generated coverage at 64,800 cells. It also has an
-inert dense order bundle, unrestricted quarterly `TurnDate`, fixed fourteen-phase
-`TurnResolver` with only `Diplomacy`, `Conflict` and `TradeCancellation` still empty,
-and immutable event log. `.iworld` defines stable
+**Row 4e-2 puts the Armoury, the Shipyard and regiment moves in the draft**, all
+**cleared at End Turn**. Moves follow the manual (1757–1758, 1830–1831). Clearing the
+Armoury and Shipyard rows is chosen, on the manual's "work exactly like the
+University" (4874). The previews restate Core's planners. **The Armoury is now the
+first claim on cash**, ahead of overtures, and both bills leave trade's `Sellable`.
+An accepted attack previews as accepted into battle; no battle is fought in the
+preview. **An eliminated country's orders preview as set aside**: Core replaces them
+with empty ones before anything is planned and reports
+`EliminatedCountryOrdersIgnoredEvent`, so each military row carries
+`OrderWarning<T>.SetAside` — Core's refusal enums have no such value — and the
+Diplomacy, civilian and whole-preview `OrdersSetAside` flags say the same, with nothing
+claimed. No Core change, no content bump, no new phase.
+
+**Row 4e-2 part B puts naval orders in the draft**, one list in Core's list order: an
+assembly per fleet set, a newer one sharing a fleet replacing it, and one command per
+task force. **All are cleared at End Turn**: moves, Done and landing sites follow the
+manual (1887–1889, 1915–1917, 1943–1945, 1970–1974); patrols and blockades are chosen,
+because Core keeps them standing. `OrdersPreview.Fleet` restates `NavalPlanner` —
+reach by sea path, all-or-nothing assembly, a None command with no effect, a landing
+usable next turn and restamped when re-ordered. No Core change, no content bump, no new
+phase.
+
+**Row 4e-3 puts the Trade School, the Power Plant and the University in the draft**,
+all **cleared at End Turn**: training and the University follow the manual (4888–4890,
+2592, 1168–1169, 4868–4869); clearing the fuel order is chosen. **The preview now counts
+every Production claim in Core's order** — Trade School, then University, then Armoury,
+in cash, warehouse and labour, with power spent before labour and what is left shown as
+lost — so overtures, bids, civilian work and research see what Production leaves.
+Disbanding may be taken back before End Turn, a chosen softening of manual 1196. No Core
+change, no content bump, no new phase.
+
+Phase 3 is complete; what follows is how it was built. Core has packed,
+ownership-filtered rail connectivity with lazy invalidation and generated coverage at
+64,800 cells. It also has a dense order bundle, unrestricted quarterly `TurnDate`, a
+fixed fourteen-phase `TurnResolver` in which every phase now has a body — `Diplomacy`,
+`Conflict` and `TradeCancellation` were the last to be filled, by the rows below —
+and an immutable event log. `.iworld` defines stable
 commodities, facilities, recipes, and sparse scenario capacity, with explicit
 v1→v2→v3 migration. Core stores checked dense Available inventory and
 identifiable pending extraction, transport or trade deliveries. Ordered production

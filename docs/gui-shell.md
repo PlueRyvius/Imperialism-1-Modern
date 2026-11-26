@@ -114,8 +114,9 @@ sales are credited before Development too, so a `NotEnoughCash` warning may be o
 Core does not issue. `Investment` pays for research after Development, so the
 technology preview now affords purchases from cash less `ClaimedByCivilians`.
 Overtures spend first of all, in `Diplomacy` (row 4e-1, below), so
-`ClaimedByOvertures` comes off ahead of bids. Training, the University and the
-Armoury also spend before Development but are not in the draft yet.
+`ClaimedByOvertures` comes off ahead of bids. The Armoury pays earlier still, in
+`Production` (row 4e-2, below), so `ClaimedByArmoury` comes off ahead of overtures.
+Training and the University also spend there but are not in the draft yet.
 
 ### Diplomacy orders (row 4e-1)
 
@@ -144,7 +145,8 @@ cash, less what production claims, spent in list order.
 
 The preview carries the treasury figures so the screen never subtracts:
 `CashAtOpen`, `ClaimedBeforeDiplomacy` (what the Industry screen's orders claim first,
-Core's `production.CashClaimed`; nothing drafted claims cash there yet, so 0),
+Core's `production.CashClaimed`; of training, the University and the Armoury only
+the Armoury is drafted, so it equals `ClaimedByArmoury`),
 `ClaimedByOvertures`, and `CashAfterOvertures`, the treasury once both are paid.
 Later phases (bids, civilians, research, income) still move it after that.
 `TheTreasuryAfterOverturesIsTheResolvedTreasury` resolves two overtures and checks
@@ -225,6 +227,156 @@ Godot run. Check both scroll panels at the base size and 1920x1080, 2560x1080 an
 replacement and each Clear button. Check that returning after End Turn shows the
 new relations and cleared drafts, and that Escape/F1–F6 and modal routing still work.
 
+### Armoury, Shipyard and regiment moves (row 4e-2)
+
+The draft holds **one Armoury row per category** (`SetRegimentPurchase`), **one
+Shipyard row per hull class** (`SetShipBuild`) and regiment moves
+(`SetRegimentMove(regiments, province)`). A new count replaces the old in place, and
+a zero row is not sent. A regiment belongs to **one move at a time**: naming it in a
+new move takes it out of its old one, and a move left empty is dropped.
+`ClearRegimentMove`, `ClearRegimentPurchases`, `ClearShipBuilds` and
+`ClearRegimentMoves` take them back. `Build` maps them one to one, in draft order,
+onto `RegimentPurchases`, `ShipBuilds` and `RegimentMoves`. Naval orders are part B,
+below.
+
+The previews, **labelled previews**, restate Core's planners:
+
+- `OrdersPreview.Armoury` gives every category with the type it would build as the
+  turn opens, the worker grade, the bill, cash and arms, and Core's refusal of the
+  drafted row. It also lists the Garrison book: every regiment held, with its province,
+  health, experience and drafted destination.
+- `OrdersPreview.Shipyard` gives every hull with cargo, sea zones, bill and its gate.
+  `IsWarship` is Core's own merchant test inverted (cargo and no firepower is a
+  merchant).
+- `OrdersPreview.ArmyMoves` gives each drafted move its verb (march, rail, attack,
+  landing), the rail capacity it spends and Core's refusal, with the shared rail budget.
+- `OrdersPreview.CreateArmyMoves(…, regiments)` is what the map asks when regiments
+  are selected: every province with its verb, cost and refusal, judged as the newest
+  move for them.
+
+**The Armoury and the Shipyard join the warehouse and cash chain where Core runs
+them.** The Armoury is planned in `Production` before any recipe, so its bill leaves
+the warehouse before recipes read it. Its workers' labour leaves the pool too, and
+its cash is the **first claim on the treasury**: overtures, bids, civilians and
+research all see it gone. The Shipyard is paid after expansion and the railyard and
+before the Capitol, against a warehouse that already holds this turn's output. It
+costs no cash and no labour. Both bills count as claimed by industry, so trade's
+`Sellable` falls by them.
+
+**Moves resolve all before attacks**, each pass in list order, as in `Conflict`. A
+march to an adjacent own province is free. Rail spends five capacity per armaments
+point from the whole network capacity, separately from commodity transport. **An
+accepted attack or landing is accepted into battle and no more**: the preview fights
+no battle and does not attack a landing site, so it cannot say who wins. Later
+attacks are judged against owners as the turn opens.
+
+**A landing reads its site after the draft's naval orders**, because `Conflict` runs
+every naval order before any regiment moves. A task force the draft moves, sends on
+patrol or blockade, or re-orders to a landing (which restamps it, manual 1943) is no
+ready site this turn. One an assembly creates this turn never is, because its landing
+is stamped this turn. Of the sites left, the lowest id carries the landing, as in Core.
+A command of `None` leaves a site standing.
+
+`ArmouryCategoryView.WorkersTaken` is the number of workers a category's drafted
+purchase takes out of the workforce for good, one per regiment. It is zero when the
+order is refused or set aside, so the Armoury screen never derives it.
+`ArmouryView.LabourWithheld` is what those workers' labour was worth this turn.
+
+`MilitaryOrdersTests` ends every turn through `TurnResolver`. It compares each
+purchase, hull and move warning with Core's event, and the cash and rail with what
+Core charged. It also compares `WorkersTaken` with the workforce a resolved turn loses
+beside a control turn. `NavalLandingDraftInteractionTests` and
+`LandingSiteAssemblyPreviewTests` resolve a landing against every kind of drafted naval
+change to its site.
+
+### Naval orders (row 4e-2 part B)
+
+The draft holds naval orders as **one list, in the order given**, because Core resolves
+a country's naval orders in list order. `SetNavalAssembly(fleets, mission)` groups
+fleets into a task force and gives it a mission in one order; **a fleet is in one
+drafted assembly at a time**, so a newer assembly sharing any fleet with older ones
+takes the first one's place and the others go. `SetNavalCommand(taskForce, mission)`
+gives an existing task force its mission or move, **one per task force**, a newer one
+replacing the older in place. A mission is `NavalMission.None` (Done), `Patrol`,
+`Blockade(country)`, `Landing(province)` or `MoveTo(zone)`; one naming a zone, country
+or province the world lacks throws, as a screen's bug. `ClearNavalAssembly`,
+`ClearNavalCommand` and `ClearNavalOrders` take them back. `Build` maps them one to
+one, in draft order, onto `CountryTurnOrders.Naval`.
+
+`OrdersPreview.Fleet`, **labelled a preview**, lists the country's fleets (class, ships,
+holds, reach, sea zone or unplaced, task force) and task forces (zone, activity,
+blockade or landing target, ships, holds, the slowest hull's reach, and whether a
+landing site may be used this turn). For each drafted order it restates
+`NavalPlanner`:
+
+- An assembly checks its fleets in id order — exist, are this country's, are placed,
+  are in no task force (including one an earlier order in the list assembled), share
+  a zone — then its mission. **All or nothing**: a refused mission refuses the grouping.
+- A command checks that the task force exists and is this country's. **A mission of
+  None is accepted with no effect and no event** (`HasEffect` false); otherwise a
+  second order to the same task force this turn is refused, then the mission is checked.
+- A move must lie **within the slowest hull's reach by a sea path** (manual 1915–1917);
+  the view gives `Reach` and `Distance`, null when no path joins the zones. One mission
+  or one move a turn (manual 1887–1889) is the shape of the draft itself.
+- A blockade needs another country's capital beside the zone; a landing site a province
+  not the country's own, touching the zone. **An accepted landing is usable from the next
+  turn** (`LandingUsableFromTurn`), and **re-ordering a held site restamps it**
+  (`RestampsLandingSite`), so troops wait another turn (manual 1943–1945).
+
+Rivals submit nothing, so the preview fights no sea battle and intercepts no landing. A
+task force an assembly creates has no id until the turn resolves, so no command can
+name it in the same turn, and the draft cannot reach Core's "already ordered this turn"
+refusal; the preview restates it all the same.
+
+`NavalOrdersTests` ends every turn through `TurnResolver` and compares each warning
+with Core's refusal event, and each accepted order with its event and the task force
+the turn leaves.
+
+### Trade School, Power Plant and University (row 4e-3)
+
+The draft holds the rest of `Production`'s orders, each mapped one to one by `Build`:
+`SetTraining(step, count)` per Trade School step, `BurnFuel` for the Power Plant,
+`SetCivilianPurchase(type, count)` per civilian type, and `SetDisband(unit, bool)`.
+**A disband and a unit order are exclusive**: setting either one drops the other,
+because a disbanded civilian has nothing left to do.
+
+`OrdersPreview.TradeSchool`, `PowerPlant` and `University`, **labelled previews**,
+restate `ProductionPlanner` in its own order:
+
+- **Trade School** — each step shows its paper and cash per trainee and the bill for
+  the count. A step is refused for a missing step, too few **healthy** workers of the
+  source grade as the turn opens, then paper, then cash. **All or nothing** per step;
+  the cheap promotion is paid before the dear one. The trainees leave **this turn's**
+  labour pool (manual 2592) and work at their new grade from the next.
+- **University** — disbands first, then purchases. Each type shows its expert, paper
+  and cash per civilian and its technology gate; **the Developer is not for sale**
+  (manual 1408), and refusals run unknown type, non-positive count, not purchasable,
+  technology not known, no capital, too few healthy experts, paper, cash. **All or
+  nothing** per order. The expert leaves the workforce at once (4868–4869); the civilian
+  arrives on the capital **next turn**, in `Delivery` (1168–1169). A disband returns one
+  expert that works from next turn and **refunds nothing** (1194–1195).
+- **Power Plant** — fuel requested, held and burnt, and power made. A plant needs Oil
+  Drilling (2659–2661) through its facility gate, an order over 100 fuel is **refused,
+  not trimmed**, and so is one beyond the fuel held. Recipes spend **power before
+  labour** (2669–2670); whatever is left is shown as lost, because power "cannot be
+  sold or stored" (2656, 2663).
+
+**The warehouse, labour and cash now count every claim in Core's order.** Production's
+cash is the Trade School, then the University, then the Armoury; overtures, bids, civilian work, Engineer jobs and research all see what that
+leaves. The paper, fuel and inputs those orders take come out of `Industry`'s available
+stock and `Trade`'s sellable before a recipe or an offer sees them, and the trainees,
+the University's experts and the Armoury's recruits come out of the labour pool before
+the first recipe. `OneTurnOfEveryProductionClaimAgreesWithCore` resolves one turn
+holding all of them and compares every figure with Core's events.
+
+Rivals submit nothing, so a capital lost before `Delivery` cannot be previewed.
+**Disbanding can be taken back until End Turn**, where the manual says it "cannot take
+this order back" (1196) — a chosen softening, since nothing has happened until the turn
+resolves. **Training precedes every recipe**, as in Core; the manual wants labour left
+free after the factories are assigned (2592–2596, 4884–4885), and the preview follows
+Core. An eliminated country's rows preview as `OrderWarning<T>.SetAside` and claim
+nothing.
+
 ## What an order remembers
 
 `GameSession.EndTurn` calls `OrdersDraft.AdvanceTurn` once the turn resolves.
@@ -244,6 +396,15 @@ Where the manual speaks it decides; elsewhere the rule is chosen and labelled.
 | Overtures (consulate, embassy, pact, peace) | cleared | **Manual** 3466–3469: an overture may be cancelled "before the end of the turn", with its money returned, so it is an order for that turn; 3516–3518: the consulate "opens starting the turn after", and from then on Core holds it, not the order |
 | War declarations | cleared | **Manual** 3477–3479: the other country is told "as soon as you click the End Turn button, and the war begins on the next turn". Core records the relation, so nothing needs carrying |
 | Trade policy (subsidy, boycott) | cleared | **Chosen**, reading manual 3688–3690: a change "can be cancelled before the end of the turn". Core keeps the policy standing once set, so the order is a change and not the policy itself |
+| Armoury and Shipyard rows | cleared | **Chosen**, reading manual 4874: they "work exactly like the University", where the order is placed and the unit appears "next turn" (4866–4872). The manual never says the order is saved, as it does for mills (2863). Carrying it would buy the same regiments again every turn |
+| Regiment moves and attacks | cleared | **Manual** 1757–1758: rail capacity limits what moves "in one turn"; 1830–1831: a garrison told to do nothing does so "for this turn only" and "appears normally in the cycle next turn". Core moves the regiment, so nothing needs carrying |
+| Naval moves and Done | cleared | **Manual** 1915–1917: a fleet cannot move "that far in one turn"; 1887–1889: a mission or a move "in the same turn"; 1970–1974: Done keeps a fleet where it is "for that turn" |
+| Naval landing sites | cleared | **Manual** 1943–1945: troops cross "on any subsequent turns, as long as you maintain the landing site". Core restamps a re-ordered site, so carrying the order would keep the site unusable for ever |
+| Naval patrols and blockades | cleared | **Chosen** — the manual is silent. Core keeps either mission standing until the task force moves, so re-sending it would only spend the turn repeating it |
+| Naval assemblies | cleared | **Core**: a task force is permanent once assembled, so the order has nothing left to do |
+| Trade School steps | cleared | **Manual** 4888–4890: workers are "educated this turn"; 2592: a trainee is out of the labour pool "for the turn". Carrying the order would train again every turn |
+| Power Plant fuel | cleared | **Chosen** — the manual is silent on saving it. Power "cannot be sold or stored" (2656) and is used the turn it is made (2663), so the order is one turn's burn |
+| University purchases and disbands | cleared | **Manual** 1168–1169: the civilian appears "at the start of the next turn"; 4868–4869: the expert is deducted at once. Core holds the civilian, so nothing needs carrying |
 
 **Production is kept unclamped on purpose.** A mill asked for more than it can
 make keeps asking, because the manual's building keeps trying to fill the order;
@@ -442,8 +603,13 @@ production takes place. Military conflicts are resolved. Intercepted or blockade
 trades are cancelled. All commodities transported internally, or successfully
 delivered by traders, are placed in the industrial warehouse."*
 
-Every phase always appears. An empty one reads `Nothing this turn.`. Diplomacy,
-Conflict and TradeCancellation now have rules and report their events.
+Every phase always appears. An empty one reads `Nothing this turn.`, except the
+three whose silence a player might misread, which say what did not happen:
+Diplomacy `No overtures, policies or declarations of war this turn.`, Conflict
+`No fleet orders, regiment moves or battles this turn.` and TradeCancellation
+`No cargo was intercepted this turn.` Those phases used to read `Not modelled yet.`
+and had all gained rules by row 6e; the notes are a hand-maintained table in
+`TurnReportView`, and a test now holds that none claims to be unmodelled.
 
 `Kind` maps to a theme variation by lookup, never by reading the words:
 `Outcome` takes the plain body style, and `Shortfall`, `Loss` and `Refusal` take

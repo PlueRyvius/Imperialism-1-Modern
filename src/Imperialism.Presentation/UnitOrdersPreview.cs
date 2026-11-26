@@ -119,6 +119,15 @@ public sealed record CivilianOrdersPreview(
     IReadOnlyList<CivilianPreview> Civilians,
     IReadOnlyList<(CivilianUnitId Unit, UnitTargetView Order)> OtherOrders)
 {
+    /// <summary>Paid at the Trade School in <c>Production</c>, the first claim of all.</summary>
+    public long ClaimedByTradeSchool { get; init; }
+
+    /// <summary>Paid at the University in <c>Production</c>, after the Trade School.</summary>
+    public long ClaimedByUniversity { get; init; }
+
+    /// <summary>Paid at the Armoury in <c>Production</c>, after the University.</summary>
+    public long ClaimedByArmoury { get; init; }
+
     /// <summary>
     /// The drafting country is eliminated as the turn opens: Core sets every order aside
     /// and reports <see cref="EliminatedCountryOrdersIgnoredEvent"/>, so no civilian
@@ -658,6 +667,7 @@ public sealed partial class OrdersPreview
         var map = world.Map;
         var country = draft.Country;
         var before = CashBeforeCivilians(state, draft);
+        var claims = SimulateProductionClaims(state, draft);
         var others = draft.UnitOrders.Where(order => order.Unit != unit).ToArray();
         var drafted = draft.GetUnitOrder(unit);
         UnitOrderVerb? drafts = drafted is null ? null : CivilianOrderSimulation.VerbOf(world, state, drafted);
@@ -738,14 +748,16 @@ public sealed partial class OrdersPreview
     };
 
     /// <summary>
-    /// Cash as Development finds it, at worst: the drafted overtures paid in Diplomacy,
-    /// every bid paid at world price, no sale credited. Both run before Development,
-    /// and the draft holds no other order that spends cash ahead of it.
+    /// Cash as Development finds it, at worst: the Trade School, the University and the
+    /// Armoury paid in Production, the
+    /// drafted overtures paid in Diplomacy, every bid paid at world price, no sale
+    /// credited. All run before Development.
     /// </summary>
     private static long CashBeforeCivilians(WorldState state, OrdersDraft draft) =>
         Math.Max(
             0,
-            state.GetCash(draft.Country) - ClaimedByOvertures(state, draft) - ClaimedByBids(state, draft));
+            state.GetCash(draft.Country) - ClaimedByProduction(state, draft) - ClaimedByOvertures(state, draft) -
+            ClaimedByBids(state, draft));
 
     private static long ClaimedByBids(WorldState state, OrdersDraft draft) => draft.TradeBids
         .Where(static row => row.Quantity > 0)
@@ -756,6 +768,7 @@ public sealed partial class OrdersPreview
         var world = state.Definition;
         var country = draft.Country;
         var before = CashBeforeCivilians(state, draft);
+        var claims = SimulateProductionClaims(state, draft);
         var setAside = state.IsEliminated(country);
         var (_, outcomes) = CivilianOrderSimulation.Run(state, country, before, draft.UnitOrders);
         var byUnit = outcomes.ToDictionary(static row => row.Order.Unit, static row => row.Outcome);
@@ -776,6 +789,9 @@ public sealed partial class OrdersPreview
             Array.AsReadOnly(civilians),
             Array.AsReadOnly(others))
         {
+            ClaimedByTradeSchool = claims.TradeSchoolCash,
+            ClaimedByUniversity = claims.UniversityCash,
+            ClaimedByArmoury = claims.Armoury.CashClaimed,
             OrdersSetAside = setAside,
         };
     }

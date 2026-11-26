@@ -129,7 +129,8 @@ public sealed record DraftedPolicyView(
 /// Overtures are paid in <c>Diplomacy</c>, the first phase, from the treasury less what
 /// the Industry screen's training, University and Armoury claim — Core plans them against
 /// <c>production.CashClaimed</c>. That earlier claim is
-/// <see cref="ClaimedBeforeDiplomacy"/>; no drafted order makes one yet, so it is 0 here.
+/// <see cref="ClaimedBeforeDiplomacy"/>, the sum of <see cref="ClaimedByTradeSchool"/>,
+/// <see cref="ClaimedByUniversity"/> and <see cref="ClaimedByArmoury"/>.
 /// Bids, civilians and research each see <see cref="ClaimedByOvertures"/> gone.
 /// </para>
 /// <para>
@@ -151,7 +152,10 @@ public sealed record DraftedPolicyView(
 /// <param name="IsOffered">The world prices consulates and embassies.</param>
 /// <param name="OrdersSetAside">
 /// The drafting country is eliminated: Core sets every order aside before anything
-/// resolves, so nothing here happens.
+/// resolves, so nothing here happens. Each drafted row still carries the check Core
+/// would have made, but no overture is paid for: <see cref="ClaimedByOvertures"/> is
+/// zero, and so are the Trade School's, the University's and the Armoury's claims, which
+/// Core sets aside too.
 /// </param>
 public sealed record DiplomacyPreview(
     long CashAtOpen,
@@ -165,7 +169,17 @@ public sealed record DiplomacyPreview(
     IReadOnlyList<DiplomaticCountryView> Countries,
     IReadOnlyList<DraftedOvertureView> Overtures,
     IReadOnlyList<DraftedWarView> Declarations,
-    IReadOnlyList<DraftedPolicyView> Policies);
+    IReadOnlyList<DraftedPolicyView> Policies)
+{
+    /// <summary>Paid at the Trade School in <c>Production</c>, before everything else.</summary>
+    public long ClaimedByTradeSchool { get; init; }
+
+    /// <summary>Paid at the University in <c>Production</c>, after the Trade School.</summary>
+    public long ClaimedByUniversity { get; init; }
+
+    /// <summary>Paid at the Armoury in <c>Production</c>, before any overture.</summary>
+    public long ClaimedByArmoury { get; init; }
+}
 
 /// <summary>
 /// A turn-local restatement of the <c>Diplomacy</c> phase for one country: overtures,
@@ -223,6 +237,7 @@ internal sealed class DiplomacySimulation
 
         // Core's DiplomacyPlanner: the treasury less what production claimed first.
         var available = Math.Max(0, _state.GetCash(_country) - claimedBefore);
+        var setAside = _state.IsEliminated(_country);
         var ordered = new HashSet<(DiplomaticOvertureKind, CountryId)>();
         foreach (var overture in overtures)
         {
@@ -239,6 +254,14 @@ internal sealed class DiplomacySimulation
             }
 
             _ = ordered.Add((overture.Kind, overture.Target));
+
+            // Core sets an eliminated country's orders aside before Diplomacy, so an
+            // overture it would have accepted is not paid for.
+            if (setAside)
+            {
+                cost = 0;
+            }
+
             if (refusal is null)
             {
                 CashClaimed += cost;
@@ -532,10 +555,11 @@ public sealed partial class OrdersPreview
 
     /// <summary>
     /// Cash the drafted Industry-screen orders claim before <c>Diplomacy</c> pays any
-    /// overture — Core's <c>production.CashClaimed</c>. No drafted order claims cash
-    /// there yet, so it is 0; the Armoury, training and University add to it.
+    /// overture — Core's <c>production.CashClaimed</c>: the Trade School, the University
+    /// and the Armoury.
     /// </summary>
-    private static long ClaimedBeforeDiplomacy(WorldState state, OrdersDraft draft) => 0;
+    private static long ClaimedBeforeDiplomacy(WorldState state, OrdersDraft draft) =>
+        ClaimedByProduction(state, draft);
 
     /// <summary>Cash the drafted overtures take in <c>Diplomacy</c>, ahead of everything else.</summary>
     private static long ClaimedByOvertures(WorldState state, OrdersDraft draft) =>
@@ -547,6 +571,7 @@ public sealed partial class OrdersPreview
         var country = draft.Country;
         var settings = world.Diplomacy;
         var claimedBefore = ClaimedBeforeDiplomacy(state, draft);
+        var claims = SimulateProductionClaims(state, draft);
         var drafted = SimulateDiplomacy(state, draft);
 
         var countries = new List<DiplomaticCountryView>();
@@ -643,6 +668,11 @@ public sealed partial class OrdersPreview
                 .ToArray()),
             Array.AsReadOnly(drafted.Policies
                 .Select(row => new DraftedPolicyView(names.Key(row.Order.Target), row.Order.Policy, row.Refusal))
-                .ToArray()));
+                .ToArray()))
+        {
+            ClaimedByTradeSchool = claims.TradeSchoolCash,
+            ClaimedByUniversity = claims.UniversityCash,
+            ClaimedByArmoury = claims.Armoury.CashClaimed,
+        };
     }
 }
