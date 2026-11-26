@@ -5,8 +5,11 @@ screens are rebuilt to look like the 1997 game's, one screen at a time. Issue
 #89 tracks the phase and holds the grouped list of presentation differences.
 
 This document is the plan. Its rules are Andy's unless a line says *chosen*.
-Andy refined the ruling the same day (see "The canvas"): the original's theme
-and feel, laid out to work well at 1920x1080, rather than a pixel copy.
+Andy approved a target look the same day, from a Transport mockup: **"This
+looks perfect, that as full screen"** (see "The canvas"). It keeps the first
+ruling's whole-number scaling, adds crisp text, and withdraws the later "screens
+grow to fill 1920x1080" refinement, whose extra side tabs, info cards and status
+bar were, in Andy's words, "changing quite a lot more than intended".
 
 ## Goal and scope
 
@@ -41,48 +44,44 @@ screen **shows**:
 
 ## The canvas
 
-Andy refined the ruling on 26 Nov 2026, replacing the earlier whole-number
-640x480 box: **"keep the same theme and spirit, if not a pixel-perfect match,
-while still working nicely in 1920x1080".** The goal is the original's theme and
-feel at home on a 1920x1080 screen. It is not a pixel copy, and not a small 2x
-picture inside a border.
+**The original screen, exactly as the original lays it out.** Frame, top rail,
+desk, ledger book, icons and buttons sit where the original puts them. Nothing is
+added around or between them: no side tabs, no info cards, no status bar, no
+extra panels.
 
-**A 1920x1080 logical canvas.** `project.godot`'s base viewport becomes
-1920x1080, with stretch mode `canvas_items` and aspect `expand`, so a 1920x1080
-window draws at scale 1 and a wider window hands its extra width to the layout.
-(*Chosen*: other window sizes scale the whole canvas fractionally. 1920x1080 is
-the size every acceptance shot is taken at.)
-
-**Art at 2x where it fits.** The original's bitmaps are drawn at a whole
-multiple of their own pixels, 2x by default, with nearest-neighbour filtering
+**A 640x480 root at a whole-number scale.** Each rebuilt screen is one 640x480
+root whose children are placed at their original pixel positions. The root is
+scaled by `k = floor(min(W / 640, H / 480))`, at least 1, and centred in the
+window. On 1920x1080 that is **k = 2: a 1280x960 picture with 320 px either side
+and 60 px above and below.** Art is drawn with nearest-neighbour filtering
 (`default_texture_filter=0`, unchanged), so one-pixel lines and dithering stay
-clean. A 640x480 background at 2x is 1280x960, so a screen has 640 pixels of
-width and 120 of height to spare at 1080p.
+clean.
 
-**A screen grows into the rest; it does not leave empty space.** Each screen's
-design says how it uses the spare room, for example a wider ledger on Transport
-(more icon columns side by side, or longer sliders) or more drawn desk and city
-around Industry. Growth is done with the original's own pieces: a background's
-repeatable middle strips tiled or nine-sliced, its edge pieces kept at their
-edges. A flat fill is the last resort, never a black border (*chosen*).
+**The surround is plain near-black `#0E0905`** and holds nothing: no art, no
+text, no controls. (The colour is Andy's approved mockup's.)
+
+**Only the drawing is modernised: text is redrawn crisp.** Text is not part of
+any bitmap and is not scaled up from 1x. It is rendered at the root's final
+resolution, in place, at the position and size the original draws it, using the
+original's own faces (`fonts/antiqua*.ttf` for body text, `fonts/display*.ttf`
+for headings, both in the manifest). A label's box is the note's rectangle x k;
+text does not grow beyond it. Colours follow the original's palette as sampled
+with the extractor's `--probe`.
+
+*Chosen, for how this is built in Godot:* the rebuilt screen's root is a
+`Control` of 640x480 with `scale = (k, k)`, recomputed on window resize; font
+oversampling renders its labels at the scaled size, which is what makes them
+crisp. Whether the project's base viewport also changes (today 720x450 with
+`expand`, `gui-shell.md` "Theme and scale") is the Transport PR's to settle,
+provided screens not yet rebuilt still pass their smokes unchanged.
 
 **Layout notes stay in original pixels.** A note measures the 640x480 shot
-(below). The screen's code places each element at note position x 2 inside the
-scaled picture, then moves it by the screen's growth rule. The growth rule is
-written in the screen's PR description, so a reviewer can map any node back to
-its note row.
+(below). The screen's code places each element at exactly the note's position
+inside the root; the root's scale does the rest, so a reviewer maps any node to
+its note row by name alone.
 
-**Text at a readable modern size.** Fonts are the original's own TrueType faces
-(`fonts/antiqua*.ttf`, `fonts/display*.ttf` in the manifest), rasterised at the
-size drawn rather than scaled from a bitmap. They are not scaled with the art:
-body text is at least 18 px and headings at least 24 px at 1920x1080
-(*chosen*), and a label's box grows to fit them. Colours follow the original's
-palette as sampled with the extractor's `--probe`.
-
-**Screens not yet rebuilt.** Until a screen's own PR lands, it keeps its current
-container layout on the 1920x1080 canvas, with the theme's sizes scaled so it
-reads as it does today. The smokes, not the look, are the gate for an unrebuilt
-screen. The canvas change lands with the Transport PR.
+**Screens not yet rebuilt** keep their current container layout until their own
+PR lands. The smokes, not the look, are their gate.
 
 ## Controls in the original's style
 
@@ -103,6 +102,43 @@ Each is a plain `Control` that draws textures and emits the same signal the
 stock control did, so a screen swaps one for the other without changing what it
 calls. The Transport PR builds the ones it needs; later PRs add the rest.
 They are named in the planned paths here and do not exist yet.
+
+**`LedgerSlider`, as Andy approved it on the Transport mockup**, drawn at k from
+the original's pieces:
+
+- a dark-red rim around the track;
+- the carried part filled **blue**, the spare part to the slider's maximum **tan**;
+- a thin underline beneath the track, **green** when the row's demand is met and
+  **red** when it is not (the demand line's own state from Presentation, never a
+  sum in the screen);
+- grey arrow ends, left lowering and right raising (see "Input");
+- a small round handle at the carried value;
+- the row's figure under the bar as **"carried / available"**, crisp text.
+
+The slider pieces themselves (rim, fills, arrows, handle) are still to be found in
+`pictuniv`; until they are, the colours above are what a reviewer checks against.
+
+## The Transport target
+
+Transport is the first screen and the one Andy approved. What its PR must show:
+
+- the original's Transport screen layout: the frame and top rail, the desk, the
+  open ledger (`pictuniv` **1021.BMP**), the commodity icons, and the End Turn
+  button (`pictenu` **1011.BMP**); the coloured commodity icons and the slider
+  pieces are still to be identified in `pictuniv`;
+- each row: its icon, its good's name, its `LedgerSlider` and "carried /
+  available" under the bar;
+- the headings **"Transport"** and **"Ledger"** in the display face;
+- the top rail's **date, treasury and hot text**, crisp, in place;
+- the screen **opens pre-filled**, as the original's does (the rule itself is
+  PR #88's, not this phase's).
+
+**The references are on ETHERCAT and never in the repo:**
+`C:\qf-test\evidence\mockups\transport-target-1920.png` (the approved mockup)
+and `transport-mockup-compose.py` beside it, which holds the measured 1x
+position of every row, bar and heading. The PC lane turns those positions into
+`docs/look/transport-layout.md` (format below); server-side work builds from that
+note alone.
 
 ## The art
 
@@ -230,7 +266,8 @@ Before a screen's PR is opened, its layout note is committed (it may ride in
 the same PR). A screen's PR is accepted when all of these hold:
 
 - **A 1920x1080 screenshot beside the original's matching shot**, taken on
-  ETHERCAT from the PR's head with the client window at 1920x1080. Both stay
+  ETHERCAT from the PR's head with the client window at 1920x1080 (so k = 2,
+  centred on `#0E0905`). Both stay
   on ETHERCAT, never in the repo; the PR records only their file names and the
   differences found, each marked (a) presentation or (b) misread rule, as in
   the comparison plan.
