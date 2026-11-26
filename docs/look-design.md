@@ -7,9 +7,9 @@ screens are rebuilt to look like the 1997 game's, one screen at a time. Issue
 This document is the plan. Its rules are Andy's unless a line says *chosen*.
 Andy approved a target look the same day, from a Transport mockup: **"This
 looks perfect, that as full screen"** (see "The canvas"). It keeps the first
-ruling's whole-number scaling, adds crisp text, and withdraws the later "screens
-grow to fill 1920x1080" refinement, whose extra side tabs, info cards and status
-bar were, in Andy's words, "changing quite a lot more than intended".
+ruling's whole-number scaling and adds crisp text. An earlier mockup's extra side
+tabs, info cards and status bar were, in Andy's words, "changing quite a lot more
+than intended", and are not part of the plan.
 
 ## Goal and scope
 
@@ -65,7 +65,7 @@ any bitmap and is not scaled up from 1x. It is rendered at the root's final
 resolution, in place, at the position and size the original draws it, using the
 original's own faces (`fonts/antiqua*.ttf` for body text, `fonts/display*.ttf`
 for headings, both in the manifest). A label's box is the note's rectangle x k;
-text does not grow beyond it. Colours follow the original's palette as sampled
+text stays inside it. Colours follow the original's palette as sampled
 with the extractor's `--probe`.
 
 *Chosen, for how this is built in Godot:* the rebuilt screen's root is a
@@ -116,16 +116,16 @@ the original's pieces:
 - the row's figure under the bar as **"carried / available"**, crisp text.
 
 The slider pieces themselves (rim, fills, arrows, handle) are still to be found in
-`pictuniv`; until they are, the colours above are what a reviewer checks against.
+`assets/original/pictuniv/`; until they are, the colours above are what a reviewer checks against.
 
 ## The Transport target
 
 Transport is the first screen and the one Andy approved. What its PR must show:
 
 - the original's Transport screen layout: the frame and top rail, the desk, the
-  open ledger (`pictuniv` **1021.BMP**), the commodity icons, and the End Turn
-  button (`pictenu` **1011.BMP**); the coloured commodity icons and the slider
-  pieces are still to be identified in `pictuniv`;
+  open ledger (`assets/original/pictuniv/1021.png`), the commodity icons, and the End Turn
+  button (`assets/original/pictenu/1011.png`); the coloured commodity icons and
+  the slider pieces are still to be identified in `assets/original/pictuniv/`;
 - each row: its icon, its good's name, its `LedgerSlider` and "carried /
   available" under the bar;
 - the headings **"Transport"** and **"Ledger"** in the display face;
@@ -148,7 +148,7 @@ is ever committed**, not as art, not as a reference, not as a test fixture.
 
 - The extractor is `tools/Imperialism.AssetExtractor`; `docs/asset-pipeline.md`
   says how to run it.
-- Find a screen's pieces with `--contact-sheet` on one screen and the
+- Find a screen's pieces in `assets/original/` (or a `--contact-sheet`) on one screen and the
   reference shot on the other. Many screens are one of the sixty-four
   full-screen 640x480 backgrounds plus small overlay bitmaps (icons, slider
   arrows, bar fills). **The full-screen backgrounds are in scope**, not only
@@ -165,28 +165,25 @@ is ever committed**, not as art, not as a reference, not as a test fixture.
   `diplomacy`, `armoury`, `fleet`, `turn-report`, `newspaper`), and its art
   under `art/<group>/`. Shared pieces stay in `chrome`.
 
-## Open decision for Andy: where the art lives
+## Where the art lives
 
-Today the interface art is **committed** under `src/Imperialism.Client/art/`,
-and the manifest test makes sure nothing arrives there unrecorded
-(`asset-pipeline.md`; the "Interface art is committed" hard rule in
-`CLAUDE.md`). Andy's message said the art is "extracted from the install at
-build time, as now", which does not match what is done now. The two options:
+Andy ruled on 26 Nov 2026: **"I'm not worried about copyright here, and we might
+want to touch up the artwork, so go ahead and extract it all now".** So:
 
-1. **Keep it committed under the manifest** (the current default). A fresh
-   clone runs the client with the original's look; CI and the server lanes can
-   run the smokes against the real art; the extractor rerun proves the files
-   are reproducible. The cost is that the original's bitmaps sit in the
-   repository.
-2. **Extract at build time.** Nothing from the original is committed;
-   `art/` is generated from the install by the `--manifest` run before the
-   client builds. The cost: every build needs the install, a fresh clone no
-   longer runs the client with its art, and server-side smokes run against
-   Godot's default theme unless the server holds an install.
-
-**This document assumes option 1 until Andy rules.** Either way the manifest
-is the single list of what is used, so moving from 1 to 2 later is a build
-step and a `.gitignore` line, not a rework of any screen.
+- **Every bitmap of the seven picture archives is committed, unaltered, under
+  `assets/original/<archive>/<id>.png`** (PR #91), with its own `manifest.json`
+  that regenerates the tree through the extractor. This is the source a screen's
+  pieces are found in: the Transport ledger is `assets/original/pictuniv/1021.png`
+  and End Turn is `assets/original/pictenu/1011.png`.
+- **What a screen uses is copied into `src/Imperialism.Client/art/<group>/`** and
+  named in `assets/manifest/imperialism-art.json` as today, so `ArtManifestTests`
+  and the byte-identical rerun still hold for the client's own tree (*chosen*:
+  Godot loads only from inside its project, and the manifest stays the one list
+  of what the client draws).
+- **A touched-up piece is a new file** beside its source, never an edit under
+  `assets/original/`, and its manifest entry names the original it came from.
+- Still out of the repo: the `.gob` archives, music, videos, maps, scenarios, and
+  any screenshot of the original game.
 
 ## The layout-note format
 
@@ -203,7 +200,7 @@ known, and then one table:
 
 | name | x | y | w | h | art | shows |
 |---|---|---|---|---|---|---|
-| `slider.grain.left` | 212 | 96 | 9 | 11 | `NNNN.BMP` or `?` | `TransportSliderPreview.Requested` (decrease) |
+| `slider.grain.left` | 212 | 96 | 9 | 11 | `pictuniv/NNNN.png` or `?` | `TransportSliderPreview.Requested` (decrease) |
 | `capacity.bar` | 430 | 402 | 150 | 8 | `?` | `TransportPreview.Used / Capacity` |
 | `hottext` | 470 | 18 | 150 | 14 | — | the hovered element's name |
 
@@ -211,7 +208,7 @@ known, and then one table:
   the same names, so a note row and a node can be matched by search.
 - **x, y, w, h**: integers in 640x480 pixels, top-left origin, measured on the
   unscaled shot.
-- **art**: the resource name (`archive:NNNN.BMP`) if identified, `?` if not,
+- **art**: the file under `assets/original/` (`archive/NNNN.png`) if identified, `?` if not,
   `—` for text or a plain fill.
 - **shows**: the Presentation type and field the element displays, or
   `static` for decoration. A row whose value no Presentation field provides is
