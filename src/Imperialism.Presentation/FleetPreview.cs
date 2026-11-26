@@ -146,6 +146,30 @@ internal sealed class NavalOrderSimulation
         return Array.AsReadOnly(views.ToArray());
     }
 
+    /// <summary>
+    /// The country's task forces an accepted command with a mission reaches this turn.
+    /// Core runs every naval order before any regiment moves, and each such command leaves
+    /// its task force without a ready landing site: a move idles it, a patrol or blockade
+    /// ends its landing, and a landing order restamps the site to this turn (manual 1943).
+    /// Empty for an eliminated country, whose orders Core sets aside.
+    /// </summary>
+    public static IReadOnlySet<TaskForceId> Commanded(
+        CompiledWorldPackage package, WorldState state, CountryId country, IEnumerable<DraftNavalOrder> orders)
+    {
+        if (state.IsEliminated(country))
+        {
+            return new HashSet<TaskForceId>();
+        }
+
+        var simulation = new NavalOrderSimulation(state, country);
+        foreach (var order in orders)
+        {
+            _ = simulation.Resolve(package, order);
+        }
+
+        return simulation._ordered;
+    }
+
     public static NavalMissionKind KindOf(NavalMission mission) => mission switch
     {
         NavalMission.BlockadeMission => NavalMissionKind.Blockade,
