@@ -1,5 +1,6 @@
 using Godot;
 using Imperialism.Core;
+using Imperialism.Presentation;
 
 namespace Imperialism.Client;
 
@@ -21,6 +22,13 @@ public sealed partial class TerrainMapScreen : Control, IShellScreen
     private RichTextLabel? _cellInfo;
     private CheckButton? _debugToggle;
     private Button? _endTurn;
+    private readonly MapCivilianOverlay _civilians = new() { Name = "Civilians" };
+    private IReadOnlyList<CivilianPreview> _civilianPreview = [];
+    private UnitOrdersView? _unitView;
+    private UnitTargetView? _targetUnderPointer;
+    private CivilianPreview? _unitUnderPointer;
+    private RichTextLabel? _unitInfo;
+    private Button? _clearOrder;
     private CellIndex? _hovered;
     private CellIndex? _selected;
 
@@ -57,6 +65,20 @@ public sealed partial class TerrainMapScreen : Control, IShellScreen
 
     public void Exit()
     {
+        DeselectCivilian();
+    }
+
+    public bool DeselectCivilian()
+    {
+        if (_unitView is null)
+        {
+            return false;
+        }
+
+        _unitView = null;
+        _targetUnderPointer = null;
+        RefreshCivilians();
+        return true;
     }
 
     /// <summary>
@@ -147,6 +169,14 @@ public sealed partial class TerrainMapScreen : Control, IShellScreen
         _viewport.AddChild(_camera);
         _camera.MakeCurrent();
         _mapView.Configure(session.Map);
+        _mapView.AddChild(_civilians);
+        _mapView.CivilianClick = HandleCivilianClick;
+        _mapView.PointerMoved += position =>
+        {
+            _unitUnderPointer = _civilians.PickUnit(position);
+            _targetUnderPointer = _unitUnderPointer is null ? _civilians.PickTarget(position) : null;
+            UpdateUnitInspector();
+        };
         _camera.Configure(_mapView.Projection.Bounds);
         _mapView.HoveredChanged += cell =>
         {
@@ -171,6 +201,17 @@ public sealed partial class TerrainMapScreen : Control, IShellScreen
         };
         column.AddThemeConstantOverride("separation", 6);
 
+        _unitInfo = new RichTextLabel
+        {
+            CustomMinimumSize = new Vector2(200, 88),
+            BbcodeEnabled = false,
+            ScrollActive = true,
+        };
+        column.AddChild(_unitInfo);
+        _clearOrder = new Button { Text = "Clear civilian order", Disabled = true };
+        _clearOrder.Pressed += ClearCivilianOrder;
+        column.AddChild(_clearOrder);
+
         var inspector = new PanelContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         _cellInfo = new RichTextLabel
         {
@@ -193,7 +234,7 @@ public sealed partial class TerrainMapScreen : Control, IShellScreen
         {
             ThemeTypeVariation = "ImperialismReadoutLabel",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            Text = "Pan: middle/right drag or arrows · Zoom: wheel · Fit: Home · Select: left click",
+            Text = "Pan: middle drag / arrows · Zoom: wheel · Fit: Home · Civilian: click marker · Order: click verb · Clear: right click · Deselect: Esc",
         });
 
         // The manual puts this control in one place and only one: "The End Turn
@@ -231,7 +272,92 @@ public sealed partial class TerrainMapScreen : Control, IShellScreen
         }
 
         _mapView.ApplyState(_session.WorldView);
+        RefreshCivilians();
         UpdateInspector();
+    }
+
+    private void RefreshCivilians()
+    {
+        if (_session is null || _mapView is null)
+        {
+            return;
+        }
+
+        _civilianPreview = _session.Preview().Civilians.Civilians;
+        if (_unitView is { } selected)
+        {
+            _unitView = _civilianPreview.Any(unit => unit.Unit == selected.Civilian.Unit)
+                ? OrdersPreview.CreateUnitOrders(_session.Package, _session.ScenarioKey,
+                    _session.World, _session.Draft, selected.Civilian.Unit)
+                : null;
+        }
+
+        _civilians.Apply(_mapView.Projection, _civilianPreview, _unitView, GetThemeDefaultFont());
+        _targetUnderPointer = null;
+        _unitUnderPointer = null;
+        _camera!.AllowRightDrag = _unitView is null;
+        _clearOrder!.Disabled = _unitView is null;
+        UpdateUnitInspector();
+    }
+
+    private bool HandleCivilianClick(Vector2 position, MouseButton button)
+    {
+        if (button == MouseButton.Right && _unitView is not null)
+        {
+            ClearCivilianOrder();
+            return true;
+        }
+
+        if (button != MouseButton.Left || _session is null)
+        {
+            return false;
+        }
+
+        if (_civilians.PickUnit(position) is { } civilian)
+        {
+            _unitView = OrdersPreview.CreateUnitOrders(_session.Package, _session.ScenarioKey,
+                _session.World, _session.Draft, civilian.Unit);
+            RefreshCivilians();
+            return true;
+        }
+
+        if (_unitView is { } selected)
+        {
+            if (_civilians.PickTarget(position) is { } target)
+            {
+                CivilianOrderInput.DraftCivilianOrder(_session.Draft, selected.Civilian.Unit, target);
+                RefreshCivilians();
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private void ClearCivilianOrder()
+    {
+        if (_session is not null && _unitView is { } selected)
+        {
+            _session.Draft.ClearUnitOrder(selected.Civilian.Unit);
+            RefreshCivilians();
+        }
+    }
+
+    private void UpdateUnitInspector()
+    {
+        if (_unitInfo is null)
+        {
+            return;
+        }
+
+        var civilian = _unitUnderPointer ?? _unitView?.Civilian;
+        _unitInfo.Text = civilian is null
+            ? "Civilians: click a marker.\nCream: idle · Cross: busy\nGold square: drafted order"
+            : $"{civilian.TypeName} #{civilian.Unit.Value} · " +
+              (civilian.IsBusy ? $"Busy ({civilian.TurnsRemaining} turns)" : "Idle") + "\n" +
+              (_targetUnderPointer is { } target ? CivilianOrderInput.DescribeTarget(target) :
+                  civilian.Order is { } order ? $"Draft: {CivilianOrderInput.DescribeTarget(order)}" : "Click a verb to draft an order.");
     }
 
     private void UpdateInspector()

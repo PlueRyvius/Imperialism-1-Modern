@@ -140,31 +140,27 @@ repair, blockade and interception, and any shipyard cap. On the cap, the chosen 
 **no limit but materials**. The manual's warning at lines 2768–2769 that "over-construction can
 slow your early development" is about materials, not a separate cap.
 
-## Open: most later hulls are not gated in imported content
+## Technology gates and corpus check
 
-**This is a gap in content, not in the planner.** The executable's naval table gates only
-three hulls: Paddlewheels for the Paddlewheeler and the Raider, and Streamlined Hulls for
-the Clipper. Those are the only `RequiredTechnology` values the importer emits. The
-manual's Benefits of Technology Table gates more:
+Imported hulls carry the building requirements from the manual's Benefits of Technology
+Table. The four hulls omitted from that table's ship benefits remain open.
 
-- Advanced Iron Working, "allows construction of Ironclads" (manual line 4194);
-- Advanced Ironclads (line 4217);
-- "a fast, powerful armoured cruiser and an enormous, all steel freighter" (lines
-  4228–4229);
-- "Dreadnoughts and Battle Cruisers" (lines 4240–4241).
+| Required technology | Hulls | Manual lines |
+|---|---|---|
+| Paddlewheels | Paddlewheeler, Raider | 4172–4173 |
+| Streamlined Hulls | Clipper | 4155 |
+| Advanced Iron Working | Ironclad | 4194 |
+| Steel Armour Plate | Advanced Ironclad | 4208, 4217 |
+| Marine Engineering | Armoured Cruiser, Freighter | 4222, 4228–4229 |
+| Improved Range-Finding | Dreadnought, Battle Cruiser | 4226, 4240–4241 |
 
-`trade.md` already notes that these gates "exist somewhere and are **not** in the naval
-table's own fields". Until the importer emits them, **an imported power can build an
-Ironclad, a Freighter or a Dreadnought from 1816**, provided it has the steel, arms and
-coal. The Dreadnought and Battle Cruiser still need fuel, so they are held back
-indirectly by the refinery's Oil Drilling gate.
+Trader, Indiaman, Frigate and Ship-of-the-Line remain ungated. `RequiredTechnology`
+controls building only: an imported authored fleet still loads when its owner lacks the
+technology.
 
-Fixing this is an importer change with no format change, since `requiredTechnology`
-already exists. It wants two things first: the extracted table read row by row, because
-the layout around lines 4217–4241 is ambiguous about which row each sentence belongs to;
-and the corpus ship check (`EveryShipInTheCorpusIsAHullItsOwnerCouldHaveBuilt`) re-run
-against the full corpus, because new gates could make an authored fleet one its owner
-could not have built.
+`EveryShipInTheCorpusIsAHullItsOwnerCouldHaveBuilt` must be rerun on the full scenario
+corpus before calling the mappings corpus-verified. That corpus check is pending the PC
+batch; the local suite cannot substitute for its 142 records and 307 ships.
 
 ## Soak
 
