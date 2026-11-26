@@ -210,7 +210,7 @@ unit event resolves, any unit refusal occurs, or the order survives End Turn.
 It exercises the screen's draft adapter and real session, not mouse routing.
 Run it separately from `--smoke-turn`; the default demo's unlimited transport
 keeps its baseline output unchanged, while limited-capacity worlds start with
-food-first transport defaults.
+demand-filled transport defaults.
 Godot runtime checks and screenshots remain pending the Windows PC run.
 
 ### Armoury, Shipyard and regiment moves (row 4e-2)
@@ -569,11 +569,30 @@ screen explains. Zero capacity disables sliders; worlds without a transport limi
 are labelled unlimited. Numeric input is limited to the exact integer range of
 Godot's double-valued controls, not a new economic rule.
 
-**Chosen rule, pending comparison with the original game's Transport screen:** a
-new draft fills capacity with feeding commodities first, then the remaining
-commodities in world order. `OrdersPreview` does not know expected harvest, so each
-default row is capped by the capacity still available. Submitted allocations
-carry into the next turn, and a player's edits replace those defaults.
+**A new draft opens the Transport screen filled, as the original's does.** This
+matches the original's opening Transport screen, measured on `s1` as Great Britain
+(Spring 1882): every row opens at its demand capped at what is available, 119 of
+120 capacity used, with fish + livestock 15/19, fruit 15/31, grain 30/63, timber
+16/16, coal 8/18, iron 8/8, cotton + wool 26/45 and horses 1/3. Demand is the
+manual's demand line (lines 2283–2300): food for the workforce on the feeding cycle
+(60 workers on grain/fruit/grain/meat want 30/15/15), then each mill's recipes in
+order for as many cycles as capacity and its scarcest input allow, which holds coal
+to iron for steel. Both come off the warehouse first, and trade is ignored.
+Capacity the demand does not need is left unspent. `TransportDefault` in
+`OrdersDraft.cs` holds the rule; `OrdersDraftTests` reproduces all eight rows.
+Submitted allocations carry into the next turn, and a player's edits replace the
+defaults.
+
+What the screen cannot settle is labelled. **Chosen rule:** if demand exceeds
+capacity, rows are trimmed in row order, food first, because a hungry worker is
+lost or falls sick while a short mill only idles; the original's screen opened
+under capacity, so it shows no trim. **Chosen rule:** an uncapped facility draws
+no demand, and canned food in the warehouse does not reduce food demand. **Open:**
+what draws the one horse — no imported recipe consumes horses, so an imported world
+opens horses at 0 until that is found. Great Britain's real workforce, mill
+capacities and warehouse are still to come from the PC; the test's fixture names
+each figure it assumes. Availability is the owned tiles' yield, an upper bound,
+because Presentation cannot see which tiles a depot reaches.
 
 Entering either screen inserts missing rows at zero without changing existing
 quantities or priorities. Editing a control writes to `session.Draft`, then reads
@@ -862,7 +881,7 @@ lines, then `DIPLOMACY_SMOKE_OK`. A predicted refusal is valid smoke output;
 use a funded scenario with diplomacy prices to observe an accepted consulate.
 If no candidate exists, it prints `DIPLOMACY_SMOKE_FAIL` and exits non-zero.
 This mode takes precedence over other smoke/screenshot flags. Run it separately
-from `--smoke-turn`; limited-capacity worlds start with food-first transport
+from `--smoke-turn`; limited-capacity worlds start with demand-filled transport
 defaults, which can add carried-cargo events to the report.
 
 `--smoke-test` keeps the Phase 1 line's prefix and first six fields exactly, so
@@ -877,7 +896,7 @@ TURN_SMOKE_OK turn=1 from=1815 Q1 to=1815 Q2 events=8 phases=14 lines=9 reportVi
 ```
 
 This sample is the default demo world, which has unlimited transport. A supplied
-limited-capacity world starts with a food-first allocation and can report extra
+limited-capacity world starts with a demand-filled allocation and can report extra
 cargo events and lines; the smoke checks nonzero counts rather than those totals.
 
 `paperLines` counts story text rows (headline and body separately) plus the
@@ -993,7 +1012,7 @@ Manual checklist:
    and cleared draft. A scenario without an idle civilian must fail clearly with
    exit 1. Run `--smoke-turn` separately on the default demo and confirm its
    fields, newspaper/report visibility and dismissal. For a limited-capacity
-   world, confirm the food-first default carries cargo and the event/line counts
+   world, confirm the demand-filled default carries cargo and the event/line counts
    remain nonzero.
 7. At 1440x900, 1920x1080 and 2560x1080, confirm labels, hover text, controls and
    the status border fit without overlap. Capture the selected Engineer and a

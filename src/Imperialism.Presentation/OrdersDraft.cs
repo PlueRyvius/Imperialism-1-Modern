@@ -88,29 +88,27 @@ public sealed class OrdersDraft
     private long _burnFuel;
 
     public OrdersDraft(WorldDefinition world, CountryId country)
-        : this(world, country, null, null)
+        : this(world, country, null)
     {
     }
 
     /// <summary>
-    /// Starts a player's draft from the world's current transport capacity. The
-    /// transport rows are a Presentation default; the runtime state is read only
-    /// for its current capacity and expected resource yields, then is not retained.
+    /// Starts a player's draft with the Transport screen already filled, the way the
+    /// original's opens. See <see cref="TransportDefault"/>; the state is read only for
+    /// the figures that rule needs and is not retained.
     /// </summary>
     public OrdersDraft(WorldState state, CountryId country)
         : this(
             state?.Definition ?? throw new ArgumentNullException(nameof(state)),
             country,
-            CurrentTransportCapacity(state, country),
-            ExpectedGather(state, country))
+            TransportDefault.Create(state, country))
     {
     }
 
     private OrdersDraft(
         WorldDefinition world,
         CountryId country,
-        long? initialTransportCapacity,
-        IReadOnlyList<long>? expectedGather)
+        IReadOnlyList<(CommodityId Commodity, long Quantity)>? initialTransport)
     {
         ArgumentNullException.ThrowIfNull(world);
         if ((uint)country.Value >= (uint)world.Countries.Count)
@@ -120,11 +118,9 @@ public sealed class OrdersDraft
 
         _world = world;
         Country = country;
-        if (initialTransportCapacity is { } capacity)
+        if (initialTransport is not null)
         {
-            InitializeTransportDefaults(
-                capacity,
-                expectedGather ?? throw new ArgumentNullException(nameof(expectedGather)));
+            _transport.AddRange(initialTransport);
         }
     }
 
@@ -314,77 +310,6 @@ public sealed class OrdersDraft
     {
         RequireIndex(commodity.Value, _world.Commodities.Count, nameof(commodity));
         Set(_transport, commodity, quantity);
-    }
-
-    private void InitializeTransportDefaults(long capacity, IReadOnlyList<long> expectedGather)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(capacity);
-        if (_world.Transport is null)
-        {
-            return;
-        }
-
-        HashSet<CommodityId> foods = _world.Feeding is { } feeding
-            ? feeding.PreferenceCycle.SelectMany(static preference => preference.Accepted)
-                .Concat(feeding.CannedFood is { } canned ? [canned] : Array.Empty<CommodityId>())
-                .ToHashSet()
-            : [];
-        var ordered = _world.Commodities
-            .Select(static commodity => commodity.Id)
-            .OrderBy(commodity => foods.Contains(commodity) ? 0 : 1);
-
-        var remaining = capacity;
-        foreach (var commodity in ordered)
-        {
-            var quantity = Math.Min(expectedGather[commodity.Value], remaining);
-            _transport.Add((commodity, quantity));
-            remaining -= quantity;
-        }
-    }
-
-    private static IReadOnlyList<long> ExpectedGather(WorldState state, CountryId country)
-    {
-        var world = state.Definition;
-        var gathered = new long[world.Commodities.Count];
-        if (state.IsEliminated(country))
-        {
-            return gathered;
-        }
-
-        foreach (var cell in world.Map.Cells)
-        {
-            if (cell.Region.Kind != CellRegionKind.Province ||
-                state.GetProvinceOwner(cell.Region.Province) != country)
-            {
-                continue;
-            }
-
-            var development = state.GetCellDevelopment(cell.Index);
-            foreach (var resourceId in cell.Resources)
-            {
-                var resource = world.Map.Resources[resourceId.Value];
-                if (resource.RequiredTechnology is { } required && !state.HasTechnology(country, required))
-                {
-                    continue;
-                }
-
-                var commodity = resource.Commodity.Value;
-                gathered[commodity] = checked(gathered[commodity] + resource.GetYield(development));
-            }
-        }
-
-        return Array.AsReadOnly(gathered);
-    }
-
-    private static long CurrentTransportCapacity(WorldState state, CountryId country)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-        if ((uint)country.Value >= (uint)state.Definition.Countries.Count)
-        {
-            throw new ArgumentOutOfRangeException(nameof(country));
-        }
-
-        return state.GetTransportCapacity(country);
     }
 
     public bool MoveTransportUp(CommodityId commodity) => Move(_transport, commodity, -1);
@@ -925,3 +850,250 @@ public sealed record DraftNavalOrder(
     IReadOnlyList<FleetId> Fleets,
     TaskForceId? TaskForce,
     NavalMission Mission);
+
+/// <summary>
+/// One mill in <see cref="TransportDemandInputs"/>: its capacity points and its
+/// recipes in the world's order, each with the points a cycle costs and its inputs.
+/// </summary>
+public sealed record TransportMillDemand(
+    long CapacityPoints,
+    IReadOnlyList<(long CapacityCost, IReadOnlyList<CommodityQuantity> Inputs)> Recipes);
+
+/// <summary>
+/// The figures <see cref="TransportDefault"/> reads, separated from
+/// <see cref="WorldState"/> so a test can drop in a country's real numbers.
+/// Every list indexed by commodity has one entry per commodity in the world.
+/// </summary>
+/// <param name="Available">What the country's tiles are expected to yield this turn.</param>
+/// <param name="Stock">The warehouse as the turn opens.</param>
+/// <param name="Rows">The order the rows appear in, which is the order Core trims them in.</param>
+public sealed record TransportDemandInputs(
+    long Capacity,
+    long Workers,
+    IReadOnlyList<IReadOnlyList<CommodityId>> FoodCycle,
+    IReadOnlyList<TransportMillDemand> Mills,
+    IReadOnlyList<long> Stock,
+    IReadOnlyList<long> Available,
+    IReadOnlyList<CommodityId> Rows);
+
+/// <summary>
+/// The Transport screen's opening fill: every row asks for its demand, capped at
+/// what is available. <b>This matches the original's opening Transport screen,
+/// measured on <c>s1</c> as Great Britain</b> (119 of 120, eight rows, every one at
+/// demand or at availability). See <c>docs/gui-shell.md</c>.
+/// </summary>
+/// <remarks>
+/// Demand is the manual's demand line (lines 2283–2300): what the workers eat and
+/// what the mills consume, "taking your warehouse stockpile into account", and
+/// ignoring trade. Capacity the demand does not need is left unspent, as it is on the
+/// original's screen.
+/// </remarks>
+public static class TransportDefault
+{
+    /// <summary>
+    /// The opening rows for <paramref name="country"/>, or null where the world has
+    /// no transport limit (every row would be unlimited, so there is nothing to fill).
+    /// </summary>
+    public static IReadOnlyList<(CommodityId Commodity, long Quantity)>? Create(WorldState state, CountryId country)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var world = state.Definition;
+        if ((uint)country.Value >= (uint)world.Countries.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(country));
+        }
+
+        if (world.Transport is null)
+        {
+            return null;
+        }
+
+        return Allocate(Inputs(state, country));
+    }
+
+    /// <summary>Reads <see cref="TransportDemandInputs"/> from a live state.</summary>
+    public static TransportDemandInputs Inputs(WorldState state, CountryId country)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var world = state.Definition;
+        var eliminated = state.IsEliminated(country);
+
+        var foodCycle = world.Feeding is { } feeding
+            ? feeding.PreferenceCycle.Select(static preference => preference.Accepted).ToArray()
+            : Array.Empty<IReadOnlyList<CommodityId>>();
+
+        var mills = new List<TransportMillDemand>();
+        foreach (var facility in world.ProductionFacilities)
+        {
+            // An uncapped facility draws no demand line: it has no capacity to fill.
+            // A chosen rule; every mill the original builds has a capacity.
+            if (state.GetProductionCapacity(country, facility.Id) is not { } points)
+            {
+                continue;
+            }
+
+            mills.Add(new TransportMillDemand(
+                points,
+                world.ProductionRecipes
+                    .Where(recipe => recipe.Facility == facility.Id)
+                    .Select(static recipe => (recipe.CapacityCost, recipe.Inputs))
+                    .ToArray()));
+        }
+
+        var stock = world.Commodities
+            .Select(commodity => state.GetAvailableQuantity(country, commodity.Id))
+            .ToArray();
+
+        HashSet<CommodityId> foods = world.Feeding is { } fed
+            ? fed.PreferenceCycle.SelectMany(static preference => preference.Accepted)
+                .Concat(fed.CannedFood is { } canned ? [canned] : Array.Empty<CommodityId>())
+                .ToHashSet()
+            : [];
+        var rows = world.Commodities
+            .Select(static commodity => commodity.Id)
+            .OrderBy(commodity => foods.Contains(commodity) ? 0 : 1)
+            .ToArray();
+
+        return new TransportDemandInputs(
+            state.GetTransportCapacity(country),
+            eliminated ? 0 : state.GetTotalWorkers(country),
+            foodCycle,
+            eliminated ? [] : mills,
+            stock,
+            ExpectedGather(state, country),
+            rows);
+    }
+
+    /// <summary>
+    /// The rule itself: food for the workforce, then each mill's recipes, each net of
+    /// stock and capped at what is available; trimmed to capacity only if the
+    /// demand exceeds it.
+    /// </summary>
+    public static IReadOnlyList<(CommodityId Commodity, long Quantity)> Allocate(TransportDemandInputs inputs)
+    {
+        ArgumentNullException.ThrowIfNull(inputs);
+        ArgumentOutOfRangeException.ThrowIfNegative(inputs.Capacity);
+        ArgumentOutOfRangeException.ThrowIfNegative(inputs.Workers);
+        var count = inputs.Available.Count;
+        if (inputs.Stock.Count != count)
+        {
+            throw new ArgumentException("Stock and Available must have one entry per commodity.", nameof(inputs));
+        }
+
+        var stock = inputs.Stock.ToArray();
+        var available = inputs.Available.Select(static value => Math.Max(0, value)).ToArray();
+        var carry = new long[count];
+
+        // Food. The worker at index k eats position k mod L of the cycle, exactly as
+        // Feeding reads it, so 60 workers on grain/fruit/grain/meat want 30/15/15.
+        // A position's need is met from the warehouse first, then carried from its
+        // accepted commodities in the order the cycle lists them.
+        var cycle = inputs.FoodCycle;
+        for (var position = 0; position < cycle.Count; position++)
+        {
+            var need = inputs.Workers / cycle.Count + (position < inputs.Workers % cycle.Count ? 1 : 0);
+            var accepted = cycle[position];
+            foreach (var commodity in accepted)
+            {
+                var fromStock = Math.Min(need, stock[commodity.Value]);
+                stock[commodity.Value] -= fromStock;
+                need -= fromStock;
+            }
+
+            foreach (var commodity in accepted)
+            {
+                var carried = Math.Min(need, available[commodity.Value]);
+                available[commodity.Value] -= carried;
+                carry[commodity.Value] += carried;
+                need -= carried;
+            }
+        }
+
+        // Industry. A mill runs its recipes in order until its capacity is spent, each
+        // as many cycles as its scarcest input allows from stock plus what can be
+        // carried. That holds coal to iron for steel ("in equal amounts", 2311–2313)
+        // and lets wool make up what cotton cannot (2320–2322).
+        foreach (var mill in inputs.Mills)
+        {
+            var points = mill.CapacityPoints;
+            foreach (var (cost, recipeInputs) in mill.Recipes)
+            {
+                var cycles = points / cost;
+                foreach (var input in recipeInputs)
+                {
+                    var reachable = stock[input.Commodity.Value] + available[input.Commodity.Value];
+                    cycles = Math.Min(cycles, reachable / input.Quantity);
+                }
+
+                if (cycles <= 0)
+                {
+                    continue;
+                }
+
+                points -= cycles * cost;
+                foreach (var input in recipeInputs)
+                {
+                    var need = checked(cycles * input.Quantity);
+                    var fromStock = Math.Min(need, stock[input.Commodity.Value]);
+                    stock[input.Commodity.Value] -= fromStock;
+                    need -= fromStock;
+                    available[input.Commodity.Value] -= need;
+                    carry[input.Commodity.Value] += need;
+                }
+            }
+        }
+
+        // Demand over capacity. The original's screen opens under capacity, so this is
+        // a chosen rule: rows are trimmed in row order (foods first), because a hungry
+        // worker is lost or sick while a short mill only idles.
+        var remaining = inputs.Capacity;
+        var rows = new List<(CommodityId, long)>(inputs.Rows.Count);
+        foreach (var commodity in inputs.Rows)
+        {
+            var quantity = Math.Min(carry[commodity.Value], remaining);
+            rows.Add((commodity, quantity));
+            remaining -= quantity;
+        }
+
+        return rows.AsReadOnly();
+    }
+
+    /// <summary>
+    /// What the country's owned tiles yield at their development, technology
+    /// permitting. An upper bound: Core gathers only within a connected depot's,
+    /// port's or the capital's catchment, which Presentation cannot see.
+    /// </summary>
+    private static long[] ExpectedGather(WorldState state, CountryId country)
+    {
+        var world = state.Definition;
+        var gathered = new long[world.Commodities.Count];
+        if (state.IsEliminated(country))
+        {
+            return gathered;
+        }
+
+        foreach (var cell in world.Map.Cells)
+        {
+            if (cell.Region.Kind != CellRegionKind.Province ||
+                state.GetProvinceOwner(cell.Region.Province) != country)
+            {
+                continue;
+            }
+
+            var development = state.GetCellDevelopment(cell.Index);
+            foreach (var resourceId in cell.Resources)
+            {
+                var resource = world.Map.Resources[resourceId.Value];
+                if (resource.RequiredTechnology is { } required && !state.HasTechnology(country, required))
+                {
+                    continue;
+                }
+
+                var commodity = resource.Commodity.Value;
+                gathered[commodity] = checked(gathered[commodity] + resource.GetYield(development));
+            }
+        }
+
+        return gathered;
+    }
+}

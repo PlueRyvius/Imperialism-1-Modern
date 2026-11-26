@@ -13,24 +13,131 @@ namespace Imperialism.Presentation.Tests;
 /// </summary>
 public sealed class OrdersDraftTests
 {
+    /// <summary>
+    /// The original's opening Transport screen for Great Britain, <c>s1</c>, Spring
+    /// 1882: carried / available per slider, 119 of 120 capacity. Measured on the PC
+    /// (screenshot O30). Fish + livestock and cotton + wool are one slider each there.
+    /// </summary>
+    private static readonly (string Slider, string[] Commodities, long Carried, long Available)[] GreatBritainS1Screen =
+    [
+        ("fish + livestock", ["livestock", "fish"], 15, 19),
+        ("fruit", ["fruit"], 15, 31),
+        ("grain", ["grain"], 30, 63),
+        ("timber", ["timber"], 16, 16),
+        ("coal", ["coal"], 8, 18),
+        ("iron", ["iron"], 8, 8),
+        ("cotton + wool", ["cotton", "wool"], 26, 45),
+        ("horses", ["horses"], 1, 3),
+    ];
+
+    private const long GreatBritainS1Capacity = 120;
+
+    /// <summary>
+    /// Great Britain's <c>s1</c> economy as the turn opens. <b>Everything in this block
+    /// is ASSUMED until the PC reports GB's real figures</b>; replace the values here
+    /// and the test re-checks the rule against the screen above. Each assumption is
+    /// the one the screen implies, or a value inside the range the screen allows.
+    /// </summary>
+    private static class GreatBritainS1Assumed
+    {
+        // ASSUMED: 60 workers, the only headcount that eats 30/15/15 with no food in
+        // the warehouse.
+        public const long Workers = 60;
+
+        // ASSUMED: how the two shared sliders split between their commodities.
+        public static readonly (string Commodity, long Available)[] Split =
+        [
+            ("livestock", 12), ("fish", 7), ("cotton", 30), ("wool", 15),
+        ];
+
+        // ASSUMED: mill capacity, in cycles. Timber and iron are capped by what is
+        // available, so any lumber mill of 8 or more and any steel mill of 8 or more
+        // reproduce the screen; 10 and 12 are chosen to show the caps biting. The
+        // textile mill must be exactly 13 for 26 of 45 with an empty warehouse.
+        public const long LumberMill = 10;
+        public const long SteelMill = 12;
+        public const long TextileMill = 13;
+
+        // ASSUMED: something draws exactly one horse. No imported recipe consumes
+        // horses, so this mill is a stand-in until the source of the 1 is known.
+        public const long HorseDraw = 1;
+
+        // ASSUMED: no raw commodity in the warehouse.
+        public static readonly (string Commodity, long Quantity)[] Stock = [];
+    }
+
     [Fact]
-    public void APlayerDraftStartsWithFoodFirstThenWorldCommodityOrder()
+    public void OpeningTransportMatchesTheOriginalGreatBritainS1Screen()
+    {
+        var inputs = GreatBritainS1Inputs(GreatBritainS1Capacity, out var id);
+
+        var rows = TransportDefault.Allocate(inputs).ToDictionary(static row => row.Commodity, static row => row.Quantity);
+
+        foreach (var (slider, commodities, carried, available) in GreatBritainS1Screen)
+        {
+            Assert.True(
+                available == commodities.Sum(name => inputs.Available[id[name].Value]),
+                $"fixture availability for {slider}");
+            Assert.True(carried == commodities.Sum(name => rows[id[name]]), $"carried on {slider}");
+        }
+
+        Assert.Equal(119, rows.Values.Sum());
+        Assert.Equal(0, rows[id["lumber"]] + rows[id["steel"]]);
+    }
+
+    [Fact]
+    public void DemandOverCapacityIsTrimmedInRowOrderFoodFirst()
+    {
+        // Chosen rule: the original's screen opens under capacity, so it cannot say.
+        var inputs = GreatBritainS1Inputs(capacity: 70, out var id);
+
+        var rows = TransportDefault.Allocate(inputs);
+
+        Assert.Equal(70, rows.Sum(static row => row.Quantity));
+        Assert.Equal(60, rows.Where(row => row.Commodity.Value <= id["fish"].Value).Sum(static row => row.Quantity));
+        Assert.Equal(10, rows.Single(row => row.Commodity == id["timber"]).Quantity);
+        Assert.Equal(0, rows.Single(row => row.Commodity == id["iron"]).Quantity);
+    }
+
+    [Fact]
+    public void WarehouseStockComesOffDemandBeforeAnythingIsCarried()
+    {
+        var plain = GreatBritainS1Inputs(GreatBritainS1Capacity, out var id);
+        var stock = plain.Stock.ToArray();
+        stock[id["grain"].Value] = 12;
+        stock[id["iron"].Value] = 3;
+        stock[id["cotton"].Value] = 6;
+
+        var rows = TransportDefault.Allocate(plain with { Stock = stock })
+            .ToDictionary(static row => row.Commodity, static row => row.Quantity);
+
+        Assert.Equal(18, rows[id["grain"]]);
+        // Iron stock lets the steel mill run 11 cycles: 8 iron carried, 11 coal.
+        Assert.Equal(8, rows[id["iron"]]);
+        Assert.Equal(11, rows[id["coal"]]);
+        Assert.Equal(20, rows[id["cotton"]] + rows[id["wool"]]);
+    }
+
+    [Fact]
+    public void APlayerDraftOpensAtDemandAndLeavesSpareCapacityUnspent()
     {
         var package = OrdersFixture.Compile(document =>
         {
-            var commodities = document.Commodities.ToArray();
-            document.Commodities =
+            document.Resources =
             [
-                commodities.Single(static item => item.Key == "commodity.lumber"),
-                commodities.Single(static item => item.Key == "commodity.grain"),
-                .. commodities.Where(static item => item.Key is not ("commodity.grain" or "commodity.lumber")),
+                .. document.Resources,
+                new ResourceContentDefinition
+                {
+                    Key = "resource.blue-timber", Commodity = "commodity.timber", YieldByDevelopmentLevel = [3],
+                },
             ];
-            document.Feeding!.CannedFood = "commodity.canned-food";
+            document.Map.Cells[0].Resources = [.. document.Map.Cells[0].Resources, "resource.blue-timber"];
             foreach (var scenario in document.Scenarios)
             {
+                scenario.InitialInventory = [];
                 scenario.TransportCapacity =
                 [
-                    new TransportCapacityContent { Country = "country.blue", Capacity = 4 },
+                    new TransportCapacityContent { Country = "country.blue", Capacity = 40 },
                     new TransportCapacityContent { Country = "country.red", Capacity = 40 },
                 ];
             }
@@ -39,66 +146,121 @@ public sealed class OrdersDraftTests
 
         var draft = new OrdersDraft(state, Blue);
 
+        // Seven workers want 7 grain and 2 is gathered; the two-cycle lumber mill wants
+        // 4 timber and 3 is gathered, enough for one cycle. 36 of 40 stays unspent.
         Assert.Equal(
-            ["commodity.grain", "commodity.canned-food", "commodity.lumber", "commodity.timber", "commodity.steel"],
+            ["commodity.grain", "commodity.lumber", "commodity.timber", "commodity.steel", "commodity.canned-food"],
             draft.Transport.Select(row => package.Catalog.GetKey(row.Commodity)));
-        Assert.Equal([2L, 0L, 0L, 0L, 0L], draft.Transport.Select(static row => row.Quantity));
+        Assert.Equal([2L, 0L, 2L, 0L, 0L], draft.Transport.Select(static row => row.Quantity));
 
-        // Editing the default remains an ordinary draft edit, including setting a
-        // seeded request to zero.
-        var lumber = Commodity(package, "commodity.lumber");
-        draft.SetTransport(Commodity(package, "commodity.grain"), 0);
-        draft.SetTransport(lumber, 2);
-        Assert.Equal([new TransportAllocationOrder(lumber, 2)], draft.Build().Transport);
+        // A player's edit replaces the default, including pulling a row to zero.
+        var grain = Commodity(package, "commodity.grain");
+        var timber = Commodity(package, "commodity.timber");
+        draft.SetTransport(grain, 0);
+        draft.SetTransport(timber, 3);
+        Assert.Equal([new TransportAllocationOrder(timber, 3)], draft.Build().Transport);
     }
 
     [Fact]
-    public void TransportDefaultFillsTheNextFoodOnlyUpToItsExpectedGather()
+    public void AStockedWarehouseOpensWithNothingToCarry()
     {
-        var package = CompileTransportDefaultWorld(capacity: 4);
-        var state = NewState(package);
+        // OrdersFixture's Blue holds 10 grain for 7 workers and 10 timber for a
+        // two-cycle mill, so no row has demand left.
+        var package = OrdersFixture.Compile(document =>
+        {
+            foreach (var scenario in document.Scenarios)
+            {
+                scenario.TransportCapacity =
+                [
+                    new TransportCapacityContent { Country = "country.blue", Capacity = 40 },
+                    new TransportCapacityContent { Country = "country.red", Capacity = 40 },
+                ];
+            }
+        });
 
-        var draft = new OrdersDraft(state, Blue);
+        var draft = new OrdersDraft(NewState(package), Blue);
 
-        Assert.Equal(
-            ["commodity.grain", "commodity.canned-food", "commodity.lumber", "commodity.timber", "commodity.steel"],
-            draft.Transport.Select(row => package.Catalog.GetKey(row.Commodity)));
-        Assert.Equal([2L, 2L, 0L, 0L, 0L], draft.Transport.Select(static row => row.Quantity));
+        Assert.All(draft.Transport, static row => Assert.Equal(0, row.Quantity));
+        Assert.Empty(draft.Build().Transport);
     }
 
     [Fact]
-    public void TransportDefaultLeavesCapacityUnallocatedAfterEveryExpectedGatherIsFilled()
+    public void ATrimmedDefaultIsWhatCoreCarries()
     {
-        var package = CompileTransportDefaultWorld(capacity: 20);
-        var state = NewState(package);
-
-        var draft = new OrdersDraft(state, Blue);
-
-        Assert.Equal([2L, 3L, 4L, 0L, 0L], draft.Transport.Select(static row => row.Quantity));
-        Assert.Equal(9, draft.Transport.Sum(static row => row.Quantity));
-        Assert.True(draft.Transport.Sum(static row => row.Quantity) < state.GetTransportCapacity(Blue));
-    }
-
-    [Fact]
-    public void APlayerDraftUsesRemainingCapacityWhenHarvestIsNotPreviewed()
-    {
-        var package = OrdersFixture.Compile();
+        var package = OrdersFixture.Compile(document =>
+        {
+            foreach (var scenario in document.Scenarios)
+            {
+                scenario.InitialInventory = [];
+            }
+        });
         var state = NewState(package);
 
         var draft = new OrdersDraft(state, Blue);
         var preview = OrdersPreview.Create(package, Scenario, state, draft).Transport;
 
-        // The transport preview reports shared capacity but does not forecast
-        // Extraction, so the chosen first-turn request uses that capacity ceiling.
         Assert.Equal(1, state.GetTransportCapacity(Blue));
-        Assert.Equal(1, draft.Transport.Sum(static row => row.Quantity));
-        Assert.All(draft.Transport, row => Assert.InRange(row.Quantity, 0, state.GetTransportCapacity(Blue)));
+        Assert.Equal(1, draft.Transport.Single(row => row.Commodity == Commodity(package, "commodity.grain")).Quantity);
         Assert.Equal(1, preview.Used);
 
         var resolution = TurnResolver.Resolve(state, draft.BuildTurnOrders(), 1);
         var carried = Assert.Single(
             resolution.Events.OfType<CommoditiesTransportedEvent>(), item => item.Country == Blue);
         Assert.Equal(1, carried.CapacityUsed);
+    }
+
+    [Fact]
+    public void AWorldWithoutATransportLimitOpensWithNoRows()
+    {
+        var package = OrdersFixture.Compile(static document => document.Transport = null);
+
+        Assert.Empty(new OrdersDraft(NewState(package), Blue).Transport);
+    }
+
+    private static TransportDemandInputs GreatBritainS1Inputs(long capacity, out Dictionary<string, CommodityId> id)
+    {
+        string[] names =
+        [
+            "grain", "fruit", "livestock", "fish", "timber", "coal", "iron", "cotton", "wool", "horses",
+            "lumber", "steel", "fabric", "harness",
+        ];
+        var ids = names.Select(static (name, index) => (name, id: new CommodityId(index)))
+            .ToDictionary(static pair => pair.name, static pair => pair.id);
+        id = ids;
+
+        var available = new long[names.Length];
+        foreach (var (_, commodities, _, total) in GreatBritainS1Screen.Where(static row => row.Commodities.Length == 1))
+        {
+            available[ids[commodities[0]].Value] = total;
+        }
+
+        foreach (var (commodity, quantity) in GreatBritainS1Assumed.Split)
+        {
+            available[ids[commodity].Value] = quantity;
+        }
+
+        var stock = new long[names.Length];
+        foreach (var (commodity, quantity) in GreatBritainS1Assumed.Stock)
+        {
+            stock[ids[commodity].Value] = quantity;
+        }
+
+        CommodityQuantity In(string name, long quantity) => new(ids[name], quantity);
+
+        return new TransportDemandInputs(
+            capacity,
+            GreatBritainS1Assumed.Workers,
+            // The importer's cycle: grain, fruit, grain, then livestock or fish.
+            [[ids["grain"]], [ids["fruit"]], [ids["grain"]], [ids["livestock"], ids["fish"]]],
+            [
+                new TransportMillDemand(GreatBritainS1Assumed.LumberMill, [(1, [In("timber", 2)]), (1, [In("timber", 2)])]),
+                new TransportMillDemand(GreatBritainS1Assumed.SteelMill, [(1, [In("coal", 1), In("iron", 1)])]),
+                new TransportMillDemand(GreatBritainS1Assumed.TextileMill, [(1, [In("cotton", 2)]), (1, [In("wool", 2)])]),
+                new TransportMillDemand(GreatBritainS1Assumed.HorseDraw, [(1, [In("horses", 1)])]),
+            ],
+            stock,
+            available,
+            names.Select(name => ids[name]).ToArray());
     }
 
     [Fact]
@@ -426,39 +588,4 @@ public sealed class OrdersDraftTests
 
     private static string[] Lines(TurnReportView report) =>
         report.Phases.SelectMany(static phase => phase.Lines.Select(line => $"{phase.Phase}:{line}")).ToArray();
-
-    private static CompiledWorldPackage CompileTransportDefaultWorld(long capacity) =>
-        OrdersFixture.Compile(document =>
-        {
-            document.Feeding!.PreferenceCycle =
-            [
-                new FoodPreferenceContent { Accepted = ["commodity.grain", "commodity.canned-food"] },
-            ];
-            document.Resources =
-            [
-                .. document.Resources,
-                new ResourceContentDefinition
-                {
-                    Key = "resource.canned-food",
-                    Commodity = "commodity.canned-food",
-                    YieldByDevelopmentLevel = [3],
-                },
-                new ResourceContentDefinition
-                {
-                    Key = "resource.extra-lumber",
-                    Commodity = "commodity.lumber",
-                    YieldByDevelopmentLevel = [4],
-                },
-            ];
-            document.Map.Cells[0].Resources =
-            [.. document.Map.Cells[0].Resources, "resource.canned-food", "resource.extra-lumber"];
-            foreach (var scenario in document.Scenarios)
-            {
-                scenario.TransportCapacity =
-                [
-                    new TransportCapacityContent { Country = "country.blue", Capacity = capacity },
-                    new TransportCapacityContent { Country = "country.red", Capacity = 40 },
-                ];
-            }
-        });
 }
