@@ -34,6 +34,7 @@ public sealed partial class GameShell : Control
     private bool _smokeTest;
     private bool _smokeScreens;
     private bool _smokeTurn;
+    private bool _smokeOrders;
     private bool _smokeUnits;
     private string? _screenshotDirectory;
 
@@ -44,9 +45,11 @@ public sealed partial class GameShell : Control
         _smokeTest = arguments.Contains("--smoke-test", StringComparer.Ordinal);
         _smokeScreens = arguments.Contains("--smoke-screens", StringComparer.Ordinal);
         _smokeTurn = arguments.Contains("--smoke-turn", StringComparer.Ordinal);
+        _smokeOrders = arguments.Contains("--smoke-orders", StringComparer.Ordinal);
         _smokeUnits = arguments.Contains("--smoke-units", StringComparer.Ordinal);
         _screenshotDirectory = ReadArgument(arguments, "--screenshot");
-        var worldPath = ReadArgument(arguments, "--world") ?? DefaultWorldPath;
+        var worldPath = ReadArgument(arguments, "--world") ??
+            (_smokeOrders ? "res://demo/orders.iworld" : DefaultWorldPath);
 
         try
         {
@@ -59,7 +62,7 @@ public sealed partial class GameShell : Control
             StartSession(
                 ReadArgument(arguments, "--scenario") ?? _package.ScenarioKeys[0],
                 ReadArgument(arguments, "--country"));
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _screenshotDirectory is not null)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _smokeOrders || _screenshotDirectory is not null)
             {
                 CallDeferred(nameof(FinishSmoke));
             }
@@ -67,7 +70,7 @@ public sealed partial class GameShell : Control
         catch (Exception exception)
         {
             GD.PushError($"Could not load world package '{worldPath}': {exception.Message}");
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _smokeOrders)
             {
                 GetTree().Quit(1);
                 return;
@@ -217,16 +220,8 @@ public sealed partial class GameShell : Control
         var terrainMap = new TerrainMapScreen();
         terrainMap.TurnEndRequested += EndTurn;
         _screens[ShellScreen.TerrainMap] = terrainMap;
-        _screens[ShellScreen.Transport] = StubScreen.Create(
-            "Transport",
-            "Commodity sliders against one shared capacity bar, in the order the player sets them. " +
-            "Fills CountryTurnOrders.Transport and BuildTransportCapacity. Manual: Transport screen, " +
-            "and docs/formulas/transport.md.");
-        _screens[ShellScreen.Industry] = StubScreen.Create(
-            "Industry",
-            "The warehouse, the buildings and the production orders, with the workforce down the left " +
-            "border and the labour total under the muscular arm. Fills CountryTurnOrders.Production, " +
-            "Expansions and RecruitWorkers. Manual: Industry screen, and docs/formulas/production.md.");
+        _screens[ShellScreen.Transport] = new TransportScreen();
+        _screens[ShellScreen.Industry] = new IndustryScreen();
         _screens[ShellScreen.BidAndOffers] = StubScreen.Create(
             "Bid and Offers",
             "Offers and bids per commodity in a fixed order, against one price nobody names. " +
@@ -234,8 +229,8 @@ public sealed partial class GameShell : Control
             "and docs/formulas/trade.md.");
         _screens[ShellScreen.Diplomacy] = StubScreen.Create(
             "Diplomacy",
-            "Policies, treaties and overtures. Core's Diplomacy phase is still empty, so this screen " +
-            "waits on the rules rather than on the interface. Manual: Diplomacy screen.");
+            "Policies, treaties and overtures. Core supports diplomacy; this screen " +
+            "waits on interface work. Manual: Diplomacy screen.");
         _screens[ShellScreen.Technology] = StubScreen.Create(
             "Investment",
             "The twenty-eight entries of the Benefits of Technology Table, their prices and their " +
@@ -376,6 +371,36 @@ public sealed partial class GameShell : Control
         if (_screenshotDirectory is not null)
         {
             await CaptureEveryScreen(_screenshotDirectory);
+        }
+
+        if (_smokeOrders)
+        {
+            // Exercise the same draft entry points as both orders screens. A package
+            // without recipes/commodities cannot satisfy this smoke contract.
+            Navigate(ShellScreen.Industry);
+            Navigate(ShellScreen.Transport);
+            var recipe = _session.Preview().Industry.Recipes.FirstOrDefault();
+            var commodity = _session.Preview().Transport.Sliders.FirstOrDefault();
+            if (recipe is null || commodity is null)
+            {
+                GD.PushError("ORDERS_SMOKE_FAILED requires a recipe and commodity in the world package.");
+                GetTree().Quit(1);
+                return;
+            }
+
+            _session.Draft.SetProduction(_package.Catalog.GetProductionRecipeId(recipe.RecipeKey), 1);
+            _session.Draft.SetTransport(_package.Catalog.GetCommodityId(commodity.CommodityKey), 1);
+            var submitted = _session.Draft.Build();
+            var ordersOk = submitted.Production.Count == 1 && submitted.Transport.Count == 1;
+            var turnOk = await ReportTurnSmoke(null);
+            foreach (var phase in _session.LastReport!.Phases)
+            {
+                foreach (var line in phase.Lines) GD.Print($"ORDERS_EVENT {phase.Phase}: {line.Text}");
+            }
+
+            GD.Print($"ORDERS_SMOKE_{(ordersOk && turnOk ? "OK" : "FAILED")} production={submitted.Production.Count} transport={submitted.Transport.Count} events={_session.LastReport.EventCount}");
+            GetTree().Quit(ordersOk && turnOk ? 0 : 1);
+            return;
         }
 
         if (_smokeUnits)

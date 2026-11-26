@@ -1,0 +1,34 @@
+[gd_scene format=3]
+
+[node name="IndustryLayout" type="HBoxContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="WorkforcePanel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(94, 0)
+
+[node name="Workforce" type="VBoxContainer" parent="WorkforcePanel"]
+
+[node name="OrdersScroll" type="ScrollContainer" parent="."]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Orders" type="VBoxContainer" parent="OrdersScroll"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="WarehousePanel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(112, 0)
+
+[node name="WarehouseScroll" type="ScrollContainer" parent="WarehousePanel"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Warehouse" type="VBoxContainer" parent="WarehousePanel/WarehouseScroll"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 6

@@ -9,10 +9,9 @@ navigation, and a session that knows which country you are playing.
 The shell navigates, ends turns, and reports what a turn did. The player's
 orders now have a home — `GameSession.Draft`, an `OrdersDraft` for the local
 country, with read-only `OrdersPreview` views for Industry, Transport, Technology
-and Trade (row 4a) — but the four orders screens that will edit it are still
-stubs naming the manual section that specifies them. Until they land, an
-untouched draft builds empty orders, so a turn resolves exactly as it did before
-the draft existed. Rivals submit nothing at all — see below, because that is the
+and Trade (row 4a). Industry and Transport now edit the draft (row 4b);
+Bid and Offers and Investment remain stubs. An untouched draft still builds empty
+orders. Rivals submit nothing at all — see below, because that is the
 single fact most likely to be mistaken for a bug.
 
 The demo package ships no cash, workforce or transport, so the border reads zero
@@ -28,7 +27,7 @@ submits empty orders, built in the same `TurnOrders` by
 The world is not frozen: Extraction, Transport, Feeding, Delivery, Migration and
 Connectivity run whether or not anybody asked for anything, which is exactly why
 an End Turn button is worth pressing before a single orders screen exists. But
-nobody produces, builds, trades or researches, and a rival that gathered its
+rivals never produce, build, trade or research, and a rival that gathered its
 harvest and did nothing else is the engine as it stands rather than a fault.
 The report screen's notice says rivals submitted nothing, not that nobody did.
 
@@ -43,19 +42,19 @@ The manual: "You govern your Empire using five screens: a central Terrain Map
 screen and four Orders screens accessed from the Terrain Map", plus the
 Technology Investment screen the microscope reaches.
 
-| Screen | Manual | What it will do |
+| Screen | Manual | Status and contents |
 |---|---|---|
 | **Terrain Map** | Terrain Map screen and its toolbar | Built. Map, camera, picking, cell inspector, debug overlays, state probe. |
-| Transport | Transport screen | Commodity sliders against one shared capacity bar, in the order the player sets them. `Transport`, `BuildTransportCapacity`. |
-| Industry | Industry screen | Warehouse, buildings, production orders, the workforce down the left border. `Production`, `Expansions`, `RecruitWorkers`. |
+| **Transport** | Transport screen | Built. Shared capacity bar, commodity sliders in draft priority order, up/down controls and shortfall warnings. `Transport`; capacity purchases live in Industry. |
+| **Industry** | Industry screen | Built. Workforce down the left border, warehouse on the right; scrolling facilities, production cycles, Capitol recruitment and railyard purchases. `Production`, `Expansions`, `RecruitWorkers`, `BuildTransportCapacity`. |
 | Bid and Offers | Bid and Offers screen | Offers and bids per commodity in a fixed order. `TradeOffers`, `TradeBids`. |
-| Diplomacy | Diplomacy screen | Waiting on rules, not on interface: Core's `Diplomacy` phase is still empty. |
+| Diplomacy | Diplomacy screen | Waiting on interface work; Core has supported diplomacy since content v30. |
 | Investment | Invest in Technology | The Benefits of Technology Table, its prices and arrival dates. `BuyTechnology`. |
 
 The Transport, Industry, Bid and Offers and Investment rows have their model now:
 `OrdersDraft` holds each field named above, and `OrdersPreview.Create` gives the
-matching `Transport`, `Industry`, `Trade` and `Technology` view. A screen is still
-a stub; what is left for it is drawing and input, not rules.
+matching `Transport`, `Industry`, `Trade` and `Technology` view. The remaining
+stubs need drawing and input, not rules.
 
 **A preview warns and never refuses.** It replays the resolver's rules for these
 phases in the resolver's order — recipes in priority order against facility
@@ -206,7 +205,7 @@ asserts the border is somewhere a person could see it.
 res://scenes/Main.tscn  → GameShell (Control)
   top rail                screen title, hot text
   body                    left tabs · ScreenStack · right tabs
-    ScreenStack             TerrainMapScreen + five StubScreens, one visible
+    ScreenStack             TerrainMapScreen + IndustryScreen + TransportScreen + three StubScreens, one visible
   StatusBorder            always present, below everything
 ```
 
@@ -275,6 +274,32 @@ per-cell cost once; walking the map again would make opening a screen cost the
 whole world. A test proves it by producing identical output on a three-cell and
 a four-thousand-cell map.
 
+## Industry and Transport orders
+
+Both screens use the existing theme and art; fixed columns live in
+`IndustryLayout.tscn` and `TransportLayout.tscn`, while preview rows are built in
+code. Industry keeps the workforce on its left border and warehouse stock on the
+right, with facilities and orders in the scrolling middle. Each facility shows
+capacity, committed capacity, its next rung, expansion cost and technology gate.
+The +1 toggle orders one expansion rung. Production rows show input/output bills,
+labour per cycle, requested and expected cycles and their preview maximum, with
+up/down priority buttons. Capitol and railyard controls show prices and shortfalls.
+
+Transport keeps one capacity bar above the scrolling commodity sliders. Each row
+shows the requested and reserved amounts and moves earlier or later in the draft
+with its arrow buttons. The harvest remains unknown until resolution, as the
+screen explains. Zero capacity disables sliders; worlds without a transport limit
+are labelled unlimited. Numeric input is limited to the exact integer range of
+Godot's double-valued controls, not a new economic rule.
+
+Entering either screen inserts missing rows at zero without changing existing
+quantities or priorities. Editing a control writes to `session.Draft`, then reads
+`Preview()` again. Updating widget ranges suppresses input signals: a standing
+order above today's maximum remains in the draft and is printed as requested,
+even when the production spin box shows today's lower editable maximum. Only an
+explicit edit replaces it. Shortfall comparisons live in Presentation; the client
+only formats view values and warning flags.
+
 ## Ending a turn
 
 The manual is specific about where the button lives and what pressing it means:
@@ -334,12 +359,8 @@ production takes place. Military conflicts are resolved. Intercepted or blockade
 trades are cancelled. All commodities transported internally, or successfully
 delivered by traders, are placed in the industrial warehouse."*
 
-Every phase always appears. An empty one reads `Nothing this turn.`; the three
-Core leaves unimplemented — Diplomacy, Conflict, TradeCancellation — read
-`Not modelled yet.` instead, so a silence by design is distinguishable from a
-silence by circumstance. **That distinction is a hand-maintained table in
-`TurnReportView` and nothing will fail when it goes stale**; when those phases
-gain rules, the table has to be edited by hand.
+Every phase always appears. An empty one reads `Nothing this turn.`. Diplomacy,
+Conflict and TradeCancellation now have rules and report their events.
 
 `Kind` maps to a theme variation by lookup, never by reading the words:
 `Outcome` takes the plain body style, and `Shortfall`, `Loss` and `Refusal` take
@@ -464,6 +485,21 @@ godot --headless --path src/Imperialism.Client -- --smoke-turn
 ```
 
 ```bash
+godot --headless --path src/Imperialism.Client -- --smoke-orders
+```
+
+`--smoke-orders` defaults to the separate synthetic `demo/orders.iworld`, leaving
+the viewer demo and existing smoke flags unchanged. It visits Industry and
+Transport, sets one production cycle and one transport unit through the draft,
+verifies both orders are submitted, ends the turn through the existing newspaper
+and report flow, and prints the rendered event lines as `ORDERS_EVENT`, followed
+by `ORDERS_SMOKE_OK` (or `FAILED`). `--world` can override the fixture; a package
+without recipes or commodities fails explicitly. A headless .NET test resolves
+both scenarios in the orders fixture and requires one produced cycle and one
+transported unit. **The Godot smoke run and screenshots remain unrun on this
+server; they require the Windows PC.**
+
+```bash
 godot --path src/Imperialism.Client --resolution 2560x1080 -- --screenshot /tmp/shots
 ```
 
@@ -514,6 +550,14 @@ Manual checklist:
    either overlay is up. Check a second turn starts the paper scrolled to the top.
 10. Pressing End Turn twice quickly resolves exactly one turn.
 11. The border's date advances one quarter and the map's ownership redraws.
+12. Industry: edit production, expansion, recruitment and the railyard, checking
+    updated commitments, costs and warnings. Revisit without losing an order;
+    after End Turn confirm mills remember requests, while food processing,
+    expansions, recruitment and railyard purchases clear.
+13. Transport: drag a slider, reorder priorities, then revisit and End Turn;
+    requests and priority survive. Verify the shared bar and each shortfall.
+14. Resize both screens at the base viewport and widescreen: columns remain
+    readable and the long order lists scroll inside the screen stack.
 
 ## Open questions
 
