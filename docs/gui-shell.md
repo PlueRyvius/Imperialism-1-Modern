@@ -211,9 +211,24 @@ accepted attack or landing is accepted into battle and no more**: the preview fi
 no battle and does not attack a landing site, so it cannot say who wins. Later
 attacks are judged against owners as the turn opens.
 
+**A landing reads its site after the draft's naval orders**, because `Conflict` runs
+every naval order before any regiment moves. A task force the draft moves, sends on
+patrol or blockade, or re-orders to a landing (which restamps it, manual 1943) is no
+ready site this turn. One an assembly creates this turn never is, because its landing
+is stamped this turn. Of the sites left, the lowest id carries the landing, as in Core.
+A command of `None` leaves a site standing.
+
+`ArmouryCategoryView.WorkersTaken` is the number of workers a category's drafted
+purchase takes out of the workforce for good, one per regiment. It is zero when the
+order is refused or set aside, so the Armoury screen never derives it.
+`ArmouryView.LabourWithheld` is what those workers' labour was worth this turn.
+
 `MilitaryOrdersTests` ends every turn through `TurnResolver`. It compares each
 purchase, hull and move warning with Core's event, and the cash and rail with what
-Core charged.
+Core charged. It also compares `WorkersTaken` with the workforce a resolved turn loses
+beside a control turn. `NavalLandingDraftInteractionTests` and
+`LandingSiteAssemblyPreviewTests` resolve a landing against every kind of drafted naval
+change to its site.
 
 ### Naval orders (row 4e-2 part B)
 
