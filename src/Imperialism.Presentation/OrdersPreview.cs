@@ -14,7 +14,8 @@ public sealed record CommodityAmountView(string CommodityKey, string CommodityNa
 /// <b>A preview, not a ruling.</b> Core's planners are internal, so these figures
 /// repeat their rules in the order <see cref="TurnResolver"/> applies them —
 /// recipes, then facility expansion in the draft's order, then the railyard, then the
-/// Capitol, then the market — and the tests resolve real turns to hold the two together. Core still
+/// Capitol, then the market; civilians' cash after the market's bids and before
+/// research — and the tests resolve real turns to hold the two together. Core still
 /// decides when the turn resolves. The preview never refuses: an over-ask shows as
 /// a warning and goes to Core as given, which trims or refuses it and reports why.
 /// <para>
@@ -23,7 +24,7 @@ public sealed record CommodityAmountView(string CommodityKey, string CommodityNa
 /// from what the market leaves.
 /// </para>
 /// </remarks>
-public sealed class OrdersPreview
+public sealed partial class OrdersPreview
 {
     /// <summary>"You may bid on only four commodities each turn" (manual 3107).</summary>
     public const int MaximumBids = 4;
@@ -32,12 +33,14 @@ public sealed class OrdersPreview
         IndustryPreview industry,
         TransportPreview transport,
         TechnologyPreview technology,
-        TradePreview trade)
+        TradePreview trade,
+        CivilianOrdersPreview civilians)
     {
         Industry = industry;
         Transport = transport;
         Technology = technology;
         Trade = trade;
+        Civilians = civilians;
     }
 
     public IndustryPreview Industry { get; }
@@ -47,6 +50,9 @@ public sealed class OrdersPreview
     public TechnologyPreview Technology { get; }
 
     public TradePreview Trade { get; }
+
+    /// <summary>The drafting country's civilians and their drafted orders.</summary>
+    public CivilianOrdersPreview Civilians { get; }
 
     public static OrdersPreview Create(
         CompiledWorldPackage package,
@@ -79,9 +85,10 @@ public sealed class OrdersPreview
         var claimed = new long[available.Length];
         var industry = PreviewIndustry(state, draft, names, available, claimed);
         var transport = PreviewTransport(state, draft, names);
-        var technology = PreviewTechnology(state, draft, names);
+        var civilians = PreviewCivilians(state, draft);
+        var technology = PreviewTechnology(state, draft, names, civilians.CommittedCost);
         var trade = PreviewTrade(state, draft, names, claimed);
-        return new OrdersPreview(industry, transport, technology, trade);
+        return new OrdersPreview(industry, transport, technology, trade, civilians);
     }
 
     private static IndustryPreview PreviewIndustry(
@@ -353,7 +360,8 @@ public sealed class OrdersPreview
             Array.AsReadOnly(sliders.ToArray()));
     }
 
-    private static TechnologyPreview PreviewTechnology(WorldState state, OrdersDraft draft, Names names)
+    private static TechnologyPreview PreviewTechnology(
+        WorldState state, OrdersDraft draft, Names names, long claimedByCivilians)
     {
         var world = state.Definition;
         var country = draft.Country;
@@ -378,8 +386,10 @@ public sealed class OrdersPreview
         }
 
         // In the draft's order, as Investment spends: an unaffordable entry is
-        // skipped and a cheaper one after it may still be bought.
-        var left = cash;
+        // skipped and a cheaper one after it may still be bought. Development pays
+        // for civilians' work before Investment runs, so their drafted cost comes off
+        // first.
+        var left = Math.Max(0, cash - claimedByCivilians);
         var committed = 0L;
         var purchases = new List<TechnologyPurchasePreview>();
         foreach (var id in draft.BuyTechnology)
@@ -398,6 +408,7 @@ public sealed class OrdersPreview
 
         return new TechnologyPreview(
             cash,
+            claimedByCivilians,
             committed,
             Array.AsReadOnly(offered.ToArray()),
             Array.AsReadOnly(purchases.ToArray()));
@@ -579,7 +590,8 @@ public sealed record TechnologyOfferPreview(
 
 /// <summary>
 /// One purchase in the draft. <see cref="IsAffordable"/> is against cash as the
-/// turn opens; research is paid last, from what the market leaves.
+/// turn opens less what the drafted civilians' work claims, since Development pays
+/// before Investment; research is paid last, from what the market leaves.
 /// </summary>
 public sealed record TechnologyPurchasePreview(
     string TechnologyKey,
@@ -589,11 +601,12 @@ public sealed record TechnologyPurchasePreview(
 
 public sealed record TechnologyPreview(
     long Cash,
+    long ClaimedByCivilians,
     long CommittedCost,
     IReadOnlyList<TechnologyOfferPreview> Offered,
     IReadOnlyList<TechnologyPurchasePreview> Purchases)
 {
-    public bool IsOverCash => CommittedCost > Cash;
+    public bool IsOverCash => CommittedCost > Cash - ClaimedByCivilians;
 }
 
 public sealed record TradeRowPreview(
