@@ -86,6 +86,38 @@ public sealed partial class GameShell : Control
         }
     }
 
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is not InputEventMouseButton { Pressed: true } wheel ||
+            wheel.ButtonIndex is not (MouseButton.WheelUp or MouseButton.WheelDown) ||
+            _current is not (ShellScreen.Diplomacy or ShellScreen.Industry) ||
+            _newspaper is { Visible: true } || _turnReport is { Visible: true })
+        {
+            return;
+        }
+
+        // Wheel ownership follows the control under the pointer, irrespective
+        // of which neighbouring panel last received keyboard/mouse focus.
+        for (Node? node = GetViewport().GuiGetHoveredControl(); node is not null; node = node.GetParent())
+        {
+            if (node is not ScrollContainer scroll)
+            {
+                continue;
+            }
+
+            if (_current == ShellScreen.Industry && scroll.Name != "WarehouseScroll")
+            {
+                return; // Preserve number-box wheel editing in the orders panel.
+            }
+
+            var bar = scroll.GetVScrollBar();
+            var direction = wheel.ButtonIndex == MouseButton.WheelUp ? -1 : 1;
+            bar.Value += direction * bar.Page / 8 * wheel.Factor;
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+    }
+
     public override void _UnhandledInput(InputEvent @event)
     {
         if (_newspaper is { Visible: true })
@@ -174,7 +206,10 @@ public sealed partial class GameShell : Control
 
         var body = new HBoxContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
         body.AddThemeConstantOverride("separation", 4);
-        rows.AddChild(body);
+        var bodyFrame = new Control { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        rows.AddChild(bodyFrame);
+        body.SetAnchorsPreset(LayoutPreset.FullRect);
+        bodyFrame.AddChild(body);
 
         // Tabs run down both edges, as the original's screen frame does. That is
         // not only faithful: six 60x56 tabs stacked in one column need 418 of the
@@ -198,25 +233,29 @@ public sealed partial class GameShell : Control
         BuildScreens();
         BuildTabs();
 
-        // Added after the frame so it covers the status border too. While a
-        // report is up, nothing behind it is worth interacting with.
+        // Cover the navigation body, leaving the top rail and status border visible.
+        // The body holds the tabs too, so neither can receive modal-time clicks.
+        var overlays = new Control { MouseFilter = MouseFilterEnum.Ignore };
+        overlays.SetAnchorsPreset(LayoutPreset.FullRect);
+        bodyFrame.AddChild(overlays);
         _turnReport = new TurnReportScreen();
         _turnReport.Dismissed += () =>
         {
             ((TerrainMapScreen)_screens[ShellScreen.TerrainMap]).AllowAnotherTurn();
             Navigate(ShellScreen.TerrainMap);
         };
-        AddChild(_turnReport);
+        overlays.AddChild(_turnReport);
 
         _newspaper = new NewspaperScreen();
         _newspaper.Dismissed += () =>
         {
             if (_session?.LastReport is { } report)
             {
+                HideTransientUi();
                 _turnReport.Present(report);
             }
         };
-        AddChild(_newspaper);
+        overlays.AddChild(_newspaper);
     }
 
     private void BuildScreens()
@@ -336,6 +375,7 @@ public sealed partial class GameShell : Control
             control.Visible = isTarget;
         }
 
+        HideTransientUi();
         _current = screen;
         ((IShellScreen)_screens[screen]).Enter(_session);
         if (_screenTitle is not null)
@@ -354,8 +394,37 @@ public sealed partial class GameShell : Control
             return;
         }
 
+        HideTransientUi();
         _session.EndTurn();
         _newspaper.Present(_session.LastNewspaper!);
+    }
+
+    private void HideTransientUi()
+    {
+        // Reset the viewport's hover/timer state as well as the visible tooltip.
+        // Godot 4.7 has no public CancelTooltip binding; disabling GUI input
+        // synchronously cancels it, then immediately restores input.
+        var viewport = GetViewport();
+        if (!viewport.GuiDisableInput)
+        {
+            viewport.GuiDisableInput = true;
+            viewport.GuiDisableInput = false;
+        }
+
+        HidePopups(this);
+    }
+
+    private static void HidePopups(Node node)
+    {
+        foreach (var child in node.GetChildren(includeInternal: true))
+        {
+            if (child is Popup popup)
+            {
+                popup.Hide();
+            }
+
+            HidePopups(child);
+        }
     }
 
     private void SetHotText(string text)

@@ -232,7 +232,7 @@ public sealed partial class TerrainMapScreen : Control, IShellScreen
 
         column.AddChild(new Label
         {
-            ThemeTypeVariation = "ImperialismReadoutLabel",
+            ThemeTypeVariation = "ImperialismHotText",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
             Text = "Pan: middle drag / arrows · Zoom: wheel · Fit: Home · Civilian: click marker · Order: click verb · Clear: right click · Deselect: Esc",
         });

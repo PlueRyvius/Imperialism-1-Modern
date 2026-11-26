@@ -26,6 +26,7 @@ public sealed partial class TurnReportScreen : Control
     private VBoxContainer? _body;
     private Label? _title;
     private Button? _close;
+    private ScrollContainer? _scroll;
 
     public TurnReportScreen()
     {
@@ -78,6 +79,7 @@ public sealed partial class TurnReportScreen : Control
 
         Visible = true;
         _close?.GrabFocus();
+        _scroll!.SetDeferred(ScrollContainer.PropertyName.ScrollVertical, 0);
     }
 
     public void Dismiss()
@@ -161,23 +163,18 @@ public sealed partial class TurnReportScreen : Control
 
         // Mandatory rather than tidy: one line is emitted per delivery, and a
         // busy world delivers once per country per commodity every turn.
-        var scroll = new ScrollContainer
+        _scroll = new ScrollContainer
         {
             SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
         };
-        rows.AddChild(scroll);
+        rows.AddChild(_scroll);
 
         _body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _body.AddThemeConstantOverride("separation", 3);
-        scroll.AddChild(_body);
+        _scroll.AddChild(_body);
 
         _close = new Button { Text = "Close", SizeFlagsHorizontal = SizeFlags.ShrinkEnd };
-        if (ResourceLoader.Exists("res://art/button/back.png"))
-        {
-            _close.Icon = GD.Load<Texture2D>("res://art/button/back.png");
-        }
-
         _close.Pressed += Dismiss;
         rows.AddChild(_close);
     }
