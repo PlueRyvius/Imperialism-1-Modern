@@ -41,7 +41,9 @@ Bulk binary game data stays out of the tree — `.map`/`.scn`/`.inf` files, the
 install at test time, and `fixtures/local_only/` is gitignored for local copies.
 The interface art named in `assets/manifest/imperialism-art.json` is committed
 so the shell runs from a clone; `docs/asset-pipeline.md` records where each
-piece came from.
+piece came from. Every bitmap in the picture archives is also committed,
+unaltered, under `assets/original/` as the source for touch-ups
+(`assets/original/README.md`).
 
 Scenario content still requires your own copy of the original game: `.map`,
 `.scn` and `.inf` files are converted from your installation into `.iworld`

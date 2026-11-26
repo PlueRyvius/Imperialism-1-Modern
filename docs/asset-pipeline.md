@@ -117,9 +117,11 @@ Each entry carries `evidence` — why we believe it is what we say — and
 
 **The catalogue is human work and it is deliberately incomplete.** The archives
 name images with bare numbers and nothing anywhere says what `10000.BMP`
-depicts. Thirty-three pieces are named; 1,569 are not. Unnamed is unextracted is
-uncommitted, and the way to name more is a contact sheet on one screen and
-`E:/Imperialism/Imperialism - manual.pdf` on the other.
+depicts. Thirty-three pieces are named here. Every bitmap is extracted and
+committed, unaltered, under `assets/original/` (see that tree's `manifest.json`),
+but most are not yet identified: unnamed means not yet catalogued, not missing.
+The way to name more is to browse `assets/original/` (or a contact sheet) on one
+screen and `E:/Imperialism/Imperialism - manual.pdf` on the other.
 
 **One thing was looked for and not found.** The manual describes the workforce
 icons on the Industry screen's left border as encoding grade by the colour of
@@ -132,9 +134,15 @@ up.
 
 The thirty-three interface pieces and four typefaces the manifest names, 282 KB
 in total, under `src/Imperialism.Client/art/` with their Godot `.import`
-sidecars. The archives themselves, the full-screen backgrounds, the map tiles
-and everything the manifest does not name stay out of the tree — not as a
-principle, but because they are bulk nobody needs to clone.
+sidecars.
+
+Since 2026-11-26 every bitmap in the seven picture archives is committed as well,
+unaltered, under `assets/original/` (2,241 files, about 30 MB). The owner wants
+the screens rebuilt from the original's own art and pieces touched up, and both
+need the full set in the tree. It sits outside the Godot project, so Godot
+imports none of it and the 10 MB limit below does not apply. Its own
+`manifest.json` regenerates it; see `assets/original/README.md`. The archives
+themselves, the music and the videos stay out of the tree.
 
 Two rules keep the directory tidy rather than sprawling:
 

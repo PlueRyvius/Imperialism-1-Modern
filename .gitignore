@@ -20,8 +20,9 @@ fixtures/local_only/*
 !fixtures/local_only/.gitkeep
 
 # Extractor working output: per-archive reports and contact sheets used to
-# catalogue the original art. Only what the manifest names is committed, and it
-# lands under src/Imperialism.Client/art/ instead.
+# catalogue the original art. Only what a manifest names is committed: the
+# interface pieces under src/Imperialism.Client/art/, and the full unaltered set
+# under assets/original/.
 assets/staging/
 
 # Godot's .import sidecars under src/Imperialism.Client/art/ ARE committed, on
