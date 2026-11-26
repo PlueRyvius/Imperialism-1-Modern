@@ -314,7 +314,7 @@ public static class LegacyWorldConverter
         new(MarineEngineering, 40_000, 1871, Paddlewheels, SteelAndIronPlows),
         new("Machine Guns", 40_000, 1876, BreechLoadingRifles),
         new(Chemistry, 100_000, 1876, OilDrilling),
-        new("Improved Range-Finding", 120_000, 1881, MarineEngineering),
+        new(ImprovedRangeFinding, 120_000, 1881, MarineEngineering),
         new(InternalCombustion, 150_000, 1881, Chemistry),
     ];
 
@@ -336,6 +336,7 @@ public static class LegacyWorldConverter
     private const string MarineEngineering = "Marine Engineering";
     private const string Chemistry = "Chemistry";
     private const string InternalCombustion = "Internal Combustion";
+    private const string ImprovedRangeFinding = "Improved Range-Finding";
 
     /// <summary>
     /// The two technologies every power starts with, whatever the scenario says:
@@ -2589,24 +2590,24 @@ public static class LegacyWorldConverter
             Combat: new(0, 0, 0, 600, 0), Lumber: 6, Fabric: 2),
         new("raider", "Raider", SeaZones: 5, RequiredTechnology: Paddlewheels,
             Combat: new(3, 7, 20, 700, 7, Hull: 30), Lumber: 6, Arms: 3, Coal: 10),
-        new("ironclad", "Ironclad", SeaZones: 3,
+        new("ironclad", "Ironclad", SeaZones: 3, RequiredTechnology: AdvancedIronWorking,
             Combat: new(5, 8, 55, 1200, 5, Hull: 50), Lumber: 4, Arms: 6, Steel: 4, Coal: 10),
-        new("advanced-ironclad", "Advanced Ironclad", SeaZones: 4,
+        new("advanced-ironclad", "Advanced Ironclad", SeaZones: 4, RequiredTechnology: SteelArmourPlate,
             Combat: new(10, 10, 60, 1800, 6, Hull: 70), Lumber: 8, Arms: 15, Steel: 10, Coal: 20),
-        new("freighter", "Freighter", Cargo: 16, SeaZones: 1,
+        new("freighter", "Freighter", Cargo: 16, SeaZones: 1, RequiredTechnology: MarineEngineering,
             Combat: new(0, 0, 25, 1200, 0), Steel: 8, Coal: 20),
-        new("armoured-cruiser", "Armoured Cruiser", SeaZones: 6,
+        new("armoured-cruiser", "Armoured Cruiser", SeaZones: 6, RequiredTechnology: MarineEngineering,
             Combat: new(6, 9, 50, 1000, 8, Hull: 40), Lumber: 2, Arms: 8, Steel: 6, Coal: 20),
-        new("dreadnought", "Dreadnought", SeaZones: 5,
+        new("dreadnought", "Dreadnought", SeaZones: 5, RequiredTechnology: ImprovedRangeFinding,
             Combat: new(20, 13, 70, 2800, 7, Hull: 115), Arms: 24, Steel: 30, Fuel: 20),
-        new("battle-cruiser", "Battle Cruiser", SeaZones: 6,
+        new("battle-cruiser", "Battle Cruiser", SeaZones: 6, RequiredTechnology: ImprovedRangeFinding,
             Combat: new(18, 13, 55, 2200, 9, Hull: 90), Arms: 18, Steel: 22, Fuel: 20),
     ];
 
     /// <summary>
-    /// The two technologies that gate a hull, named here rather than beside the rest of
-    /// the technology table because gating a hull is the only thing either of them does in
-    /// this engine. <see cref="TechnologyTable"/> refers to them too.
+    /// The two technologies whose only modeled effect is a hull gate. The other hull
+    /// requirements reuse names shared with the technology table and other rules.
+    /// <see cref="TechnologyTable"/> refers to these names too.
     /// </summary>
     private const string StreamlinedHulls = "Streamlined Hulls";
     private const string Paddlewheels = "Paddlewheels";
