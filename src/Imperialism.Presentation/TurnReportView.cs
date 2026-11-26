@@ -158,23 +158,21 @@ public sealed class TurnReportView
     /// transported internally, or successfully delivered by traders, are placed
     /// in the industrial warehouse for use on the next turn."
     ///
-    /// <b>The notes are hand-maintained and nothing will fail when they go
-    /// stale.</b> When Diplomacy, Conflict or TradeCancellation gain rules, this
-    /// table has to be edited by hand or the report will keep calling a working
-    /// phase unmodelled. It is the one fact in this file with no test behind it;
-    /// a test asserting those phases stay empty would assert a temporary truth
-    /// and fail on the day the feature arrived.
+    /// <b>The notes are hand-maintained.</b> All fourteen phases have rules now,
+    /// so a note is no longer "not modelled": it is the quiet-quarter sentence for
+    /// the three phases whose silence a player might misread — no offer was made, no
+    /// shot fired, no cargo taken — shown only when the phase reported nothing.
     /// </remarks>
     private static (string Heading, string? Note) Describe(TurnPhase phase) => phase switch
     {
-        TurnPhase.Diplomacy => ("Diplomatic offers", "Not modelled yet."),
+        TurnPhase.Diplomacy => ("Diplomatic offers", "No overtures, policies or declarations of war this turn."),
         TurnPhase.Trade => ("Trade deals", null),
         TurnPhase.Production => ("Industrial production", null),
         TurnPhase.Construction => ("Industrial expansion", null),
         TurnPhase.Development => ("Civilian work", null),
         TurnPhase.Migration => ("The Capitol", null),
-        TurnPhase.Conflict => ("Military conflicts", "Not modelled yet."),
-        TurnPhase.TradeCancellation => ("Intercepted and blockaded trades", "Not modelled yet."),
+        TurnPhase.Conflict => ("Military conflicts", "No fleet orders, regiment moves or battles this turn."),
+        TurnPhase.TradeCancellation => ("Intercepted and blockaded trades", "No cargo was intercepted this turn."),
         TurnPhase.Extraction => ("The harvest", null),
         TurnPhase.Transport => ("The network", null),
         TurnPhase.Feeding => ("Feeding the workforce", null),

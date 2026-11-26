@@ -111,7 +111,11 @@ public sealed record CivilianOrdersPreview(
     long CashBeforeCivilians,
     long CommittedCost,
     IReadOnlyList<CivilianPreview> Civilians,
-    IReadOnlyList<(CivilianUnitId Unit, UnitTargetView Order)> OtherOrders);
+    IReadOnlyList<(CivilianUnitId Unit, UnitTargetView Order)> OtherOrders)
+{
+    /// <summary>Paid at the Armoury in <c>Production</c>, the first claim of all.</summary>
+    public long ClaimedByArmoury { get; init; }
+}
 
 /// <summary>
 /// A turn-local restatement of Core's <c>DevelopmentPlanner</c> and
@@ -720,14 +724,15 @@ public sealed partial class OrdersPreview
     };
 
     /// <summary>
-    /// Cash as Development finds it, at worst: the drafted overtures paid in Diplomacy,
-    /// every bid paid at world price, no sale credited. Both run before Development,
-    /// and the draft holds no other order that spends cash ahead of it.
+    /// Cash as Development finds it, at worst: the Armoury paid in Production, the
+    /// drafted overtures paid in Diplomacy, every bid paid at world price, no sale
+    /// credited. All run before Development.
     /// </summary>
     private static long CashBeforeCivilians(WorldState state, OrdersDraft draft) =>
         Math.Max(
             0,
-            state.GetCash(draft.Country) - ClaimedByOvertures(state, draft) - ClaimedByBids(state, draft));
+            state.GetCash(draft.Country) - ClaimedByArmoury(state, draft) - ClaimedByOvertures(state, draft) -
+            ClaimedByBids(state, draft));
 
     private static long ClaimedByBids(WorldState state, OrdersDraft draft) => draft.TradeBids
         .Where(static row => row.Quantity > 0)
@@ -755,7 +760,10 @@ public sealed partial class OrdersPreview
             before,
             outcomes.Where(static row => row.Outcome.IsAccepted).Sum(static row => row.Outcome.CashCost),
             Array.AsReadOnly(civilians),
-            Array.AsReadOnly(others));
+            Array.AsReadOnly(others))
+        {
+            ClaimedByArmoury = ClaimedByArmoury(state, draft),
+        };
     }
 
     private static CivilianPreview Describe(WorldDefinition world, CivilianUnit civilian, UnitTargetView? order)

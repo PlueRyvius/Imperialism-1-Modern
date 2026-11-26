@@ -246,6 +246,15 @@ pacts and policies, and each overture's price and Core's refusal, restated from
 Great Power always previews as Declined while rivals submit nothing. No Core change,
 no content bump, no new phase.
 
+**Row 4e-2 puts the Armoury, the Shipyard and regiment moves in the draft**, all
+**cleared at End Turn**. Moves follow the manual (1757–1758, 1830–1831). Clearing the
+Armoury and Shipyard rows is chosen, on the manual's "work exactly like the
+University" (4874). The previews restate Core's planners. **The Armoury is now the
+first claim on cash**, ahead of overtures, and both bills leave trade's `Sellable`.
+An accepted attack previews as accepted into battle; no battle is fought in the
+preview. Naval orders are not in the draft yet. No Core change, no content bump, no
+new phase.
+
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an
 inert dense order bundle, unrestricted quarterly `TurnDate`, fixed fourteen-phase
