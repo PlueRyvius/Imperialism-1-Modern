@@ -637,12 +637,11 @@ shipped at v19 is retracted. One assertion changed in the whole suite:
 six disputed positions.
 
 **The two falsification counts are unverified against this change, and that matters.** The
-analysis says 380/4 and 1,140/0 cannot move under a permutation within a prefix, and the
-tests holding them return silently unless `IMPERIALISM_SCENARIO_DIR` names the full
-ten-scenario corpus. Anyone with that corpus should run them; until then the counts are a
-prediction. **This is the "skip visibly, never iterate an empty corpus" trap from the
-Conventions section, in its C# form** — the gate returns rather than skipping, so a run
-with no corpus is indistinguishable from a run that checked nothing.
+analysis says 380/4 and 1,140/0 cannot move under a permutation within a prefix; until
+someone runs them against the full corpus, the counts remain a prediction. The C# tests
+use `[CorpusFact]`: they visibly skip when `IMPERIALISM_SCENARIO_DIR` is unset and fail
+when the configured directory is missing any of the ten numbered `.map`, `.scn`, or `.inf`
+files.
 
 **Twelve of the twenty-six technology prices were wrong, and all in the same way.** From
 Streamlined Hulls onwards, every price the wiki carried is the price of the *next*
@@ -1015,5 +1014,6 @@ reports success having opened nothing, and that is the state CI runs in. Eleven
 tests holding rules to "exact on every shipped map" were green that way. Use
 `originals.require_maps()` / `require_scenarios()` / `require_infs()`, which
 skip out loud when there is no corpus and fail when `IMP_SCENARIO_DIR` is set
-but does not hold one. The C# gates take the same shape: return when the
-variable is unset, assert the count when it is not.
+but does not hold one. The C# gates use `[CorpusFact]`: they skip visibly when
+`IMPERIALISM_SCENARIO_DIR` is unset and assert the numbered `.map`, `.scn`, and `.inf`
+counts when it is set.
