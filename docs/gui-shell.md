@@ -980,3 +980,43 @@ Manual checklist:
 7. At 1440x900, 1920x1080 and 2560x1080, confirm labels, hover text, controls and
    the status border fit without overlap. Capture the selected Engineer and a
    warned target alongside the original for Andy's visual review.
+
+### Windows acceptance for the 26 November play-test layout fixes
+
+Run the Godot 4.7.1 headless `--import` first in a fresh checkout, then build
+and run the converted s1 scenario as Great Britain. Start at the play-test's
+1924x1061 window, then check 1440x900 and resize to 2560x1080. These checks need
+a Godot runtime; a successful .NET build does not verify rendering or input.
+The numbers below match the layout task's fault list (wheel routing is original
+play-test fault 14; report scrolling is the additional regression).
+
+1. Toggle Industry's expansion and Technology's purchase, select a Diplomacy
+   country, and tick a Fleet row. Read each label at rest, hovered and focused;
+   selected labels must remain dark on their cream/green plates.
+2. Hover tabs and order controls: tooltip text must be dark on a cream plate.
+3. In Transport and Bid and Offers, read and edit number boxes, select their
+   text, and use both arrows. Check normal, hover, pressed and disabled arrows.
+4. Read the Terrain Map's pan/zoom/civilian hint against the wood.
+5. End a turn and open the report: the plain Close label must have no overlapping
+   icon. Close and Escape must still dismiss it.
+6. Let the Bid and Offers tooltip appear, then change screens by click and F-key.
+   No old tooltip may remain. Open a Fleet dropdown and leave by keyboard;
+   no popup may remain. Repeat when opening/dismissing newspaper and report.
+7. Through both overlays, read the complete status border and advanced date.
+   Tabs and F-keys must remain blocked until dismissal; the map's End Turn
+   control must not receive clicks through either overlay.
+8. Open Fleet dropdowns: panel, hover plate, text and arrow must match the game
+   theme, with readable selected and disabled entries.
+9. On first launch the entire map must fit its viewport with a margin. Pan and
+   zoom, leave and re-enter, and end a turn: preserve the player's camera.
+   Home must fit again. Resize before the first camera input and verify fit
+   follows the window; resize after panning and verify the camera is preserved.
+10. Scroll the Diplomacy countries, then details, then countries again without
+    clicking first. Only the panel under the cursor must move. Do the same
+    between Industry orders and warehouse. Scrollbar tracks must still work,
+    and number-box wheel edits in Industry orders must still work.
+11. Scroll turn one's report to the bottom, close it, and end turn two. The report
+    must open at its first heading, remain scrollable, and close normally.
+
+Run `--smoke-test`, `--smoke-screens` and `--smoke-turn` as regression checks
+alongside these interaction checks. Capture evidence outside the repository.
