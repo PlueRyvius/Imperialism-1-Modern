@@ -35,6 +35,7 @@ public sealed partial class GameShell : Control
     private bool _smokeScreens;
     private bool _smokeTurn;
     private bool _smokeOrders;
+    private bool _smokeUnits;
     private string? _screenshotDirectory;
 
     public override void _Ready()
@@ -45,6 +46,7 @@ public sealed partial class GameShell : Control
         _smokeScreens = arguments.Contains("--smoke-screens", StringComparer.Ordinal);
         _smokeTurn = arguments.Contains("--smoke-turn", StringComparer.Ordinal);
         _smokeOrders = arguments.Contains("--smoke-orders", StringComparer.Ordinal);
+        _smokeUnits = arguments.Contains("--smoke-units", StringComparer.Ordinal);
         _screenshotDirectory = ReadArgument(arguments, "--screenshot");
         var worldPath = ReadArgument(arguments, "--world") ??
             (_smokeOrders ? "res://demo/orders.iworld" : DefaultWorldPath);
@@ -60,7 +62,7 @@ public sealed partial class GameShell : Control
             StartSession(
                 ReadArgument(arguments, "--scenario") ?? _package.ScenarioKeys[0],
                 ReadArgument(arguments, "--country"));
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeOrders || _screenshotDirectory is not null)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeOrders || _smokeUnits || _screenshotDirectory is not null)
             {
                 CallDeferred(nameof(FinishSmoke));
             }
@@ -68,7 +70,7 @@ public sealed partial class GameShell : Control
         catch (Exception exception)
         {
             GD.PushError($"Could not load world package '{worldPath}': {exception.Message}");
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeOrders)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeOrders || _smokeUnits)
             {
                 GetTree().Quit(1);
                 return;
@@ -114,6 +116,13 @@ public sealed partial class GameShell : Control
                 AcceptEvent();
                 return;
             }
+        }
+
+        if (@event.IsActionPressed("shell_back") && _current == ShellScreen.TerrainMap &&
+            ((TerrainMapScreen)_screens[ShellScreen.TerrainMap]).DeselectCivilian())
+        {
+            AcceptEvent();
+            return;
         }
 
         if (@event.IsActionPressed("shell_back") && _current != ShellScreen.TerrainMap)
@@ -398,6 +407,12 @@ public sealed partial class GameShell : Control
 
             GD.Print($"ORDERS_SMOKE_{(ordersOk && turnOk ? "OK" : "FAILED")} production={submitted.Production.Count} transport={submitted.Transport.Count} technology={submitted.BuyTechnology.Count} offers={submitted.TradeOffers.Count} events={_session.LastReport.EventCount}");
             GetTree().Quit(ordersOk && turnOk ? 0 : 1);
+            return;
+        }
+
+        if (_smokeUnits)
+        {
+            GetTree().Quit(UnitOrdersSmoke.Run(_session) ? 0 : 1);
             return;
         }
 

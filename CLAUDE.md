@@ -156,6 +156,12 @@ recoverable from the corpus at all. See `docs/formulas/_index.md`.
 
 ## Current state
 
+Phase 4 row 4d-2 adds civilian markers, per-verb target highlights, hover costs
+and warnings, draft/clear controls and Escape deselection to the Terrain Map.
+`--smoke-units` exercises a civilian order through the real session; Windows
+Godot interaction, smoke and screenshot acceptance are still pending. See
+`docs/gui-shell.md` for controls and the exact PC checklist.
+
 Phases 0 and 1 are complete. `src/Imperialism.Formats/` is the production .NET 8
 formats library for `.map`, binary/plaintext scenarios, and editable `.inf`
 files, and it is now the only parser here. The extensionless plaintext filenames

@@ -20,6 +20,9 @@ public sealed partial class WorldMapView : Node2D
     private CellIndex? _selected;
     private bool _debugMode;
 
+    // Called before province picking. Returning true consumes only this click.
+    public Func<Vector2, MouseButton, bool>? CivilianClick { get; set; }
+    public event Action<Vector2>? PointerMoved;
     public event Action<CellIndex?>? HoveredChanged;
 
     public event Action<CellIndex?>? SelectedChanged;
@@ -90,10 +93,22 @@ public sealed partial class WorldMapView : Node2D
         if (@event is InputEventMouseMotion)
         {
             SetHovered(_projection.Pick(ToMapPoint(GetLocalMousePosition())));
+            PointerMoved?.Invoke(GetLocalMousePosition());
         }
         else if (@event is InputEventMouseButton mouseButton &&
-            mouseButton.Pressed && mouseButton.ButtonIndex == MouseButton.Left)
+            mouseButton.Pressed)
         {
+            if (CivilianClick?.Invoke(GetLocalMousePosition(), mouseButton.ButtonIndex) == true)
+            {
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+
+            if (mouseButton.ButtonIndex != MouseButton.Left)
+            {
+                return;
+            }
+
             _selected = _projection.Pick(ToMapPoint(GetLocalMousePosition()));
             _interactionLayer.SetSelected(_selected);
             SelectedChanged?.Invoke(_selected);
