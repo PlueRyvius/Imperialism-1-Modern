@@ -89,7 +89,7 @@ public sealed partial class TradeScreen : Control, IShellScreen
         _applying = true;
         try
         {
-            _budget!.Text = $"Merchant-marine holds: {preview.MerchantMarine} · cash: ${preview.Cash}\nBids: {preview.BidCount} / {OrdersPreview.MaximumBids} commodities · total at world prices: ${preview.TotalBidCost}";
+            _budget!.Text = TradeText.Header(preview);
             _warning!.Text =
                 (preview.IsOverBidLimit ? $"Warning: you may bid on only {OrdersPreview.MaximumBids} commodities each turn. " : "") +
                 (preview.BidsExceedCash ? "Warning: bids exceed current cash." : "");

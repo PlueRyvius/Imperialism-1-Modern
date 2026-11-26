@@ -161,6 +161,60 @@ public sealed class DiplomacyOrdersTests
             preview.ClaimedByOvertures);
     }
 
+    [Fact]
+    public void TheDraftedLineNamesEveryDraftedOvertureWarAndPolicy()
+    {
+        var game = new Game(Compile());
+        Assert.Equal("Drafted: no change", DiplomacyText.Summary(View(game.Preview(), "country.green")).Split('\n')[^1]);
+
+        game.Draft.SetOverture(DiplomaticOvertureKind.Consulate, Green, true);
+        var green = View(game.Preview(), "country.green");
+        Assert.Equal("Trade Consulate", DiplomacyText.Drafted(green));
+        Assert.EndsWith("\nDrafted: Trade Consulate", DiplomacyText.Summary(green), StringComparison.Ordinal);
+
+        game.Draft.SetDeclareWar(Red, true);
+        game.Draft.SetOverture(DiplomaticOvertureKind.Peace, Red, true);
+        game.Draft.SetTradePolicy(Red, TradePolicy.Boycott);
+        Assert.Equal(
+            "Peace, Declare War, Trade policy: Boycott",
+            DiplomacyText.Drafted(View(game.Preview(), "country.red")));
+    }
+
+    [Fact]
+    public void DiplomacyLabelsAreWordsNotEnumNames()
+    {
+        Assert.Equal(
+            ["Trade Consulate", "Embassy", "Non-Aggression Pact", "Peace"],
+            Enum.GetValues<DiplomaticOvertureKind>().Select(DiplomacyText.OvertureName));
+        Assert.Equal("At peace", DiplomacyText.RelationName(CountryRelationMode.Standard));
+        Assert.Equal("Subsidy 10%", DiplomacyText.PolicyName(TradePolicy.Subsidy(10)));
+
+        var summary = DiplomacyText.Summary(View(new Game(Compile()).Preview(), "country.red"));
+        foreach (var raw in new[] { "Standard", "Consulate,", "NonAggression", "Hostile" })
+        {
+            Assert.DoesNotContain(raw, summary, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void CountriesAreListedGreatPowersFirstThenByName()
+    {
+        var document = TurnReportFixture.CreateDocument();
+        AddDiplomacy(document);
+        document.Countries =
+        [
+            .. document.Countries,
+            new CountryContentDefinition { Key = "country.amber", Name = "Amber Duchy", IsGreatPower = false },
+            new CountryContentDefinition { Key = "country.violet", Name = "Violet Kingdom", IsGreatPower = true },
+        ];
+        var game = new Game(WorldContentCompiler.CompilePackage(document));
+
+        // Id order would put Green before Amber and Violet last; name order alone Amber first.
+        Assert.Equal(
+            ["Red Empire", "Violet Kingdom", "Amber Duchy", "Green Duchy"],
+            game.Preview().Diplomacy.Countries.Select(static row => row.CountryName));
+    }
+
     private static DiplomaticCountryView View(OrdersPreview preview, string key) =>
         preview.Diplomacy.Countries.Single(row => row.CountryKey == key);
 

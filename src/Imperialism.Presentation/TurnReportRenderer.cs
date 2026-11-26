@@ -571,8 +571,9 @@ public sealed class TurnReportRenderer
         TurnReportKind.Outcome,
         delivered.Country,
         null,
-        $"{Country(delivered.Country)}'s new {Regiments(delivered.Regiments.Count, delivered.Type)} " +
-        $"mustered in {Province(delivered.Province)} and may move from next turn.");
+        $"{Country(delivered.Country)} mustered {Count(delivered.Regiments.Count)} new " +
+        $"{Plural.Noun(delivered.Regiments.Count, "regiment")} of {ArmyType(delivered.Type)} " +
+        $"in {Province(delivered.Province)}; {(delivered.Regiments.Count == 1 ? "it" : "they")} may move from next turn.");
 
     private TurnReportLine RegimentDeliveryLost(RegimentDeliveryLostEvent lost) => Line(
         lost,
@@ -951,7 +952,7 @@ public sealed class TurnReportRenderer
                 ? $"{Country(recruited.Country)} recruited {Count(recruited.Recruited)} of the " +
                   $"{Count(recruited.Requested)} asked for, paying {Quantities(recruited.Paid)}; " +
                   $"the Capitol allows {Count(recruited.SizeLimit)} a turn."
-                : $"{Country(recruited.Country)} recruited {Count(recruited.Recruited)} workers, " +
+                : $"{Country(recruited.Country)} recruited {Plural.Count(recruited.Recruited, "worker")}, " +
                   $"paying {Quantities(recruited.Paid)}.");
     }
 
@@ -964,7 +965,7 @@ public sealed class TurnReportRenderer
                 TurnReportKind.Outcome,
                 fed.Country,
                 null,
-                $"{Country(fed.Country)} fed {Count(fed.WellFed)} workers on {Quantities(fed.Eaten)}."),
+                $"{Country(fed.Country)} fed {Plural.Count(fed.WellFed, "worker")} on {Quantities(fed.Eaten)}."),
         };
 
         if (fed.Sick > 0 || fed.Starved > 0)
@@ -985,8 +986,8 @@ public sealed class TurnReportRenderer
 
     private IReadOnlyList<TurnReportLine> Extracted(ResourceExtractedEvent extracted)
     {
-        var from = $"from {Count(extracted.CollectedCellCount)} tiles and " +
-            $"{Count(extracted.FishingPortCount)} fishing ports";
+        var from = $"from {Plural.Count(extracted.CollectedCellCount, "tile")} and " +
+            $"{Plural.Count(extracted.FishingPortCount, "fishing port")}";
         var lines = new List<TurnReportLine>
         {
             Line(
@@ -1007,8 +1008,8 @@ public sealed class TurnReportRenderer
                 extracted.Country,
                 null,
                 $"{Country(extracted.Country)} stranded {Quantities(extracted.Stranded)} on " +
-                $"{Count(extracted.StrandedCellCount)} tiles and " +
-                $"{Count(extracted.StrandedPortCount)} ports no route reached."));
+                $"{Plural.Count(extracted.StrandedCellCount, "tile")} and " +
+                $"{Plural.Count(extracted.StrandedPortCount, "port")} no route reached."));
         }
 
         return lines;
@@ -1085,7 +1086,7 @@ public sealed class TurnReportRenderer
         refused.Country,
         null,
         $"{Country(refused.Country)} could not buy {Technology(refused.Technology)}: " +
-        $"{TurnReportText.Describe(refused.Reason)}.");
+        $"{TurnReportText.Describe(refused.Reason, refused.Cost, refused.CashAtTurnOpen)}.");
 
     // ---- Names and numbers ------------------------------------------------
 
@@ -1227,7 +1228,7 @@ public sealed class TurnReportRenderer
 
     private string Quantities(IReadOnlyList<CommodityQuantity> quantities) => quantities.Count == 0
         ? "nothing"
-        : Join(quantities.Select(entry => $"{Count(entry.Quantity)} {Commodity(entry.Commodity)}"));
+        : Join(quantities.Select(entry => Plural.Quantity(entry.Quantity, Commodity(entry.Commodity))));
 
     private static string Join(IEnumerable<string> parts) =>
         string.Join(", ", parts);

@@ -85,7 +85,11 @@ public sealed record ShipyardRowView(
     string? TechnologyKey,
     bool IsGated,
     long Drafted,
-    OrderWarning<ShipBuildRefusal>? Warning);
+    OrderWarning<ShipBuildRefusal>? Warning)
+{
+    /// <summary>The display name of <see cref="TechnologyKey"/>, for the player.</summary>
+    public string? TechnologyName { get; init; }
+}
 
 /// <summary>
 /// The Shipyard dialog. Hulls cost materials and never cash or labour; they are paid
@@ -857,7 +861,12 @@ public sealed partial class OrdersPreview
                 hull.RequiredTechnology is { } technology ? names.Key(technology) : null,
                 hull.RequiredTechnology is { } gate && !state.HasTechnology(country, gate),
                 draft.ShipBuilds.FirstOrDefault(row => row.Type == hull.Id).Count,
-                warnings.GetValueOrDefault(hull.Id)))
+                warnings.GetValueOrDefault(hull.Id))
+            {
+                TechnologyName = hull.RequiredTechnology is { } named
+                    ? state.Definition.Technologies[named.Value].Name
+                    : null,
+            })
             .ToArray();
         return new ShipyardView(Array.AsReadOnly(hulls));
     }

@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.RegularExpressions;
 using Godot;
 using Imperialism.Core;
 using Imperialism.Presentation;
@@ -79,7 +78,7 @@ public sealed partial class DiplomacyScreen : Control, IShellScreen
             : "Preview warns; every order can still be drafted. Rivals submit no orders. Later phases may move the treasury.";
         Clear(_countries!);
         Clear(_detail!);
-        var ordered = preview.Countries.OrderByDescending(country => country.IsGreatPower).ToArray();
+        var ordered = preview.Countries; // Presentation sorts: Great Powers first, then by name.
         if (!ordered.Any(country => country.CountryKey == _selected))
         {
             _selected = ordered.FirstOrDefault()?.CountryKey;
@@ -128,7 +127,7 @@ public sealed partial class DiplomacyScreen : Control, IShellScreen
         foreach (var option in country.Overtures)
         {
             var price = option.Price is { } cash ? string.Create(CultureInfo.InvariantCulture, $"${cash:N0}") : "unpriced";
-            _detail.AddChild(ActionButton($"Offer {Words(option.Kind)} · {price}" + (option.IsDrafted ? " · drafted" : string.Empty),
+            _detail.AddChild(ActionButton($"Offer {DiplomacyText.OvertureName(option.Kind)} · {price}" + (option.IsDrafted ? " · drafted" : string.Empty),
                 () => Change(() => _session!.Draft.SetOverture(option.Kind, target, true))));
             _detail.AddChild(Text(Warning(DiplomacyWarningText.Describe(option.Warning, country.CountryName)), "ImperialismQuiet"));
         }
@@ -164,7 +163,7 @@ public sealed partial class DiplomacyScreen : Control, IShellScreen
         {
             var target = _session!.Package.Catalog.GetCountryId(order.TargetKey);
             DraftRow(string.Create(CultureInfo.InvariantCulture,
-                $"{Name(order.TargetKey)} · {Words(order.Kind)} · claim ${order.CashCost:N0}\n{Warning(DiplomacyWarningText.Describe(order.Warning, Name(order.TargetKey)))}"),
+                $"{Name(order.TargetKey)} · {DiplomacyText.OvertureName(order.Kind)} · claim ${order.CashCost:N0}\n{Warning(DiplomacyWarningText.Describe(order.Warning, Name(order.TargetKey)))}"),
                 () => _session!.Draft.SetOverture(order.Kind, target, false));
         }
 
@@ -200,23 +199,13 @@ public sealed partial class DiplomacyScreen : Control, IShellScreen
         RefreshPreview();
     }
 
-    private static string CountrySummary(DiplomaticCountryView country) =>
-        $"{(country.IsGreatPower ? "Great Power" : "Minor nation")} · {Words(country.RelationMode)}\n" +
-        $"At war: {Yes(country.IsAtWar)} · War pending: {Yes(country.IsWarPending)} · Peace pending: {Yes(country.IsPeacePending)}\n" +
-        $"Our posts: {Posts(country.OurConsulate, country.OurEmbassy)} · Their posts: {Posts(country.TheirConsulate, country.TheirEmbassy)}\n" +
-        $"Pact ours / theirs: {Yes(country.OurPact)} / {Yes(country.TheirPact)}\n" +
-        $"Our policy: {Policy(country.OurPolicy)} · Theirs: {Policy(country.TheirPolicy)}\n" +
-        $"Drafted: {(country.DraftedPolicy is { } policy ? Policy(policy) : "no change")}";
+    private static string CountrySummary(DiplomaticCountryView country) => DiplomacyText.Summary(country);
 
-    private static string Posts(bool consulate, bool embassy) =>
-        $"consulate {Yes(consulate)}, embassy {Yes(embassy)}";
     private static string Yes(bool value) => value ? "yes" : "no";
-    private static string Policy(TradePolicy policy) => policy.Kind == TradePolicyKind.Subsidy
-        ? string.Create(CultureInfo.InvariantCulture, $"Subsidy {policy.Percent}%") : Words(policy.Kind);
+    private static string Policy(TradePolicy policy) => DiplomacyText.PolicyName(policy);
     // The sentence is Presentation's; the screen only labels it.
     private static string Warning(string sentence) =>
         sentence == DiplomacyWarningText.NoRefusal ? sentence : "Warning: " + sentence;
-    private static string Words(object value) => Regex.Replace(value.ToString()!, "([a-z])([A-Z])", "$1 $2");
     private static string WarEffects(WarEffectsView? effects) => effects is null ? "No war effects predicted." :
         $"Breaks pact: {Yes(effects.BreaksPact)} · Closes posts: {Yes(effects.ClosesPosts)}\n" +
         $"Clears our policy: {Yes(effects.ClearsOurPolicy)} · Their policy: {Yes(effects.ClearsTheirPolicy)}\n" +

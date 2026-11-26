@@ -1354,6 +1354,19 @@ public sealed record TechnologyPurchaseRefusedEvent : TurnEvent
     public TechnologyId Technology { get; }
 
     public TechnologyPurchaseRefusal Reason { get; }
+
+    /// <summary>
+    /// The price refused, set only for <see cref="TechnologyPurchaseRefusal.NotEnoughCash"/>.
+    /// </summary>
+    public long? Cost { get; init; }
+
+    /// <summary>
+    /// The country's treasury as the turn opened, set only for
+    /// <see cref="TechnologyPurchaseRefusal.NotEnoughCash"/>. Against <see cref="Cost"/>
+    /// it tells a price the treasury never covered from one that earlier spending this
+    /// turn — building, the market, the University — had first call on.
+    /// </summary>
+    public long? CashAtTurnOpen { get; init; }
 }
 
 /// <summary>Why a country's Power Plant burned nothing this turn.</summary>

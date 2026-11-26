@@ -80,9 +80,7 @@ public sealed partial class FleetScreen : Control, IShellScreen
                 else { _selected.Remove(fleet.Id); }
             };
             _content.AddChild(pick);
-            Text($"{fleet.Count} hulls · {Zone(fleet.SeaZone)} · " +
-                $"{(fleet.TaskForce is { } force ? $"Task force {force.Value}" : "Anchored, no mission")} · " +
-                $"Holds {fleet.Holds} · Reach {fleet.Reach}");
+            Text(MilitaryText.Describe(fleet, Zone(fleet.SeaZone)));
         }
 
         Heading("Task forces");
@@ -93,10 +91,9 @@ public sealed partial class FleetScreen : Control, IShellScreen
 
         foreach (var force in view.TaskForces)
         {
-            Text($"Task force {force.Id.Value} · {Zone(force.SeaZone)} · {force.Activity}" +
-                $"{Target(force.BlockadeTargetKey, NavalMissionKind.Blockade)}" +
-                $"{Target(force.LandingTargetKey, NavalMissionKind.Landing)}\n" +
-                $"{force.Ships} hulls · Holds {force.Holds} · Reach {force.Reach}");
+            var target = TargetName(force.BlockadeTargetKey, NavalMissionKind.Blockade) ??
+                TargetName(force.LandingTargetKey, NavalMissionKind.Landing);
+            Text(MilitaryText.Describe(force, Zone(force.SeaZone), target));
             foreach (var id in force.Fleets)
             {
                 var fleet = view.Fleets.First(row => row.Id == id);
@@ -207,9 +204,12 @@ public sealed partial class FleetScreen : Control, IShellScreen
     private string Zone(SeaZoneId? id) => id is { } zone
         ? _session!.World.Definition.Map.SeaZones[zone.Value].Name : "Unplaced";
 
-    private string Target(string? key, NavalMissionKind mission)
+    private string Target(string? key, NavalMissionKind mission) =>
+        TargetName(key, mission) is { } name ? $" · {name}" : string.Empty;
+
+    private string? TargetName(string? key, NavalMissionKind mission)
     {
-        if (key is null) { return string.Empty; }
+        if (key is null) { return null; }
         var session = _session!;
         var catalog = session.Package.Catalog;
         var world = session.World.Definition;
@@ -220,7 +220,7 @@ public sealed partial class FleetScreen : Control, IShellScreen
             NavalMissionKind.Move => world.Map.SeaZones[catalog.GetSeaZoneId(key).Value].Name,
             _ => key,
         };
-        return $" · {name}";
+        return name;
     }
 
     private void Heading(string text) => _content!.AddChild(new Label
