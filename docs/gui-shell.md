@@ -50,7 +50,7 @@ Technology Investment screen the microscope reaches.
 | Industry | Industry screen | Warehouse, buildings, production orders, the workforce down the left border. `Production`, `Expansions`, `RecruitWorkers`. |
 | Bid and Offers | Bid and Offers screen | Offers and bids per commodity in a fixed order. `TradeOffers`, `TradeBids`. |
 | Diplomacy | Diplomacy screen | Consulates, embassies, pacts, peace, war and trade policy per country. `Overtures`, `DeclareWar`, `TradePolicies`; previewed by `OrdersPreview.Diplomacy` (row 4e-1). The screen itself is not built. |
-| Armoury | Armoury screen | Navigable placeholder; regiment and Shipyard editing awaits the Armoury screen. |
+| Armoury | Armoury screen | Built (row 4e-2): regiment purchases per category, the garrison, and the Shipyard's hulls, from `ArmouryView` and `ShipyardView`. `RegimentPurchases`, `ShipBuilds`. |
 | Fleet | Fleet orders | Built (row 4e-2): fleet/task-force roster, assembly and commands, reach, warnings, draft list and individual clearing. |
 | Investment | Invest in Technology | The Benefits of Technology Table, its prices and arrival dates. `BuyTechnology`. |
 
@@ -276,7 +276,8 @@ the turn leaves.
 ### Fleet screen (row 4e-2 client)
 
 The plain **Fleet** button in the right navigation column opens a scrolling
-roster and order editor; **Armoury** in the left column opens a placeholder.
+roster and order editor; **Armoury** in the left column opens the Armoury screen
+below.
 Both use the existing theme, with no new art or keyboard bindings. F1–F6 retain
 their original screens; Escape returns either new screen to the map.
 
@@ -294,6 +295,33 @@ availability and restamping. Warnings leave controls usable. Each order has its
 own **Clear this order** button. Current roster missions remain separate from
 drafted changes until End Turn. An eliminated country's orders are labelled
 set aside; the preview predicts no battles or interception.
+
+### Armoury screen (row 4e-2 client)
+
+The plain **Armoury** button in the left column opens one scrolling page with
+three parts, in the existing theme and with no new art.
+
+**Regiments** lists every category from `ArmouryView.Categories`: the best type
+known as the turn opens, its worker grade, cash, bill and arms, or why it is
+unavailable. Each has **+1**, **−1** and **Clear**, which call
+`OrdersDraft.SetRegimentPurchase`; **Clear all regiment purchases** calls
+`ClearRegimentPurchases`. A drafted row shows the preview's acceptance, refusal
+or set-aside warning and its `WorkersTaken`. `CashClaimed` and `LabourWithheld`
+head the page. An unavailable category keeps its arrows, because the preview
+warns and never refuses.
+
+**Garrison** lists `ArmouryView.Regiments`: type, province, health, medals and
+any drafted destination. It is read-only; moves are given on the map.
+
+**Shipyard** lists `ShipyardView.Hulls`: merchant or warship, cargo, sea zones,
+bill and technology gate, with the same arrows through `SetShipBuild` and
+**Clear all Shipyard orders** through `ClearShipBuilds`. A drafted hull shows
+its refusal or set-aside warning.
+
+Every change re-reads `session.Preview()`. The only arithmetic in the screen is
+the arrow's ±1 on the drafted count the preview reports. An eliminated country
+gets the Fleet screen's banner (read from `FleetView.OrdersSetAside`, since
+`ArmouryView` carries no flag of its own) and each drafted row reads set aside.
 
 ## What an order remembers
 
@@ -343,7 +371,7 @@ asserts the border is somewhere a person could see it.
 res://scenes/Main.tscn  → GameShell (Control)
   top rail                screen title, hot text
   body                    left tabs · ScreenStack · right tabs
-    ScreenStack             TerrainMapScreen + FleetScreen + six StubScreens, one visible
+    ScreenStack             TerrainMapScreen + ArmouryScreen + FleetScreen + five StubScreens, one visible
   StatusBorder            always present, below everything
 ```
 
@@ -615,6 +643,21 @@ sentences as `FLEET_EVENT`, and ends with `FLEET_SMOKE_OK`. No possible order
 when combined with `--smoke-turn`. A standalone empty-draft `--smoke-turn`
 retains its output and `TURN_SMOKE_OK` fields unchanged. Godot execution and
 layout checks remain pending on Windows.
+
+```bash
+godot --headless --path src/Imperialism.Client -- --smoke-armoury --world <army.iworld> --country <country-key>
+```
+
+`--smoke-armoury` tries one regiment of each category in `ArmouryView` order
+and keeps the first the preview accepts with a nonzero `WorkersTaken`, clearing
+every other try. It prints `ARMOURY_PREVIEW` (the row, `WorkersTaken`,
+`CashClaimed` and `LabourWithheld`), runs the ordinary turn smoke, prints the
+report's sentences as `ARMOURY_EVENT`, and ends with `ARMOURY_SMOKE_OK`. If no
+purchase is accepted (the demo world has no army catalogue, or no capital, cash,
+bill or healthy worker, or an eliminated country) it prints `ARMOURY_SMOKE_FAIL`
+with a reason and exits nonzero. `--smoke-fleet` wins if both are given; this
+flag wins over `--smoke-turn`. An empty-draft `--smoke-turn` is unchanged.
+Godot execution and layout checks remain pending on Windows.
 
 ```bash
 godot --path src/Imperialism.Client --resolution 2560x1080 -- --screenshot /tmp/shots

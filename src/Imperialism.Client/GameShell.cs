@@ -35,6 +35,7 @@ public sealed partial class GameShell : Control
     private bool _smokeScreens;
     private bool _smokeTurn;
     private bool _smokeFleet;
+    private bool _smokeArmoury;
     private string? _screenshotDirectory;
 
     public override void _Ready()
@@ -45,6 +46,7 @@ public sealed partial class GameShell : Control
         _smokeScreens = arguments.Contains("--smoke-screens", StringComparer.Ordinal);
         _smokeTurn = arguments.Contains("--smoke-turn", StringComparer.Ordinal);
         _smokeFleet = arguments.Contains("--smoke-fleet", StringComparer.Ordinal);
+        _smokeArmoury = arguments.Contains("--smoke-armoury", StringComparer.Ordinal);
         _screenshotDirectory = ReadArgument(arguments, "--screenshot");
         var worldPath = ReadArgument(arguments, "--world") ?? DefaultWorldPath;
 
@@ -59,7 +61,7 @@ public sealed partial class GameShell : Control
             StartSession(
                 ReadArgument(arguments, "--scenario") ?? _package.ScenarioKeys[0],
                 ReadArgument(arguments, "--country"));
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeFleet || _screenshotDirectory is not null)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeFleet || _smokeArmoury || _screenshotDirectory is not null)
             {
                 CallDeferred(nameof(FinishSmoke));
             }
@@ -67,7 +69,7 @@ public sealed partial class GameShell : Control
         catch (Exception exception)
         {
             GD.PushError($"Could not load world package '{worldPath}': {exception.Message}");
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeFleet)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeFleet || _smokeArmoury)
             {
                 GetTree().Quit(1);
                 return;
@@ -235,8 +237,7 @@ public sealed partial class GameShell : Control
             "arrival dates. Fills CountryTurnOrders.BuyTechnology. Manual: Invest in Technology, " +
             "and docs/formulas/technology.md.");
 
-        _screens[ShellScreen.Armoury] = StubScreen.Create(
-            "Armoury", "Regiment purchases, the garrison and Shipyard orders. Manual: Armoury screen.");
+        _screens[ShellScreen.Armoury] = new ArmouryScreen();
         _screens[ShellScreen.Fleet] = new FleetScreen();
 
         foreach (var screen in ShellScreens.All)
@@ -386,6 +387,12 @@ public sealed partial class GameShell : Control
             await CaptureEveryScreen(_screenshotDirectory);
         }
 
+        if (_smokeArmoury && !_smokeFleet)
+        {
+            await ReportArmourySmoke();
+            return;
+        }
+
         if (_smokeFleet)
         {
             try
@@ -431,6 +438,36 @@ public sealed partial class GameShell : Control
 
         var ok = _smokeScreens ? ReportScreenSmoke() : ReportViewerSmoke();
         GetTree().Quit(ok ? 0 : 1);
+    }
+
+    private async Task ReportArmourySmoke()
+    {
+        try
+        {
+            var drafted = ArmourySmoke.DraftAcceptedPurchase(_session!);
+            if (drafted is not { } purchase)
+            {
+                GD.PushError("ARMOURY_SMOKE_FAIL: no regiment purchase is accepted by the preview; choose a world/country with a capital, a purchasable category, healthy workers, its bill and its cash.");
+                GetTree().Quit(1);
+                return;
+            }
+
+            GD.Print($"ARMOURY_PREVIEW {ArmourySmoke.Describe(purchase.Row).Replace('\n', ' ')} · " +
+                $"Cash claimed {purchase.Armoury.CashClaimed} · Labour withheld {purchase.Armoury.LabourWithheld}");
+            var turnOk = await ReportTurnSmoke(null);
+            foreach (var phase in _session!.LastReport!.Phases)
+            {
+                foreach (var line in phase.Lines) { GD.Print($"ARMOURY_EVENT {phase.Phase}: {line.Text}"); }
+            }
+
+            GD.Print(turnOk ? "ARMOURY_SMOKE_OK" : "ARMOURY_SMOKE_FAIL: turn report or overlay checks failed.");
+            GetTree().Quit(turnOk ? 0 : 1);
+        }
+        catch (Exception exception)
+        {
+            GD.PushError($"ARMOURY_SMOKE_FAIL: {exception.Message}");
+            GetTree().Quit(1);
+        }
     }
 
     /// <summary>
