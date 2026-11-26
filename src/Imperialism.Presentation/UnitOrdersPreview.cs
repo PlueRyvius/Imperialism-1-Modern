@@ -74,6 +74,12 @@ public sealed class UnitOrdersView
 
     public IReadOnlyList<UnitTargetView> Targets { get; }
 
+    /// <summary>
+    /// The drafting country is eliminated: Core sets every order aside, so nothing listed
+    /// here would happen, whatever its <see cref="UnitTargetView.Warning"/>.
+    /// </summary>
+    public bool OrdersSetAside { get; init; }
+
     /// <summary>What ordering this civilian to this cell, with this verb, would meet.</summary>
     public UnitTargetView Evaluate(CellIndex cell, UnitOrderVerb verb) => _evaluator(cell, verb);
 }
@@ -115,6 +121,14 @@ public sealed record CivilianOrdersPreview(
 {
     /// <summary>Paid at the Armoury in <c>Production</c>, the first claim of all.</summary>
     public long ClaimedByArmoury { get; init; }
+
+    /// <summary>
+    /// The drafting country is eliminated as the turn opens: Core sets every order aside
+    /// and reports <see cref="EliminatedCountryOrdersIgnoredEvent"/>, so no civilian
+    /// moves or works and <see cref="CommittedCost"/> is zero. Each drafted order still
+    /// carries the check Core would have made.
+    /// </summary>
+    public bool OrdersSetAside { get; init; }
 }
 
 /// <summary>
@@ -713,7 +727,10 @@ public sealed partial class OrdersPreview
             Describe(world, civilian, order),
             At(own).Cash,
             Array.AsReadOnly(targets.ToArray()),
-            Evaluate);
+            Evaluate)
+        {
+            OrdersSetAside = state.IsEliminated(country),
+        };
     }
 
     private static UnitOrderKind KindOf(UnitOrderVerb verb) => verb switch
@@ -743,6 +760,7 @@ public sealed partial class OrdersPreview
         var world = state.Definition;
         var country = draft.Country;
         var before = CashBeforeCivilians(state, draft);
+        var setAside = state.IsEliminated(country);
         var (_, outcomes) = CivilianOrderSimulation.Run(state, country, before, draft.UnitOrders);
         var byUnit = outcomes.ToDictionary(static row => row.Order.Unit, static row => row.Outcome);
         var civilians = state.GetCivilians(country)
@@ -758,11 +776,12 @@ public sealed partial class OrdersPreview
             ClaimedByOvertures(state, draft),
             ClaimedByBids(state, draft),
             before,
-            outcomes.Where(static row => row.Outcome.IsAccepted).Sum(static row => row.Outcome.CashCost),
+            setAside ? 0 : outcomes.Where(static row => row.Outcome.IsAccepted).Sum(static row => row.Outcome.CashCost),
             Array.AsReadOnly(civilians),
             Array.AsReadOnly(others))
         {
             ClaimedByArmoury = ClaimedByArmoury(state, draft),
+            OrdersSetAside = setAside,
         };
     }
 
