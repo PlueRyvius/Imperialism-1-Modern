@@ -9,11 +9,20 @@ internal static class DiplomacySmoke
 {
     public static bool Run(GameSession session)
     {
-        var target = session.Preview().Diplomacy.Countries.FirstOrDefault(country =>
-            country.IsGreatPower && !country.OurConsulate);
+        var countries = session.Preview().Diplomacy.Countries;
+        var ourCountryKey = session.Package.Catalog.GetKey(session.LocalCountry);
+        var target = countries.FirstOrDefault(country =>
+            country.CountryKey != ourCountryKey &&
+            !country.IsGreatPower &&
+            !country.IsEliminated &&
+            !country.OurConsulate) ??
+            countries.FirstOrDefault(country =>
+                country.CountryKey != ourCountryKey &&
+                !country.IsEliminated &&
+                !country.OurConsulate);
         if (target is null)
         {
-            GD.PushError("DIPLOMACY_SMOKE_FAIL: no other Great Power without our consulate exists.");
+            GD.PushError("DIPLOMACY_SMOKE_FAIL: no other eligible country without our consulate exists.");
             return false;
         }
 
@@ -27,6 +36,12 @@ internal static class DiplomacySmoke
             $"warning={option.Warning?.ToString() ?? "none"} CashAtOpen={preview.CashAtOpen} " +
             $"ClaimedBeforeDiplomacy={preview.ClaimedBeforeDiplomacy} ClaimedByOvertures={preview.ClaimedByOvertures} " +
             $"CashAfterOvertures={preview.CashAfterOvertures}"));
+        if (!option.IsAccepted)
+        {
+            GD.PushError($"DIPLOMACY_SMOKE_FAIL: consulate overture at {target.CountryKey} refused: {option.Warning}");
+            return false;
+        }
+
         var report = session.EndTurn();
         foreach (var phase in report.Phases)
         {
