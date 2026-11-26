@@ -43,7 +43,7 @@ public sealed class GameSession
         Map = map;
         WorldView = WorldViewState.Create(package, scenarioKey, world);
         Status = CountryStatusView.Create(package, scenarioKey, world, localCountry);
-        Draft = new OrdersDraft(world.Definition, localCountry);
+        Draft = new OrdersDraft(world, localCountry);
     }
 
     /// <summary>Raised after both snapshots have been re-issued.</summary>

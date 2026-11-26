@@ -208,7 +208,9 @@ unit's raw `UNITS_SMOKE_EVENT` and rendered `UNITS_SMOKE_RESOLVED` lines, then
 idle civilian or clean target exists, the draft preview disagrees, no accepted
 unit event resolves, any unit refusal occurs, or the order survives End Turn.
 It exercises the screen's draft adapter and real session, not mouse routing.
-Run it separately from `--smoke-turn`, whose empty-draft output is unchanged.
+Run it separately from `--smoke-turn`; the default demo's unlimited transport
+keeps its baseline output unchanged, while limited-capacity worlds start with
+food-first transport defaults.
 Godot runtime checks and screenshots remain pending the Windows PC run.
 
 ### Armoury, Shipyard and regiment moves (row 4e-2)
@@ -567,6 +569,12 @@ screen explains. Zero capacity disables sliders; worlds without a transport limi
 are labelled unlimited. Numeric input is limited to the exact integer range of
 Godot's double-valued controls, not a new economic rule.
 
+**Chosen rule, pending comparison with the original game's Transport screen:** a
+new draft fills capacity with feeding commodities first, then the remaining
+commodities in world order. `OrdersPreview` does not know expected harvest, so each
+default row is capped by the capacity still available. Submitted allocations
+carry into the next turn, and a player's edits replace those defaults.
+
 Entering either screen inserts missing rows at zero without changing existing
 quantities or priorities. Editing a control writes to `session.Draft`, then reads
 `Preview()` again. Updating widget ranges suppresses input signals: a standing
@@ -817,9 +825,11 @@ turn smoke (including newspaper and report checks), prints the report's event
 sentences as `FLEET_EVENT`, and ends with `FLEET_SMOKE_OK`. No possible order
 (including a fleetless demo, unplaced fleets or an eliminated country) prints
 `FLEET_SMOKE_FAIL` with a reason and exits nonzero. This flag takes precedence
-when combined with `--smoke-turn`. A standalone empty-draft `--smoke-turn`
-retains its output and `TURN_SMOKE_OK` fields unchanged. Godot execution and
-layout checks remain pending on Windows.
+when combined with `--smoke-turn`. The default demo's standalone `--smoke-turn`
+output remains unchanged because it has unlimited transport; a limited-capacity
+world may report additional carried cargo. The gate checks nonzero event and line
+counts and 14 phases, not fixed event totals. Godot execution and layout checks
+remain pending on Windows.
 
 ```bash
 godot --headless --path src/Imperialism.Client -- --smoke-armoury --world <army.iworld> --country <country-key>
@@ -833,7 +843,8 @@ report's sentences as `ARMOURY_EVENT`, and ends with `ARMOURY_SMOKE_OK`. If no
 purchase is accepted (the demo world has no army catalogue, or no capital, cash,
 bill or healthy worker, or an eliminated country) it prints `ARMOURY_SMOKE_FAIL`
 with a reason and exits nonzero. `--smoke-fleet` wins if both are given; this
-flag wins over `--smoke-turn`. An empty-draft `--smoke-turn` is unchanged.
+flag wins over `--smoke-turn`. On a limited-capacity world, the turn report may
+include cargo carried by the seeded transport allocation.
 Godot execution and layout checks remain pending on Windows.
 
 ```bash
@@ -851,7 +862,8 @@ lines, then `DIPLOMACY_SMOKE_OK`. A predicted refusal is valid smoke output;
 use a funded scenario with diplomacy prices to observe an accepted consulate.
 If no candidate exists, it prints `DIPLOMACY_SMOKE_FAIL` and exits non-zero.
 This mode takes precedence over other smoke/screenshot flags. Run it separately
-from `--smoke-turn`, whose empty-draft output is unchanged.
+from `--smoke-turn`; limited-capacity worlds start with food-first transport
+defaults, which can add carried-cargo events to the report.
 
 `--smoke-test` keeps the Phase 1 line's prefix and first six fields exactly, so
 anything parsing it still works; new fields are appended and never reordered.
@@ -863,6 +875,10 @@ VIEWER_SMOKE_OK map=… scenarios=… dimensions=…x… cells=… pickedCenters
 SHELL_SMOKE_OK screens=8 visited=8 country=… theme=pass borderVisible=yes
 TURN_SMOKE_OK turn=1 from=1815 Q1 to=1815 Q2 events=8 phases=14 lines=9 reportVisible=yes dismissed=yes country=… seed=1 paperLines=2 paperVisible=yes paperDismissed=yes
 ```
+
+This sample is the default demo world, which has unlimited transport. A supplied
+limited-capacity world starts with a food-first allocation and can report extra
+cargo events and lines; the smoke checks nonzero counts rather than those totals.
 
 `paperLines` counts story text rows (headline and body separately) plus the
 optional overflow row; it excludes the masthead and date and does not count
@@ -975,8 +991,10 @@ Manual checklist:
    unit and first clean target, the matching draft/preview, raw and rendered
    resolved events for that unit, matching target/cost, `UNITS_SMOKE_OK`, exit 0
    and cleared draft. A scenario without an idle civilian must fail clearly with
-   exit 1. Run `--smoke-turn` separately with an empty draft and confirm its
-   existing fields, newspaper/report visibility and dismissal remain unchanged.
+   exit 1. Run `--smoke-turn` separately on the default demo and confirm its
+   fields, newspaper/report visibility and dismissal. For a limited-capacity
+   world, confirm the food-first default carries cargo and the event/line counts
+   remain nonzero.
 7. At 1440x900, 1920x1080 and 2560x1080, confirm labels, hover text, controls and
    the status border fit without overlap. Capture the selected Engineer and a
    warned target alongside the original for Andy's visual review.

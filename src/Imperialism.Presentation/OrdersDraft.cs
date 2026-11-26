@@ -88,6 +88,24 @@ public sealed class OrdersDraft
     private long _burnFuel;
 
     public OrdersDraft(WorldDefinition world, CountryId country)
+        : this(world, country, null)
+    {
+    }
+
+    /// <summary>
+    /// Starts a player's draft from the world's current transport capacity. The
+    /// transport rows are a Presentation default; the runtime state is read only
+    /// for its current capacity and is not retained.
+    /// </summary>
+    public OrdersDraft(WorldState state, CountryId country)
+        : this(
+            state?.Definition ?? throw new ArgumentNullException(nameof(state)),
+            country,
+            CurrentTransportCapacity(state, country))
+    {
+    }
+
+    private OrdersDraft(WorldDefinition world, CountryId country, long? initialTransportCapacity)
     {
         ArgumentNullException.ThrowIfNull(world);
         if ((uint)country.Value >= (uint)world.Countries.Count)
@@ -97,6 +115,10 @@ public sealed class OrdersDraft
 
         _world = world;
         Country = country;
+        if (initialTransportCapacity is { } capacity)
+        {
+            InitializeTransportDefaults(capacity);
+        }
     }
 
     public CountryId Country { get; }
@@ -285,6 +307,45 @@ public sealed class OrdersDraft
     {
         RequireIndex(commodity.Value, _world.Commodities.Count, nameof(commodity));
         Set(_transport, commodity, quantity);
+    }
+
+    private void InitializeTransportDefaults(long capacity)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(capacity);
+        if (_world.Transport is null)
+        {
+            return;
+        }
+
+        HashSet<CommodityId> foods = _world.Feeding is { } feeding
+            ? feeding.PreferenceCycle.SelectMany(static preference => preference.Accepted)
+                .Concat(feeding.CannedFood is { } canned ? [canned] : Array.Empty<CommodityId>())
+                .ToHashSet()
+            : [];
+        var ordered = _world.Commodities
+            .Select(static commodity => commodity.Id)
+            .OrderBy(commodity => foods.Contains(commodity) ? 0 : 1);
+
+        var remaining = capacity;
+        foreach (var commodity in ordered)
+        {
+            // OrdersPreview does not know this turn's harvest yet, so the chosen
+            // default uses the remaining shared capacity as this row's ceiling.
+            var quantity = remaining;
+            _transport.Add((commodity, quantity));
+            remaining -= quantity;
+        }
+    }
+
+    private static long CurrentTransportCapacity(WorldState state, CountryId country)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if ((uint)country.Value >= (uint)state.Definition.Countries.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(country));
+        }
+
+        return state.GetTransportCapacity(country);
     }
 
     public bool MoveTransportUp(CommodityId commodity) => Move(_transport, commodity, -1);

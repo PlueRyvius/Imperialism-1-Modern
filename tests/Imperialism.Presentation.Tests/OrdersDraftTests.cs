@@ -14,6 +14,86 @@ namespace Imperialism.Presentation.Tests;
 public sealed class OrdersDraftTests
 {
     [Fact]
+    public void APlayerDraftStartsWithFoodFirstThenWorldCommodityOrder()
+    {
+        var package = OrdersFixture.Compile(document =>
+        {
+            var commodities = document.Commodities.ToArray();
+            document.Commodities =
+            [
+                commodities.Single(static item => item.Key == "commodity.lumber"),
+                commodities.Single(static item => item.Key == "commodity.grain"),
+                .. commodities.Where(static item => item.Key is not ("commodity.grain" or "commodity.lumber")),
+            ];
+            document.Feeding!.CannedFood = "commodity.canned-food";
+            foreach (var scenario in document.Scenarios)
+            {
+                scenario.TransportCapacity =
+                [
+                    new TransportCapacityContent { Country = "country.blue", Capacity = 4 },
+                    new TransportCapacityContent { Country = "country.red", Capacity = 40 },
+                ];
+            }
+        });
+        var state = NewState(package);
+
+        var draft = new OrdersDraft(state, Blue);
+
+        Assert.Equal(
+            ["commodity.grain", "commodity.canned-food", "commodity.lumber", "commodity.timber", "commodity.steel"],
+            draft.Transport.Select(row => package.Catalog.GetKey(row.Commodity)));
+        Assert.Equal([4L, 0L, 0L, 0L, 0L], draft.Transport.Select(static row => row.Quantity));
+
+        // Editing the default remains an ordinary draft edit, including setting a
+        // seeded request to zero.
+        var lumber = Commodity(package, "commodity.lumber");
+        draft.SetTransport(Commodity(package, "commodity.grain"), 0);
+        draft.SetTransport(lumber, 2);
+        Assert.Equal([new TransportAllocationOrder(lumber, 2)], draft.Build().Transport);
+    }
+
+    [Fact]
+    public void APlayerDraftUsesRemainingCapacityWhenHarvestIsNotPreviewed()
+    {
+        var package = OrdersFixture.Compile();
+        var state = NewState(package);
+
+        var draft = new OrdersDraft(state, Blue);
+        var preview = OrdersPreview.Create(package, Scenario, state, draft).Transport;
+
+        // The transport preview reports shared capacity but does not forecast
+        // Extraction, so the chosen first-turn request uses that capacity ceiling.
+        Assert.Equal(1, state.GetTransportCapacity(Blue));
+        Assert.Equal(1, draft.Transport.Sum(static row => row.Quantity));
+        Assert.All(draft.Transport, row => Assert.InRange(row.Quantity, 0, state.GetTransportCapacity(Blue)));
+        Assert.Equal(1, preview.Used);
+
+        var resolution = TurnResolver.Resolve(state, draft.BuildTurnOrders(), 1);
+        var carried = Assert.Single(
+            resolution.Events.OfType<CommoditiesTransportedEvent>(), item => item.Country == Blue);
+        Assert.Equal(1, carried.CapacityUsed);
+    }
+
+    [Fact]
+    public void TransportAllocationsSubmittedLastTurnRemainInTheNextDraft()
+    {
+        var package = OrdersFixture.Compile();
+        var state = NewState(package);
+        var draft = new OrdersDraft(state, Blue);
+        var grain = Commodity(package, "commodity.grain");
+        var steel = Commodity(package, "commodity.steel");
+        draft.SetTransport(grain, 3);
+        draft.SetTransport(steel, 2);
+        var submitted = draft.Build().Transport;
+
+        draft.AdvanceTurn();
+
+        Assert.Equal(submitted, draft.Build().Transport);
+        Assert.Equal([3L, 2L], draft.Transport.Where(row => row.Commodity == grain || row.Commodity == steel)
+            .Select(static row => row.Quantity));
+    }
+
+    [Fact]
     public void BuildMapsEveryDraftedFieldOneToOneAndLeavesZeroRowsOut()
     {
         var package = Compile();
