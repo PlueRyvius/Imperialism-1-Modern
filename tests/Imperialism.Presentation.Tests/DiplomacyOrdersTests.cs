@@ -305,6 +305,26 @@ public sealed class DiplomacyOrdersTests
     }
 
     [Fact]
+    public void TheTreasuryAfterOverturesIsTheResolvedTreasury()
+    {
+        // Two overtures: a consulate Core accepts and an embassy it refuses for want of
+        // a consulate. Nothing else in this world moves Blue's cash, so the screen's
+        // figure must be the treasury the next turn opens with.
+        var game = new Game(Compile(blueCash: 5000));
+        game.Draft.SetOverture(DiplomaticOvertureKind.Consulate, Green, true);
+        game.Draft.SetOverture(DiplomaticOvertureKind.Embassy, Green, true);
+        var preview = game.Preview().Diplomacy;
+        Assert.Equal(5000, preview.CashAtOpen);
+        Assert.Equal(0, preview.ClaimedBeforeDiplomacy);
+        Assert.Equal(500, preview.ClaimedByOvertures);
+        Assert.Equal(4500, preview.CashAfterOvertures);
+
+        var events = game.EndTurn();
+        Assert.Equal(2, events.Count(item => item is DiplomaticOvertureAcceptedEvent or DiplomaticOvertureRefusedEvent));
+        Assert.Equal(preview.CashAfterOvertures, game.State.GetCash(Blue));
+    }
+
+    [Fact]
     public void AnOvertureTheTreasuryCannotPayIsRefusedAndCostsNothing()
     {
         var game = new Game(Compile(blueCash: 400));

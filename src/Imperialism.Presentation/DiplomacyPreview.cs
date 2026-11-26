@@ -127,9 +127,11 @@ public sealed record DraftedPolicyView(
 /// <remarks>
 /// <para>
 /// Overtures are paid in <c>Diplomacy</c>, the first phase, from the treasury less what
-/// the Industry screen's training, University and Armoury claim. Only the Armoury is in
-/// the draft, so overtures see <see cref="ClaimedByArmoury"/> gone, and bids, civilians
-/// and research each see both gone.
+/// the Industry screen's training, University and Armoury claim — Core plans them against
+/// <c>production.CashClaimed</c>. That earlier claim is
+/// <see cref="ClaimedBeforeDiplomacy"/>; of the three only the Armoury is drafted, so it
+/// is <see cref="ClaimedByArmoury"/>.
+/// Bids, civilians and research each see <see cref="ClaimedByOvertures"/> gone.
 /// </para>
 /// <para>
 /// Rivals submit nothing, so no Great Power offers peace back and every peace offered
@@ -137,6 +139,16 @@ public sealed record DraftedPolicyView(
 /// No rival declares war this turn either.
 /// </para>
 /// </remarks>
+/// <param name="CashAtOpen">The treasury as the turn opens.</param>
+/// <param name="ClaimedBeforeDiplomacy">
+/// Cash the Industry screen's drafted orders claim before overtures are paid.
+/// </param>
+/// <param name="ClaimedByOvertures">Cash the accepted overtures take.</param>
+/// <param name="CashAfterOvertures">
+/// What the treasury holds once both claims are paid: the figure the Diplomacy screen
+/// shows, so no client script subtracts. Later phases (trade, civilians, research,
+/// income) still move the treasury after it.
+/// </param>
 /// <param name="IsOffered">The world prices consulates and embassies.</param>
 /// <param name="OrdersSetAside">
 /// The drafting country is eliminated: Core sets every order aside before anything
@@ -144,7 +156,9 @@ public sealed record DraftedPolicyView(
 /// </param>
 public sealed record DiplomacyPreview(
     long CashAtOpen,
+    long ClaimedBeforeDiplomacy,
     long ClaimedByOvertures,
+    long CashAfterOvertures,
     bool IsGreatPower,
     bool OrdersSetAside,
     bool IsOffered,
@@ -154,7 +168,10 @@ public sealed record DiplomacyPreview(
     IReadOnlyList<DraftedWarView> Declarations,
     IReadOnlyList<DraftedPolicyView> Policies)
 {
-    /// <summary>Paid at the Armoury in <c>Production</c>, before any overture.</summary>
+    /// <summary>
+    /// Paid at the Armoury in <c>Production</c>, before any overture: so far the only
+    /// drafted part of <see cref="ClaimedBeforeDiplomacy"/>.
+    /// </summary>
     public long ClaimedByArmoury { get; init; }
 }
 
@@ -173,13 +190,10 @@ internal sealed class DiplomacySimulation
     private readonly HashSet<CountryId> _peace = [];
     private readonly HashSet<CountryId> _declared = [];
 
-    private readonly long _claimedBefore;
-
-    private DiplomacySimulation(WorldState state, CountryId country, long claimedBefore)
+    private DiplomacySimulation(WorldState state, CountryId country)
     {
         _state = state;
         _country = country;
-        _claimedBefore = claimedBefore;
     }
 
     public List<(DiplomaticOverture Order, long Cost, DiplomaticOvertureRefusal? Refusal)> Overtures { get; } = [];
@@ -187,9 +201,6 @@ internal sealed class DiplomacySimulation
     public List<(TradePolicyOrder Order, TradePolicyRefusal? Refusal)> Policies { get; } = [];
 
     public List<(CountryId Target, WarDeclarationRefusal? Refusal, WarEffectsView? Effects)> Declarations { get; } = [];
-
-    /// <summary>Cash claimed in <c>Production</c> before any overture is paid.</summary>
-    public long ClaimedBefore => _claimedBefore;
 
     /// <summary>Cash the accepted overtures take.</summary>
     public long CashClaimed { get; private set; }
@@ -202,8 +213,8 @@ internal sealed class DiplomacySimulation
         IEnumerable<TradePolicyOrder> policies,
         long claimedBefore)
     {
-        var simulation = new DiplomacySimulation(state, country, claimedBefore);
-        simulation.RunOvertures(overtures, declarations);
+        var simulation = new DiplomacySimulation(state, country);
+        simulation.RunOvertures(overtures, declarations, claimedBefore);
         simulation.RunPolicies(policies);
         simulation.RunDeclarations(declarations);
         return simulation;
@@ -213,12 +224,13 @@ internal sealed class DiplomacySimulation
     public TradePolicy PolicyAfter(CountryId grantor, CountryId target) =>
         _policies.TryGetValue((grantor, target), out var policy) ? policy : _state.GetTradePolicy(grantor, target);
 
-    private void RunOvertures(IEnumerable<DiplomaticOverture> overtures, IReadOnlyList<CountryId> declarations)
+    private void RunOvertures(
+        IEnumerable<DiplomaticOverture> overtures, IReadOnlyList<CountryId> declarations, long claimedBefore)
     {
         var settings = _state.Definition.Diplomacy;
 
-        // Production's cash claims come first: of those, only the Armoury is drafted.
-        var available = Math.Max(0, _state.GetCash(_country) - _claimedBefore);
+        // Core's DiplomacyPlanner: the treasury less what production claimed first.
+        var available = Math.Max(0, _state.GetCash(_country) - claimedBefore);
         var ordered = new HashSet<(DiplomaticOvertureKind, CountryId)>();
         foreach (var overture in overtures)
         {
@@ -519,7 +531,20 @@ public sealed partial class OrdersPreview
 
     private static DiplomacySimulation SimulateDiplomacy(WorldState state, OrdersDraft draft) =>
         DiplomacySimulation.Run(
-            state, draft.Country, draft.Overtures, draft.DeclareWar, draft.TradePolicies, ClaimedByArmoury(state, draft));
+            state,
+            draft.Country,
+            draft.Overtures,
+            draft.DeclareWar,
+            draft.TradePolicies,
+            ClaimedBeforeDiplomacy(state, draft));
+
+    /// <summary>
+    /// Cash the drafted Industry-screen orders claim before <c>Diplomacy</c> pays any
+    /// overture — Core's <c>production.CashClaimed</c>. Of training, the University and
+    /// the Armoury, only the Armoury is drafted yet; the others add here when they are.
+    /// </summary>
+    private static long ClaimedBeforeDiplomacy(WorldState state, OrdersDraft draft) =>
+        ClaimedByArmoury(state, draft);
 
     /// <summary>Cash the drafted overtures take in <c>Diplomacy</c>, ahead of everything else.</summary>
     private static long ClaimedByOvertures(WorldState state, OrdersDraft draft) =>
@@ -530,6 +555,7 @@ public sealed partial class OrdersPreview
         var world = state.Definition;
         var country = draft.Country;
         var settings = world.Diplomacy;
+        var claimedBefore = ClaimedBeforeDiplomacy(state, draft);
         var drafted = SimulateDiplomacy(state, draft);
 
         var countries = new List<DiplomaticCountryView>();
@@ -554,7 +580,7 @@ public sealed partial class OrdersPreview
                 else
                 {
                     var appended = DiplomacySimulation.Run(
-                        state, country, draft.Overtures.Append(overture), draft.DeclareWar, [], drafted.ClaimedBefore);
+                        state, country, draft.Overtures.Append(overture), draft.DeclareWar, [], claimedBefore);
                     warning = appended.Overtures[^1].Refusal;
                 }
 
@@ -568,7 +594,7 @@ public sealed partial class OrdersPreview
             var war = warIndex >= 0
                 ? drafted.Declarations[warIndex]
                 : DiplomacySimulation.Run(
-                    state, country, draft.Overtures, [.. draft.DeclareWar, target], draft.TradePolicies, drafted.ClaimedBefore)
+                    state, country, draft.Overtures, [.. draft.DeclareWar, target], draft.TradePolicies, claimedBefore)
                     .Declarations[^1];
 
             var draftedPolicy = draft.GetTradePolicy(target);
@@ -606,9 +632,12 @@ public sealed partial class OrdersPreview
                 ours.Kind != TradePolicyKind.Boycott && theirs.Kind != TradePolicyKind.Boycott));
         }
 
+        var cashAtOpen = state.GetCash(country);
         return new DiplomacyPreview(
-            state.GetCash(country),
+            cashAtOpen,
+            claimedBefore,
             drafted.CashClaimed,
+            cashAtOpen - claimedBefore - drafted.CashClaimed,
             world.Countries[country.Value].IsGreatPower,
             state.IsEliminated(country),
             settings is not null,
@@ -625,7 +654,7 @@ public sealed partial class OrdersPreview
                 .Select(row => new DraftedPolicyView(names.Key(row.Order.Target), row.Order.Policy, row.Refusal))
                 .ToArray()))
         {
-            ClaimedByArmoury = drafted.ClaimedBefore,
+            ClaimedByArmoury = ClaimedByArmoury(state, draft),
         };
     }
 }

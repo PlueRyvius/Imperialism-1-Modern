@@ -31,9 +31,23 @@ public sealed class MilitaryOrdersTests
     /// Blue holds two arms, six lumber, two Regulars and a Militia at home, and one
     /// Regular in East. A Regular costs an untrained worker, one arms and $500.
     /// </summary>
-    private static CompiledWorldPackage Compile(long blueCash = 5000, long blueTransport = 40)
+    private static CompiledWorldPackage Compile(long blueCash = 5000, long blueTransport = 40, bool diplomacy = false)
     {
         var document = TurnReportFixture.CreateDocument();
+        if (diplomacy)
+        {
+            // Posts priced, and a Minor Nation with no ground that Blue holds no post in.
+            document.Diplomacy = new DiplomacyContentSettings
+            {
+                ConsulateCost = 500, EmbassyCost = 5000, SubsidyPercents = [5, 10],
+            };
+            document.Countries =
+            [
+                .. document.Countries,
+                new CountryContentDefinition { Key = "country.green", Name = "Green Duchy", IsGreatPower = false },
+            ];
+        }
+
         document.Commodities =
         [
             .. document.Commodities,
@@ -366,6 +380,33 @@ public sealed class MilitaryOrdersTests
         game.Draft.SetShipBuild(Frigate, 2);
         Assert.Equal(ShipBuildRefusal.NotEnoughCommodities, game.Preview().Shipyard.Hulls[Frigate.Value].Warning);
         game.EndTurn();
+    }
+
+    [Theory]
+    [InlineData(1500, null, 0)]
+    [InlineData(1400, DiplomaticOvertureRefusal.NotEnoughCash, 400)]
+    public void TheArmouryIsPaidBeforeOverturesAndTheTreasuryAfterBothIsTheResolvedOne(
+        long cash, DiplomaticOvertureRefusal? expected, long after)
+    {
+        // Core pays the Armoury in Production and plans overtures against what it
+        // leaves, so $1,400 buys two Regulars and then cannot open a $500 consulate.
+        var game = new Game(Compile(blueCash: cash, diplomacy: true));
+        var green = new CountryId(2);
+        game.Draft.SetRegimentPurchase(ArmyCategory.RegularInfantry, 2);
+        game.Draft.SetOverture(DiplomaticOvertureKind.Consulate, green, true);
+        var preview = game.Preview().Diplomacy;
+        Assert.Equal(cash, preview.CashAtOpen);
+        Assert.Equal(1000, preview.ClaimedBeforeDiplomacy);
+        Assert.Equal(1000, preview.ClaimedByArmoury);
+        Assert.Equal(expected, preview.Overtures.Single().Warning);
+        Assert.Equal(after, preview.CashAfterOvertures);
+
+        var events = game.EndTurn();
+        Assert.Equal(
+            expected,
+            events.OfType<DiplomaticOvertureRefusedEvent>().SingleOrDefault(item => item.Country == Blue)?.Reason);
+        Assert.Equal(expected is null, game.State.HoldsDiplomaticTie(Blue, green, DiplomaticTie.Consulate));
+        Assert.Equal(preview.CashAfterOvertures, game.State.GetCash(Blue));
     }
 
     [Fact]
