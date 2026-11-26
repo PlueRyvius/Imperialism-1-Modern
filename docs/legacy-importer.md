@@ -154,8 +154,8 @@ deployment, movement, losses, capture, or combat resolution.
 
 `civi` records are converted rather than deferred. The record is `[type, cell]`
 and names **no owner** — the original reads it off the province the cell sits
-in, and the corpus supports that without exception: all 210 records across the
-ten scenarios stand on owned land, and every owner holds a capital. Off-map,
+in, and the corpus supports that without exception: all 203 records across the
+nine shipped reference scenarios stand on owned land, and every owner holds a capital. Off-map,
 ocean, unowned-land and unknown-type records are errors. Stacking is allowed;
 `s1` gives one power two Miners. The importer declares seven civilian types: the
 six the corpus uses, plus the Oil Driller, which no `civi` record is but which

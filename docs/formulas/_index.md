@@ -316,9 +316,10 @@ document, because each is a lesson about evidence:
 Prospecting is the closest this table comes to a mechanic recovered without any
 invention. The manual states the hidden five, the searchable terrain, the one
 technology gate, and that knowledge is per Great Power and permanent; the corpus
-then agrees with the terrain rule from the other direction, counting **4,449**
-searchable tiles across the ten scenarios, which is the same number
-`development.md` reached by counting barren hills and mountains for a different
+then agrees with the terrain rule from the other direction, counting **4,248**
+searchable tiles across the nine shipped reference scenarios. With the generated
+`s5`'s 201 that was 4,449, the same number `development.md` reached by counting
+barren hills and mountains, on that same ten-file set, for a different
 purpose. It carries **no new guess** — a search reuses the work duration already
 flagged there. What it does carry is a live consequence: **oil is unreachable in
 imported content** until research exists, because the gate is real and nothing
