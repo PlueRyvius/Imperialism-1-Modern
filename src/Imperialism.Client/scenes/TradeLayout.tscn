@@ -1,0 +1,35 @@
+[gd_scene format=3]
+
+[node name="TradeLayout" type="PanelContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Column" type="VBoxContainer" parent="."]
+
+[node name="Title" type="Label" parent="Column"]
+theme_type_variation = &"ImperialismScreenTitle"
+text = "Bid and Offers"
+
+[node name="Budget" type="Label" parent="Column"]
+autowrap_mode = 3
+
+[node name="Warning" type="Label" parent="Column"]
+theme_type_variation = &"ImperialismQuiet"
+autowrap_mode = 3
+
+[node name="Help" type="Label" parent="Column"]
+theme_type_variation = &"ImperialismQuiet"
+autowrap_mode = 3
+text = "Offers use stock left after industry claims. Bids are requests, not guaranteed deliveries; final prices and cargo depend on the market. Offers and bids clear after End Turn. Escape returns to the map."
+
+[node name="RowsScroll" type="ScrollContainer" parent="Column"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Rows" type="VBoxContainer" parent="Column/RowsScroll"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 6

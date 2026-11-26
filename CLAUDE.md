@@ -156,6 +156,12 @@ recoverable from the corpus at all. See `docs/formulas/_index.md`.
 
 ## Current state
 
+Phase 4 row 4d-2 adds civilian markers, per-verb target highlights, hover costs
+and warnings, draft/clear controls and Escape deselection to the Terrain Map.
+`--smoke-units` exercises a civilian order through the real session; Windows
+Godot interaction, smoke and screenshot acceptance are still pending. See
+`docs/gui-shell.md` for controls and the exact PC checklist.
+
 Phases 0 and 1 are complete. `src/Imperialism.Formats/` is the production .NET 8
 formats library for `.map`, binary/plaintext scenarios, and editable `.inf`
 files, and it is now the only parser here. The extensionless plaintext filenames
@@ -688,12 +694,11 @@ shipped at v19 is retracted. One assertion changed in the whole suite:
 six disputed positions.
 
 **The two falsification counts are unverified against this change, and that matters.** The
-analysis says 380/4 and 1,140/0 cannot move under a permutation within a prefix, and the
-tests holding them return silently unless `IMPERIALISM_SCENARIO_DIR` names the full
-ten-scenario corpus. Anyone with that corpus should run them; until then the counts are a
-prediction. **This is the "skip visibly, never iterate an empty corpus" trap from the
-Conventions section, in its C# form** — the gate returns rather than skipping, so a run
-with no corpus is indistinguishable from a run that checked nothing.
+analysis says 380/4 and 1,140/0 cannot move under a permutation within a prefix; until
+someone runs them against the full corpus, the counts remain a prediction. The C# tests
+use `[CorpusFact]`: they visibly skip when `IMPERIALISM_SCENARIO_DIR` is unset and fail
+when the configured directory is missing any of the ten numbered `.map`, `.scn`, or `.inf`
+files.
 
 **Twelve of the twenty-six technology prices were wrong, and all in the same way.** From
 Streamlined Hulls onwards, every price the wiki carried is the price of the *next*
@@ -809,9 +814,12 @@ unplaced unassembled fleet of their class, and warships into the first unassembl
 of their class in that zone, or start one with the next dense `FleetId`; there is **no
 cap but materials**; and a hull with an **empty bill builds free** (no imported hull has
 one). No soak number moved.
-**One gap is open in content, not code**: the importer gates only the three hulls the
-executable's naval table gates, so an imported power can build an Ironclad or a Freighter
-from 1816 although the manual's technology table gates both.
+**Hull building follows the manual's technology table**: Paddlewheels gates Paddlewheeler
+and Raider; Streamlined Hulls gates Clipper; Advanced Iron Working gates Ironclad; Steel
+Armour Plate gates Advanced Ironclad; Marine Engineering gates Armoured Cruiser and
+Freighter; and Improved Range-Finding gates Dreadnought and Battle Cruiser. Trader,
+Indiaman, Frigate and Ship-of-the-Line remain ungated. The corpus check
+`EveryShipInTheCorpusIsAHullItsOwnerCouldHaveBuilt` still needs the full PC corpus.
 
 **War is declared and fleets are commanded by order, with no phase and no version bump.**
 PR #35's relation modes, task forces, patrols and sailing legs were reachable only from
@@ -1063,5 +1071,6 @@ reports success having opened nothing, and that is the state CI runs in. Eleven
 tests holding rules to "exact on every shipped map" were green that way. Use
 `originals.require_maps()` / `require_scenarios()` / `require_infs()`, which
 skip out loud when there is no corpus and fail when `IMP_SCENARIO_DIR` is set
-but does not hold one. The C# gates take the same shape: return when the
-variable is unset, assert the count when it is not.
+but does not hold one. The C# gates use `[CorpusFact]`: they skip visibly when
+`IMPERIALISM_SCENARIO_DIR` is unset and assert the numbered `.map`, `.scn`, and `.inf`
+counts when it is set.
