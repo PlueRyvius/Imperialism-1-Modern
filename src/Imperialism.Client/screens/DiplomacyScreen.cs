@@ -130,12 +130,12 @@ public sealed partial class DiplomacyScreen : Control, IShellScreen
             var price = option.Price is { } cash ? string.Create(CultureInfo.InvariantCulture, $"${cash:N0}") : "unpriced";
             _detail.AddChild(ActionButton($"Offer {Words(option.Kind)} · {price}" + (option.IsDrafted ? " · drafted" : string.Empty),
                 () => Change(() => _session!.Draft.SetOverture(option.Kind, target, true))));
-            _detail.AddChild(Text(Warning(option.Warning), "ImperialismQuiet"));
+            _detail.AddChild(Text(Warning(DiplomacyWarningText.Describe(option.Warning, country.CountryName)), "ImperialismQuiet"));
         }
 
         _detail.AddChild(ActionButton("Declare War" + (country.War.IsDrafted ? " · drafted" : string.Empty),
             () => Change(() => _session!.Draft.SetDeclareWar(target, true))));
-        _detail.AddChild(Text(Warning(country.War.Warning) + "\n" + WarEffects(country.War.Effects), "ImperialismQuiet"));
+        _detail.AddChild(Text(Warning(DiplomacyWarningText.Describe(country.War.Warning, country.CountryName)) + "\n" + WarEffects(country.War.Effects), "ImperialismQuiet"));
         _detail.AddChild(Text("Change trade policy", "ImperialismSectionHeading"));
         var policies = new List<TradePolicy> { TradePolicy.None };
         policies.AddRange(preview.SubsidyPercents.Select(TradePolicy.Subsidy));
@@ -152,7 +152,7 @@ public sealed partial class DiplomacyScreen : Control, IShellScreen
         // An explicit apply also permits drafting the policy already selected in the menu.
         _detail.AddChild(ActionButton("Draft selected policy", () => Change(() =>
             _session!.Draft.SetTradePolicy(target, policies[control.Selected]))));
-        _detail.AddChild(Text("Policy warning: " + Warning(country.DraftedPolicyWarning ?? country.PolicyUnavailable), "ImperialismQuiet"));
+        _detail.AddChild(Text("Policy warning: " + Warning(DiplomacyWarningText.Describe(country.DraftedPolicyWarning ?? country.PolicyUnavailable, country.CountryName)), "ImperialismQuiet"));
     }
 
     private void DrawDraft(DiplomacyPreview preview)
@@ -164,21 +164,21 @@ public sealed partial class DiplomacyScreen : Control, IShellScreen
         {
             var target = _session!.Package.Catalog.GetCountryId(order.TargetKey);
             DraftRow(string.Create(CultureInfo.InvariantCulture,
-                $"{Name(order.TargetKey)} · {Words(order.Kind)} · claim ${order.CashCost:N0}\n{Warning(order.Warning)}"),
+                $"{Name(order.TargetKey)} · {Words(order.Kind)} · claim ${order.CashCost:N0}\n{Warning(DiplomacyWarningText.Describe(order.Warning, Name(order.TargetKey)))}"),
                 () => _session!.Draft.SetOverture(order.Kind, target, false));
         }
 
         foreach (var order in preview.Declarations)
         {
             var target = _session!.Package.Catalog.GetCountryId(order.TargetKey);
-            DraftRow($"{Name(order.TargetKey)} · Declare War\n{Warning(order.Warning)}\n{WarEffects(order.Effects)}",
+            DraftRow($"{Name(order.TargetKey)} · Declare War\n{Warning(DiplomacyWarningText.Describe(order.Warning, Name(order.TargetKey)))}\n{WarEffects(order.Effects)}",
                 () => _session!.Draft.SetDeclareWar(target, false));
         }
 
         foreach (var order in preview.Policies)
         {
             var target = _session!.Package.Catalog.GetCountryId(order.TargetKey);
-            DraftRow($"{Name(order.TargetKey)} · {Policy(order.Policy)}\n{Warning(order.Warning)}",
+            DraftRow($"{Name(order.TargetKey)} · {Policy(order.Policy)}\n{Warning(DiplomacyWarningText.Describe(order.Warning, Name(order.TargetKey)))}",
                 () => _session!.Draft.ClearTradePolicy(target));
         }
 
@@ -213,7 +213,9 @@ public sealed partial class DiplomacyScreen : Control, IShellScreen
     private static string Yes(bool value) => value ? "yes" : "no";
     private static string Policy(TradePolicy policy) => policy.Kind == TradePolicyKind.Subsidy
         ? string.Create(CultureInfo.InvariantCulture, $"Subsidy {policy.Percent}%") : Words(policy.Kind);
-    private static string Warning(object? warning) => warning is null ? "No refusal predicted." : "Warning: " + Words(warning);
+    // The sentence is Presentation's; the screen only labels it.
+    private static string Warning(string sentence) =>
+        sentence == DiplomacyWarningText.NoRefusal ? sentence : "Warning: " + sentence;
     private static string Words(object value) => Regex.Replace(value.ToString()!, "([a-z])([A-Z])", "$1 $2");
     private static string WarEffects(WarEffectsView? effects) => effects is null ? "No war effects predicted." :
         $"Breaks pact: {Yes(effects.BreaksPact)} · Closes posts: {Yes(effects.ClosesPosts)}\n" +
