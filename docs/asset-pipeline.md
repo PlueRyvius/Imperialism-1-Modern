@@ -117,9 +117,11 @@ Each entry carries `evidence` — why we believe it is what we say — and
 
 **The catalogue is human work and it is deliberately incomplete.** The archives
 name images with bare numbers and nothing anywhere says what `10000.BMP`
-depicts. Thirty-three pieces are named; 1,569 are not. Unnamed is unextracted is
-uncommitted, and the way to name more is a contact sheet on one screen and
-`E:/Imperialism/Imperialism - manual.pdf` on the other.
+depicts. Thirty-three pieces are named here. Every bitmap is extracted and
+committed, unaltered, under `assets/original/` (see that tree's `manifest.json`),
+but most are not yet identified: unnamed means not yet catalogued, not missing.
+The way to name more is to browse `assets/original/` (or a contact sheet) on one
+screen and `E:/Imperialism/Imperialism - manual.pdf` on the other.
 
 **One thing was looked for and not found.** The manual describes the workforce
 icons on the Industry screen's left border as encoding grade by the colour of
