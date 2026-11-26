@@ -2849,6 +2849,36 @@ public sealed class WorldContentTests
         Assert.NotNull(document.Extraction);
     }
 
+    [Fact]
+    public void OrdersSmokePackageResolvesProductionAndTransportInEveryScenario()
+    {
+        var path = Path.Combine(FindRepositoryRoot(), "src", "Imperialism.Client", "demo", "orders.iworld");
+        var package = WorldContentCodec.DecodeAndCompilePackage(File.ReadAllBytes(path));
+        foreach (var key in package.ScenarioKeys)
+        {
+            var world = package.GetWorld(key);
+            var state = new WorldState(world);
+            var country = new CountryId(0);
+            var recipe = package.Catalog.GetProductionRecipeId("recipe.lumber");
+            var grain = package.Catalog.GetCommodityId("commodity.grain");
+            var orders = new TurnOrders(world.Countries.Select(item => item.Id == country
+                ? new CountryTurnOrders(country,
+                    production: [new ProductionOrder(recipe, 1)],
+                    transport: [new TransportAllocationOrder(grain, 1)])
+                : new CountryTurnOrders(item.Id)));
+
+            var result = TurnResolver.Resolve(state, orders, 1);
+
+            var produced = Assert.Single(result.Events.OfType<ProductionCompletedEvent>());
+            Assert.Equal(country, produced.Country);
+            Assert.Equal(recipe, produced.Recipe);
+            Assert.Equal(1, produced.CompletedCycles);
+            Assert.Contains(result.Events.OfType<CommoditiesTransportedEvent>(),
+                item => item.Country == country && item.CapacityUsed == 1);
+            Assert.Equal(1, state.CompletedTurnCount);
+        }
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
