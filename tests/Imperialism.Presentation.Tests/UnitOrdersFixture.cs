@@ -35,7 +35,8 @@ internal static class UnitOrdersFixture
 
     public static CellIndex Cell(int index) => new(index);
 
-    public static CompiledWorldPackage Compile(long blueCash = 5000)
+    public static CompiledWorldPackage Compile(
+        long blueCash = 5000, Action<WorldContentDocument>? customise = null)
     {
         var document = TurnReportFixture.CreateDocument();
         document.Terrains =
@@ -172,6 +173,7 @@ internal static class UnitOrdersFixture
             ];
         }
 
+        customise?.Invoke(document);
         return WorldContentCompiler.CompilePackage(document);
     }
 

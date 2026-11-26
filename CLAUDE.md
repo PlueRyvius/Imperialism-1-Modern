@@ -243,6 +243,15 @@ order: bids (worst case), then work orders, then Engineer orders, then research.
 Core refuses a busy civilian's new order where the manual lets it be changed; the
 preview follows Core. No Core change, no content bump, no new phase.
 
+**Row 4e-1 puts diplomacy in the draft.** Overtures, declarations and one trade
+policy per target, all **cleared at End Turn**. Overtures and war follow the manual
+(3466–3469, 3477–3479). Clearing the policy order is chosen: Core keeps the policy
+standing. `OrdersPreview.Diplomacy` shows each other country's relation, posts,
+pacts and policies, and each overture's price and Core's refusal, restated from
+`DiplomacyPlanner`. Overtures now head the cash chain, ahead of bids. Peace to a
+Great Power always previews as Declined while rivals submit nothing. No Core change,
+no content bump, no new phase.
+
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an
 inert dense order bundle, unrestricted quarterly `TurnDate`, fixed fourteen-phase
