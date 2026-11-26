@@ -143,6 +143,14 @@ list. `DiplomacySimulation` restates `DiplomacyPlanner` and the declaration rule
 `NavalPlanner`, on an overlay that never touches the state. Cash is the turn-open
 cash, less what production claims, spent in list order.
 
+The preview carries the treasury figures so the screen never subtracts:
+`CashAtOpen`, `ClaimedBeforeDiplomacy` (what the Industry screen's orders claim first,
+Core's `production.CashClaimed`; nothing drafted claims cash there yet, so 0),
+`ClaimedByOvertures`, and `CashAfterOvertures`, the treasury once both are paid.
+Later phases (bids, civilians, research, income) still move it after that.
+`TheTreasuryAfterOverturesIsTheResolvedTreasury` resolves two overtures and checks
+the figure against the treasury the next turn opens with.
+
 **Peace offered to a Great Power always previews as `Declined`**, because Core
 accepts it only if the other power offers peace back the same turn, and rivals
 submit nothing. `DiplomacyOrdersTests` ends every turn through `TurnResolver` and
