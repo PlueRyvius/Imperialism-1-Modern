@@ -34,6 +34,7 @@ public sealed partial class GameShell : Control
     private bool _smokeTest;
     private bool _smokeScreens;
     private bool _smokeTurn;
+    private bool _smokeDiplomacy;
     private string? _screenshotDirectory;
 
     public override void _Ready()
@@ -43,6 +44,7 @@ public sealed partial class GameShell : Control
         _smokeTest = arguments.Contains("--smoke-test", StringComparer.Ordinal);
         _smokeScreens = arguments.Contains("--smoke-screens", StringComparer.Ordinal);
         _smokeTurn = arguments.Contains("--smoke-turn", StringComparer.Ordinal);
+        _smokeDiplomacy = arguments.Contains("--smoke-diplomacy", StringComparer.Ordinal);
         _screenshotDirectory = ReadArgument(arguments, "--screenshot");
         var worldPath = ReadArgument(arguments, "--world") ?? DefaultWorldPath;
 
@@ -57,7 +59,7 @@ public sealed partial class GameShell : Control
             StartSession(
                 ReadArgument(arguments, "--scenario") ?? _package.ScenarioKeys[0],
                 ReadArgument(arguments, "--country"));
-            if (_smokeTest || _smokeScreens || _smokeTurn || _screenshotDirectory is not null)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeDiplomacy || _screenshotDirectory is not null)
             {
                 CallDeferred(nameof(FinishSmoke));
             }
@@ -65,7 +67,7 @@ public sealed partial class GameShell : Control
         catch (Exception exception)
         {
             GD.PushError($"Could not load world package '{worldPath}': {exception.Message}");
-            if (_smokeTest || _smokeScreens || _smokeTurn)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeDiplomacy)
             {
                 GetTree().Quit(1);
                 return;
@@ -223,10 +225,7 @@ public sealed partial class GameShell : Control
             "Offers and bids per commodity in a fixed order, against one price nobody names. " +
             "Fills CountryTurnOrders.TradeOffers and TradeBids. Manual: Bid and Offers screen, " +
             "and docs/formulas/trade.md.");
-        _screens[ShellScreen.Diplomacy] = StubScreen.Create(
-            "Diplomacy",
-            "Policies, treaties and overtures. Core's Diplomacy phase is still empty, so this screen " +
-            "waits on the rules rather than on the interface. Manual: Diplomacy screen.");
+        _screens[ShellScreen.Diplomacy] = new DiplomacyScreen();
         _screens[ShellScreen.Technology] = StubScreen.Create(
             "Investment",
             "The twenty-eight entries of the Benefits of Technology Table, their prices and their " +
@@ -361,6 +360,21 @@ public sealed partial class GameShell : Control
         if (_package is null || _mapDefinition is null || _session is null)
         {
             GetTree().Quit(1);
+            return;
+        }
+
+        if (_smokeDiplomacy)
+        {
+            try
+            {
+                GetTree().Quit(DiplomacySmoke.Run(_session) ? 0 : 1);
+            }
+            catch (Exception exception)
+            {
+                GD.PushError($"DIPLOMACY_SMOKE_FAIL: {exception.Message}");
+                GetTree().Quit(1);
+            }
+
             return;
         }
 

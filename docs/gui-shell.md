@@ -9,8 +9,8 @@ navigation, and a session that knows which country you are playing.
 The shell navigates, ends turns, and reports what a turn did. The player's
 orders now have a home — `GameSession.Draft`, an `OrdersDraft` for the local
 country, with read-only `OrdersPreview` views for Industry, Transport, Technology
-and Trade (row 4a) — but the four orders screens that will edit it are still
-stubs naming the manual section that specifies them. Until they land, an
+and Trade (row 4a), plus Diplomacy (row 4e-1). Diplomacy has a client screen;
+the four economic orders screens are still stubs naming their manual sections. An
 untouched draft builds empty orders, so a turn resolves exactly as it did before
 the draft existed. Rivals submit nothing at all — see below, because that is the
 single fact most likely to be mistaken for a bug.
@@ -49,7 +49,7 @@ Technology Investment screen the microscope reaches.
 | Transport | Transport screen | Commodity sliders against one shared capacity bar, in the order the player sets them. `Transport`, `BuildTransportCapacity`. |
 | Industry | Industry screen | Warehouse, buildings, production orders, the workforce down the left border. `Production`, `Expansions`, `RecruitWorkers`. |
 | Bid and Offers | Bid and Offers screen | Offers and bids per commodity in a fixed order. `TradeOffers`, `TradeBids`. |
-| Diplomacy | Diplomacy screen | Consulates, embassies, pacts, peace, war and trade policy per country. `Overtures`, `DeclareWar`, `TradePolicies`; previewed by `OrdersPreview.Diplomacy` (row 4e-1). The screen itself is not built. |
+| Diplomacy | Diplomacy screen | Consulates, embassies, pacts, peace, war and trade policy per country. `Overtures`, `DeclareWar`, `TradePolicies`; previewed by `OrdersPreview.Diplomacy` (row 4e-1). Built: a scrolling country list and selected-country orders, with treasury claims and per-order clearing. |
 | Investment | Invest in Technology | The Benefits of Technology Table, its prices and arrival dates. `BuyTechnology`. |
 
 The Transport, Industry, Bid and Offers and Investment rows have their model now:
@@ -164,6 +164,24 @@ any new order to a busy civilian with `AlreadyWorking`, and so does the preview.
 `UnitOrdersTests` resolves every listed target of every civilian alone through
 `TurnResolver` and compares the warning, the cost and the begun event.
 
+### Diplomacy screen (client)
+
+Open Diplomacy with its tab or F5. Great Powers precede minors in a scrolling
+country list; eliminated countries are grey but remain selectable. Each row
+shows relation and pending war/peace, posts and pacts each way, standing policies
+and the drafted change. Select a country to offer consulate, embassy, pact or
+peace, declare war, or choose none, a world-offered subsidy, or boycott. Prices,
+refusal warnings, war consequences and all four treasury figures come directly
+from `OrdersPreview.Diplomacy`. Warnings never disable an action. The right-hand
+panel scrolls independently and lists every drafted diplomacy order with its
+own Clear button. All changes use `session.Draft` and reread the preview.
+
+Runtime layout, interactions and screenshots remain unverified until the Windows
+Godot run. Check both scroll panels at the base size and 1920x1080, 2560x1080 and
+3840x2160, keyboard navigation, country selection, warned actions, policy
+replacement and each Clear button. Check that returning after End Turn shows the
+new relations and cleared drafts, and that Escape/F1–F6 and modal routing still work.
+
 ## What an order remembers
 
 `GameSession.EndTurn` calls `OrdersDraft.AdvanceTurn` once the turn resolves.
@@ -205,7 +223,7 @@ asserts the border is somewhere a person could see it.
 res://scenes/Main.tscn  → GameShell (Control)
   top rail                screen title, hot text
   body                    left tabs · ScreenStack · right tabs
-    ScreenStack             TerrainMapScreen + five StubScreens, one visible
+    ScreenStack             TerrainMapScreen + DiplomacyScreen + four StubScreens, one visible
   StatusBorder            always present, below everything
 ```
 
@@ -465,6 +483,19 @@ godot --headless --path src/Imperialism.Client -- --smoke-turn
 ```bash
 godot --path src/Imperialism.Client --resolution 2560x1080 -- --screenshot /tmp/shots
 ```
+
+```bash
+godot --headless --path src/Imperialism.Client -- --smoke-diplomacy --world <world.iworld> --scenario <key> --country <key>
+```
+
+`--smoke-diplomacy` drafts a consulate toward the first other Great Power without
+our consulate, prints `DIPLOMACY_SMOKE_PREVIEW` (including `CashAfterOvertures`),
+ends the turn and prints the report's resulting events as `DIPLOMACY_SMOKE_EVENT`
+lines, then `DIPLOMACY_SMOKE_OK`. A predicted refusal is valid smoke output;
+use a funded scenario with diplomacy prices to observe an accepted consulate.
+If no candidate exists, it prints `DIPLOMACY_SMOKE_FAIL` and exits non-zero.
+This mode takes precedence over other smoke/screenshot flags. Run it separately
+from `--smoke-turn`, whose empty-draft output is unchanged.
 
 `--smoke-test` keeps the Phase 1 line's prefix and first six fields exactly, so
 anything parsing it still works; new fields are appended and never reordered.
