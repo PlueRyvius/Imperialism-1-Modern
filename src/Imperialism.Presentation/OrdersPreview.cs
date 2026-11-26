@@ -293,7 +293,9 @@ public sealed partial class OrdersPreview
                 facility.RequiredTechnology is { } technology ? names.Key(technology) : null,
                 gated,
                 ordered,
-                expansion));
+                expansion,
+                facility.RequiredTechnology is { } namedTechnology
+                    ? world.Technologies[namedTechnology.Value].Name : null));
         }
 
         // (3) The railyard: the warehouse (output included) after expansion, the labour
@@ -577,19 +579,26 @@ public sealed record FacilityPreview(
     string? RequiredTechnologyKey,
     bool IsGatedByTechnology,
     bool ExpansionOrdered,
-    ExpansionOutcome Expansion);
+    ExpansionOutcome Expansion,
+    string? RequiredTechnologyName = null);
 
 public sealed record RailyardPreview(
     IReadOnlyList<CommodityAmountView> CostPerPoint,
     long LabourPerPoint,
     long RequestedPoints,
-    long ExpectedPoints);
+    long ExpectedPoints)
+{
+    public bool IsShort => ExpectedPoints < RequestedPoints;
+}
 
 public sealed record RecruitmentPreview(
     long Cap,
     IReadOnlyList<CommodityAmountView> PricePerWorker,
     long Requested,
-    long ExpectedRecruits);
+    long ExpectedRecruits)
+{
+    public bool IsShort => ExpectedRecruits < Requested;
+}
 
 public sealed record IndustryPreview(
     bool IsLabourLimited,
@@ -604,7 +613,10 @@ public sealed record TransportSliderPreview(
     string CommodityKey,
     string CommodityName,
     long Requested,
-    long Committed);
+    long Committed)
+{
+    public bool IsShort => Committed < Requested;
+}
 
 /// <summary>
 /// The shared bar. <see cref="Used"/> is an upper bound: Core trims each slider
@@ -616,6 +628,8 @@ public sealed record TransportPreview(
     long Used,
     IReadOnlyList<TransportSliderPreview> Sliders)
 {
+    public bool IsZeroCapacity => Capacity == 0;
+
     public bool IsOverAsked => Sliders.Any(static slider => slider.Committed < slider.Requested);
 }
 

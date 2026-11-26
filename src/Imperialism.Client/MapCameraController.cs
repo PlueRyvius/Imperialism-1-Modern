@@ -10,6 +10,8 @@ public sealed partial class MapCameraController : Camera2D
     private MapBounds _mapBounds;
     private bool _dragging;
 
+    public bool AllowRightDrag { get; set; } = true;
+
     public override void _Ready()
     {
         PositionSmoothingEnabled = true;
@@ -36,7 +38,8 @@ public sealed partial class MapCameraController : Camera2D
     {
         if (@event is InputEventMouseButton mouseButton)
         {
-            if (mouseButton.ButtonIndex is MouseButton.Middle or MouseButton.Right)
+            if (mouseButton.ButtonIndex == MouseButton.Middle ||
+                mouseButton.ButtonIndex == MouseButton.Right && AllowRightDrag)
             {
                 _dragging = mouseButton.Pressed;
                 GetViewport().SetInputAsHandled();
