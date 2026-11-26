@@ -1,0 +1,43 @@
+[gd_scene format=3]
+
+[node name="TechnologyLayout" type="PanelContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Column" type="VBoxContainer" parent="."]
+
+[node name="Title" type="Label" parent="Column"]
+theme_type_variation = &"ImperialismScreenTitle"
+text = "Investment"
+
+[node name="Budget" type="Label" parent="Column"]
+autowrap_mode = 3
+
+[node name="Warning" type="Label" parent="Column"]
+theme_type_variation = &"ImperialismQuiet"
+autowrap_mode = 3
+
+[node name="Help" type="Label" parent="Column"]
+theme_type_variation = &"ImperialismQuiet"
+autowrap_mode = 3
+text = "Purchases are known next turn. Research is paid after trade and other spending; affordability uses current cash. Buy again to cancel. Purchases clear after End Turn. Escape returns to the map."
+
+[node name="RowsScroll" type="ScrollContainer" parent="Column"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Rows" type="VBoxContainer" parent="Column/RowsScroll"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Offers" type="VBoxContainer" parent="Column/RowsScroll/Rows"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Purchases" type="VBoxContainer" parent="Column/RowsScroll/Rows"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 6

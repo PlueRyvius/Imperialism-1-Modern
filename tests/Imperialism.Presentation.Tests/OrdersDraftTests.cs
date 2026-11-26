@@ -145,9 +145,13 @@ public sealed class OrdersDraftTests
         Assert.Equal([2L, 2L], millRow.ExpansionCost.Select(static item => item.Quantity));
         var refineryRow = preview.Facilities.Single(row => row.FacilityKey == "facility.refinery");
         Assert.Equal((true, ExpansionOutcome.TechnologyNotKnown), (refineryRow.IsGatedByTechnology, refineryRow.Expansion));
+        Assert.Equal("Dynamite", refineryRow.RequiredTechnologyName);
         Assert.Null(preview.Facilities.Single(row => row.FacilityKey == "facility.food-processing").Capacity);
         Assert.Equal((10L, 2L), (preview.Railyard!.RequestedPoints, preview.Railyard.ExpectedPoints));
         Assert.Equal((1L, 5L, 1L), (preview.Recruitment!.Cap, preview.Recruitment.Requested, preview.Recruitment.ExpectedRecruits));
+
+        Assert.True(preview.Railyard.IsShort);
+        Assert.True(preview.Recruitment.IsShort);
 
         // The preview kept every over-ask; Core gets them as given.
         Assert.Equal(5, draft.Build().Production.Single(order => order.Recipe == lumber).RequestedCycles);
@@ -182,6 +186,8 @@ public sealed class OrdersDraftTests
         Assert.Equal((false, 1L, 1L), (preview.IsUnlimited, preview.Capacity, preview.Used));
         Assert.Equal([1L, 0L], preview.Sliders.Select(static slider => slider.Committed));
         Assert.True(preview.IsOverAsked);
+        Assert.False(preview.IsZeroCapacity);
+        Assert.All(preview.Sliders, slider => Assert.True(slider.IsShort));
 
         var carried = TurnResolver.Resolve(state, draft.BuildTurnOrders(), 1).Events
             .OfType<CommoditiesTransportedEvent>().Single(e => e.Country == Blue);
