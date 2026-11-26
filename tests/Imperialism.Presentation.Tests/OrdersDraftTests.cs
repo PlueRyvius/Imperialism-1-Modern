@@ -42,7 +42,7 @@ public sealed class OrdersDraftTests
         Assert.Equal(
             ["commodity.grain", "commodity.canned-food", "commodity.lumber", "commodity.timber", "commodity.steel"],
             draft.Transport.Select(row => package.Catalog.GetKey(row.Commodity)));
-        Assert.Equal([4L, 0L, 0L, 0L, 0L], draft.Transport.Select(static row => row.Quantity));
+        Assert.Equal([2L, 0L, 0L, 0L, 0L], draft.Transport.Select(static row => row.Quantity));
 
         // Editing the default remains an ordinary draft edit, including setting a
         // seeded request to zero.
@@ -50,6 +50,33 @@ public sealed class OrdersDraftTests
         draft.SetTransport(Commodity(package, "commodity.grain"), 0);
         draft.SetTransport(lumber, 2);
         Assert.Equal([new TransportAllocationOrder(lumber, 2)], draft.Build().Transport);
+    }
+
+    [Fact]
+    public void TransportDefaultFillsTheNextFoodOnlyUpToItsExpectedGather()
+    {
+        var package = CompileTransportDefaultWorld(capacity: 4);
+        var state = NewState(package);
+
+        var draft = new OrdersDraft(state, Blue);
+
+        Assert.Equal(
+            ["commodity.grain", "commodity.canned-food", "commodity.lumber", "commodity.timber", "commodity.steel"],
+            draft.Transport.Select(row => package.Catalog.GetKey(row.Commodity)));
+        Assert.Equal([2L, 2L, 0L, 0L, 0L], draft.Transport.Select(static row => row.Quantity));
+    }
+
+    [Fact]
+    public void TransportDefaultLeavesCapacityUnallocatedAfterEveryExpectedGatherIsFilled()
+    {
+        var package = CompileTransportDefaultWorld(capacity: 20);
+        var state = NewState(package);
+
+        var draft = new OrdersDraft(state, Blue);
+
+        Assert.Equal([2L, 3L, 4L, 0L, 0L], draft.Transport.Select(static row => row.Quantity));
+        Assert.Equal(9, draft.Transport.Sum(static row => row.Quantity));
+        Assert.True(draft.Transport.Sum(static row => row.Quantity) < state.GetTransportCapacity(Blue));
     }
 
     [Fact]
@@ -399,4 +426,39 @@ public sealed class OrdersDraftTests
 
     private static string[] Lines(TurnReportView report) =>
         report.Phases.SelectMany(static phase => phase.Lines.Select(line => $"{phase.Phase}:{line}")).ToArray();
+
+    private static CompiledWorldPackage CompileTransportDefaultWorld(long capacity) =>
+        OrdersFixture.Compile(document =>
+        {
+            document.Feeding!.PreferenceCycle =
+            [
+                new FoodPreferenceContent { Accepted = ["commodity.grain", "commodity.canned-food"] },
+            ];
+            document.Resources =
+            [
+                .. document.Resources,
+                new ResourceContentDefinition
+                {
+                    Key = "resource.canned-food",
+                    Commodity = "commodity.canned-food",
+                    YieldByDevelopmentLevel = [3],
+                },
+                new ResourceContentDefinition
+                {
+                    Key = "resource.extra-lumber",
+                    Commodity = "commodity.lumber",
+                    YieldByDevelopmentLevel = [4],
+                },
+            ];
+            document.Map.Cells[0].Resources =
+            [.. document.Map.Cells[0].Resources, "resource.canned-food", "resource.extra-lumber"];
+            foreach (var scenario in document.Scenarios)
+            {
+                scenario.TransportCapacity =
+                [
+                    new TransportCapacityContent { Country = "country.blue", Capacity = capacity },
+                    new TransportCapacityContent { Country = "country.red", Capacity = 40 },
+                ];
+            }
+        });
 }

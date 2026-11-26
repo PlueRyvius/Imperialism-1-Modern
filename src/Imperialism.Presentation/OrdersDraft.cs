@@ -88,24 +88,29 @@ public sealed class OrdersDraft
     private long _burnFuel;
 
     public OrdersDraft(WorldDefinition world, CountryId country)
-        : this(world, country, null)
+        : this(world, country, null, null)
     {
     }
 
     /// <summary>
     /// Starts a player's draft from the world's current transport capacity. The
     /// transport rows are a Presentation default; the runtime state is read only
-    /// for its current capacity and is not retained.
+    /// for its current capacity and expected resource yields, then is not retained.
     /// </summary>
     public OrdersDraft(WorldState state, CountryId country)
         : this(
             state?.Definition ?? throw new ArgumentNullException(nameof(state)),
             country,
-            CurrentTransportCapacity(state, country))
+            CurrentTransportCapacity(state, country),
+            ExpectedGather(state, country))
     {
     }
 
-    private OrdersDraft(WorldDefinition world, CountryId country, long? initialTransportCapacity)
+    private OrdersDraft(
+        WorldDefinition world,
+        CountryId country,
+        long? initialTransportCapacity,
+        IReadOnlyList<long>? expectedGather)
     {
         ArgumentNullException.ThrowIfNull(world);
         if ((uint)country.Value >= (uint)world.Countries.Count)
@@ -117,7 +122,9 @@ public sealed class OrdersDraft
         Country = country;
         if (initialTransportCapacity is { } capacity)
         {
-            InitializeTransportDefaults(capacity);
+            InitializeTransportDefaults(
+                capacity,
+                expectedGather ?? throw new ArgumentNullException(nameof(expectedGather)));
         }
     }
 
@@ -309,7 +316,7 @@ public sealed class OrdersDraft
         Set(_transport, commodity, quantity);
     }
 
-    private void InitializeTransportDefaults(long capacity)
+    private void InitializeTransportDefaults(long capacity, IReadOnlyList<long> expectedGather)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(capacity);
         if (_world.Transport is null)
@@ -329,12 +336,44 @@ public sealed class OrdersDraft
         var remaining = capacity;
         foreach (var commodity in ordered)
         {
-            // OrdersPreview does not know this turn's harvest yet, so the chosen
-            // default uses the remaining shared capacity as this row's ceiling.
-            var quantity = remaining;
+            var quantity = Math.Min(expectedGather[commodity.Value], remaining);
             _transport.Add((commodity, quantity));
             remaining -= quantity;
         }
+    }
+
+    private static IReadOnlyList<long> ExpectedGather(WorldState state, CountryId country)
+    {
+        var world = state.Definition;
+        var gathered = new long[world.Commodities.Count];
+        if (state.IsEliminated(country))
+        {
+            return gathered;
+        }
+
+        foreach (var cell in world.Map.Cells)
+        {
+            if (cell.Region.Kind != CellRegionKind.Province ||
+                state.GetProvinceOwner(cell.Region.Province) != country)
+            {
+                continue;
+            }
+
+            var development = state.GetCellDevelopment(cell.Index);
+            foreach (var resourceId in cell.Resources)
+            {
+                var resource = world.Map.Resources[resourceId.Value];
+                if (resource.RequiredTechnology is { } required && !state.HasTechnology(country, required))
+                {
+                    continue;
+                }
+
+                var commodity = resource.Commodity.Value;
+                gathered[commodity] = checked(gathered[commodity] + resource.GetYield(development));
+            }
+        }
+
+        return Array.AsReadOnly(gathered);
     }
 
     private static long CurrentTransportCapacity(WorldState state, CountryId country)
