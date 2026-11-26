@@ -72,7 +72,7 @@ public sealed partial class IndustryScreen : Control, IShellScreen
         }
 
         OrdersControls.Text(_orders!, "Industry", "ImperialismScreenTitle");
-        OrdersControls.Text(_orders!, "Orders commit at End Turn. Output arrives next turn. Escape returns to the map.", "ImperialismQuiet");
+        OrdersControls.Text(_orders!, "Orders commit at End Turn. Output arrives next turn. Escape returns to the map.", "ImperialismHotText");
         foreach (var facility in preview.Facilities)
         {
             var card = OrdersControls.Card(_orders!, facility.FacilityName);
