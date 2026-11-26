@@ -579,7 +579,8 @@ manual's demand line (lines 2283–2300): food for the workforce on the feeding 
 order for as many cycles as capacity and its scarcest input allow, which holds coal
 to iron for steel. Both come off the warehouse first, and trade is ignored.
 Capacity the demand does not need is left unspent. `TransportDefault` in
-`OrdersDraft.cs` holds the rule; `OrdersDraftTests` reproduces all eight rows.
+`OrdersDraft.cs` holds the rule; `OrdersDraftTests` reproduces seven of the eight
+rows and opens at 118 of 120, because of the horse below.
 Submitted allocations carry into the next turn, and a player's edits replace the
 defaults.
 
@@ -587,9 +588,14 @@ What the screen cannot settle is labelled. **Chosen rule:** if demand exceeds
 capacity, rows are trimmed in row order, food first, because a hungry worker is
 lost or falls sick while a short mill only idles; the original's screen opened
 under capacity, so it shows no trim. **Chosen rule:** an uncapped facility draws
-no demand, and canned food in the warehouse does not reduce food demand. **Open:**
-what draws the one horse — no imported recipe consumes horses, so an imported world
-opens horses at 0 until that is found. Great Britain's real workforce, mill
+no demand, and canned food in the warehouse does not reduce food demand.
+
+**Open (b) difference: the horse.** The original carries 1 horse whose demand source
+is not yet identified; we carry 0. No facility or recipe in imported content consumes
+horses, and the manual gives horses one use, building cavalry and artillery in the
+Armoury (lines 2371–2383), which is a purchase, not a standing demand Presentation
+can read. So the default opens horses at 0 and the total at 118, not 119. The test
+fixture uses only the importer's three mills and does not invent a horse consumer. Great Britain's real workforce, mill
 capacities and warehouse are still to come from the PC; the test's fixture names
 each figure it assumes. Availability is the owned tiles' yield, an upper bound,
 because Presentation cannot see which tiles a depot reaches.

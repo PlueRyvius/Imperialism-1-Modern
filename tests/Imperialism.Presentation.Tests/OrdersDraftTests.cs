@@ -17,6 +17,10 @@ public sealed class OrdersDraftTests
     /// The original's opening Transport screen for Great Britain, <c>s1</c>, Spring
     /// 1882: carried / available per slider, 119 of 120 capacity. Measured on the PC
     /// (screenshot O30). Fish + livestock and cotton + wool are one slider each there.
+    /// <b>Open (b) difference:</b> the original carries one horse and we carry none. No
+    /// facility or recipe in imported content consumes horses — the manual gives them
+    /// one use, the Armoury's regiments (lines 2371–2383) — so the source of that one
+    /// unit of demand is not identified. The test expects ours, 0 and 118 of 120.
     /// </summary>
     private static readonly (string Slider, string[] Commodities, long Carried, long Available)[] GreatBritainS1Screen =
     [
@@ -58,10 +62,6 @@ public sealed class OrdersDraftTests
         public const long SteelMill = 12;
         public const long TextileMill = 13;
 
-        // ASSUMED: something draws exactly one horse. No imported recipe consumes
-        // horses, so this mill is a stand-in until the source of the 1 is known.
-        public const long HorseDraw = 1;
-
         // ASSUMED: no raw commodity in the warehouse.
         public static readonly (string Commodity, long Quantity)[] Stock = [];
     }
@@ -78,10 +78,13 @@ public sealed class OrdersDraftTests
             Assert.True(
                 available == commodities.Sum(name => inputs.Available[id[name].Value]),
                 $"fixture availability for {slider}");
-            Assert.True(carried == commodities.Sum(name => rows[id[name]]), $"carried on {slider}");
+            // The open horse difference: nothing in our content draws horses.
+            var expected = slider == "horses" ? 0 : carried;
+            Assert.True(expected == commodities.Sum(name => rows[id[name]]), $"carried on {slider}");
         }
 
-        Assert.Equal(119, rows.Values.Sum());
+        // The original's 119 less its one unexplained horse.
+        Assert.Equal(118, rows.Values.Sum());
         Assert.Equal(0, rows[id["lumber"]] + rows[id["steel"]]);
     }
 
@@ -222,7 +225,7 @@ public sealed class OrdersDraftTests
         string[] names =
         [
             "grain", "fruit", "livestock", "fish", "timber", "coal", "iron", "cotton", "wool", "horses",
-            "lumber", "steel", "fabric", "harness",
+            "lumber", "paper", "steel", "fabric",
         ];
         var ids = names.Select(static (name, index) => (name, id: new CommodityId(index)))
             .ToDictionary(static pair => pair.name, static pair => pair.id);
@@ -252,11 +255,11 @@ public sealed class OrdersDraftTests
             GreatBritainS1Assumed.Workers,
             // The importer's cycle: grain, fruit, grain, then livestock or fish.
             [[ids["grain"]], [ids["fruit"]], [ids["grain"]], [ids["livestock"], ids["fish"]]],
+            // The importer's three mills and their recipes, in its order; capacities assumed.
             [
                 new TransportMillDemand(GreatBritainS1Assumed.LumberMill, [(1, [In("timber", 2)]), (1, [In("timber", 2)])]),
                 new TransportMillDemand(GreatBritainS1Assumed.SteelMill, [(1, [In("coal", 1), In("iron", 1)])]),
                 new TransportMillDemand(GreatBritainS1Assumed.TextileMill, [(1, [In("cotton", 2)]), (1, [In("wool", 2)])]),
-                new TransportMillDemand(GreatBritainS1Assumed.HorseDraw, [(1, [In("horses", 1)])]),
             ],
             stock,
             available,

@@ -880,7 +880,9 @@ public sealed record TransportDemandInputs(
 /// The Transport screen's opening fill: every row asks for its demand, capped at
 /// what is available. <b>This matches the original's opening Transport screen,
 /// measured on <c>s1</c> as Great Britain</b> (119 of 120, eight rows, every one at
-/// demand or at availability). See <c>docs/gui-shell.md</c>.
+/// demand or at availability), except the one horse the original carries: nothing in
+/// our content draws horses, so this opens them at 0 and the total at 118 — an open
+/// difference recorded in <c>docs/gui-shell.md</c>.
 /// </summary>
 /// <remarks>
 /// Demand is the manual's demand line (lines 2283–2300): what the workers eat and
