@@ -175,8 +175,8 @@ a zero row is not sent. A regiment belongs to **one move at a time**: naming it 
 new move takes it out of its old one, and a move left empty is dropped.
 `ClearRegimentMove`, `ClearRegimentPurchases`, `ClearShipBuilds` and
 `ClearRegimentMoves` take them back. `Build` maps them one to one, in draft order,
-onto `RegimentPurchases`, `ShipBuilds` and `RegimentMoves`. Naval orders (assembly,
-patrol, blockade, landing, move) are **not in the draft yet**.
+onto `RegimentPurchases`, `ShipBuilds` and `RegimentMoves`. Naval orders are part B,
+below.
 
 The previews, **labelled previews**, restate Core's planners:
 
@@ -213,6 +213,49 @@ attacks are judged against owners as the turn opens.
 purchase, hull and move warning with Core's event, and the cash and rail with what
 Core charged.
 
+### Naval orders (row 4e-2 part B)
+
+The draft holds naval orders as **one list, in the order given**, because Core resolves
+a country's naval orders in list order. `SetNavalAssembly(fleets, mission)` groups
+fleets into a task force and gives it a mission in one order; **a fleet is in one
+drafted assembly at a time**, so a newer assembly sharing any fleet with older ones
+takes the first one's place and the others go. `SetNavalCommand(taskForce, mission)`
+gives an existing task force its mission or move, **one per task force**, a newer one
+replacing the older in place. A mission is `NavalMission.None` (Done), `Patrol`,
+`Blockade(country)`, `Landing(province)` or `MoveTo(zone)`; one naming a zone, country
+or province the world lacks throws, as a screen's bug. `ClearNavalAssembly`,
+`ClearNavalCommand` and `ClearNavalOrders` take them back. `Build` maps them one to
+one, in draft order, onto `CountryTurnOrders.Naval`.
+
+`OrdersPreview.Fleet`, **labelled a preview**, lists the country's fleets (class, ships,
+holds, reach, sea zone or unplaced, task force) and task forces (zone, activity,
+blockade or landing target, ships, holds, the slowest hull's reach, and whether a
+landing site may be used this turn). For each drafted order it restates
+`NavalPlanner`:
+
+- An assembly checks its fleets in id order — exist, are this country's, are placed,
+  are in no task force (including one an earlier order in the list assembled), share
+  a zone — then its mission. **All or nothing**: a refused mission refuses the grouping.
+- A command checks that the task force exists and is this country's. **A mission of
+  None is accepted with no effect and no event** (`HasEffect` false); otherwise a
+  second order to the same task force this turn is refused, then the mission is checked.
+- A move must lie **within the slowest hull's reach by a sea path** (manual 1915–1917);
+  the view gives `Reach` and `Distance`, null when no path joins the zones. One mission
+  or one move a turn (manual 1887–1889) is the shape of the draft itself.
+- A blockade needs another country's capital beside the zone; a landing site a province
+  not the country's own, touching the zone. **An accepted landing is usable from the next
+  turn** (`LandingUsableFromTurn`), and **re-ordering a held site restamps it**
+  (`RestampsLandingSite`), so troops wait another turn (manual 1943–1945).
+
+Rivals submit nothing, so the preview fights no sea battle and intercepts no landing. A
+task force an assembly creates has no id until the turn resolves, so no command can
+name it in the same turn, and the draft cannot reach Core's "already ordered this turn"
+refusal; the preview restates it all the same.
+
+`NavalOrdersTests` ends every turn through `TurnResolver` and compares each warning
+with Core's refusal event, and each accepted order with its event and the task force
+the turn leaves.
+
 ## What an order remembers
 
 `GameSession.EndTurn` calls `OrdersDraft.AdvanceTurn` once the turn resolves.
@@ -234,6 +277,10 @@ Where the manual speaks it decides; elsewhere the rule is chosen and labelled.
 | Trade policy (subsidy, boycott) | cleared | **Chosen**, reading manual 3688–3690: a change "can be cancelled before the end of the turn". Core keeps the policy standing once set, so the order is a change and not the policy itself |
 | Armoury and Shipyard rows | cleared | **Chosen**, reading manual 4874: they "work exactly like the University", where the order is placed and the unit appears "next turn" (4866–4872). The manual never says the order is saved, as it does for mills (2863). Carrying it would buy the same regiments again every turn |
 | Regiment moves and attacks | cleared | **Manual** 1757–1758: rail capacity limits what moves "in one turn"; 1830–1831: a garrison told to do nothing does so "for this turn only" and "appears normally in the cycle next turn". Core moves the regiment, so nothing needs carrying |
+| Naval moves and Done | cleared | **Manual** 1915–1917: a fleet cannot move "that far in one turn"; 1887–1889: a mission or a move "in the same turn"; 1970–1974: Done keeps a fleet where it is "for that turn" |
+| Naval landing sites | cleared | **Manual** 1943–1945: troops cross "on any subsequent turns, as long as you maintain the landing site". Core restamps a re-ordered site, so carrying the order would keep the site unusable for ever |
+| Naval patrols and blockades | cleared | **Chosen** — the manual is silent. Core keeps either mission standing until the task force moves, so re-sending it would only spend the turn repeating it |
+| Naval assemblies | cleared | **Core**: a task force is permanent once assembled, so the order has nothing left to do |
 
 **Production is kept unclamped on purpose.** A mill asked for more than it can
 make keeps asking, because the manual's building keeps trying to fill the order;

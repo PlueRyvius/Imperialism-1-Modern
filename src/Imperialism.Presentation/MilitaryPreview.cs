@@ -551,10 +551,10 @@ internal sealed class ArmyMoveSimulation
         return total;
     }
 
-    private static IReadOnlyList<SeaZoneId> CoastalZones(MapDefinition map, ProvinceId province) =>
+    internal static IReadOnlyList<SeaZoneId> CoastalZones(MapDefinition map, ProvinceId province) =>
         map.GetCells(province).SelectMany(cell => AdjacentSeaZones(map, cell)).Distinct().ToArray();
 
-    private static IEnumerable<SeaZoneId> AdjacentSeaZones(MapDefinition map, CellIndex cell)
+    internal static IEnumerable<SeaZoneId> AdjacentSeaZones(MapDefinition map, CellIndex cell)
     {
         foreach (var direction in HexDirections.All.ToArray())
         {

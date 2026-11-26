@@ -252,8 +252,16 @@ Armoury and Shipyard rows is chosen, on the manual's "work exactly like the
 University" (4874). The previews restate Core's planners. **The Armoury is now the
 first claim on cash**, ahead of overtures, and both bills leave trade's `Sellable`.
 An accepted attack previews as accepted into battle; no battle is fought in the
-preview. Naval orders are not in the draft yet. No Core change, no content bump, no
-new phase.
+preview. No Core change, no content bump, no new phase.
+
+**Row 4e-2 part B puts naval orders in the draft**, one list in Core's list order: an
+assembly per fleet set, a newer one sharing a fleet replacing it, and one command per
+task force. **All are cleared at End Turn**: moves, Done and landing sites follow the
+manual (1887–1889, 1915–1917, 1943–1945, 1970–1974); patrols and blockades are chosen,
+because Core keeps them standing. `OrdersPreview.Fleet` restates `NavalPlanner` —
+reach by sea path, all-or-nothing assembly, a None command with no effect, a landing
+usable next turn and restamped when re-ordered. No Core change, no content bump, no new
+phase.
 
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an
