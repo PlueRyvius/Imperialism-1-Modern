@@ -162,6 +162,12 @@ and warnings, draft/clear controls and Escape deselection to the Terrain Map.
 Godot interaction, smoke and screenshot acceptance are still pending. See
 `docs/gui-shell.md` for controls and the exact PC checklist.
 
+The client Diplomacy screen is built on row 4e-1's preview: country relations,
+posts, pacts, overtures, war effects, trade policies, draft clearing and treasury
+claims. `--smoke-diplomacy` drafts a consulate and prints preview and resolved
+report events. Godot runtime interaction and screenshots await the Windows PC;
+see `docs/gui-shell.md` for the checks.
+
 Phases 0 and 1 are complete. `src/Imperialism.Formats/` is the production .NET 8
 formats library for `.map`, binary/plaintext scenarios, and editable `.inf`
 files, and it is now the only parser here. The extensionless plaintext filenames
