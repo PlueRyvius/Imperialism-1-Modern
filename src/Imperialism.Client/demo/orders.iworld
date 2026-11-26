@@ -1,0 +1,558 @@
+{
+  "format": "imperialism-world",
+  "formatVersion": 33,
+  "commodities": [
+    {
+      "key": "commodity.grain",
+      "name": "Grain",
+      "category": "raw"
+    },
+    {
+      "key": "commodity.timber",
+      "name": "Timber",
+      "category": "raw",
+      "worldPrice": 100,
+      "tradeOrder": 0
+    },
+    {
+      "key": "commodity.coal",
+      "name": "Coal",
+      "category": "raw"
+    },
+    {
+      "key": "commodity.lumber",
+      "name": "Lumber",
+      "category": "material"
+    }
+  ],
+  "resources": [
+    {
+      "key": "resource.grain",
+      "commodity": "commodity.grain",
+      "yieldByDevelopmentLevel": [
+        2,
+        4,
+        6,
+        8
+      ]
+    },
+    {
+      "key": "resource.timber",
+      "commodity": "commodity.timber",
+      "yieldByDevelopmentLevel": [
+        2,
+        4,
+        6,
+        8
+      ]
+    },
+    {
+      "key": "resource.coal",
+      "commodity": "commodity.coal",
+      "yieldByDevelopmentLevel": [
+        2,
+        4,
+        6,
+        8
+      ]
+    }
+  ],
+  "map": {
+    "key": "map.viewer-demo",
+    "name": "Viewer Demonstration",
+    "width": 6,
+    "height": 4,
+    "provinces": [
+      {
+        "key": "province.west",
+        "name": "Westmarch"
+      },
+      {
+        "key": "province.east",
+        "name": "Eastvale"
+      }
+    ],
+    "seaZones": [
+      {
+        "key": "sea.north",
+        "name": "Northern Sea"
+      },
+      {
+        "key": "sea.south",
+        "name": "Southern Sea"
+      }
+    ],
+    "cells": [
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.north"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.north"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.north"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.north"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.north"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.north"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.north"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.plains",
+        "region": {
+          "province": "province.west"
+        },
+        "resources": [
+          "resource.grain"
+        ],
+        "hasSettlementSite": true
+      },
+      {
+        "terrain": "terrain.forest",
+        "region": {
+          "province": "province.west"
+        },
+        "resources": [
+          "resource.timber"
+        ],
+        "hasSettlementSite": false,
+        "river": {
+          "first": "source",
+          "second": "southWest"
+        }
+      },
+      {
+        "terrain": "terrain.hills",
+        "region": {
+          "province": "province.east"
+        },
+        "resources": [
+          "resource.coal"
+        ],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.plains",
+        "region": {
+          "province": "province.east"
+        },
+        "resources": [
+          "resource.grain"
+        ],
+        "hasSettlementSite": true
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.north"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.south"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.plains",
+        "region": {
+          "province": "province.west"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.forest",
+        "region": {
+          "province": "province.west"
+        },
+        "resources": [
+          "resource.timber"
+        ],
+        "hasSettlementSite": false,
+        "river": {
+          "first": "northEast",
+          "second": "mouth"
+        }
+      },
+      {
+        "terrain": "terrain.hills",
+        "region": {
+          "province": "province.east"
+        },
+        "resources": [
+          "resource.coal"
+        ],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.plains",
+        "region": {
+          "province": "province.east"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.south"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.south"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.south"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.south"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.south"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.south"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      },
+      {
+        "terrain": "terrain.ocean",
+        "region": {
+          "seaZone": "sea.south"
+        },
+        "resources": [],
+        "hasSettlementSite": false
+      }
+    ]
+  },
+  "countries": [
+    {
+      "key": "country.blue",
+      "name": "Blue Republic"
+    },
+    {
+      "key": "country.red",
+      "name": "Red Empire"
+    }
+  ],
+  "scenarios": [
+    {
+      "key": "scenario.opening",
+      "name": "Opening Balance",
+      "startingYear": 1815,
+      "provinceOwners": [
+        {
+          "province": "province.west",
+          "country": "country.blue"
+        },
+        {
+          "province": "province.east",
+          "country": "country.red"
+        }
+      ],
+      "rails": [
+        {
+          "first": 7,
+          "second": 8
+        },
+        {
+          "first": 7,
+          "second": 14
+        },
+        {
+          "first": 14,
+          "second": 15
+        },
+        {
+          "first": 10,
+          "second": 16
+        },
+        {
+          "first": 15,
+          "second": 16
+        }
+      ],
+      "capitals": [
+        {
+          "country": "country.blue",
+          "cell": 7
+        },
+        {
+          "country": "country.red",
+          "cell": 10
+        }
+      ],
+      "initialInventory": [
+        {
+          "country": "country.blue",
+          "commodity": "commodity.timber",
+          "quantity": 8
+        },
+        {
+          "country": "country.red",
+          "commodity": "commodity.timber",
+          "quantity": 8
+        }
+      ],
+      "productionCapacities": [
+        {
+          "country": "country.blue",
+          "facility": "facility.lumber-mill",
+          "quantity": 2
+        },
+        {
+          "country": "country.red",
+          "facility": "facility.lumber-mill",
+          "quantity": 2
+        }
+      ],
+      "transportCapacity": [
+        {
+          "country": "country.blue",
+          "capacity": 4
+        },
+        {
+          "country": "country.red",
+          "capacity": 4
+        }
+      ],
+      "cash": [
+        {
+          "country": "country.blue",
+          "amount": 1000
+        },
+        {
+          "country": "country.red",
+          "amount": 1000
+        }
+      ]
+    },
+    {
+      "key": "scenario.reversal",
+      "name": "Reversed Control",
+      "startingYear": 1820,
+      "provinceOwners": [
+        {
+          "province": "province.west",
+          "country": "country.red"
+        },
+        {
+          "province": "province.east",
+          "country": "country.blue"
+        }
+      ],
+      "rails": [
+        {
+          "first": 7,
+          "second": 8
+        },
+        {
+          "first": 10,
+          "second": 16
+        }
+      ],
+      "capitals": [
+        {
+          "country": "country.red",
+          "cell": 7
+        },
+        {
+          "country": "country.blue",
+          "cell": 10
+        }
+      ],
+      "initialInventory": [
+        {
+          "country": "country.blue",
+          "commodity": "commodity.timber",
+          "quantity": 8
+        },
+        {
+          "country": "country.red",
+          "commodity": "commodity.timber",
+          "quantity": 8
+        }
+      ],
+      "productionCapacities": [
+        {
+          "country": "country.blue",
+          "facility": "facility.lumber-mill",
+          "quantity": 2
+        },
+        {
+          "country": "country.red",
+          "facility": "facility.lumber-mill",
+          "quantity": 2
+        }
+      ],
+      "transportCapacity": [
+        {
+          "country": "country.blue",
+          "capacity": 4
+        },
+        {
+          "country": "country.red",
+          "capacity": 4
+        }
+      ],
+      "cash": [
+        {
+          "country": "country.blue",
+          "amount": 1000
+        },
+        {
+          "country": "country.red",
+          "amount": 1000
+        }
+      ]
+    }
+  ],
+  "terrains": [
+    {
+      "key": "terrain.ocean",
+      "name": "Ocean"
+    },
+    {
+      "key": "terrain.plains",
+      "name": "Plains"
+    },
+    {
+      "key": "terrain.forest",
+      "name": "Forest"
+    },
+    {
+      "key": "terrain.hills",
+      "name": "Hills"
+    }
+  ],
+  "productionFacilities": [
+    {
+      "key": "facility.lumber-mill",
+      "name": "Lumber Mill",
+      "capacityMode": "limited",
+      "capacityLadder": {
+        "rungs": [
+          2,
+          4,
+          8,
+          16,
+          24
+        ],
+        "increment": 8
+      }
+    }
+  ],
+  "productionRecipes": [
+    {
+      "key": "recipe.lumber",
+      "name": "Saw Lumber",
+      "facility": "facility.lumber-mill",
+      "capacityCost": 1,
+      "labourCost": 2,
+      "inputs": [
+        {
+          "commodity": "commodity.timber",
+          "quantity": 2
+        }
+      ],
+      "outputs": [
+        {
+          "commodity": "commodity.lumber",
+          "quantity": 1
+        }
+      ]
+    }
+  ],
+  "extraction": {
+    "catchmentRadius": 1
+  },
+  "transport": {
+    "costPerCapacityPoint": [
+      {
+        "commodity": "commodity.lumber",
+        "quantity": 1
+      }
+    ],
+    "labourPerCapacityPoint": 1
+  },
+  "technologies": [
+    {
+      "key": "technology.sawmill",
+      "name": "Improved Sawmill",
+      "cost": 500,
+      "availableFrom": 1815
+    }
+  ]
+}

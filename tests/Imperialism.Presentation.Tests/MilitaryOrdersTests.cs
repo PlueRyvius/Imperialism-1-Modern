@@ -357,6 +357,33 @@ public sealed class MilitaryOrdersTests
         Assert.Equal(before + (expected is null ? count : 0), game.State.GetRegiments(Blue).Count);
     }
 
+    [Theory]
+    [InlineData(1, 5000)]
+    [InlineData(2, 5000)]
+    [InlineData(3, 5000)]
+    [InlineData(5, 5000)]
+    [InlineData(2, 900)]
+    public void WorkersTakenIsTheWorkforceTheResolvedTurnLosesToTheArmoury(long count, long cash)
+    {
+        // The same turn resolved with and without the purchase: the difference in the
+        // workforce is what the Armoury took, whatever feeding or the Capitol did to both.
+        var control = new Game(Compile(blueCash: cash));
+        var game = new Game(Compile(blueCash: cash));
+        game.Draft.SetRegimentPurchase(ArmyCategory.RegularInfantry, count);
+        game.Draft.SetRegimentPurchase(ArmyCategory.Militia, 1);
+        var categories = game.Preview().Armoury.Categories;
+
+        control.EndTurn();
+        game.EndTurn();
+
+        long Workforce(Game g) => WorkerGrades.All.ToArray().Sum(grade => g.State.GetWorkers(Blue, grade));
+        Assert.Equal(Workforce(control) - Workforce(game), categories.Sum(static row => row.WorkersTaken));
+        Assert.Equal(
+            game.State.GetRegiments(Blue).Count - control.State.GetRegiments(Blue).Count,
+            categories.Single(row => row.Category == ArmyCategory.RegularInfantry).WorkersTaken);
+        Assert.Equal(0, categories.Single(row => row.Category == ArmyCategory.Militia).WorkersTaken);
+    }
+
     [Fact]
     public void TheShipyardPreviewRefusesWhatCoreRefuses()
     {
