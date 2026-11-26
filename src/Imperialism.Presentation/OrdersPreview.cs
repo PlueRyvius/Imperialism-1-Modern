@@ -114,6 +114,7 @@ public sealed partial class OrdersPreview
             Armoury = PreviewArmoury(package, state, draft, names, armoury),
             Shipyard = shipyard,
             ArmyMoves = PreviewArmyMoves(package, state, draft),
+            Fleet = PreviewFleet(package, state, draft),
             OrdersSetAside = state.IsEliminated(country),
         };
     }

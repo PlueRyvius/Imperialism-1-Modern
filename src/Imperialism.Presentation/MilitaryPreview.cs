@@ -18,6 +18,11 @@ namespace Imperialism.Presentation;
 /// Core's refusal of the drafted order, or that Core sets it aside because the country is
 /// eliminated; null if it is accepted.
 /// </param>
+/// <param name="WorkersTaken">
+/// Workers of <see cref="WorkerGrade"/> the drafted purchase takes out of the workforce for
+/// good — one per regiment, from <c>Production</c> on — or zero when it is refused or set
+/// aside. Not labour: <see cref="ArmouryView.LabourWithheld"/> prices them.
+/// </param>
 public sealed record ArmouryCategoryView(
     ArmyCategory Category,
     int? TypeIndex,
@@ -28,7 +33,8 @@ public sealed record ArmouryCategoryView(
     long Arms,
     RegimentPurchaseRefusal? Unavailable,
     long Drafted,
-    OrderWarning<RegimentPurchaseRefusal>? Warning);
+    OrderWarning<RegimentPurchaseRefusal>? Warning,
+    long WorkersTaken);
 
 /// <summary>A regiment the drafting country holds, for the Garrison book.</summary>
 /// <param name="DraftedDestinationKey">The province its drafted move names, if any.</param>
@@ -300,12 +306,14 @@ internal sealed class ArmyMoveSimulation
     private readonly HashSet<RegimentId> _acted = [];
     private readonly Dictionary<TaskForceId, long> _landed = [];
     private readonly CommodityId? _arms;
+    private readonly IReadOnlySet<TaskForceId> _commanded;
     private long _railLeft;
 
-    private ArmyMoveSimulation(WorldState state, CountryId country)
+    private ArmyMoveSimulation(WorldState state, CountryId country, IReadOnlySet<TaskForceId> commanded)
     {
         _state = state;
         _country = country;
+        _commanded = commanded;
         _railLeft = state.GetTransportCapacity(country);
         _arms = ArmsCommodity(state.Definition.ArmyTypes);
     }
@@ -315,9 +323,14 @@ internal sealed class ArmyMoveSimulation
     /// <summary>Results in the orders' own order.</summary>
     public (ArmyMoveVerb Verb, long CapacityUsed, OrderWarning<RegimentMoveRefusal>? Refusal)[] Results { get; private set; } = [];
 
-    public static ArmyMoveSimulation Run(WorldState state, CountryId country, IReadOnlyList<DraftRegimentMove> moves)
+    /// <param name="commanded">
+    /// Task forces the draft's naval orders command this turn
+    /// (<see cref="NavalOrderSimulation.Commanded"/>); none of them is a ready site.
+    /// </param>
+    public static ArmyMoveSimulation Run(
+        WorldState state, CountryId country, IReadOnlyList<DraftRegimentMove> moves, IReadOnlySet<TaskForceId> commanded)
     {
-        var simulation = new ArmyMoveSimulation(state, country);
+        var simulation = new ArmyMoveSimulation(state, country, commanded);
         var results = new (ArmyMoveVerb Verb, long, OrderWarning<RegimentMoveRefusal>?)[moves.Count];
         var provinceCount = state.Definition.Map.Provinces.Count;
         var attacks = new List<int>();
@@ -542,7 +555,12 @@ internal sealed class ArmyMoveSimulation
                map.GetCells(to).Any(cell => rail.GetComponentId(cell) is { } component && components.Contains(component));
     }
 
-    /// <summary>Core's ready landing site: lowest id, set before this turn, touching the target.</summary>
+    /// <summary>
+    /// Core's ready landing site, read after the naval orders as Core's <c>Conflict</c>
+    /// reads it: lowest id, set before this turn, touching the target, and not commanded
+    /// this turn. A task force an assembly creates this turn is never ready, because its
+    /// landing is stamped this turn, so only task forces that exist now are candidates.
+    /// </summary>
     private TaskForceState? ReadySite(ProvinceId destination)
     {
         var map = _state.Definition.Map;
@@ -552,6 +570,7 @@ internal sealed class ArmyMoveSimulation
                             force.Activity == TaskForceActivity.Landing &&
                             force.LandingTarget == destination &&
                             force.LandingSince < turnNumber &&
+                            !_commanded.Contains(force.Id) &&
                             map.GetCells(destination).Any(cell => AdjacentSeaZones(map, cell).Contains(force.SeaZone)))
             .OrderBy(static force => force.Id.Value)
             .FirstOrDefault();
@@ -579,10 +598,10 @@ internal sealed class ArmyMoveSimulation
         return total;
     }
 
-    private static IReadOnlyList<SeaZoneId> CoastalZones(MapDefinition map, ProvinceId province) =>
+    internal static IReadOnlyList<SeaZoneId> CoastalZones(MapDefinition map, ProvinceId province) =>
         map.GetCells(province).SelectMany(cell => AdjacentSeaZones(map, cell)).Distinct().ToArray();
 
-    private static IEnumerable<SeaZoneId> AdjacentSeaZones(MapDefinition map, CellIndex cell)
+    internal static IEnumerable<SeaZoneId> AdjacentSeaZones(MapDefinition map, CellIndex cell)
     {
         foreach (var direction in HexDirections.All.ToArray())
         {
@@ -691,6 +710,7 @@ public sealed partial class OrdersPreview
             .Select(move => move with { Regiments = move.Regiments.Except(regiments).ToArray() })
             .Where(static move => move.Regiments.Count > 0)
             .ToList();
+        var commanded = NavalOrderSimulation.Commanded(package, state, draft.Country, draft.NavalOrders);
         var origin = regiments.Length > 0 && state.GetRegiment(regiments[0]) is { } first ? first.Province : (ProvinceId?)null;
         var destinations = new List<ArmyDestinationView>();
         for (var value = 0; value < world.Map.Provinces.Count; value++)
@@ -702,7 +722,7 @@ public sealed partial class OrdersPreview
             }
 
             var candidate = new DraftRegimentMove(regiments, province);
-            var simulation = ArmyMoveSimulation.Run(state, draft.Country, [.. others, candidate]);
+            var simulation = ArmyMoveSimulation.Run(state, draft.Country, [.. others, candidate], commanded);
             var (verb, cost, refusal) = simulation.Results[^1];
             var owner = state.GetProvinceOwner(province);
             destinations.Add(new ArmyDestinationView(
@@ -742,7 +762,9 @@ public sealed partial class OrdersPreview
                 type?.Arms ?? 0,
                 unavailable,
                 count,
-                index >= 0 ? drafted.Orders[index].Refusal : null));
+                index >= 0 ? drafted.Orders[index].Refusal : null,
+                // Core takes one healthy worker per regiment it buys, and none for a row it refuses.
+                index >= 0 && drafted.Orders[index].Refusal is null ? drafted.Orders[index].Count : 0));
         }
 
         var regiments = state.GetRegiments(country)
@@ -842,7 +864,11 @@ public sealed partial class OrdersPreview
 
     private static ArmyMovesPreview PreviewArmyMoves(CompiledWorldPackage package, WorldState state, OrdersDraft draft)
     {
-        var simulation = ArmyMoveSimulation.Run(state, draft.Country, draft.RegimentMoves);
+        var simulation = ArmyMoveSimulation.Run(
+            state,
+            draft.Country,
+            draft.RegimentMoves,
+            NavalOrderSimulation.Commanded(package, state, draft.Country, draft.NavalOrders));
         var moves = draft.RegimentMoves
             .Select((move, index) => new DraftedRegimentMoveView(
                 move.Regiments,

@@ -44,9 +44,18 @@ namespace Imperialism.Presentation;
 /// destination's to decide, as in Core, and <see cref="OrdersPreview"/>'s to show.
 /// </para>
 /// <para>
-/// Naval orders, the University, the Trade School and the Power Plant are not
-/// drafted here yet: they are rows 4e-2b and 4e-3, and their
-/// <see cref="CountryTurnOrders"/> fields stay empty.
+/// Naval orders (row 4e-2 part B) are one list, in the order given, because Core
+/// resolves a country's naval orders in list order. An assembly names a set of fleets
+/// and a mission; a fleet is in at most one drafted assembly, so a newer assembly
+/// sharing any fleet with older ones takes the first one's place and the rest go. A
+/// command names a task force and a mission, one per task force, a newer one replacing
+/// the older in place — the original's select-then-click, which re-orders the selected
+/// task force. Whether the fleets exist, are this country's and lie together is
+/// <see cref="OrdersPreview"/>'s warning and Core's ruling, never the draft's.
+/// </para>
+/// <para>
+/// The University, the Trade School and the Power Plant are not drafted here yet: they
+/// are row 4e-3, and their <see cref="CountryTurnOrders"/> fields stay empty.
 /// </para>
 /// </remarks>
 public sealed class OrdersDraft
@@ -65,6 +74,7 @@ public sealed class OrdersDraft
     private readonly List<(ArmyCategory Category, long Count)> _regimentPurchases = [];
     private readonly List<(ShipTypeId Type, long Count)> _shipBuilds = [];
     private readonly List<DraftRegimentMove> _regimentMoves = [];
+    private readonly List<DraftNavalOrder> _naval = [];
     private long _recruitWorkers;
     private long _buildTransportCapacity;
 
@@ -124,6 +134,17 @@ public sealed class OrdersDraft
     /// <summary>The drafted move a regiment is in, if any.</summary>
     public DraftRegimentMove? GetRegimentMove(RegimentId regiment) =>
         _regimentMoves.FirstOrDefault(move => move.Regiments.Contains(regiment));
+
+    /// <summary>Naval orders in the order Core resolves them; no fleet is in two assemblies.</summary>
+    public IReadOnlyList<DraftNavalOrder> NavalOrders => _naval.AsReadOnly();
+
+    /// <summary>The drafted assembly a fleet is in, if any.</summary>
+    public DraftNavalOrder? GetNavalAssembly(FleetId fleet) =>
+        _naval.FirstOrDefault(order => order.Kind == DraftNavalOrderKind.Assemble && order.Fleets.Contains(fleet));
+
+    /// <summary>The drafted command for a task force, if any.</summary>
+    public DraftNavalOrder? GetNavalCommand(TaskForceId taskForce) =>
+        _naval.FirstOrDefault(order => order.Kind == DraftNavalOrderKind.Command && order.TaskForce == taskForce);
 
     /// <summary>Untrained workers asked of the Capitol this turn.</summary>
     public long RecruitWorkers
@@ -373,6 +394,65 @@ public sealed class OrdersDraft
         return true;
     }
 
+    /// <summary>
+    /// Group these fleets into a task force and give it a mission, in one order. An older
+    /// assembly sharing any of these fleets is replaced: the first in its place, the rest
+    /// removed, so the newest selection is the one that stands.
+    /// </summary>
+    public void SetNavalAssembly(IEnumerable<FleetId> fleets, NavalMission mission)
+    {
+        ArgumentNullException.ThrowIfNull(fleets);
+        RequireMission(mission);
+        var named = fleets.Distinct().ToArray();
+        if (named.Length == 0)
+        {
+            throw new ArgumentException("An assembly names at least one fleet.", nameof(fleets));
+        }
+
+        var order = new DraftNavalOrder(DraftNavalOrderKind.Assemble, Array.AsReadOnly(named), null, mission);
+        var first = _naval.FindIndex(row => row.Kind == DraftNavalOrderKind.Assemble && row.Fleets.Intersect(named).Any());
+        if (first < 0)
+        {
+            _naval.Add(order);
+            return;
+        }
+
+        _naval[first] = order;
+        for (var index = _naval.Count - 1; index > first; index--)
+        {
+            if (_naval[index].Kind == DraftNavalOrderKind.Assemble && _naval[index].Fleets.Intersect(named).Any())
+            {
+                _naval.RemoveAt(index);
+            }
+        }
+    }
+
+    /// <summary>Give a task force its mission or move; a newer command replaces the older in place.</summary>
+    public void SetNavalCommand(TaskForceId taskForce, NavalMission mission)
+    {
+        RequireMission(mission);
+        var order = new DraftNavalOrder(DraftNavalOrderKind.Command, Array.Empty<FleetId>(), taskForce, mission);
+        var index = _naval.FindIndex(row => row.Kind == DraftNavalOrderKind.Command && row.TaskForce == taskForce);
+        if (index >= 0)
+        {
+            _naval[index] = order;
+        }
+        else
+        {
+            _naval.Add(order);
+        }
+    }
+
+    /// <summary>Takes back the drafted assembly this fleet is in, whole.</summary>
+    public bool ClearNavalAssembly(FleetId fleet) =>
+        _naval.RemoveAll(row => row.Kind == DraftNavalOrderKind.Assemble && row.Fleets.Contains(fleet)) > 0;
+
+    /// <summary>Takes back the drafted command for a task force.</summary>
+    public bool ClearNavalCommand(TaskForceId taskForce) =>
+        _naval.RemoveAll(row => row.Kind == DraftNavalOrderKind.Command && row.TaskForce == taskForce) > 0;
+
+    public void ClearNavalOrders() => _naval.Clear();
+
     public void ClearRegimentPurchases() => _regimentPurchases.Clear();
 
     public void ClearShipBuilds() => _shipBuilds.Clear();
@@ -410,7 +490,10 @@ public sealed class OrdersDraft
             .Select(static row => new ShipBuildOrder(row.Type, row.Count)),
         regimentPurchases: _regimentPurchases.Where(static row => row.Count > 0)
             .Select(static row => new RegimentPurchaseOrder(row.Category, row.Count)),
-        regimentMoves: _regimentMoves.Select(static move => new RegimentMoveOrder(move.Regiments, move.Destination)));
+        regimentMoves: _regimentMoves.Select(static move => new RegimentMoveOrder(move.Regiments, move.Destination)),
+        naval: _naval.Select(static order => order.Kind == DraftNavalOrderKind.Assemble
+            ? NavalOrder.Assemble(order.Fleets, order.Mission)
+            : NavalOrder.Command(order.TaskForce!.Value, order.Mission)));
 
     /// <summary>
     /// A whole turn's orders: this draft in its own country's slot and empty orders
@@ -467,6 +550,18 @@ public sealed class OrdersDraft
     /// turn" (1757–1758), and a garrison told to do nothing does so "this turn only" and
     /// "appears normally in the cycle next turn" (1830–1831): a move is that turn's.
     /// </para>
+    /// <para>
+    /// Cleared: every naval order. A move, from the manual: a fleet moves no further than
+    /// it can "in one turn" (1915–1917) and takes a mission or a move a turn (1887–1889),
+    /// so a move is that turn's; Done keeps a fleet where it is "for that turn"
+    /// (1970–1974). A landing site, from the manual: troops cross on "any subsequent
+    /// turns, as long as you maintain the landing site by keeping ships in that sea zone"
+    /// (1943–1945), and Core restamps a re-ordered site, so carrying the order would keep
+    /// the site unusable for ever. A patrol and a blockade, chosen: the manual does not
+    /// say, and Core keeps either mission standing until the task force is told to move,
+    /// so re-sending it would only spend the turn repeating it. An assembly, from Core:
+    /// a task force is permanent once assembled, so the order has nothing left to do.
+    /// </para>
     /// </remarks>
     public void AdvanceTurn()
     {
@@ -484,6 +579,25 @@ public sealed class OrdersDraft
         _regimentPurchases.Clear();
         _shipBuilds.Clear();
         _regimentMoves.Clear();
+        _naval.Clear();
+    }
+
+    /// <summary>A mission naming a sea zone, country or province the world lacks is a screen's bug.</summary>
+    private void RequireMission(NavalMission mission)
+    {
+        ArgumentNullException.ThrowIfNull(mission);
+        switch (mission)
+        {
+            case NavalMission.MoveMission move:
+                RequireIndex(move.Destination.Value, _world.Map.SeaZones.Count, nameof(mission));
+                break;
+            case NavalMission.BlockadeMission blockade:
+                RequireIndex(blockade.Target.Value, _world.Countries.Count, nameof(mission));
+                break;
+            case NavalMission.LandingMission landing:
+                RequireIndex(landing.Target.Value, _world.Map.Provinces.Count, nameof(mission));
+                break;
+        }
     }
 
     private void SetUnitOrder(DraftUnitOrder order)
@@ -579,3 +693,20 @@ public sealed record DraftUnitOrder(
 
 /// <summary>One drafted regiment move: the regiments, together, to a province.</summary>
 public sealed record DraftRegimentMove(IReadOnlyList<RegimentId> Regiments, ProvinceId Destination);
+
+/// <summary>Which of Core's two naval orders a drafted one becomes.</summary>
+public enum DraftNavalOrderKind : byte
+{
+    Assemble,
+    Command,
+}
+
+/// <summary>
+/// One drafted naval order. <see cref="Fleets"/> is set for an assembly and empty for a
+/// command; <see cref="TaskForce"/> is set exactly for a command.
+/// </summary>
+public sealed record DraftNavalOrder(
+    DraftNavalOrderKind Kind,
+    IReadOnlyList<FleetId> Fleets,
+    TaskForceId? TaskForce,
+    NavalMission Mission);
