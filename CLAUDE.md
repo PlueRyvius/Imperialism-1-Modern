@@ -63,6 +63,12 @@ file there must be named by `assets/manifest/imperialism-art.json`, and a test
 enforces it, so nothing arrives without a recorded source and a re-run of the
 extractor reproduces it byte for byte. See `docs/asset-pipeline.md`.
 
+**All of the original art is committed too**, unaltered, under
+`assets/original/`: every bitmap in the seven picture archives (owner decision,
+2026-11-26), as the source for rebuilding screens and touching pieces up. Leave
+those files unchanged; a touched-up piece is a new file. See
+`assets/original/README.md`.
+
 **The `.map` trailer is a province table.** 384 slots indexed by province id,
 each holding that province's town cell as a big-endian u16 at offset 4, 65535
 when unused — verified on all ten maps. The other 196 bytes per record are still
