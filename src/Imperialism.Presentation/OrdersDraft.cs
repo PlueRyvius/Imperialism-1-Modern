@@ -27,8 +27,17 @@ namespace Imperialism.Presentation;
 /// <see cref="OrdersPreview.CreateUnitOrders"/>'s warning and Core's ruling.
 /// </para>
 /// <para>
-/// Ships, war, diplomacy and regiments are not drafted here: they are row 4e, and
-/// their <see cref="CountryTurnOrders"/> fields stay empty.
+/// Diplomacy (row 4e-1) is three lists: overtures and declarations of war, each held
+/// once per (kind, target) because Core refuses a repeat, and one trade policy per
+/// target, a new one replacing the old in place — the trade policies screen's icon
+/// on the country. Clicking an icon again takes the order back (manual 3466–3469 and
+/// 3688–3690), which is <see cref="SetOverture"/> or <see cref="SetDeclareWar"/> with
+/// false, and <see cref="ClearTradePolicy"/>.
+/// </para>
+/// <para>
+/// Ships, regiments, the University, the Trade School and the Power Plant are not
+/// drafted here yet: they are rows 4e-2 and 4e-3, and their
+/// <see cref="CountryTurnOrders"/> fields stay empty.
 /// </para>
 /// </remarks>
 public sealed class OrdersDraft
@@ -41,6 +50,9 @@ public sealed class OrdersDraft
     private readonly List<(CommodityId Commodity, long Quantity)> _offers = [];
     private readonly List<(CommodityId Commodity, long Quantity)> _bids = [];
     private readonly SortedDictionary<long, DraftUnitOrder> _unitOrders = [];
+    private readonly List<DiplomaticOverture> _overtures = [];
+    private readonly List<CountryId> _declareWar = [];
+    private readonly List<TradePolicyOrder> _tradePolicies = [];
     private long _recruitWorkers;
     private long _buildTransportCapacity;
 
@@ -78,6 +90,15 @@ public sealed class OrdersDraft
     /// <summary>The order drafted for this civilian, or null.</summary>
     public DraftUnitOrder? GetUnitOrder(CivilianUnitId unit) =>
         _unitOrders.TryGetValue(unit.Value, out var order) ? order : null;
+
+    /// <summary>Overtures in the order the treasury pays for them.</summary>
+    public IReadOnlyList<DiplomaticOverture> Overtures => _overtures.AsReadOnly();
+
+    /// <summary>Countries to declare war on, in the order the player clicked them.</summary>
+    public IReadOnlyList<CountryId> DeclareWar => _declareWar.AsReadOnly();
+
+    /// <summary>One trade policy per target, in the order first set.</summary>
+    public IReadOnlyList<TradePolicyOrder> TradePolicies => _tradePolicies.AsReadOnly();
 
     /// <summary>Untrained workers asked of the Capitol this turn.</summary>
     public long RecruitWorkers
@@ -183,6 +204,84 @@ public sealed class OrdersDraft
     /// <summary>Takes back a civilian's order; true when there was one.</summary>
     public bool ClearUnitOrder(CivilianUnitId unit) => _unitOrders.Remove(unit.Value);
 
+    /// <summary>
+    /// Makes or takes back an overture: a scroll clicked on a country, or its icon
+    /// clicked again (manual 3466–3469). A new overture joins the end of the list,
+    /// which is the order Core pays for them.
+    /// </summary>
+    public void SetOverture(DiplomaticOvertureKind kind, CountryId target, bool offer)
+    {
+        if (!Enum.IsDefined(kind))
+        {
+            throw new ArgumentOutOfRangeException(nameof(kind));
+        }
+
+        RequireIndex(target.Value, _world.Countries.Count, nameof(target));
+        Toggle(_overtures, new DiplomaticOverture(kind, target), offer);
+    }
+
+    /// <summary>Declares war on a country this turn, or takes the declaration back.</summary>
+    public void SetDeclareWar(CountryId target, bool declare)
+    {
+        RequireIndex(target.Value, _world.Countries.Count, nameof(target));
+        Toggle(_declareWar, target, declare);
+    }
+
+    /// <summary>
+    /// Sets this turn's trade policy order toward a country: a subsidy at one of the
+    /// world's percentages, a boycott, or <see cref="TradePolicy.None"/> to cancel what
+    /// stands. Replaces any order already drafted for that country, in its place.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// A subsidy at a percentage the world's screen has no button for.
+    /// </exception>
+    public void SetTradePolicy(CountryId target, TradePolicy policy)
+    {
+        RequireIndex(target.Value, _world.Countries.Count, nameof(target));
+        if (!Enum.IsDefined(policy.Kind))
+        {
+            throw new ArgumentOutOfRangeException(nameof(policy));
+        }
+
+        if (policy.Kind == TradePolicyKind.Subsidy &&
+            !(_world.Diplomacy?.SubsidyPercents.Contains(policy.Percent) ?? false))
+        {
+            throw new ArgumentException(
+                "Only a percentage the world offers has a button on the trade policies screen.",
+                nameof(policy));
+        }
+
+        var order = new TradePolicyOrder(target, policy);
+        var index = _tradePolicies.FindIndex(row => row.Target == target);
+        if (index >= 0)
+        {
+            _tradePolicies[index] = order;
+        }
+        else
+        {
+            _tradePolicies.Add(order);
+        }
+    }
+
+    /// <summary>The trade policy order drafted toward this country, or null.</summary>
+    public TradePolicy? GetTradePolicy(CountryId target)
+    {
+        var index = _tradePolicies.FindIndex(row => row.Target == target);
+        return index >= 0 ? _tradePolicies[index].Policy : null;
+    }
+
+    /// <summary>Takes back the drafted policy change; true when there was one.</summary>
+    public bool ClearTradePolicy(CountryId target) =>
+        _tradePolicies.RemoveAll(row => row.Target == target) > 0;
+
+    /// <summary>Takes back every overture, declaration and policy change.</summary>
+    public void ClearDiplomacy()
+    {
+        _overtures.Clear();
+        _declareWar.Clear();
+        _tradePolicies.Clear();
+    }
+
     /// <summary>The inert orders Core resolves. Zero rows are left out.</summary>
     public CountryTurnOrders Build() => new(
         Country,
@@ -206,7 +305,10 @@ public sealed class OrdersDraft
         tradeOffers: _offers.Where(static row => row.Quantity > 0)
             .Select(static row => new TradeOrder(row.Commodity, row.Quantity)),
         tradeBids: _bids.Where(static row => row.Quantity > 0)
-            .Select(static row => new TradeOrder(row.Commodity, row.Quantity)));
+            .Select(static row => new TradeOrder(row.Commodity, row.Quantity)),
+        declareWar: _declareWar,
+        overtures: _overtures,
+        tradePolicies: _tradePolicies);
 
     /// <summary>
     /// A whole turn's orders: this draft in its own country's slot and empty orders
@@ -242,6 +344,15 @@ public sealed class OrdersDraft
     /// automatically" when it finishes (1065–1069). Core keeps that job running with
     /// no new order, so nothing needs carrying here.
     /// </para>
+    /// <para>
+    /// Cleared, from the manual: overtures and declarations of war, which are made when
+    /// End Turn is clicked — a declaration is delivered "as soon as you click the End
+    /// Turn button" (3478–3479) and a consulate "opens starting the turn after you make
+    /// the overture" (3516–3518); only "before the end of the turn" can one be taken back
+    /// (3466–3469). A trade policy order too: what the player sets is a <em>change</em>,
+    /// cancellable "before the end of the turn" (3688–3690), and Core keeps the policy
+    /// standing from then on, so re-sending it would only repeat a change already made.
+    /// </para>
     /// </remarks>
     public void AdvanceTurn()
     {
@@ -255,6 +366,7 @@ public sealed class OrdersDraft
         _offers.Clear();
         _bids.Clear();
         _unitOrders.Clear();
+        ClearDiplomacy();
     }
 
     private void SetUnitOrder(DraftUnitOrder order)

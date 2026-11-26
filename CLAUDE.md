@@ -162,6 +162,12 @@ and warnings, draft/clear controls and Escape deselection to the Terrain Map.
 Godot interaction, smoke and screenshot acceptance are still pending. See
 `docs/gui-shell.md` for controls and the exact PC checklist.
 
+The client Diplomacy screen is built on row 4e-1's preview: country relations,
+posts, pacts, overtures, war effects, trade policies, draft clearing and treasury
+claims. `--smoke-diplomacy` drafts a consulate and prints preview and resolved
+report events. Godot runtime interaction and screenshots await the Windows PC;
+see `docs/gui-shell.md` for the checks.
+
 Phases 0 and 1 are complete. `src/Imperialism.Formats/` is the production .NET 8
 formats library for `.map`, binary/plaintext scenarios, and editable `.inf`
 files, and it is now the only parser here. The extensionless plaintext filenames
@@ -242,6 +248,15 @@ restatement of the internal planners labelled a preview. Cash is claimed in Core
 order: bids (worst case), then work orders, then Engineer orders, then research.
 Core refuses a busy civilian's new order where the manual lets it be changed; the
 preview follows Core. No Core change, no content bump, no new phase.
+
+**Row 4e-1 puts diplomacy in the draft.** Overtures, declarations and one trade
+policy per target, all **cleared at End Turn**. Overtures and war follow the manual
+(3466–3469, 3477–3479). Clearing the policy order is chosen: Core keeps the policy
+standing. `OrdersPreview.Diplomacy` shows each other country's relation, posts,
+pacts and policies, and each overture's price and Core's refusal, restated from
+`DiplomacyPlanner`. Overtures now head the cash chain, ahead of bids. Peace to a
+Great Power always previews as Declined while rivals submit nothing. No Core change,
+no content bump, no new phase.
 
 Phase 3 is in progress. Core has packed, ownership-filtered rail connectivity
 with lazy invalidation and generated coverage at 64,800 cells. It also has an
