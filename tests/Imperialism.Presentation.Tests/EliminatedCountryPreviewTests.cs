@@ -42,6 +42,7 @@ public sealed class EliminatedCountryPreviewTests
         Assert.Equal(OrderWarning<RegimentPurchaseRefusal>.SetAside, armoury.Warning);
         Assert.Equal(0, preview.Armoury.CashClaimed);
         Assert.Equal(0, preview.Armoury.LabourWithheld);
+        Assert.All(preview.Armoury.Categories, row => Assert.Equal(0, row.WorkersTaken));
 
         Assert.Equal(OrderWarning<ShipBuildRefusal>.SetAside, preview.Shipyard.Hulls[Frigate.Value].Warning);
 
@@ -69,6 +70,8 @@ public sealed class EliminatedCountryPreviewTests
         var cash = state.GetCash(Blue);
         var arms = state.GetAvailableQuantity(Blue, Arms(state));
         var regiments = state.GetRegiments(Blue).Count;
+        long Workforce() => WorkerGrades.All.ToArray().Sum(grade => state.GetWorkers(Blue, grade));
+        var workforce = Workforce();
         var events = TurnResolver.Resolve(state, draft.BuildTurnOrders(), 3).Events;
 
         Assert.Contains(events, item => item is EliminatedCountryOrdersIgnoredEvent { Country.Value: 0 });
@@ -85,6 +88,7 @@ public sealed class EliminatedCountryPreviewTests
         Assert.Equal(diplomacy.CashAfterOvertures, state.GetCash(Blue));
         Assert.Equal(arms, state.GetAvailableQuantity(Blue, Arms(state)));
         Assert.Equal(regiments, state.GetRegiments(Blue).Count);
+        Assert.Equal(workforce - preview.Armoury.Categories.Sum(static row => row.WorkersTaken), Workforce());
         Assert.Equal(East, state.GetRegiment(survivor)!.Province);
         Assert.False(state.HoldsDiplomaticTie(Blue, Green, DiplomaticTie.Consulate));
         Assert.DoesNotContain(state.Fleets, fleet => fleet.Country == Blue && fleet.Type == Frigate);
