@@ -67,6 +67,10 @@ public sealed record TaskForceRowView(
 /// re-ordering a site already held (manual 1943; Core restamps it).
 /// </param>
 /// <param name="RestampsLandingSite">The task force already holds a site, which this order resets.</param>
+/// <param name="Warning">
+/// Core's refusal, or <see cref="OrderWarning{TRefusal}.SetAside"/> for every order of an
+/// eliminated country, whose orders Core never reads.
+/// </param>
 public sealed record DraftedNavalOrderView(
     DraftNavalOrderKind Kind,
     IReadOnlyList<FleetId> Fleets,
@@ -79,7 +83,7 @@ public sealed record DraftedNavalOrderView(
     bool HasEffect,
     int? LandingUsableFromTurn,
     bool RestampsLandingSite,
-    NavalOrderRefusal? Warning);
+    OrderWarning<NavalOrderRefusal>? Warning);
 
 /// <summary>
 /// The fleet screen, a preview: the country's fleets and task forces as the turn opens,
@@ -96,6 +100,9 @@ public sealed record DraftedNavalOrderView(
 /// </remarks>
 /// <param name="OrdersSetAside">
 /// The drafting country is eliminated: Core sets every order aside, so nothing here happens.
+/// Every drafted order then carries <see cref="OrderWarning{TRefusal}.SetAside"/> rather than
+/// the refusal its vanished fleets would earn, and the fleet and task-force lists are empty,
+/// because elimination sinks every hull (army rule 40).
 /// </param>
 public sealed record FleetView(
     int TurnNumber,
@@ -122,7 +129,21 @@ internal sealed class NavalOrderSimulation
         CompiledWorldPackage package, WorldState state, CountryId country, IEnumerable<DraftNavalOrder> orders)
     {
         var simulation = new NavalOrderSimulation(state, country);
-        return Array.AsReadOnly(orders.Select(order => simulation.Resolve(package, order)).ToArray());
+        var views = orders.Select(order => simulation.Resolve(package, order));
+        if (state.IsEliminated(country))
+        {
+            // Core empties the orders before NavalPlanner runs, so none is refused: each is
+            // set aside, and nothing it would have reached or restamped happens.
+            views = views.Select(static view => view with
+            {
+                HasEffect = false,
+                LandingUsableFromTurn = null,
+                RestampsLandingSite = false,
+                Warning = OrderWarning<NavalOrderRefusal>.SetAside,
+            });
+        }
+
+        return Array.AsReadOnly(views.ToArray());
     }
 
     public static NavalMissionKind KindOf(NavalMission mission) => mission switch
@@ -222,7 +243,7 @@ internal sealed class NavalOrderSimulation
             hasEffect,
             sitesLanding ? _state.CompletedTurnCount + 2 : null,
             sitesLanding && force is { Activity: TaskForceActivity.Landing },
-            refusal);
+            refusal is { } reason ? reason : null);
     }
 
     private NavalOrderRefusal? CheckAssembly(IReadOnlyList<FleetId> fleets, out SeaZoneId seaZone)

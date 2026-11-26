@@ -174,7 +174,7 @@ public sealed class NavalOrdersTests
             events.OfType<NavalOrderRefusedEvent>().Where(static item => item.Country == Blue)
                 .Select(static item => (item.Kind == NavalOrderKind.Assemble, item.Reason)),
             orders.Where(static order => order.Warning is not null)
-                .Select(static order => (order.Kind == DraftNavalOrderKind.Assemble, order.Warning!.Value)));
+                .Select(static order => (order.Kind == DraftNavalOrderKind.Assemble, order.Warning!.Value.Refusal!.Value)));
 
         var accepted = orders.Where(static order => order.Warning is null).ToArray();
         Assert.Equal(

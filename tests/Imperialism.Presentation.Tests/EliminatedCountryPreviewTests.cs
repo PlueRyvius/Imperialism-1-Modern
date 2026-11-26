@@ -91,6 +91,50 @@ public sealed class EliminatedCountryPreviewTests
     }
 
     [Fact]
+    public void AnEliminatedCountrysNavalOrdersPreviewAsSetAsideAndItsFleetsAreGone()
+    {
+        // Blue assembles its Frigate on a patrol while it stands, then loses its capital.
+        var package = Compile();
+        var state = new WorldState(package.GetWorld(Scenario));
+        var frigates = state.Fleets.Single(fleet => fleet.Country == Blue && fleet.Type == Frigate).Id;
+        var traders = state.Fleets.Single(fleet => fleet.Country == Blue && fleet.Type != Frigate).Id;
+        var invader = state.CreateRegiment(Red, new ProvinceId(1), new ArmyTypeId(0));
+        TurnResolver.Resolve(state, new TurnOrders([
+            new CountryTurnOrders(Blue, naval: [NavalOrder.Assemble([frigates], NavalMission.Patrol)]),
+            new CountryTurnOrders(Red, declareWar: [Blue]),
+            new CountryTurnOrders(Green)]), 1);
+        var force = Assert.Single(state.TaskForces, item => item.Country == Blue).Id;
+        var capture = TurnResolver.Resolve(state, new TurnOrders([
+            new CountryTurnOrders(Blue),
+            new CountryTurnOrders(Red, regimentMoves: [new RegimentMoveOrder([invader], Home)]),
+            new CountryTurnOrders(Green)]), 2);
+        Assert.Contains(capture.Events, item => item is CountryEliminatedEvent { Country.Value: 0, FleetsLost: 2 });
+
+        // The orders name the fleet and task force it held; Core would set both aside.
+        var draft = new OrdersDraft(package.GetWorld(Scenario), Blue);
+        draft.SetNavalCommand(force, NavalMission.Patrol);
+        draft.SetNavalAssembly([traders], NavalMission.Patrol);
+        var fleet = OrdersPreview.Create(package, Scenario, state, draft).Fleet;
+
+        Assert.True(fleet.OrdersSetAside);
+        Assert.Empty(fleet.Fleets);
+        Assert.Empty(fleet.TaskForces);
+        Assert.Equal(2, fleet.Orders.Count);
+        Assert.All(fleet.Orders, order =>
+        {
+            Assert.Equal(OrderWarning<NavalOrderRefusal>.SetAside, order.Warning);
+            Assert.False(order.HasEffect);
+            Assert.Null(order.LandingUsableFromTurn);
+        });
+
+        var events = TurnResolver.Resolve(state, draft.BuildTurnOrders(), 3).Events;
+        Assert.Contains(events, item => item is EliminatedCountryOrdersIgnoredEvent { Country.Value: 0 });
+        Assert.DoesNotContain(events, item => item is NavalOrderRefusedEvent { Country.Value: 0 }
+            or TaskForceAssembledEvent { Country.Value: 0 });
+        Assert.DoesNotContain(state.Fleets, item => item.Country == Blue);
+    }
+
+    [Fact]
     public void ALiveCountrysSameDraftIsNotSetAside()
     {
         // The control: the same orders from a country that still stands are judged as usual.
@@ -149,6 +193,8 @@ public sealed class EliminatedCountryPreviewTests
     /// The newspaper fixture's four cells — Home, Far, West, East in a row — with Blue
     /// holding West and East, a Minor Nation to open a consulate in, a Regular for one
     /// arms and $500, a Frigate for one lumber, and a Farmer on East's grain at $100 a rung.
+    /// A fifth cell, the Northern Sea, lies off East; Blue holds a Frigate there and one
+    /// Trader unplaced.
     /// </summary>
     private static CompiledWorldPackage Compile()
     {
@@ -223,8 +269,19 @@ public sealed class EliminatedCountryPreviewTests
             Terrain = "terrain.plains", Region = new CellRegionContent { Province = "province.east" },
             Resources = ["resource.grain"],
         };
+        document.Map.Width = 5;
+        document.Map.Cells =
+        [
+            .. document.Map.Cells,
+            new CellContentDocument { Terrain = "terrain.ocean", Region = new CellRegionContent { SeaZone = "sea.north" } },
+        ];
         foreach (var scenario in document.Scenarios)
         {
+            scenario.Ships =
+            [
+                new ShipContent { Country = "country.blue", Type = "ship.frigate", SeaZoneKey = "sea.north", Count = 1 },
+                new ShipContent { Country = "country.blue", Type = "ship.trader", Count = 1 },
+            ];
             scenario.ProvinceOwners =
             [
                 .. scenario.ProvinceOwners,
