@@ -15,6 +15,8 @@ public enum ShellScreen
     BidAndOffers,
     Diplomacy,
     Technology,
+    Armoury,
+    Fleet,
 }
 
 /// <summary>What the shell requires of anything it can navigate to.</summary>
@@ -40,9 +42,11 @@ public static class ShellScreens
         ShellScreen.BidAndOffers,
         ShellScreen.Diplomacy,
         ShellScreen.Technology,
+        ShellScreen.Armoury,
+        ShellScreen.Fleet,
     ];
 
-    /// <summary>The action name each screen answers to, bound to F1 through F6.</summary>
+    /// <summary>The action names; only the six original screens have F1 through F6 bindings.</summary>
     public static StringName ActionName(ShellScreen screen) => screen switch
     {
         ShellScreen.TerrainMap => "shell_terrain_map",
@@ -50,7 +54,10 @@ public static class ShellScreens
         ShellScreen.Industry => "shell_industry",
         ShellScreen.BidAndOffers => "shell_bid_and_offers",
         ShellScreen.Diplomacy => "shell_diplomacy",
-        _ => "shell_technology",
+        ShellScreen.Technology => "shell_technology",
+        ShellScreen.Armoury => "shell_armoury",
+        ShellScreen.Fleet => "shell_fleet",
+        _ => throw new ArgumentOutOfRangeException(nameof(screen)),
     };
 
     /// <summary>
@@ -65,6 +72,7 @@ public static class ShellScreens
         ShellScreen.Industry => "res://art/tab/tab_02.png",
         ShellScreen.BidAndOffers => "res://art/tab/tab_07.png",
         ShellScreen.Diplomacy => "res://art/tab/tab_03.png",
-        _ => "res://art/tab/tab_06.png",
+        ShellScreen.Technology => "res://art/tab/tab_06.png",
+        _ => throw new ArgumentOutOfRangeException(nameof(screen), "This screen uses a text button."),
     };
 }
