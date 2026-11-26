@@ -20,9 +20,15 @@ namespace Imperialism.Presentation;
 /// reads an absent row as "none".
 /// </para>
 /// <para>
-/// Civilians, the Engineer, ships, war, diplomacy and regiments are not drafted
-/// here: they are rows 4d and 4e, and their <see cref="CountryTurnOrders"/> fields
-/// stay empty.
+/// A civilian holds at most one order — deploy, work or an Engineer's job — and a
+/// new one replaces the old, which is the original's cursor: clicking the map again
+/// re-orders the selected unit. The draft keeps them by unit id and checks neither
+/// the unit nor the target against the world as it stands; that is
+/// <see cref="OrdersPreview.CreateUnitOrders"/>'s warning and Core's ruling.
+/// </para>
+/// <para>
+/// Ships, war, diplomacy and regiments are not drafted here: they are row 4e, and
+/// their <see cref="CountryTurnOrders"/> fields stay empty.
 /// </para>
 /// </remarks>
 public sealed class OrdersDraft
@@ -34,6 +40,7 @@ public sealed class OrdersDraft
     private readonly List<TechnologyId> _technology = [];
     private readonly List<(CommodityId Commodity, long Quantity)> _offers = [];
     private readonly List<(CommodityId Commodity, long Quantity)> _bids = [];
+    private readonly SortedDictionary<long, DraftUnitOrder> _unitOrders = [];
     private long _recruitWorkers;
     private long _buildTransportCapacity;
 
@@ -64,6 +71,13 @@ public sealed class OrdersDraft
     public IReadOnlyList<(CommodityId Commodity, long Quantity)> TradeOffers => _offers.AsReadOnly();
 
     public IReadOnlyList<(CommodityId Commodity, long Quantity)> TradeBids => _bids.AsReadOnly();
+
+    /// <summary>Each civilian's one order this turn, in unit-id order.</summary>
+    public IReadOnlyList<DraftUnitOrder> UnitOrders => _unitOrders.Values.ToArray();
+
+    /// <summary>The order drafted for this civilian, or null.</summary>
+    public DraftUnitOrder? GetUnitOrder(CivilianUnitId unit) =>
+        _unitOrders.TryGetValue(unit.Value, out var order) ? order : null;
 
     /// <summary>Untrained workers asked of the Capitol this turn.</summary>
     public long RecruitWorkers
@@ -141,6 +155,34 @@ public sealed class OrdersDraft
         Set(_bids, commodity, quantity);
     }
 
+    /// <summary>Move a civilian to a tile and leave it idle there; replaces its order.</summary>
+    public void SetDeploy(CivilianUnitId unit, CellIndex cell) =>
+        SetUnitOrder(new DraftUnitOrder(unit, UnitOrderKind.Deploy, cell, null));
+
+    /// <summary>
+    /// Send a civilian to improve or search a tile — its type decides which — in the
+    /// one click the original's hammer and eye cursors take; replaces its order.
+    /// </summary>
+    public void SetWork(CivilianUnitId unit, CellIndex cell) =>
+        SetUnitOrder(new DraftUnitOrder(unit, UnitOrderKind.Work, cell, null));
+
+    /// <summary>
+    /// An Engineer's job, with <see cref="EngineerOrder"/>'s fields: rail towards an
+    /// adjacent tile, or a depot, port or fort on its own; replaces its order.
+    /// </summary>
+    public void SetEngineer(CivilianUnitId unit, CellIndex cell, EngineerConstruction structure)
+    {
+        if (!Enum.IsDefined(structure))
+        {
+            throw new ArgumentOutOfRangeException(nameof(structure));
+        }
+
+        SetUnitOrder(new DraftUnitOrder(unit, UnitOrderKind.Engineer, cell, structure));
+    }
+
+    /// <summary>Takes back a civilian's order; true when there was one.</summary>
+    public bool ClearUnitOrder(CivilianUnitId unit) => _unitOrders.Remove(unit.Value);
+
     /// <summary>The inert orders Core resolves. Zero rows are left out.</summary>
     public CountryTurnOrders Build() => new(
         Country,
@@ -151,6 +193,15 @@ public sealed class OrdersDraft
         transport: _transport.Where(static row => row.Quantity > 0)
             .Select(static row => new TransportAllocationOrder(row.Commodity, row.Quantity)),
         buildTransportCapacity: _buildTransportCapacity,
+        deployments: _unitOrders.Values
+            .Where(static order => order.Kind == UnitOrderKind.Deploy)
+            .Select(static order => new CivilianDeployOrder(order.Unit, order.Cell)),
+        civilianWork: _unitOrders.Values
+            .Where(static order => order.Kind == UnitOrderKind.Work)
+            .Select(static order => new CivilianWorkOrder(order.Unit, order.Cell)),
+        engineerWork: _unitOrders.Values
+            .Where(static order => order.Kind == UnitOrderKind.Engineer)
+            .Select(static order => new EngineerOrder(order.Unit, order.Cell, order.Structure!.Value)),
         buyTechnology: _technology,
         tradeOffers: _offers.Where(static row => row.Quantity > 0)
             .Select(static row => new TradeOrder(row.Commodity, row.Quantity)),
@@ -184,6 +235,13 @@ public sealed class OrdersDraft
     /// from then on. Facility expansion, recruitment and trade offers and bids are
     /// cleared by a chosen rule, because the manual does not say.
     /// </para>
+    /// <para>
+    /// Cleared, from the manual: every civilian's order. A unit "appears normally in
+    /// the cycle next turn" to be ordered again (1206–1214); one whose job takes more
+    /// than one turn drops out of the cycle while it works and "returns to the cycle
+    /// automatically" when it finishes (1065–1069). Core keeps that job running with
+    /// no new order, so nothing needs carrying here.
+    /// </para>
     /// </remarks>
     public void AdvanceTurn()
     {
@@ -196,6 +254,17 @@ public sealed class OrdersDraft
         _technology.Clear();
         _offers.Clear();
         _bids.Clear();
+        _unitOrders.Clear();
+    }
+
+    private void SetUnitOrder(DraftUnitOrder order)
+    {
+        if (!_world.Map.Dimensions.Contains(order.Cell))
+        {
+            throw new ArgumentOutOfRangeException(nameof(order), "The cell is not on this world's map.");
+        }
+
+        _unitOrders[order.Unit.Value] = order;
     }
 
     private void RequireTradable(CommodityId commodity)
@@ -260,3 +329,21 @@ public sealed class OrdersDraft
         }
     }
 }
+
+/// <summary>Which of Core's three civilian order lists a drafted order goes to.</summary>
+public enum UnitOrderKind : byte
+{
+    Deploy,
+    Work,
+    Engineer,
+}
+
+/// <summary>
+/// One civilian's drafted order. <see cref="Structure"/> is set exactly when
+/// <see cref="Kind"/> is <see cref="UnitOrderKind.Engineer"/>.
+/// </summary>
+public sealed record DraftUnitOrder(
+    CivilianUnitId Unit,
+    UnitOrderKind Kind,
+    CellIndex Cell,
+    EngineerConstruction? Structure);
