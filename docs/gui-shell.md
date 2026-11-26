@@ -49,6 +49,8 @@ Technology Investment screen the microscope reaches.
 | **Industry** | Industry screen | Built. Workforce down the left border, warehouse on the right; scrolling facilities, production cycles, Capitol recruitment and railyard purchases. `Production`, `Expansions`, `RecruitWorkers`, `BuildTransportCapacity`. |
 | **Bid and Offers** | Bid and Offers screen | Built. Fixed commodity order, world prices, sellable stock, bounded offer input and bid input; holds, cash and all preview warnings. `TradeOffers`, `TradeBids`. |
 | **Diplomacy** | Diplomacy screen | Consulates, embassies, pacts, peace, war and trade policy per country. `Overtures`, `DeclareWar`, `TradePolicies`; previewed by `OrdersPreview.Diplomacy` (row 4e-1). Built: a scrolling country list and selected-country orders, with treasury claims and per-order clearing. |
+| Armoury | Armoury screen | Navigable placeholder; regiment and Shipyard editing awaits the Armoury screen. |
+| Fleet | Fleet orders | Built (row 4e-2): fleet/task-force roster, assembly and commands, reach, warnings, draft list and individual clearing. |
 | **Investment** | Invest in Technology | Built. Purchasable technologies with prices and buy toggles, cumulative cost against cash, ordered buy list and affordability warnings. `BuyTechnology`. |
 
 The Transport, Industry, Bid and Offers and Investment rows have their model now:
@@ -359,6 +361,28 @@ free after the factories are assigned (2592–2596, 4884–4885), and the previe
 Core. An eliminated country's rows preview as `OrderWarning<T>.SetAside` and claim
 nothing.
 
+### Fleet screen (row 4e-2 client)
+
+The plain **Fleet** button in the right navigation column opens a scrolling
+roster and order editor; **Armoury** in the left column opens a placeholder.
+Both use the existing theme, with no new art or keyboard bindings. F1–F6 retain
+their original screens; Escape returns either new screen to the map.
+
+Fleet lists the local country's hull classes and counts, location, task-force
+membership, mission, holds and reach from `FleetView`. Select fleet checkboxes
+and choose **Assemble selected fleets**, or choose **Command a task force**.
+Choose Done, Patrol, Blockade, Landing or Move, select a target when needed, and
+press **Draft order / replace**. Authored target names come from the world's
+catalogue; every numerical readout and outcome comes from the preview. Drafting
+and clearing each re-read `session.Preview().Fleet`.
+
+The drafted list preserves resolution order, showing the preview's refusal or
+set-aside warning, move reach and distance (including no sea path), landing
+availability and restamping. Warnings leave controls usable. Each order has its
+own **Clear this order** button. Current roster missions remain separate from
+drafted changes until End Turn. An eliminated country's orders are labelled
+set aside; the preview predicts no battles or interception.
+
 ### Diplomacy screen (client)
 
 Open Diplomacy with its tab or F5. Great Powers precede minors in a scrolling
@@ -412,7 +436,8 @@ the Industry preview shows the shortfall each turn instead.
 
 Shared chrome, from the manual: a title and the hot text narrating whatever the
 cursor is over along the top rail; the Left Arrow that closes a screen, bound
-here to Escape; F1 through F6 for the six screens.
+here to Escape; F1 through F6 for the six original screens, plus the Armoury and
+Fleet text buttons.
 
 **Tabs run down both edges.** That is what the original's screen frame does, and
 it is also forced: six 60x56 tabs stacked in one column need 418 of the 450
@@ -427,7 +452,7 @@ asserts the border is somewhere a person could see it.
 res://scenes/Main.tscn  → GameShell (Control)
   top rail                screen title, hot text
   body                    left tabs · ScreenStack · right tabs
-    ScreenStack             TerrainMapScreen + IndustryScreen + TransportScreen + TradeScreen + TechnologyScreen + DiplomacyScreen, one visible
+    ScreenStack             TerrainMapScreen + IndustryScreen + TransportScreen + TradeScreen + TechnologyScreen + DiplomacyScreen + FleetScreen + StubScreen, one visible
   StatusBorder            always present, below everything
 ```
 
@@ -590,9 +615,9 @@ the existing theme; no art files were added.
 
 ## The turn report
 
-**A modal, not a seventh screen.** Three reasons: both headless gates publish
-`screens=6` from the navigable set and a seventh member would silently rewrite
-two contracts; the original's screen frame has ten tabs and none of them is a
+**A modal, not a navigable screen.** Both headless gates count only the
+navigable set (now eight, including Armoury and Fleet); the original's screen frame
+has ten tabs and none of them is a
 turn report; and a tab would let a player open a *stale* report whenever they
 liked. It is the consequence of an action, not a place. `TurnReportScreen`
 therefore does not implement `IShellScreen` — an `Enter` would imply otherwise.
@@ -751,6 +776,22 @@ headless .NET tests resolve both scenarios, preserving the production and transp
 checks while verifying the technology purchase and the offer event. Rival orders
 remain empty, so the offer is reported unsold rather than matched. **The Godot
 smoke run and screenshots remain unrun on this server; they require the Windows PC.**
+```
+
+```bash
+godot --headless --path src/Imperialism.Client -- --smoke-fleet --world <naval.iworld> --country <country-key>
+```
+
+`--smoke-fleet` tries a patrol command on an existing task force, then a
+single-fleet patrol assembly, accepting a candidate only when the preview has
+no warning and reports an effect. It prints `FLEET_PREVIEW`, runs the ordinary
+turn smoke (including newspaper and report checks), prints the report's event
+sentences as `FLEET_EVENT`, and ends with `FLEET_SMOKE_OK`. No possible order
+(including a fleetless demo, unplaced fleets or an eliminated country) prints
+`FLEET_SMOKE_FAIL` with a reason and exits nonzero. This flag takes precedence
+when combined with `--smoke-turn`. A standalone empty-draft `--smoke-turn`
+retains its output and `TURN_SMOKE_OK` fields unchanged. Godot execution and
+layout checks remain pending on Windows.
 
 ```bash
 godot --path src/Imperialism.Client --resolution 2560x1080 -- --screenshot /tmp/shots
@@ -775,8 +816,8 @@ Ending a turn got its own line rather than extra fields on an existing one,
 because resolving moves `statusCash` and `statusWorkers`:
 
 ```
-VIEWER_SMOKE_OK map=… scenarios=… dimensions=…x… cells=… pickedCenters=… stateProbe=… country=… screens=6 statusCash=… statusWorkers=… theme=pass
-SHELL_SMOKE_OK screens=6 visited=6 country=… theme=pass borderVisible=yes
+VIEWER_SMOKE_OK map=… scenarios=… dimensions=…x… cells=… pickedCenters=… stateProbe=… country=… screens=8 statusCash=… statusWorkers=… theme=pass
+SHELL_SMOKE_OK screens=8 visited=8 country=… theme=pass borderVisible=yes
 TURN_SMOKE_OK turn=1 from=1815 Q1 to=1815 Q2 events=8 phases=14 lines=9 reportVisible=yes dismissed=yes country=… seed=1 paperLines=2 paperVisible=yes paperDismissed=yes
 ```
 
@@ -792,7 +833,7 @@ broken rather than quiet.
 
 `--screenshot <dir>` writes one image per screen, followed by the newspaper
 (`newspaper.png`) and turn report (`turnreport.png`), then exits. The overlays
-come after the six screens because resolving moves the world and the shots
+come after the eight screens because resolving moves the world and the shots
 would otherwise disagree with each other. No gate can tell whether wood grain
 smeared or chrome landed on top of a readout, so the check for those is a person
 looking at pictures and this is what produces them.
@@ -801,7 +842,7 @@ Manual checklist:
 
 1. The border shows the chosen country's cash, labour and date.
 2. Press **Probe state** on the Terrain Map; ownership shifts and the border follows.
-3. All six screens by click and by F1–F6; Escape returns to the Terrain Map.
+3. The six original screens by click and F1–F6, plus Armoury and Fleet by their text buttons; Escape returns to the Terrain Map.
 4. Map pan, zoom, Home, hover and click-to-pin still work — the map lives in a
    `SubViewport` now, which is what stops it eating clicks meant for the chrome,
    and no automated gate covers that routing.

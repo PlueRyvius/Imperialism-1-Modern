@@ -232,8 +232,11 @@ without rebuilding terrain, and offers normal and debug-overlay modes; see
 nothing.** Phase 4 row 4a gave orders a home: `Presentation.OrdersDraft` holds the
 local country's production, expansions, recruitment, railyard, transport sliders,
 research and trade, and `OrdersPreview` replays the resolver's rules for them as
-warnings that never refuse. No orders *screen* edits it yet, so an untouched draft
-builds empty orders and the smoke turn is unchanged. Nothing plays the other powers,
+warnings that never refuse. The Fleet screen now edits naval orders through the
+draft and displays `FleetView` previews; Armoury has a text navigation entry and remains a stub.
+`--smoke-fleet` drafts an accepted naval order and reports a resolved turn. An
+untouched draft still builds empty orders and the ordinary smoke turn is unchanged.
+Nothing plays the other powers,
 so a rival that gathered its harvest and did nothing else is the engine as it stands
 rather than a bug; the turn report says so. **What survives End Turn follows the
 manual where it speaks** — a mill keeps its order as asked, food processing and the
