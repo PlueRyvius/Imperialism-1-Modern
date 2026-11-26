@@ -721,7 +721,8 @@ player's report.
 ## Theme and scale
 
 **Being replaced:** `docs/look-design.md` is the plan that replaces this section's
-720x450 `expand` canvas with a 640x480 root scaled by a whole number.
+720x450 `expand` canvas with a 1920x1080 canvas, the original's art drawn at 2x and
+each screen laid out to use the full width.
 
 The original interface is drawn for 640x480. The base viewport is therefore
 measured in **original art pixels** — 720x450 — and `canvas_items` stretch scales

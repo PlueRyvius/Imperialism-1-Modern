@@ -5,6 +5,8 @@ screens are rebuilt to look like the 1997 game's, one screen at a time. Issue
 #89 tracks the phase and holds the grouped list of presentation differences.
 
 This document is the plan. Its rules are Andy's unless a line says *chosen*.
+Andy refined the ruling the same day (see "The canvas"): the original's theme
+and feel, laid out to work well at 1920x1080, rather than a pixel copy.
 
 ## Goal and scope
 
@@ -12,6 +14,9 @@ Today each screen in `src/Imperialism.Client/screens/*.cs` is a modern panel
 layout: wood columns, gold plates and lists of rows, laid out by Godot
 containers on a 720x450 canvas that stretches to the window (`gui-shell.md`,
 "Theme and scale"). The original draws every screen as one 640x480 picture.
+Each rebuilt screen keeps the original's structure and art: Transport stays the
+open ledger book with icon rows and thin sliders, Industry the drawn city with
+the pop-up warehouse, and so on for the rest.
 The **Transport** screen is an open ledger book: a row of commodity icons, each
 with a slider and an "x / y" figure under it, demand lines beneath, and one
 shared capacity bar in the lower right (manual lines 2253–2291). The
@@ -36,55 +41,68 @@ screen **shows**:
 
 ## The canvas
 
-**One logical root of 640x480.** Each rebuilt screen is laid out in a
-`Control` exactly 640x480 in size, with every child placed in absolute pixels
-from its layout note (below). No containers decide positions on a look screen.
-A position is copied from the note, never tuned by eye.
+Andy refined the ruling on 26 Nov 2026, replacing the earlier whole-number
+640x480 box: **"keep the same theme and spirit, if not a pixel-perfect match,
+while still working nicely in 1920x1080".** The goal is the original's theme and
+feel at home on a 1920x1080 screen. It is not a pixel copy, and not a small 2x
+picture inside a border.
 
-**Whole-number scaling.** The root is scaled by an integer factor and centred
-in the window:
+**A 1920x1080 logical canvas.** `project.godot`'s base viewport becomes
+1920x1080, with stretch mode `canvas_items` and aspect `expand`, so a 1920x1080
+window draws at scale 1 and a wider window hands its extra width to the layout.
+(*Chosen*: other window sizes scale the whole canvas fractionally. 1920x1080 is
+the size every acceptance shot is taken at.)
 
-```
-k = max(1, floor(min(W / 640, H / 480)))
-```
+**Art at 2x where it fits.** The original's bitmaps are drawn at a whole
+multiple of their own pixels, 2x by default, with nearest-neighbour filtering
+(`default_texture_filter=0`, unchanged), so one-pixel lines and dithering stay
+clean. A 640x480 background at 2x is 1280x960, so a screen has 640 pixels of
+width and 120 of height to spare at 1080p.
 
-`W` and `H` are the window's size in physical pixels. A 1920x1080 window gives
-`min(3.0, 2.25)`, so `k = 2`: a 1280x960 picture with a 320-pixel border left
-and right and a 60-pixel border top and bottom. A 1280x960 window gives 2; a
-2560x1440 window gives 3; anything smaller than 1280x960 gives 1. `k` is
-recomputed when the window is resized. It never takes a fractional value,
-because a non-integer scale smears one-pixel lines and dithering in
-palette art.
+**A screen grows into the rest; it does not leave empty space.** Each screen's
+design says how it uses the spare room, for example a wider ledger on Transport
+(more icon columns side by side, or longer sliders) or more drawn desk and city
+around Industry. Growth is done with the original's own pieces: a background's
+repeatable middle strips tiled or nine-sliced, its edge pieces kept at their
+edges. A flat fill is the last resort, never a black border (*chosen*).
 
-**Implementation (chosen).** `project.godot`'s base viewport becomes 640x480.
-The stretch mode stays `canvas_items` (not `viewport`, which would scale text
-as a bitmap), `window/stretch/aspect` becomes `keep`, and
-`window/stretch/scale_mode` becomes `integer` (Godot 4.3+), which floors the
-scale factor with a minimum of 1 — the formula above. If that setting behaves
-differently on the Windows check, the fallback is a script on the shell root
-that sets the root's scale to `k` and its position to the centred offset.
-Either way the formula is the one above, and the Transport PR states which
-way it was done.
+**Layout notes stay in original pixels.** A note measures the 640x480 shot
+(below). The screen's code places each element at note position x 2 inside the
+scaled picture, then moves it by the screen's growth rule. The growth rule is
+written in the screen's PR description, so a reviewer can map any node back to
+its note row.
 
-**The border.** What lies outside the 640x480 picture is filled with **flat
-black**, the colour the original showed around its 640x480 mode on a larger
-monitor. It carries no art and takes no input. (*Chosen*: a tiled wood border
-was considered and dropped, because it competes with the screen's own frame.)
+**Text at a readable modern size.** Fonts are the original's own TrueType faces
+(`fonts/antiqua*.ttf`, `fonts/display*.ttf` in the manifest), rasterised at the
+size drawn rather than scaled from a bitmap. They are not scaled with the art:
+body text is at least 18 px and headings at least 24 px at 1920x1080
+(*chosen*), and a label's box grows to fit them. Colours follow the original's
+palette as sampled with the extractor's `--probe`.
 
-**Fonts stay crisp.** The fonts are the original's own TrueType faces
-(`fonts/antiqua*.ttf`, `fonts/display*.ttf` in the manifest). With
-`canvas_items` stretch, Godot rasterises glyphs at the scaled size, so an 11-px
-label is drawn from the outline at 22 px when `k = 2`, not doubled from an
-11-px bitmap. Bitmaps are already drawn with nearest-neighbour filtering
-(`project.godot`'s `default_texture_filter=0`, unchanged), so art
-doubles cleanly while text is still sharp. Font sizes in a layout note are
-given in 640x480 pixels, like everything else.
+**Screens not yet rebuilt.** Until a screen's own PR lands, it keeps its current
+container layout on the 1920x1080 canvas, with the theme's sizes scaled so it
+reads as it does today. The smokes, not the look, are the gate for an unrebuilt
+screen. The canvas change lands with the Transport PR.
 
-**Screens not yet rebuilt.** Until a screen's own PR lands, it keeps its
-current layout, drawn inside the same 640x480 root. Some of today's screens
-were built for 720x450 and may crowd at 640; that is accepted for the
-duration, and the smokes, not the look, are the gate for an unrebuilt screen.
-The canvas change itself lands with the Transport PR.
+## Controls in the original's style
+
+The stock Godot controls go: no `SpinBox`, no toggle switch (`CheckButton`), no
+plain `HSlider` or `ProgressBar` on a rebuilt screen. In their place is a small
+set of controls drawn from the original's bitmaps, built once under
+`src/Imperialism.Client/ui/look/` and reused by every screen:
+
+| Control | Replaces | Drawn as |
+|---|---|---|
+| `LedgerSlider` | `HSlider`, `SpinBox` on Transport and Industry | a thin track with the original's arrow ends and fill, value text beneath |
+| `ArrowStepper` | `SpinBox` for counts (ships, regiments, recruits) | the original's up/down or left/right arrow pair beside a figure |
+| `LedgerCheck` | `CheckButton`, `CheckBox` | the original's tick or pressed-button bitmap |
+| `CapacityBar` | `ProgressBar` | the original's bar frame and fill |
+| `PlateButton` | the theme's `Button` on rebuilt screens | the original's button bitmaps, normal, pressed and disabled |
+
+Each is a plain `Control` that draws textures and emits the same signal the
+stock control did, so a screen swaps one for the other without changing what it
+calls. The Transport PR builds the ones it needs; later PRs add the rest.
+They are named in the planned paths here and do not exist yet.
 
 ## The art
 
@@ -97,7 +115,8 @@ is ever committed**, not as art, not as a reference, not as a test fixture.
 - Find a screen's pieces with `--contact-sheet` on one screen and the
   reference shot on the other. Many screens are one of the sixty-four
   full-screen 640x480 backgrounds plus small overlay bitmaps (icons, slider
-  arrows, bar fills).
+  arrows, bar fills). **The full-screen backgrounds are in scope**, not only
+  the 33 chrome, icon and tab pieces the manifest maps today.
 - **Measure margins and offsets with `--probe`**, as `plate.tres`'s 5 was
   measured. Where a piece sits inside a background and the probe can find its
   edge, the probe's number wins over the layout note's.
@@ -181,10 +200,14 @@ pitch: `row pitch dx=0 dy=24, order: as Sliders`.
   (*chosen*: simpler, deterministic and testable). A drawn building on
   Industry gets the rectangle the note gives it.
 - **The pop-up warehouse.** Clicking the Warehouse on Industry opens a dialog
-  over the city listing `IndustryPreview`'s stockpile. It **stays open** while
-  another building's dialog is used, so the deductions show as they happen
-  (manual 2517–2521): both dialogs read the same draft preview, so it is a
-  refresh, not a sum. Escape or a close button dismisses the top dialog.
+  over the city listing the stockpile as the turn opens, from
+  `CountryStatusView.Warehouse`. It **stays open** while another building's
+  dialog is used (manual 2517–2521). The original also shows the deductions as
+  they happen. No Presentation view gives a warehouse balance after the draft's
+  orders today, so that figure is **planned**: the Industry PR adds it as a
+  read-only field on `IndustryPreview` under the exception above, with a
+  Presentation test, rather than subtracting in the screen. Escape or a close
+  button dismisses the top dialog.
 - Keyboard and the shell's existing navigation keep working; the look does not
   remove a way to reach a screen.
 
@@ -200,16 +223,18 @@ pitch: `row pitch dx=0 dy=24, order: as Sliders`.
 6. Diplomacy
 7. Armoury
 8. Fleet / Shipyard
-9. Turn report and newspaper
+9. Turn report
+10. Newspaper
 
 Before a screen's PR is opened, its layout note is committed (it may ride in
 the same PR). A screen's PR is accepted when all of these hold:
 
-- **A side-by-side on the test PC at 2x** against the original shot, taken
-  from the PR's head with the client at 1280x960 or larger. The side-by-side
-  stays on the PC; the PR records only its file names and the differences
-  found, each marked (a) presentation or (b) misread rule, as in the
-  comparison plan.
+- **A 1920x1080 screenshot beside the original's matching shot**, taken on
+  ETHERCAT from the PR's head with the client window at 1920x1080. Both stay
+  on ETHERCAT, never in the repo; the PR records only their file names and the
+  differences found, each marked (a) presentation or (b) misread rule, as in
+  the comparison plan.
+- **No stock Godot control** from the table above remains on the screen.
 - **The client smokes are unchanged**: `VIEWER_SMOKE_OK`, `SHELL_SMOKE_OK`,
   `TURN_SMOKE_OK` and the orders, units, diplomacy, fleet and armoury smokes
   print OK with the same arguments as on main.
