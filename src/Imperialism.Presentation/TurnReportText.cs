@@ -61,10 +61,32 @@ public static class TurnReportText
         TechnologyPurchaseRefusal.AlreadyKnown => "we hold it already",
         TechnologyPurchaseRefusal.NotYetAvailable => "its year has not come",
         TechnologyPurchaseRefusal.PrerequisiteNotKnown => "something it builds on is not known yet",
-        TechnologyPurchaseRefusal.NotEnoughCash => "the treasury will not cover it, because building had first call",
+        TechnologyPurchaseRefusal.NotEnoughCash => "the treasury will not cover it",
         TechnologyPurchaseRefusal.NotForSale => "it has no price, so it was never on the screen",
         _ => throw new ArgumentOutOfRangeException(nameof(reason)),
     };
+
+    /// <summary>
+    /// A refused purchase with the figures the event carries. "Building had first call"
+    /// is said only when the treasury as the turn opened would have covered the price;
+    /// when it would not, the clause says plainly that the price is more than the
+    /// treasury held. Without the figures it falls back to <see cref="Describe(TechnologyPurchaseRefusal)"/>.
+    /// </summary>
+    public static string Describe(TechnologyPurchaseRefusal reason, long? cost, long? cashAtTurnOpen)
+    {
+        if (reason != TechnologyPurchaseRefusal.NotEnoughCash || cost is not { } price || cashAtTurnOpen is not { } cash)
+        {
+            return Describe(reason);
+        }
+
+        return price <= cash
+            ? $"it costs {Money(price)} and the treasury opened the turn with {Money(cash)}, " +
+              "but building and other spending this turn had first call on it"
+            : $"it costs {Money(price)}, more than the {Money(cash)} the treasury held";
+    }
+
+    private static string Money(long amount) =>
+        "$" + amount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
 
     public static string Describe(TradeRefusal reason) => reason switch
     {

@@ -11,7 +11,9 @@ internal sealed record PlannedTechnologyPurchase(
 internal sealed record PlannedTechnologyRefusal(
     CountryId Country,
     TechnologyId Technology,
-    TechnologyPurchaseRefusal Reason) : PlannedInvestment(Country, Technology);
+    TechnologyPurchaseRefusal Reason,
+    long? Cost = null,
+    long? CashAtTurnOpen = null) : PlannedInvestment(Country, Technology);
 
 /// <summary>
 /// The Investment screen: what a country may buy, what it costs, and what
@@ -48,7 +50,13 @@ internal sealed record PlannedTechnologyRefusal(
 /// </remarks>
 internal static class TechnologyPlanner
 {
-    public static IReadOnlyList<PlannedInvestment> Resolve(WorldState state, TurnOrders orders)
+    /// <param name="cashAtOpen">
+    /// Each country's treasury as the turn opened, indexed by country id, carried on a
+    /// <see cref="TechnologyPurchaseRefusal.NotEnoughCash"/> refusal so the report can say
+    /// whether earlier spending took the money. Null leaves those figures unset.
+    /// </param>
+    public static IReadOnlyList<PlannedInvestment> Resolve(
+        WorldState state, TurnOrders orders, IReadOnlyList<long>? cashAtOpen = null)
     {
         var outcomes = new List<PlannedInvestment>();
         var definition = state.Definition;
@@ -84,7 +92,10 @@ internal static class TechnologyPlanner
 
                 if (refusal is { } reason)
                 {
-                    outcomes.Add(new PlannedTechnologyRefusal(country, technology, reason));
+                    outcomes.Add(reason == TechnologyPurchaseRefusal.NotEnoughCash
+                        ? new PlannedTechnologyRefusal(
+                            country, technology, reason, cost, cashAtOpen?[countryValue])
+                        : new PlannedTechnologyRefusal(country, technology, reason));
                     continue;
                 }
 

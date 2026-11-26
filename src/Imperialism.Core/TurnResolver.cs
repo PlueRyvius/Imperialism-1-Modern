@@ -43,6 +43,14 @@ public static class TurnResolver
         var turnNumber = checked(state.CompletedTurnCount + 1);
         var startedAt = state.CurrentDate;
 
+        // The treasury as the turn opens, so a refused purchase can say whether earlier
+        // spending this turn took the money or it was never there.
+        var cashAtOpen = new long[state.Definition.Countries.Count];
+        for (var index = 0; index < cashAtOpen.Length; index++)
+        {
+            cashAtOpen[index] = state.GetCash(new CountryId(index));
+        }
+
         // Row 6e: a country eliminated on an earlier turn orders nothing. Its orders are
         // set aside before anything is planned, so no planner ever reads them.
         var ignored = new List<TurnEvent>();
@@ -731,14 +739,18 @@ public static class TurnResolver
                 // already run against what the turn opened with. That is the
                 // whole of "bought this turn, known next turn" — the same trick
                 // Construction uses to complete next turn.
-                foreach (var outcome in TechnologyPlanner.Resolve(state, orders))
+                foreach (var outcome in TechnologyPlanner.Resolve(state, orders, cashAtOpen))
                 {
                     events.Add(outcome switch
                     {
                         PlannedTechnologyPurchase entry => new TechnologyPurchasedEvent(
                             turnNumber, entry.Country, entry.Technology, entry.Paid),
                         PlannedTechnologyRefusal entry => new TechnologyPurchaseRefusedEvent(
-                            turnNumber, entry.Country, entry.Technology, entry.Reason),
+                            turnNumber, entry.Country, entry.Technology, entry.Reason)
+                        {
+                            Cost = entry.Cost,
+                            CashAtTurnOpen = entry.CashAtTurnOpen,
+                        },
                         _ => throw new InvalidOperationException(
                             $"Unhandled investment outcome {outcome.GetType().Name}."),
                     });

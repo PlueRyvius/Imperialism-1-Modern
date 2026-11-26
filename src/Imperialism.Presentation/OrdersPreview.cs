@@ -707,6 +707,12 @@ public sealed record TradeRowPreview(
 {
     /// <summary>Core sells only <see cref="Sellable"/> and reports the rest unfilled.</summary>
     public bool IsOverOffered => Offer > Sellable;
+
+    /// <summary>
+    /// The drafted offer at world price, counting only the part Core can sell
+    /// (<see cref="Sellable"/>). What it fetches still depends on a buyer.
+    /// </summary>
+    public long OfferValue => Math.Min(Offer, Sellable) * WorldPrice;
 }
 
 /// <param name="ClaimedByOvertures">
@@ -720,6 +726,9 @@ public sealed record TradePreview(
     IReadOnlyList<TradeRowPreview> Rows)
 {
     public long TotalBidCost => Rows.Sum(static row => row.BidCost);
+
+    /// <summary>Every drafted offer at world price; see <see cref="TradeRowPreview.OfferValue"/>.</summary>
+    public long TotalOfferValue => Rows.Sum(static row => row.OfferValue);
 
     /// <summary>The manual's four-bid limit (3107). Core does not enforce it yet.</summary>
     public bool IsOverBidLimit => BidCount > OrdersPreview.MaximumBids;

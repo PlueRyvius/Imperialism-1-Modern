@@ -150,6 +150,10 @@ public sealed record DraftedPolicyView(
 /// income) still move the treasury after it.
 /// </param>
 /// <param name="IsOffered">The world prices consulates and embassies.</param>
+/// <param name="Countries">
+/// Every other country, Great Powers first, then by display name — the order the
+/// Diplomacy screen lists them in.
+/// </param>
 /// <param name="OrdersSetAside">
 /// The drafting country is eliminated: Core sets every order aside before anything
 /// resolves, so nothing here happens. Each drafted row still carries the check Core
@@ -658,7 +662,11 @@ public sealed partial class OrdersPreview
             state.IsEliminated(country),
             settings is not null,
             settings?.SubsidyPercents ?? [],
-            Array.AsReadOnly(countries.ToArray()),
+            Array.AsReadOnly(countries
+                .OrderByDescending(static row => row.IsGreatPower)
+                .ThenBy(static row => row.CountryName, StringComparer.InvariantCultureIgnoreCase)
+                .ThenBy(static row => row.CountryKey, StringComparer.Ordinal)
+                .ToArray()),
             Array.AsReadOnly(drafted.Overtures
                 .Select(row => new DraftedOvertureView(
                     names.Key(row.Order.Target), row.Order.Kind, row.Cost, row.Refusal))

@@ -30,19 +30,5 @@ public static class FleetSmoke
         return null;
     }
 
-    public static string Describe(DraftedNavalOrderView order)
-    {
-        var subject = order.Kind == DraftNavalOrderKind.Assemble
-            ? $"Assemble fleets {string.Join(", ", order.Fleets.Select(id => id.Value))}"
-            : $"Task force {order.TaskForce!.Value.Value}";
-        var result = order.Warning is { } warning
-            ? warning.OrdersSetAside ? "Set aside: country eliminated" : $"Warning: {warning.Refusal}"
-            : order.HasEffect ? "Accepted by preview" : "Accepted: no effect or event";
-        var reach = order.Reach is { } zones ? $" · Reach {zones}" : string.Empty;
-        var distance = order.Mission == NavalMissionKind.Move
-            ? $" · Distance {order.Distance?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "no sea path"}" : string.Empty;
-        var landing = order.LandingUsableFromTurn is { } turn ? $" · Landing usable from turn {turn}" : string.Empty;
-        return $"{subject} · {order.Mission}{reach}{distance}\n{result}{landing}" +
-            (order.RestampsLandingSite ? " · Resets the held landing site" : string.Empty);
-    }
+    public static string Describe(DraftedNavalOrderView order) => MilitaryText.Describe(order);
 }

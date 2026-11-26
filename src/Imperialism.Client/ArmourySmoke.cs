@@ -34,41 +34,9 @@ public static class ArmourySmoke
         return null;
     }
 
-    /// <summary>One category as the screen and the smoke print it.</summary>
-    public static string Describe(ArmouryCategoryView row)
-    {
-        var type = row.TypeName is null ? "builds nothing" : row.TypeName;
-        var price = row.TypeName is null
-            ? string.Empty
-            : $" · {Grade(row.WorkerGrade)} · ${row.CashCost} · {Bill(row.Bill)} · Arms {row.Arms}";
-        var unavailable = row.Unavailable is { } reason ? $"\nNot available: {reason}" : string.Empty;
-        var drafted = row.Drafted > 0
-            ? $"\nDrafted {row.Drafted} · {Result(row.Warning)} · Workers taken {row.WorkersTaken}"
-            : string.Empty;
-        return $"{row.Category} · {type}{price}{unavailable}{drafted}";
-    }
+    /// <summary>One category as the screen and the smoke print it; the words are Presentation's.</summary>
+    public static string Describe(ArmouryCategoryView row) => MilitaryText.Describe(row);
 
     /// <summary>One hull class as the screen prints it.</summary>
-    public static string Describe(ShipyardRowView hull)
-    {
-        var kind = hull.IsWarship ? "Warship" : "Merchant";
-        var gate = hull.TechnologyKey is { } key ? $" · Needs {key}{(hull.IsGated ? " (not known)" : " (known)")}" : string.Empty;
-        var drafted = hull.Drafted > 0 ? $"\nDrafted {hull.Drafted} · {Result(hull.Warning)}" : string.Empty;
-        return $"{hull.Name} · {kind} · Cargo {hull.Cargo} · Sea zones {hull.SeaZones} · {Bill(hull.Bill)}{gate}{drafted}";
-    }
-
-    public static string Result<TRefusal>(OrderWarning<TRefusal>? warning)
-        where TRefusal : struct, Enum => warning switch
-        {
-            null => "Accepted by preview",
-            { OrdersSetAside: true } => "Set aside: country eliminated",
-            { Refusal: { } refusal } => $"Warning: {refusal}",
-            _ => "Warning",
-        };
-
-    private static string Grade(WorkerGrade? grade) => grade is { } value ? $"1 {value} worker" : "no worker";
-
-    private static string Bill(IReadOnlyList<CommodityAmountView> bill) => bill.Count == 0
-        ? "No bill"
-        : string.Join(", ", bill.Select(item => $"{item.Quantity} {item.CommodityName}"));
+    public static string Describe(ShipyardRowView hull) => MilitaryText.Describe(hull);
 }
