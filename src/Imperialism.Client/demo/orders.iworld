@@ -10,7 +10,9 @@
     {
       "key": "commodity.timber",
       "name": "Timber",
-      "category": "raw"
+      "category": "raw",
+      "worldPrice": 100,
+      "tradeOrder": 0
     },
     {
       "key": "commodity.coal",
@@ -385,6 +387,16 @@
           "country": "country.red",
           "capacity": 4
         }
+      ],
+      "cash": [
+        {
+          "country": "country.blue",
+          "amount": 1000
+        },
+        {
+          "country": "country.red",
+          "amount": 1000
+        }
       ]
     },
     {
@@ -453,6 +465,16 @@
         {
           "country": "country.red",
           "capacity": 4
+        }
+      ],
+      "cash": [
+        {
+          "country": "country.blue",
+          "amount": 1000
+        },
+        {
+          "country": "country.red",
+          "amount": 1000
         }
       ]
     }
@@ -524,5 +546,13 @@
       }
     ],
     "labourPerCapacityPoint": 1
-  }
+  },
+  "technologies": [
+    {
+      "key": "technology.sawmill",
+      "name": "Improved Sawmill",
+      "cost": 500,
+      "availableFrom": 1815
+    }
+  ]
 }
