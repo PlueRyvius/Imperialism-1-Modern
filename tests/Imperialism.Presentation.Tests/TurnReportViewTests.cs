@@ -19,16 +19,20 @@ public sealed class TurnReportViewTests
     }
 
     [Fact]
-    public void ThePhasesCoreLeavesEmptySayWhyRatherThanNothing()
+    public void QuietPhasesSaySoInTheirOwnWordsAndNoneClaimsToBeUnmodelled()
     {
         var report = ResolveFirstTurn(out _, out _);
 
-        foreach (var phase in new[] { TurnPhase.Diplomacy, TurnPhase.Conflict, TurnPhase.TradeCancellation })
-        {
-            var view = report.Phases.Single(candidate => candidate.Phase == phase);
-            Assert.Equal("Not modelled yet.", view.Note);
-            Assert.Empty(view.Lines);
-        }
+        Assert.Equal(
+            "No overtures, policies or declarations of war this turn.",
+            report.Phases.Single(phase => phase.Phase == TurnPhase.Diplomacy).Note);
+        Assert.Equal(
+            "No fleet orders, regiment moves or battles this turn.",
+            report.Phases.Single(phase => phase.Phase == TurnPhase.Conflict).Note);
+        Assert.Equal(
+            "No cargo was intercepted this turn.",
+            report.Phases.Single(phase => phase.Phase == TurnPhase.TradeCancellation).Note);
+        Assert.DoesNotContain(report.Phases, phase => phase.Note?.Contains("modelled", StringComparison.Ordinal) == true);
     }
 
     [Fact]
