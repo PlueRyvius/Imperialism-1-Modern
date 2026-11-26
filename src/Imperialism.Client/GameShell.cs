@@ -37,6 +37,8 @@ public sealed partial class GameShell : Control
     private bool _smokeOrders;
     private bool _smokeUnits;
     private bool _smokeDiplomacy;
+    private bool _smokeFleet;
+    private bool _smokeArmoury;
     private string? _screenshotDirectory;
 
     public override void _Ready()
@@ -49,6 +51,8 @@ public sealed partial class GameShell : Control
         _smokeOrders = arguments.Contains("--smoke-orders", StringComparer.Ordinal);
         _smokeUnits = arguments.Contains("--smoke-units", StringComparer.Ordinal);
         _smokeDiplomacy = arguments.Contains("--smoke-diplomacy", StringComparer.Ordinal);
+        _smokeFleet = arguments.Contains("--smoke-fleet", StringComparer.Ordinal);
+        _smokeArmoury = arguments.Contains("--smoke-armoury", StringComparer.Ordinal);
         _screenshotDirectory = ReadArgument(arguments, "--screenshot");
         var worldPath = ReadArgument(arguments, "--world") ??
             (_smokeOrders ? "res://demo/orders.iworld" : DefaultWorldPath);
@@ -64,7 +68,7 @@ public sealed partial class GameShell : Control
             StartSession(
                 ReadArgument(arguments, "--scenario") ?? _package.ScenarioKeys[0],
                 ReadArgument(arguments, "--country"));
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeOrders || _smokeUnits || _smokeDiplomacy || _screenshotDirectory is not null)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeOrders || _smokeUnits || _smokeDiplomacy || _smokeFleet || _smokeArmoury || _screenshotDirectory is not null)
             {
                 CallDeferred(nameof(FinishSmoke));
             }
@@ -72,7 +76,7 @@ public sealed partial class GameShell : Control
         catch (Exception exception)
         {
             GD.PushError($"Could not load world package '{worldPath}': {exception.Message}");
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeOrders || _smokeUnits || _smokeDiplomacy)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeOrders || _smokeUnits || _smokeDiplomacy || _smokeFleet || _smokeArmoury)
             {
                 GetTree().Quit(1);
                 return;
@@ -112,7 +116,7 @@ public sealed partial class GameShell : Control
 
         foreach (var screen in ShellScreens.All)
         {
-            if (@event.IsActionPressed(ShellScreens.ActionName(screen)))
+            if (InputMap.HasAction(ShellScreens.ActionName(screen)) && @event.IsActionPressed(ShellScreens.ActionName(screen)))
             {
                 Navigate(screen);
                 AcceptEvent();
@@ -228,6 +232,9 @@ public sealed partial class GameShell : Control
         _screens[ShellScreen.Diplomacy] = new DiplomacyScreen();
         _screens[ShellScreen.Technology] = new TechnologyScreen();
 
+        _screens[ShellScreen.Armoury] = new ArmouryScreen();
+        _screens[ShellScreen.Fleet] = new FleetScreen();
+
         foreach (var screen in ShellScreens.All)
         {
             var control = _screens[screen];
@@ -249,10 +256,11 @@ public sealed partial class GameShell : Control
 
     private void BuildTabs()
     {
-        var half = ShellScreens.All.Length / 2;
-        for (var index = 0; index < ShellScreens.All.Length; index++)
+        var artScreens = ShellScreens.All.Where(screen => screen is not (ShellScreen.Armoury or ShellScreen.Fleet)).ToArray();
+        var half = artScreens.Length / 2;
+        for (var index = 0; index < artScreens.Length; index++)
         {
-            var screen = ShellScreens.All[index];
+            var screen = artScreens[index];
             var target = screen;
             var button = new Button
             {
@@ -277,6 +285,16 @@ public sealed partial class GameShell : Control
             button.MouseEntered += () => SetHotText(((IShellScreen)_screens[target]).Title);
             button.MouseExited += () => SetHotText(string.Empty);
             (index < half ? _leftTabs! : _rightTabs!).AddChild(button);
+        }
+
+        foreach (var screen in new[] { ShellScreen.Armoury, ShellScreen.Fleet })
+        {
+            var target = screen;
+            var button = new Button { Text = ((IShellScreen)_screens[screen]).Title };
+            button.Pressed += () => Navigate(target);
+            button.MouseEntered += () => SetHotText(((IShellScreen)_screens[target]).Title);
+            button.MouseExited += () => SetHotText(string.Empty);
+            (screen == ShellScreen.Armoury ? _leftTabs! : _rightTabs!).AddChild(button);
         }
     }
 
@@ -430,6 +448,43 @@ public sealed partial class GameShell : Control
             return;
         }
 
+        if (_smokeArmoury && !_smokeFleet)
+        {
+            await ReportArmourySmoke();
+            return;
+        }
+
+        if (_smokeFleet)
+        {
+            try
+            {
+                var order = FleetSmoke.DraftAcceptedOrder(_session);
+                if (order is null)
+                {
+                    GD.PushError("FLEET_SMOKE_FAIL: no accepted naval order is possible; choose a world/country with placed fleets or task forces.");
+                    GetTree().Quit(1);
+                    return;
+                }
+
+                GD.Print($"FLEET_PREVIEW {FleetSmoke.Describe(order)}");
+                var turnOk = await ReportTurnSmoke(null);
+                foreach (var phase in _session.LastReport!.Phases)
+                {
+                    foreach (var line in phase.Lines) { GD.Print($"FLEET_EVENT {phase.Phase}: {line.Text}"); }
+                }
+
+                GD.Print(turnOk ? "FLEET_SMOKE_OK" : "FLEET_SMOKE_FAIL: turn report or overlay checks failed.");
+                GetTree().Quit(turnOk ? 0 : 1);
+            }
+            catch (Exception exception)
+            {
+                GD.PushError($"FLEET_SMOKE_FAIL: {exception.Message}");
+                GetTree().Quit(1);
+            }
+
+            return;
+        }
+
         if (_smokeTurn || _screenshotDirectory is not null)
         {
             // Resolving moves the world, so it happens after the six screen
@@ -444,6 +499,36 @@ public sealed partial class GameShell : Control
 
         var ok = _smokeScreens ? ReportScreenSmoke() : ReportViewerSmoke();
         GetTree().Quit(ok ? 0 : 1);
+    }
+
+    private async Task ReportArmourySmoke()
+    {
+        try
+        {
+            var drafted = ArmourySmoke.DraftAcceptedPurchase(_session!);
+            if (drafted is not { } purchase)
+            {
+                GD.PushError("ARMOURY_SMOKE_FAIL: no regiment purchase is accepted by the preview; choose a world/country with a capital, a purchasable category, healthy workers, its bill and its cash.");
+                GetTree().Quit(1);
+                return;
+            }
+
+            GD.Print($"ARMOURY_PREVIEW {ArmourySmoke.Describe(purchase.Row).Replace('\n', ' ')} · " +
+                $"Cash claimed {purchase.Armoury.CashClaimed} · Labour withheld {purchase.Armoury.LabourWithheld}");
+            var turnOk = await ReportTurnSmoke(null);
+            foreach (var phase in _session!.LastReport!.Phases)
+            {
+                foreach (var line in phase.Lines) { GD.Print($"ARMOURY_EVENT {phase.Phase}: {line.Text}"); }
+            }
+
+            GD.Print(turnOk ? "ARMOURY_SMOKE_OK" : "ARMOURY_SMOKE_FAIL: turn report or overlay checks failed.");
+            GetTree().Quit(turnOk ? 0 : 1);
+        }
+        catch (Exception exception)
+        {
+            GD.PushError($"ARMOURY_SMOKE_FAIL: {exception.Message}");
+            GetTree().Quit(1);
+        }
     }
 
     /// <summary>
