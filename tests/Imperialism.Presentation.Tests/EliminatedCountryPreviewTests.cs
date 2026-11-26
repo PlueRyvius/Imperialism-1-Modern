@@ -20,6 +20,8 @@ public sealed class EliminatedCountryPreviewTests
     private static readonly ProvinceId West = new(2);
     private static readonly ProvinceId East = new(3);
     private static readonly ShipTypeId Frigate = new(1);
+    private static readonly CivilianUnitId Farmer = new(1);
+    private static readonly CellIndex EastCell = new(3);
 
     [Fact]
     public void EveryOrderOfAnEliminatedCountryPreviewsAsSetAsideAndClaimsNothing()
@@ -30,9 +32,11 @@ public sealed class EliminatedCountryPreviewTests
         draft.SetShipBuild(Frigate, 1);
         draft.SetOverture(DiplomaticOvertureKind.Consulate, Green, true);
         draft.SetRegimentMove([survivor], West);
+        draft.SetWork(Farmer, EastCell);
 
         var preview = OrdersPreview.Create(package, Scenario, state, draft);
         Assert.True(preview.OrdersSetAside);
+        Assert.True(OrdersPreview.CreateUnitOrders(package, Scenario, state, draft, Farmer).OrdersSetAside);
 
         var armoury = preview.Armoury.Categories.Single(row => row.Category == ArmyCategory.RegularInfantry);
         Assert.Equal(OrderWarning<RegimentPurchaseRefusal>.SetAside, armoury.Warning);
@@ -74,7 +78,9 @@ public sealed class EliminatedCountryPreviewTests
             or ShipBuildRefusedEvent { Country.Value: 0 }
             or RegimentsMovedEvent { Country.Value: 0 }
             or RegimentMoveRefusedEvent { Country.Value: 0 }
-            or DiplomaticOvertureRefusedEvent { Country.Value: 0 });
+            or DiplomaticOvertureRefusedEvent { Country.Value: 0 }
+            or CivilianWorkBegunEvent { Country.Value: 0 }
+            or CivilianOrderRefusedEvent { Country.Value: 0 });
         Assert.Equal(cash, state.GetCash(Blue));
         Assert.Equal(diplomacy.CashAfterOvertures, state.GetCash(Blue));
         Assert.Equal(arms, state.GetAvailableQuantity(Blue, Arms(state)));
@@ -96,9 +102,12 @@ public sealed class EliminatedCountryPreviewTests
         draft.SetShipBuild(Frigate, 1);
         draft.SetOverture(DiplomaticOvertureKind.Consulate, Green, true);
         draft.SetRegimentMove([survivor], West);
+        draft.SetWork(Farmer, EastCell);
 
         var preview = OrdersPreview.Create(package, Scenario, state, draft);
         Assert.False(preview.OrdersSetAside);
+        Assert.False(OrdersPreview.CreateUnitOrders(package, Scenario, state, draft, Farmer).OrdersSetAside);
+        Assert.Equal(100, preview.Civilians.CommittedCost);
         Assert.False(preview.Diplomacy.OrdersSetAside);
         Assert.False(preview.Civilians.OrdersSetAside);
         Assert.Null(preview.Armoury.Categories.Single(row => row.Category == ArmyCategory.RegularInfantry).Warning);
@@ -111,6 +120,7 @@ public sealed class EliminatedCountryPreviewTests
         Assert.DoesNotContain(events, item => item is EliminatedCountryOrdersIgnoredEvent);
         Assert.Contains(events, item => item is RegimentsPurchasedEvent { Country.Value: 0 });
         Assert.Contains(events, item => item is ShipsBuiltEvent { Country.Value: 0 });
+        Assert.Contains(events, item => item is CivilianWorkBegunEvent { Country.Value: 0, Paid: 100 });
         Assert.Equal(West, state.GetRegiment(survivor)!.Province);
         Assert.True(state.HoldsDiplomaticTie(Blue, Green, DiplomaticTie.Consulate));
     }
@@ -138,7 +148,7 @@ public sealed class EliminatedCountryPreviewTests
     /// <summary>
     /// The newspaper fixture's four cells — Home, Far, West, East in a row — with Blue
     /// holding West and East, a Minor Nation to open a consulate in, a Regular for one
-    /// arms and $500, and a Frigate for one lumber.
+    /// arms and $500, a Frigate for one lumber, and a Farmer on East's grain at $100 a rung.
     /// </summary>
     private static CompiledWorldPackage Compile()
     {
@@ -172,6 +182,15 @@ public sealed class EliminatedCountryPreviewTests
                 Combat = new ShipCombatContent { Firepower = 100, Range = 1, Armour = 10, HullScale = 600, BattleSpeed = 2 },
             },
         ];
+        document.CivilianTypes =
+        [
+            new CivilianTypeContentDefinition
+            {
+                Key = "civilian.farmer", Name = "Farmer", WorkTurns = 3, Work = CivilianWorkKind.Improve,
+            },
+        ];
+        document.Resources[0].ImprovedBy = "civilian.farmer";
+        document.Improvement = new ImprovementContentSettings { CashCostByDevelopmentLevel = [0, 100, 1000, 3000] };
         document.ArmyTypes =
         [
             new ArmyTypeContentDefinition
@@ -202,6 +221,7 @@ public sealed class EliminatedCountryPreviewTests
         document.Map.Cells[3] = new CellContentDocument
         {
             Terrain = "terrain.plains", Region = new CellRegionContent { Province = "province.east" },
+            Resources = ["resource.grain"],
         };
         foreach (var scenario in document.Scenarios)
         {
@@ -211,6 +231,7 @@ public sealed class EliminatedCountryPreviewTests
                 new ProvinceOwnerContent { Province = "province.west", Country = "country.blue" },
                 new ProvinceOwnerContent { Province = "province.east", Country = "country.blue" },
             ];
+            scenario.Civilians = [new CivilianContent { Country = "country.blue", Type = "civilian.farmer", Cell = 3 }];
             scenario.InitialInventory =
             [
                 .. scenario.InitialInventory,
