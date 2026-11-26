@@ -758,9 +758,12 @@ unplaced unassembled fleet of their class, and warships into the first unassembl
 of their class in that zone, or start one with the next dense `FleetId`; there is **no
 cap but materials**; and a hull with an **empty bill builds free** (no imported hull has
 one). No soak number moved.
-**One gap is open in content, not code**: the importer gates only the three hulls the
-executable's naval table gates, so an imported power can build an Ironclad or a Freighter
-from 1816 although the manual's technology table gates both.
+**Hull building follows the manual's technology table**: Paddlewheels gates Paddlewheeler
+and Raider; Streamlined Hulls gates Clipper; Advanced Iron Working gates Ironclad; Steel
+Armour Plate gates Advanced Ironclad; Marine Engineering gates Armoured Cruiser and
+Freighter; and Improved Range-Finding gates Dreadnought and Battle Cruiser. Trader,
+Indiaman, Frigate and Ship-of-the-Line remain ungated. The corpus check
+`EveryShipInTheCorpusIsAHullItsOwnerCouldHaveBuilt` still needs the full PC corpus.
 
 **War is declared and fleets are commanded by order, with no phase and no version bump.**
 PR #35's relation modes, task forces, patrols and sailing legs were reachable only from
