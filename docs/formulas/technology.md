@@ -271,9 +271,9 @@ open and none discriminated, so the reversion ought to leave every count where i
 
 | Check | Under either ordering | Re-measured after the reversion? |
 |---|---|---|
-| Authored levels permitted / not | **380 / 4** | **no** |
-| Rail ends permitted / not | **1,140 / 0** | **no** |
-| Grants ahead of their arrival year | 56 of 491 | **no** |
+| Authored levels permitted / not | **380 / 4** | **yes** — passed on the shipped corpus, 26 Nov 2026 at `4de6846` (issue #93) |
+| Rail ends permitted / not | **1,140 / 0** | **yes** — passed on the shipped corpus, 26 Nov 2026 at `4de6846` (issue #93) |
+| Grants ahead of their arrival year | 56 of 449 | **no** |
 
 **The corpus tests now skip visibly when the directory is unset.** Each is a
 discovery-time `CorpusFact`, so a passing suite can no longer quietly mean that it

@@ -1944,12 +1944,12 @@ public sealed class LegacyWorldConverterTests
         };
 
         // Every civi record in the corpus, counted before any of this was
-        // built. 210 across the ten files, all on owned land.
+        // built. 203 across the nine shipped reference scenarios, all on owned
+        // land.
         var expectedCivilians = new Dictionary<string, int>(StringComparer.Ordinal)
         {
             ["s1"] = 35,
             ["s3"] = 32,
-            ["s5"] = 7,
             ["s9"] = 33,
             ["s10"] = 13,
             ["s11"] = 14,
@@ -1963,9 +1963,10 @@ public sealed class LegacyWorldConverterTests
         // the number the original's toolbar counts down.
         //
         // s1, s3, s13 and s14 agree exactly because they share the historical
-        // world map. The ten sum to 4,449 open tiles, which is the 2,860 barren
-        // hills plus 1,589 mountains already counted in
-        // docs/formulas/development.md — arrived at from the other direction.
+        // world map. The nine shipped reference scenarios sum to 4,248 open
+        // tiles. The 2,860 barren hills and 1,589 mountains in
+        // docs/formulas/development.md were counted on the ten-file set that
+        // included the generated s5, whose 201 made the old total of 4,449.
         var expectedProspectable = new Dictionary<string, (int Open, int Gated)>(StringComparer.Ordinal)
         {
             ["s1"] = (598, 414),
@@ -1977,7 +1978,6 @@ public sealed class LegacyWorldConverterTests
             ["s10"] = (382, 425),
             ["s11"] = (364, 448),
             ["s15"] = (368, 452),
-            ["s5"] = (201, 517),
         };
         // Technologies actually granted, after repeats are dropped. s1 gives all
         // seven powers the same 21; s3 is the discriminating one, giving them 9,
@@ -1992,7 +1992,6 @@ public sealed class LegacyWorldConverterTests
         {
             ["s1"] = 147,
             ["s3"] = 92,
-            ["s5"] = 42,
             ["s9"] = 63,
             ["s12"] = 63,
             ["s13"] = 42,
@@ -2010,7 +2009,6 @@ public sealed class LegacyWorldConverterTests
         {
             ["s1"] = 7,
             ["s3"] = 7,
-            ["s5"] = 7,
             ["s13"] = 7,
             ["s14"] = 7,
             ["s12"] = 1,
@@ -2027,7 +2025,6 @@ public sealed class LegacyWorldConverterTests
         {
             ["s1"] = 7,
             ["s3"] = 7,
-            ["s5"] = 7,
             ["s13"] = 7,
             ["s14"] = 7,
             ["s9"] = 0,
@@ -2046,8 +2043,8 @@ public sealed class LegacyWorldConverterTests
             var scenarioPath = Path.Combine(directory, $"{key}.scn");
 
             // s0 is the working scenario, edited and relaunched, so it is never
-            // reference data.
-            if (key == "s0" || !File.Exists(scenarioPath))
+            // reference data. s5 is generated, not shipped.
+            if (key is "s0" or "s5" || !File.Exists(scenarioPath))
             {
                 continue;
             }
@@ -2090,8 +2087,7 @@ public sealed class LegacyWorldConverterTests
             {
                 Assert.Equal(depots, result.Document!.Scenarios[0].Depots.Length);
 
-                // Every depot in an original stands on track. s5 is our own
-                // generated output and is not part of the corpus.
+                // Every depot in an original stands on track.
                 Assert.DoesNotContain(
                     result.Report.Diagnostics,
                     item => item.Code == "scenario.depot-without-rail");
@@ -2161,11 +2157,11 @@ public sealed class LegacyWorldConverterTests
         }
 
         Assert.True(converted >= 9, $"Expected the full corpus, converted only {converted}.");
-        Assert.Equal(210, totalCivilians);
+        Assert.Equal(203, totalCivilians);
 
-        // 2,860 barren hills and 1,589 mountains, counted independently of the
-        // terrain census in docs/formulas/development.md and agreeing with it.
-        Assert.Equal(4449, totalOpenProspectable);
+        // The nine shipped reference scenarios. The 4,449 this used to assert
+        // included the generated s5's 201 (issue #93).
+        Assert.Equal(4248, totalOpenProspectable);
     }
 
     private static HashSet<string> TerrainKeysWhere(
@@ -2176,7 +2172,7 @@ public sealed class LegacyWorldConverterTests
         .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>
-    /// **The port-and-depot rule on shipped data.** Six of the ten scenarios
+    /// **The port-and-depot rule on shipped data.** Six of the nine shipped reference scenarios
     /// author at least one hex carrying both, and every one of them is a gateway
     /// that lets a rail line reach the capital by sea.
     /// </summary>
@@ -2197,8 +2193,8 @@ public sealed class LegacyWorldConverterTests
     ///  s13, s14       1           105    109
     /// </code>
     ///
-    /// <c>s5</c>, <c>s10</c>, <c>s11</c> and <c>s15</c> author no such hex and
-    /// are unchanged, which is the control this measurement needs.
+    /// <c>s10</c>, <c>s11</c> and <c>s15</c> author no such hex and are
+    /// unchanged, which is the control this measurement needs.
     /// </remarks>
     [CorpusFact]
     public void TheCorpusAuthorsPortAndDepotHexesAndTheyConnectTheLinesBehindThem()
@@ -2213,7 +2209,6 @@ public sealed class LegacyWorldConverterTests
             ["s12"] = (4, 154),
             ["s13"] = (1, 109),
             ["s14"] = (1, 109),
-            ["s5"] = (0, 34),
             ["s10"] = (0, 38),
             ["s11"] = (0, 41),
             ["s15"] = (0, 42),
@@ -2224,7 +2219,8 @@ public sealed class LegacyWorldConverterTests
         {
             var key = Path.GetFileNameWithoutExtension(mapPath);
             var scenarioPath = Path.Combine(directory, $"{key}.scn");
-            if (key == "s0" || !File.Exists(scenarioPath) || !expected.TryGetValue(key, out var want))
+            // s0 is the working scenario and s5 is generated, not shipped.
+            if (key is "s0" or "s5" || !File.Exists(scenarioPath) || !expected.TryGetValue(key, out var want))
             {
                 continue;
             }
@@ -2247,7 +2243,7 @@ public sealed class LegacyWorldConverterTests
             checkedScenarios++;
         }
 
-        Assert.Equal(10, checkedScenarios);
+        Assert.Equal(9, checkedScenarios);
     }
 
     /// <summary>
@@ -2299,7 +2295,8 @@ public sealed class LegacyWorldConverterTests
         {
             var key = Path.GetFileNameWithoutExtension(mapPath);
             var scenarioPath = Path.Combine(directory, $"{key}.scn");
-            if (key == "s0" || !File.Exists(scenarioPath))
+            // s0 is the working scenario and s5 is generated, not shipped.
+            if (key is "s0" or "s5" || !File.Exists(scenarioPath))
             {
                 continue;
             }
@@ -2541,7 +2538,8 @@ public sealed class LegacyWorldConverterTests
         {
             var key = Path.GetFileNameWithoutExtension(mapPath);
             var scenarioPath = Path.Combine(directory, $"{key}.scn");
-            if (key == "s0" || !File.Exists(scenarioPath))
+            // s0 is the working scenario and s5 is generated, not shipped.
+            if (key is "s0" or "s5" || !File.Exists(scenarioPath))
             {
                 continue;
             }
@@ -2633,7 +2631,8 @@ public sealed class LegacyWorldConverterTests
         {
             var key = Path.GetFileNameWithoutExtension(mapPath);
             var scenarioPath = Path.Combine(directory, $"{key}.scn");
-            if (key == "s0" || !File.Exists(scenarioPath))
+            // s0 is the working scenario and s5 is generated, not shipped.
+            if (key is "s0" or "s5" || !File.Exists(scenarioPath))
             {
                 continue;
             }
@@ -2646,12 +2645,11 @@ public sealed class LegacyWorldConverterTests
             years[key] = document.Scenarios[0].StartingYear;
         }
 
-        Assert.Equal(10, years.Count);
+        Assert.Equal(9, years.Count);
 
         // The two the briefings name outright.
         Assert.Equal(1882, years["s1"]);
         Assert.Equal(1848, years["s3"]);
-        Assert.Equal(1820, years["s5"]);
 
         // And the rest, so a change to the epoch shows up everywhere at once. The
         // three skirmishes carry field 1, so a skirmish starts in 1816 rather than
@@ -2679,7 +2677,7 @@ public sealed class LegacyWorldConverterTests
     /// nothing later.
     /// <para>
     /// The two that do overshoot are each **one year** short: <c>s12</c> in 1825
-    /// holds two technologies arriving in 1826, and <c>s13</c>/<c>s14</c>/<c>s5</c>
+    /// holds two technologies arriving in 1826, and <c>s13</c>/<c>s14</c>
     /// in 1820 hold three arriving in 1821. For dates the manual calls approximate,
     /// against an epoch derived from two briefing paragraphs, that is a much tighter
     /// agreement than a scenario's authoring liberty would predict — so it
@@ -2702,7 +2700,8 @@ public sealed class LegacyWorldConverterTests
         {
             var key = Path.GetFileNameWithoutExtension(mapPath);
             var scenarioPath = Path.Combine(directory, $"{key}.scn");
-            if (key == "s0" || !File.Exists(scenarioPath))
+            // s0 is the working scenario and s5 is generated, not shipped.
+            if (key is "s0" or "s5" || !File.Exists(scenarioPath))
             {
                 continue;
             }
@@ -2721,9 +2720,9 @@ public sealed class LegacyWorldConverterTests
                 .Count(item => arrival[item.Technology] > scenario.StartingYear);
         }
 
-        // Every tech record in the corpus, s5 included: it is a generated world
-        // rather than a shipped mission, but it is dated like one.
-        Assert.Equal(491, granted);
+        // Every tech record in the nine shipped reference scenarios. The 491
+        // this used to assert included the generated s5's 42 (issue #93).
+        Assert.Equal(449, granted);
 
         // Nothing early at all in the three latest missions.
         Assert.Equal(0, early["s1"]);
@@ -2734,7 +2733,6 @@ public sealed class LegacyWorldConverterTests
         Assert.Equal(14, early["s12"]);
         Assert.Equal(21, early["s13"]);
         Assert.Equal(21, early["s14"]);
-        Assert.Equal(21, early["s5"]);
 
         // The skirmishes grant nothing, so they can be neither early nor late.
         foreach (var key in new[] { "s10", "s11", "s15" })

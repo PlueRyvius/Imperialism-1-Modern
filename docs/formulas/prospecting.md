@@ -35,10 +35,12 @@ reuses it rather than adding a second unmeasured number.
 ## The corpus agrees, from the other direction
 
 The importer marks five terrain codes as searchable. Counting the cells that
-carry them across the ten shipped scenarios gives **4,449** tiles a Prospector
-may search without any technology — which is exactly the 2,860 barren hills plus
-1,589 mountains that [development.md](development.md) counted while establishing
-something else entirely. Two independent walks over the corpus, same number.
+carry them across the nine shipped reference scenarios gives **4,248** tiles a
+Prospector may search without any technology. Adding the generated `s5`'s 201 gives
+the 4,449 once quoted here, which is exactly the 2,860 barren hills plus 1,589
+mountains that [development.md](development.md) counted while establishing
+something else entirely — a census counted on the ten-file set that included the
+generated `s5` (issue #93).
 
 The four historical maps agree with each other exactly, as they should:
 
@@ -51,10 +53,12 @@ The four historical maps agree with each other exactly, as they should:
 | `s15` | 368 | 452 |
 | `s5` (generated) | 201 | 517 |
 
-`TheWholeShippedCorpusConvertsWhenItIsConfigured` pins every row.
+`TheWholeShippedCorpusConvertsWhenItIsConfigured` pins every shipped row and
+skips `s5`.
 
 **Most of that ground holds nothing.** 449 of 2,860 barren hills and 346 of
-1,589 mountains carry a marker at all, so roughly six searches in seven come back
+1,589 mountains (the ten-file census that included the generated `s5`) carry a
+marker at all, so roughly six searches in seven come back
 empty. That is the mechanic rather than a defect in it, and the reason a
 fruitless search has to be a first-class outcome instead of an error.
 
@@ -229,7 +233,8 @@ deposit yielding nothing because its curve starts at zero.
 seventeen terrain codes against the manual's prospectability one by one,
 including which three are gated; the five hidden deposits against the other
 eight; and the work kind per civilian. The whole-corpus test pins the searchable
-counts in the table above and their 4,449 total.
+counts in the table above for the nine shipped reference scenarios and their
+4,248 total.
 
 ## What a hundred turns looks like
 

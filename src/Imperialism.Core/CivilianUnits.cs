@@ -28,7 +28,8 @@ public enum CivilianWorkKind : byte
     /// <summary>
     /// Search the tile for deposits its owner cannot otherwise see. Reveals
     /// whatever is there, which is usually nothing: only 449 of the corpus's
-    /// 2,860 barren hills and 346 of its 1,589 mountains carry a marker at all.
+    /// 2,860 barren hills and 346 of its 1,589 mountains carry a marker at all
+    /// (counted on the ten-file set that included the generated s5).
     /// </summary>
     Prospect,
 
@@ -318,7 +319,7 @@ public sealed record CivilianUnit
 /// <remarks>
 /// The 1997 <c>civi</c> record is <c>[type, cell]</c> and names no owner: the
 /// original reads it off the province the cell sits in. That holds across the
-/// whole corpus — all 210 records stand on owned land, and every owner is a
+/// nine shipped reference scenarios — all 203 records stand on owned land, and every owner is a
 /// country with a capital — so the importer derives it and Core is told
 /// outright.
 /// </remarks>

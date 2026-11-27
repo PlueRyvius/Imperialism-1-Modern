@@ -397,10 +397,11 @@ does not produce minerals" — so an undiscovered deposit pays nothing whether o
 not anything checks. One gate, one place.
 
 **Most searches find nothing, and that is the mechanic.** 449 of 2,860 barren
-hills and 346 of 1,589 mountains carry a marker, so a fruitless search is a
-first-class outcome that still marks the tile. Counting the corpus's searchable
-ground gives 4,449 tiles — the same number `development.md` reached counting
-hills and mountains for something else entirely.
+hills and 346 of 1,589 mountains carry a marker (a census counted on the ten-file
+set that included the generated `s5`), so a fruitless search is a first-class
+outcome that still marks the tile. Counting the searchable ground in the nine
+shipped reference scenarios gives 4,248 tiles; the 4,449 once quoted here, which
+matched `development.md`'s hills and mountains, included `s5`'s 201 (issue #93).
 
 **Oil is unreachable in imported content, on purpose.** The importer emits one
 technology, `technology.oil-drilling`, and gives it to nobody: `tech` records are
@@ -718,9 +719,10 @@ shipped at v19 is retracted. One assertion changed in the whole suite:
 `TechRecordsBecomeStartingKnowledge`, which pins id 5 precisely because it was one of the
 six disputed positions.
 
-**The two falsification counts are unverified against this change, and that matters.** The
-analysis says 380/4 and 1,140/0 cannot move under a permutation within a prefix; until
-someone runs them against the full corpus, the counts remain a prediction. The C# tests
+**The two falsification counts were unverified against this change, and that mattered.** The
+analysis said 380/4 and 1,140/0 cannot move under a permutation within a prefix, and until
+someone ran them against the full corpus the counts were a prediction. **They have now been
+run and passed on the shipped corpus**, on 26 Nov 2026 at `4de6846` (issue #93). The C# tests
 use `[CorpusFact]`: they visibly skip when `IMPERIALISM_SCENARIO_DIR` is unset and fail
 when the configured directory is missing any of the ten numbered `.map`, `.scn`, or `.inf`
 files.
@@ -1069,8 +1071,8 @@ keeps the highest level and warns. Erroring on it was the first implementation
 and the corpus rejected it on the first run.
 
 **`civi` records name no owner.** The record is `[type, cell]`; the owner is the
-owner of the province the cell sits in. Verified across the whole corpus — all
-210 stand on owned land and every owner holds a capital.
+owner of the province the cell sits in. Verified across the nine shipped reference
+scenarios — all 203 stand on owned land and every owner holds a capital.
 
 **`rail` scenario records are depots, not track.** The map's rail byte carries
 the lines; the records name the depots built on them. They are a strict subset

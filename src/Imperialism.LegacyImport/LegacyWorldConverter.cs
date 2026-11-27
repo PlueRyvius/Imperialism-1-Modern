@@ -1726,7 +1726,7 @@ public static class LegacyWorldConverter
     /// </summary>
     /// <remarks>
     /// The owner comes from the province the cell sits in, which the corpus
-    /// supports without exception: all 210 records across the ten scenarios
+    /// supports without exception: all 203 records across the nine shipped reference scenarios
     /// stand on owned land, and every one of those owners is a country holding
     /// a capital. Unowned land is therefore treated as an error rather than
     /// tolerated — nothing shipped does it, and a civilian nobody owns could

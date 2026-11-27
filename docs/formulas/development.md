@@ -23,9 +23,9 @@ recovered from observed play**, and the numbers it moved are re-published below.
 
 | Claim | Support |
 |---|---|
-| `civi` is `[type, cell]` | **corpus-verified** — 210 records across ten scenarios, every one two fields, every cell in range and on land |
+| `civi` is `[type, cell]` | **corpus-verified** — 203 records across the nine shipped reference scenarios, every one two fields, every cell in range and on land |
 | Types 0–5 are Miner, Prospector, Farmer, Forester, Engineer, Rancher | **corpus-verified** — see the identification below |
-| A civilian's owner is the owner of the province it stands in | **corpus-verified** — 210 of 210 stand on owned land, and every owner holds a capital |
+| A civilian's owner is the owner of the province it stands in | **corpus-verified** — 203 of 203 stand on owned land, and every owner holds a capital |
 | Civilians move any distance each turn | **manual**, stated outright — there is no movement-point model to build |
 | They cannot enter another Great Power's land, nor a Minor Nation's without an embassy | **manual** |
 | A civilian in a province that is lost is killed | **manual** |
@@ -89,7 +89,7 @@ implemented here**; see Open questions.
 `civi[0]` is a small integer and nothing names it. It is settled by where the
 units stand, across all ten scenarios:
 
-| Code | Where its 210 instances stand | Reading |
+| Code | Where its 210 instances stand (the ten-file set, including the generated `s5`'s 7; the nine shipped hold 203) | Reading |
 |---|---|---|
 | 4 | towns 16, and everywhere else | **Engineer** — the manual says only the Engineer may work in a town |
 | 5 | fertile hills 6, open range 3 | **Rancher** — exactly the Rancher's two terrains |
@@ -390,7 +390,7 @@ order.
 seventeen terrain codes against the manual's improvability one by one, an
 unknown code never being improvable, every deposit's improver, `civi` conversion
 with the owner derived from the province, and the four ways a `civi` record is
-rejected. The whole-corpus test asserts **210 civilians across ten scenarios**
+rejected. The whole-corpus test asserts **203 civilians across the nine shipped reference scenarios**
 with no diagnostics, and that `civi` is no longer reported as deferred.
 
 `tests/Imperialism.Core.Tests/EconomySoakTests.cs` carries the payoff run and
@@ -405,7 +405,7 @@ its control.
 - ~~**Prospector discovery.**~~ Built. Coal, iron, gold, gems and oil are hidden
   until a Prospector of that Great Power searches the tile, and a Miner sent to
   unsearched ground is refused. The 449 of 2,860 barren hills and 346 of 1,589
-  mountains that carry a marker are now the odds a search faces rather than a
+  mountains (counted on the ten-file set that included the generated `s5`) that carry a marker are now the odds a search faces rather than a
   curiosity. See [prospecting.md](prospecting.md).
 - **Engineer construction** — rail, ports, depots, forts. Its own slice.
 - **Developer and buying land** — needs money and diplomacy.
