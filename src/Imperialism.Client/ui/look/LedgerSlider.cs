@@ -80,6 +80,10 @@ public sealed partial class LedgerSlider : Control
         DrawRect(new Rect2(_edge + 1, 13, 113, 4), new Color("cabc6c"));
         DrawRect(new Rect2(_edge + 1, 13, FillWidth(row), 4), new Color("0058a2"));
         DrawRect(new Rect2(_edge, 17, 115, 1), Colors.White);
+        // The original's white line is tinted three pixels in from its left end
+        // (measured on O30, every slider row, both columns).
+        DrawRect(new Rect2(_edge + 1, 17, 1, 1), new Color("fffbf0"));
+        DrawRect(new Rect2(_edge + 3, 17, 2, 1), new Color("f5f5f5"));
         // D12: no demand line where nothing wants the row, as under the original's horses.
         if (row.DemandStatus != TransportDemandStatus.None)
             DrawRect(new Rect2(_edge, 18, 115, 2), new Color(row.DemandStatus == TransportDemandStatus.Met ? "5fba4b" : "fa0500"));

@@ -101,7 +101,8 @@ slider frame. The slider frame is at strip-local `84,10,138,10` in 4001–4010 a
    against 34).
 3. **Slider pieces:** rim, gold track and arrow ends are strip pixels, measured
    exactly; the fills, white line and underline are plain fills with measured colours
-   and sizes. `pictuniv/4020`–`4023` (12x11) do not match the arrows (.30–.40), nor do
+   and sizes. The white line is #FFFFFF except #FFFBF0 at +1 and #F5F5F5 at +3 and +4
+   from its first pixel (x 166 left, x 417 right; ETHERCAT r4 measurement). `pictuniv/4020`–`4023` (12x11) do not match the arrows (.30–.40), nor do
    9457/9458.
 4. **Text:** positions are bounding boxes of changed pixels. Font and heading wording
    are not identified.
