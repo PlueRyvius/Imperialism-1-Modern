@@ -13,7 +13,7 @@ public sealed partial class LedgerSlider : Control
     private Texture2D? _strip;
     private Font? _font;
     private Label? _name;
-    private Label? _figure;
+    private LedgerFigure? _figure;
     private float _edge;
     private int _heldDirection;
     private double _repeatIn;
@@ -40,8 +40,7 @@ public sealed partial class LedgerSlider : Control
         // The two mockup additions are separate nodes: the name here, the handle below.
         _name = LedgerText.Add(this, "row.name", new Rect2(0, 22, 180, 8), row.Name,
             font, 8, new Color("5e4a30"));
-        _figure = LedgerText.Add(this, "row.figure", new Rect2(184, 22, 38, 8), "",
-            font, 8, Colors.Black, HorizontalAlignment.Right);
+        _figure = LedgerFigure.Add(this, "row.figure", new Rect2(184, 22, 38, 8));
         var handle = new LedgerHandle { Name = "SliderHandle", Position = new Vector2(_edge + 1, 13) };
         handle.SetMeta("layout_name", "slider.handle");
         AddChild(handle);

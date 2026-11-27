@@ -8,7 +8,7 @@ public sealed partial class CapacityBar : Control
 {
     private readonly Texture2D _strip = GD.Load<Texture2D>("res://art/transport/4019.png");
     private TransportPreview? _view;
-    private Label? _figure;
+    private LedgerFigure? _figure;
 
     public void Build(Font font)
     {
@@ -16,8 +16,7 @@ public sealed partial class CapacityBar : Control
         SetMeta("layout_name", "capacity.row");
         Position = new Vector2(325, 397);
         Size = new Vector2(224, 34);
-        _figure = LedgerText.Add(this, "capacity.figure", new Rect2(174, 24, 48, 9), "",
-            font, 8, Colors.Black, HorizontalAlignment.Right);
+        _figure = LedgerFigure.Add(this, "capacity.figure", new Rect2(174, 24, 48, 9));
     }
 
     public void Apply(TransportPreview view)
