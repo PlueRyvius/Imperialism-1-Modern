@@ -274,12 +274,59 @@ transport order per commodity exactly as today.
     against a resolved turn. **Limits:** a river port (no adjacent sea zone) is
     assumed to reach the sea, because Core's `RiverPortConnectivity` is internal.
     Ownership is read as the turn opens, while Extraction reads it after `Conflict`.
-  - **(b) cotton + wool 24/47 against the original's 26/45.** Available
-    is not what binds: with 47 available, a 13-point mill and an empty warehouse,
-    the rule carries 26. Carrying 24 means one of two things. Either GB's imported
-    textile capacity is 12, or two cotton/wool sit in GB's opening warehouse and the
-    rule nets them while the original's fill may not. Both are importer or Core content. The
-    PC must read GB's `capa` and `ware` for `s1` to tell them apart. Available's
-    47 against 45 is the same kind of question, about the yield and catchment
-    figures on real data.
+  - **(b) cotton + wool 24 against the original's 26.** Available does not bind
+    here. GB's imported textile mill has capacity 32 and its warehouse holds 20 cotton
+    and 20 wool, so the manual's netting rule asks for 2 × 32 − 40 = 24. The original's
+    turn-1 warehouse also shows 20 + 20: the ETHERCAT shot `O33`, read by icon match
+    and OCR. So 26 needs one of two things. Either the original's textile capacity is
+    33, which no existing shot shows (its Textile Mill dialog has a "Capacity:" line
+    still to be captured), or the original nets its stock differently. Neither is a
+    look question, so it goes to issue #96 and the fill keeps the manual's rule.
+    Available's 47 against 45 is the same kind of question, and is in #96 too.
   - **(b) horses 0/3 against 1/3** stays issue #92. No horse demand is invented.
+
+## Decisions on the text look (Architect, 27 Nov 2026)
+
+Measured from the original's `O30` Transport shot on ETHERCAT
+(`C:\qf-test\evidence\look\transport-95-r2\TEXT.md`, ETHERCAT only). All
+coordinates are 1x frame pixels.
+
+- **D13. Hard edges, core colours, no ClearType.** Every text item in the shot has
+  sub-pixel colour fringes: orange on the left of a stroke and blue on the right. The
+  whole frame holds 1,944 colours, which a 256-colour game can't produce, so the
+  fringes are read as ETHERCAT's font smoothing and not the game's ink. That reading
+  is inferred, not verified. Our text is drawn hard-edged in the core colour only,
+  as the figures already are (d7cd4c5). Ink counts are compared against the core.
+- **D14. Row and capacity figures.** The text is "ordered / available", with **a
+  space on each side of the slash**: the original leaves 6 px of page on either side,
+  where a digit gap is 2 px. The glyphs are as follows:
+  - Digits are 7 px tall. "5" and "9" have a 3 px core. "1" is a 1 px stem on a
+    3 px foot.
+  - Digits sit 2 px apart.
+  - The slash is 5 px wide and 9 px tall, running 2 px below the digit baseline.
+  - The L0 "15 / 19" ink box is x 254..291, y 140..148. The capacity "119 / 120" is
+    x 499..546, y 420..429. Figures are right-aligned to the box's right edge.
+  - The original's L0 figure has about 48 px darker than luminance 128. Ours should
+    land near that.
+- **D15. The header: date, treasury and hot text.** All three are ink #E3E0B8 with a
+  #000000 shadow at (+1, +1), drawn under the ink. Their ink boxes:
+  - date x 47..119, y 13..22;
+  - treasury x 159..201, y 13..21, reading "$10,000" on GB `s1`;
+  - hot text x 484..618, y 8..31.
+- **D16. The date reads "Spring, 1882"**, as "<quarter name>, <year>". The quarter
+  names are the original's own, from `STR#ENU.GOB`: "Winter", "Spring", "Summer"
+  and "Fall".
+  - *Chosen:* the original's turn 1 on `s1` shows "Spring", so our Q1 prints Spring,
+    then Summer, Fall and Winter. The file stores Winter first, and no later-turn
+    shot exists to tell the two readings apart.
+  - The names are formatted in Presentation. `TurnDate` and its `ToString` are
+    unchanged.
+- **D17. The hot text has an idle line.** When nothing is hovered, it reads "Give
+  Transport Orders" on line 1 (from x 484, y 8) and "(current screen)" on line 2
+  (from x 524, y 23). Hover text replaces both lines and the idle text comes back
+  on exit. The original's Industry screen shows "Give Industry Orders" in the same
+  place, so the idle line belongs to the screen.
+- **D18. Titles.** "Transport" has an ink box of x 163..248, y 86..100 and "Ledger"
+  one of x 417..475, y 86..100. Both are #5E4A30, with no shadow and hard edges.
+  The original's core is 244 and 158 px of #5E4A30; ours is 199 and 126 with
+  greyscale anti-aliasing.
