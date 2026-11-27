@@ -1,3 +1,4 @@
+using System.Globalization;
 using Godot;
 using Imperialism.Presentation;
 
@@ -51,7 +52,11 @@ public sealed partial class TechnologyScreen : Control, IShellScreen
         foreach (var offer in preview.Offered)
         {
             var card = OrdersControls.Card(_rows!, offer.TechnologyName);
-            var buy = new CheckButton { Text = $"Buy · ${offer.Cost}", TooltipText = "Toggle this purchase; known next turn." };
+            var buy = new CheckButton
+            {
+                Text = string.Create(CultureInfo.InvariantCulture, $"Buy · ${offer.Cost:N0}"),
+                TooltipText = "Toggle this purchase; known next turn."
+            };
             card.AddChild(buy);
             var id = session.Package.Catalog.GetTechnologyId(offer.TechnologyKey);
             buy.Toggled += selected =>
@@ -64,7 +69,9 @@ public sealed partial class TechnologyScreen : Control, IShellScreen
             {
                 var row = view.Offered.First(item => item.TechnologyKey == offer.TechnologyKey);
                 buy.SetPressedNoSignal(row.IsSelected);
-                buy.Text = row.IsSelected ? $"Purchasing · ${row.Cost}" : $"Buy · ${row.Cost}";
+                buy.Text = row.IsSelected
+                    ? string.Create(CultureInfo.InvariantCulture, $"Purchasing · ${row.Cost:N0}")
+                    : string.Create(CultureInfo.InvariantCulture, $"Buy · ${row.Cost:N0}");
             });
         }
 
@@ -76,7 +83,8 @@ public sealed partial class TechnologyScreen : Control, IShellScreen
         _applying = true;
         try
         {
-            _budget!.Text = $"Buy list: ${preview.CommittedCost} / cash: ${preview.Cash}";
+            _budget!.Text = string.Create(CultureInfo.InvariantCulture,
+                $"Buy list: ${preview.CommittedCost:N0} / cash: ${preview.Cash:N0}");
             _warning!.Text = preview.IsOverCash ? "Warning: the buy list exceeds current cash." : "";
             foreach (var update in _updates) update(preview);
             OrdersControls.Clear(_purchases!);

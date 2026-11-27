@@ -1,3 +1,4 @@
+using System.Globalization;
 using Godot;
 using Imperialism.Presentation;
 
@@ -64,12 +65,15 @@ public sealed partial class TradeScreen : Control, IShellScreen
             _updates.Add(view =>
             {
                 var row = view.Rows.First(item => item.CommodityKey == commodity.CommodityKey);
-                stock.Text = $"World price: ${row.WorldPrice} · sellable: {row.Sellable}\nWarehouse: {row.Stock} · industry claims: {row.ClaimedByIndustry}";
+                stock.Text = string.Create(CultureInfo.InvariantCulture,
+                    $"World price: ${row.WorldPrice:N0} · sellable: {row.Sellable}\n" +
+                    $"Warehouse: {row.Stock} · industry claims: {row.ClaimedByIndustry}");
                 // UI precision bound only; the requested amount stays visible below.
                 offer.MaxValue = Math.Min(row.Sellable, OrdersControls.ExactIntegerLimit);
                 offer.SetValueNoSignal(row.Offer);
                 bid.SetValueNoSignal(row.Bid);
-                requested.Text = $"Requested offer: {row.Offer} · bid: {row.Bid} · bid cost at world price: ${row.BidCost}";
+                requested.Text = string.Create(CultureInfo.InvariantCulture,
+                    $"Requested offer: {row.Offer} · bid: {row.Bid} · bid cost at world price: ${row.BidCost:N0}");
                 warning.Text = row.IsOverOffered ? "Warning: the offer exceeds sellable stock. Industry has first claim; the excess remains unfilled." : "";
             });
         }
