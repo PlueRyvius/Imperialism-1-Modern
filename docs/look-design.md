@@ -62,11 +62,12 @@ text, no controls. (The colour is Andy's approved mockup's.)
 
 **Only the drawing is modernised: text is redrawn crisp.** Text is not part of
 any bitmap and is not scaled up from 1x. It is rendered at the root's final
-resolution, in place, at the position and size the original draws it, using the
-original's own faces (`fonts/antiqua*.ttf` for body text, `fonts/display*.ttf`
-for headings, both in the manifest). A label's box is the note's rectangle x k;
+resolution, in place, at the position and size the original draws it,
+in the modern pair (below). A label's box is the note's rectangle x k;
 text stays inside it. Colours follow the original's palette as sampled
 with the extractor's `--probe`.
+
+**Fonts: the modern pair** (Andy, 27 Nov 2026, "Modern pair", after the sample in https://github.com/PlueRyvius/Imperialism-1-Modern/pull/97). Every rebuilt screen draws body text and figures in **Lora** (`fonts/lora.ttf`) and headings in **Fraunces Bold** (`fonts/fraunces.ttf`), both SIL OFL and recorded with source and licence in the manifest. They replace the original's Antiqua and Belwe-style faces for legibility at the final resolution. The original fonts (`fonts/antiqua*.ttf`, `fonts/display*.ttf`) stay in the repository unchanged, for reference. Text keeps the original's position and colour, and its size matches the approved mockup's: body text and figures about 20 px tall at 1920x1080 (size 10 in the 640x480 frame).
 
 *Chosen, for how this is built in Godot:* the rebuilt screen's root is a
 `Control` of 640x480 with `scale = (k, k)`, recomputed on window resize; font

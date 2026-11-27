@@ -130,6 +130,23 @@ public sealed class ArtManifestTests
         }
     }
 
+    [Fact]
+    public void ModernFontsRecordOfficialSourcesLicencesAndUnmodifiedBytes()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(ManifestPath));
+        var fonts = document.RootElement.GetProperty("externalFonts").EnumerateArray().ToArray();
+        Assert.Equal(new[] { "fonts/lora.ttf", "fonts/lora-OFL.txt", "fonts/fraunces.ttf", "fonts/fraunces-OFL.txt" },
+            fonts.Select(font => font.GetProperty("path").GetString()));
+        foreach (var font in fonts)
+        {
+            Assert.StartsWith("https://raw.githubusercontent.com/google/fonts/", font.GetProperty("source").GetString());
+            Assert.Equal("SIL OFL 1.1", font.GetProperty("license").GetString());
+            var bytes = File.ReadAllBytes(Path.Combine(ArtRoot, font.GetProperty("path").GetString()!));
+            Assert.Equal(font.GetProperty("sha256").GetString(),
+                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant());
+        }
+    }
+
     private static Manifest Load()
     {
         Assert.True(File.Exists(ManifestPath), $"No manifest at {ManifestPath}.");
@@ -154,6 +171,7 @@ public sealed class ArtManifestTests
                     : null)).ToArray();
 
         var fonts = document.RootElement.GetProperty("fonts").EnumerateArray()
+            .Concat(document.RootElement.GetProperty("externalFonts").EnumerateArray())
             .Select(element => new Font(element.GetProperty("path").GetString()!))
             .ToArray();
 

@@ -333,3 +333,47 @@ coordinates are 1x frame pixels.
   one of x 417..475, y 86..100. Both are #5E4A30, with no shadow and hard edges.
   The original's core is 244 and 158 px of #5E4A30; ours is 199 and 126 with
   greyscale anti-aliasing.
+
+## 27 November 2026: crisp Transport text supersedes the raster criteria
+
+Andy requested text rendered at the root's final resolution and allowed a
+modern close-match font for legibility. This supersedes D13, D14 and D18
+where they require hard-edged native 1x glyphs, their ink counts or the foot
+on `1`. Those decisions remain above as history. The approved mockup wins.
+No game values, allocation, row activation or input decisions change.
+
+Andy chose "Modern pair" on 27 November 2026: every rebuilt screen uses
+Lora (`fonts/lora.ttf`) and Fraunces Bold (`fonts/fraunces.ttf`), with row
+names/figures preferring size 10 (20 px at 2x), reduced together only to fit.
+
+Transport now uses Lora Regular for body text and figures and Fraunces Bold
+(weight 700, optical size 34, softness 50) for its headings. Both are SIL OFL
+1.1, downloaded unmodified from the Google Fonts upstream at commit
+`5026800714d07231937d92eb4cceabf06e05d74e`. The manifest's `externalFonts`
+section records each TTF and licence, source URL and SHA-256; the original
+four fonts and the original-only extractor are unchanged.
+
+All Transport text uses antialiased Labels and private font copies with
+oversampling equal to the integer canvas scale. At 1920x1080, glyphs are
+rasterized at 2x, rather than enlarged from 1x textures. Body/figure size is
+10 where it fits, header size 10, capacity size 9 and bold title size 15
+in ledger units.
+Normal font word spacing replaces the header's manual spacing.
+
+Each row's name begins at its bar's left edge (x166 or x417), with its
+figure right-aligned at x279 or x529 on the same line. Label boxes start
+at row-local y17, with natural font height (14 pixels at size 10), within
+the 31-pixel row pitch; the baseline follows Lora's metrics. The figure
+reserves its natural width; the name gets the remaining span with a
+3-pixel gap. Both use the largest shared integer size up to 10 that fits.
+`Fish & Livestock` with `15 / 19` fits at size 10; with `119 / 120` it uses
+size 9 in either column. Unusually long custom names can shrink further.
+No name is placed below an icon. These positions remain subject to the
+forthcoming mockup text spec and the Windows comparison.
+
+Acceptance checks final-scale antialiased Labels, name/figure fit and
+alignment, plus the unchanged geometry and input checks. A foot or binary
+ink count is no longer an acceptance criterion. The committed
+`transport-font-sample.png` compares original and replacement fonts rendered
+from the font files at 2x; it contains no game screenshot. The 1920x1080
+ETHERCAT frame beside the approved mockup is still required.

@@ -35,7 +35,6 @@ public sealed partial class TransportScreen : Control, IShellScreen
         _date!.Text = TransportText.FormatDate(session.Status.CurrentDate);
         _treasury!.Text = "$" + session.Status.Cash.ToString("N0", CultureInfo.InvariantCulture);
         SetHotText("");
-        Apply();
         FitCanvas();
     }
 
@@ -53,23 +52,28 @@ public sealed partial class TransportScreen : Control, IShellScreen
         _canvas = GD.Load<PackedScene>("res://scenes/TransportLayout.tscn").Instantiate<Control>();
         AddChild(_canvas);
         // Per-screen copies: oversampling must not mutate the other screens' cached fonts.
-        _bodyFont = (FontFile)GD.Load<FontFile>("res://art/fonts/antiqua.ttf").Duplicate();
-        _headingFont = (FontFile)GD.Load<FontFile>("res://art/fonts/display.ttf").Duplicate();
+        _bodyFont = (FontFile)GD.Load<FontFile>("res://art/fonts/lora.ttf").Duplicate();
+        _headingFont = (FontFile)GD.Load<FontFile>("res://art/fonts/fraunces.ttf").Duplicate();
         foreach (var font in new[] { _bodyFont, _headingFont })
         {
-            font.Antialiasing = TextServer.FontAntialiasing.None;
+            font.Antialiasing = TextServer.FontAntialiasing.Gray;
             font.Hinting = TextServer.Hinting.Normal;
             font.SubpixelPositioning = TextServer.SubpixelPositioning.Disabled;
         }
         _headingFont.Oversampling = 1;
         _date = Header("date", new Rect2(47, 9, 77, 16), "", 10);
-        _treasury = Header("treasury", new Rect2(159, 10, 48, 16), "", 10, glyphSpacing: 2);
+        _treasury = Header("treasury", new Rect2(159, 10, 48, 16), "", 10);
         _hotText = Header("hottext", new Rect2(484, 4, 135, 15), "", 10, HorizontalAlignment.Right);
-        _hotDetail = Header("hottext.detail", new Rect2(524, 19, 95, 15), "", 10, HorizontalAlignment.Right, spaceSpacing: 12);
-        LedgerRasterText.AddTitle(_canvas, "title.left", new Rect2(162, 81, 90, 23), "Transport",
-            new FontVariation { BaseFont = _headingFont, SpacingGlyph = 2, VariationEmbolden = 0.4f }, 17, new Color("5e4a30"));
-        LedgerRasterText.AddTitle(_canvas, "title.right", new Rect2(416, 81, 62, 23), "Ledger",
-            new FontVariation { BaseFont = _headingFont, SpacingGlyph = 2 }, 17, new Color("5e4a30"));
+        _hotDetail = Header("hottext.detail", new Rect2(524, 19, 95, 15), "", 10, HorizontalAlignment.Right);
+        var display = new FontVariation
+        {
+            BaseFont = _headingFont,
+            VariationOpentype = new Godot.Collections.Dictionary { ["wght"] = 700, ["opsz"] = 34, ["SOFT"] = 50 },
+        };
+        LedgerText.Add(_canvas, "title.left", new Rect2(160.5f, 76.5f, 100, 30), "Transport",
+            display, 17, new Color("5e4a30"));
+        LedgerText.Add(_canvas, "title.right", new Rect2(417.5f, 77.5f, 70, 30), "Ledger",
+            display, 16, new Color("5e4a30"));
         WatchHover(_date, "Date");
         WatchHover(_treasury, "Treasury");
         foreach (var (node, text) in new[] { ("TabTransport", "Transport"), ("TabIndustry", "Industry"),
@@ -82,7 +86,7 @@ public sealed partial class TransportScreen : Control, IShellScreen
     }
 
     private Label Header(string name, Rect2 box, string text, int fontSize,
-        HorizontalAlignment alignment = HorizontalAlignment.Left, int spaceSpacing = 8, int glyphSpacing = 1)
+        HorizontalAlignment alignment = HorizontalAlignment.Left, int spaceSpacing = 0, int glyphSpacing = 0)
     {
         var label = LedgerText.Add(_canvas!, name, box, text, new FontVariation { BaseFont = _bodyFont, SpacingGlyph = glyphSpacing, SpacingSpace = spaceSpacing }, fontSize,
             new Color("e3e0b8"), alignment, shadow: true);
@@ -144,6 +148,9 @@ public sealed partial class TransportScreen : Control, IShellScreen
         _canvas.Scale = new Vector2(k, k);
         _canvas.Position = (Size - new Vector2(640, 480) * k) / 2;
         _bodyFont!.Oversampling = k;
-        // Titles are native textures; resizing scales their pixels, never their fonts.
+        // Both faces rasterize at the final canvas resolution, including after resize.
+        _headingFont!.Oversampling = k;
+        // Font metrics may change with hinting at the new raster size.
+        if (_session is not null && _capacity is not null) Apply();
     }
 }
