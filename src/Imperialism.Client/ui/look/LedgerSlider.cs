@@ -45,10 +45,10 @@ public sealed partial class LedgerSlider : Control
         if (row.Strip is { } strip) _strip = GD.Load<Texture2D>($"res://art/transport/{strip}.png");
         // The two mockup additions are separate nodes: the name here, the handle below.
         _name = LedgerText.Add(this, "row.name", new Rect2(_edge, 21.5f, 70, 14), row.Name,
-            font, PreferredTextSize, new Color("5e4a30"));
+            font, PreferredTextSize, new Color("5a3e24"));
         var right = row.Column == TransportLedgerColumn.Left ? 209 : 204;
         _figure = LedgerText.Add(this, "row.figure", new Rect2(_edge + 70, 21.5f, right - _edge - 70, 14),
-            "", _figureFont, PreferredTextSize, Colors.Black, HorizontalAlignment.Right);
+            "", _figureFont, PreferredTextSize, new Color("341e0e"), HorizontalAlignment.Right);
         // Captions spill into the next row's blank leading band; keep them above
         // every row's opaque strip instead of letting later siblings erase them.
         _name.ZIndex = _figure.ZIndex = 1;
@@ -67,7 +67,7 @@ public sealed partial class LedgerSlider : Control
         _row = row;
         FocusMode = row.IsActive || row.CanLower ? FocusModeEnum.All : FocusModeEnum.None;
         _name!.Visible = _figure!.Visible = row.IsActive;
-        _figure.Text = $"{row.Requested}/{row.Available}";
+        _figure.Text = $"{row.Requested} / {row.Available}";
         // Text layout only: reserve the figure's natural width, then fit the name
         // into the remaining span. This never changes the order or its bounds.
         var right = row.Column == TransportLedgerColumn.Left ? 209 : 204;

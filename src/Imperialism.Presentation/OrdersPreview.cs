@@ -466,7 +466,7 @@ public sealed partial class OrdersPreview
             var members = Array.AsReadOnly(ids.Select(Member).ToArray());
             return new TransportRowView(
                 string.Join('+', members.Select(static member => member.CommodityKey)),
-                string.Join(" & ", members.Select(static member => member.Name)),
+                string.Join(" & ", members.Select(static member => member.CommodityKey == "commodity.iron" ? "Iron Ore" : member.Name)),
                 members,
                 column,
                 slot,

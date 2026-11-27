@@ -12,7 +12,7 @@ grayscale antialiasing, normal hinting, disabled subpixel positioning and
 oversampling equal to the canvas scale. Labels draw the fonts at the final
 resolution; the native-texture classes have been removed. Existing screens
 not yet rebuilt keep their current fonts. Header spacing is the font's normal spacing; ink
-and shadows retain D15's colours and offsets.
+and shadows follow the mockup-wins D15 colours and offsets below.
 
 The Transport smoke now checks antialiased Labels and scale-dependent
 oversampling, heading ink bounds on both axes against D18, header/capacity
@@ -271,8 +271,8 @@ below the underline ending at y20 and end strictly before y39 (the next track).
 The smoke checks clipping against every clipping Control ancestor, preserves
 name/figure separation and heading D18 checks, and exercises both columns' last
 possible commodity slots. Left-page ink stays above y440; right-page ink stays
-above the capacity row's leading track band at y405. Bold weight 700, spaceless
-figures and the shared fitting fallback are unchanged.
+above the capacity row's leading track band at y405. Bold weight 700, spaced `a / b`
+figures (mockup compose script; owner, 27 Nov) and the shared fitting fallback are unchanged.
 
 Measured on Godot 4.6.3 Mono at 1920x1080: the first row's name ink is at local
 **y25.5..32**, figure ink at **y25..35**. All 29 fitting cases pass, including
@@ -341,3 +341,60 @@ passed with **0 warnings and 0 errors**. Full C# suite: **1,263 passed, 0 failed
 11 skipped**, including all eight client asset tests. All **five headless smokes
 passed** (viewer, screens, turn, orders, Transport), with no errors or exceptions
 in their logs. No viewport pixel readback or Windows visual acceptance is claimed.
+
+
+### Mockup compose-script corrections: mockup wins, owner ruling 27 Nov 2026
+
+The following values come from **our own approved mockup compose script**, as
+transcribed in the task (ETHERCAT-only source:
+`C:\qf-test\evidence\mockups\transport-mockup-compose.py` and `TEXT-SPEC.md`).
+They supersede the earlier D13/D18 colour criteria, D15 rail styles and the
+crisp-text PR's spaceless `a/b` interpretation. Earlier measurements above are
+historical, not acceptance criteria for this follow-up.
+
+- **Mockup-wins row format:** `f'{carried} / {avail}'`, including both spaces.
+  Retain right alignment, the shared FitTextSize fallback, caption Z=1,
+  local y20..39 ink limits and name/figure separation.
+- **Mockup-wins colours:** names #5A3E24; figures and both headings #341E0E;
+  no shadows. Heading sizes, positions and expanded ink bounds are unchanged.
+- **Mockup-wins rail:** #FAEEC8 ink, #140A04 shadow (+1,+1) 1x. Date/treasury
+  Fraunces Bold 12, hot text Fraunces Bold 11, detail Lora Regular 9; normal
+  single spaces. Ink tops are date (46,15), treasury (158,15), hot text y7 and
+  detail y20.5. Both hot lines align right at x620 (last ink pixel x619).
+- **Mockup-wins capacity:** add `Capacity used` in the row-name style, left at
+  bar x417; `used / capacity` in bold row-figure style, right at x529.
+  Keep bar geometry and place captions at local y21.5, like ledger rows,
+  with the shared size-10 fitting fallback. No game quantity is calculated.
+- **Mockup-wins name:** left-page row 8 reads `Iron Ore`. A Presentation test
+  pins the ledger label while retaining `Iron` as the member/content name.
+
+The Modern pair stays Lora/Fraunces Bold. Both render at the final canvas
+resolution with greyscale anti-aliasing, no synthetic bold or added spacing.
+The Transport smoke pins these new values and retains occlusion, row placement,
+fit, heading ink bounds, capacity bounds and input-wiring checks. The viewer's
+actual switch in this codebase is `--smoke-test` (prints `VIEWER_SMOKE_OK`);
+`--smoke-viewer` is not recognized, so validation uses `--smoke-test`.
+No original-game screenshot is added. ETHERCAT visual comparison remains a
+separate acceptance step; headless checks measure glyph atlases and controls,
+not viewport pixels.
+
+
+Validation of this follow-up (27 Nov):
+
+- Release solution build and Debug client build: **0 warnings, 0 errors**.
+- Full C# suite: **1,264 passed, 0 failed, 11 skipped**, including the new
+  Iron Ore display-only test and all 8 asset tests. The skipped tests require
+  the absent local original-file corpus.
+- All five headless smokes exit 0: Transport, viewer (`--smoke-test`), screens,
+  turn and orders. Runtime: **Godot 4.6.3 Mono**, exact version
+  `4.6.3.stable.mono.nixpkgs.35e80b3a8`; the project SDK stays 4.7.1.
+- Transport at 1920x1080: rail/capacity criteria pass; both heading bounds pass
+  (32/31 physical ink pixels); 29 row fitting cases pass, smallest size 9,
+  tightest ink gap 5 ledger pixels. Both draw-order checks and all input and
+  navigation invariants pass. Capacity checks include `119 / 120` and `119 / ∞`.
+- A supplementary Xvfb screenshot attempt failed before rendering:
+  `Parameter "fbc" is null.` in graphics initialization, followed by signal 11.
+  No screenshot or ETHERCAT visual acceptance is claimed. No tool was installed.
+
+Server-only build, test/TRX and smoke logs (including the failed screenshot log)
+are under `/var/lib/agent-orchestra/runs/scratch/796e959c-2586-4e70-9549-2f73b9484b6c/transport-mockup-text/`.
