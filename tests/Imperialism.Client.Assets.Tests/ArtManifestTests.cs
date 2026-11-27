@@ -118,6 +118,18 @@ public sealed class ArtManifestTests
         }
     }
 
+    [Fact]
+    public void TransportPiecesAreUnalteredOriginals()
+    {
+        int[] ids = [1021, .. Enumerable.Range(4001, 19), 9456, 9453, 9451, 9449];
+        foreach (var id in ids)
+        {
+            var original = Path.Combine(RepositoryRoot(), "assets", "original", "pictuniv", $"{id}.png");
+            var client = Path.Combine(ArtRoot, "transport", $"{id}.png");
+            Assert.Equal(File.ReadAllBytes(original), File.ReadAllBytes(client));
+        }
+    }
+
     private static Manifest Load()
     {
         Assert.True(File.Exists(ManifestPath), $"No manifest at {ManifestPath}.");

@@ -45,7 +45,7 @@ Technology Investment screen the microscope reaches.
 | Screen | Manual | Status and contents |
 |---|---|---|
 | **Terrain Map** | Terrain Map screen and its toolbar | Built. Map, camera, picking, cell inspector, debug overlays, state probe. |
-| **Transport** | Transport screen | Built. Shared capacity bar, commodity sliders in draft priority order, up/down controls and shortfall warnings. `Transport`; capacity purchases live in Industry. |
+| **Transport** | Transport screen | Built in the original ledger layout: whole-number 640x480 scale, commodity rows, demand underlines and shared capacity. Windows comparison pending. `Transport`; capacity purchases live in Industry. |
 | **Industry** | Industry screen | Built. Workforce down the left border, warehouse on the right; scrolling facilities, production cycles, Capitol recruitment and railyard purchases. `Production`, `Expansions`, `RecruitWorkers`, `BuildTransportCapacity`. |
 | **Bid and Offers** | Bid and Offers screen | Built. Fixed commodity order, world prices, sellable stock, bounded offer input and bid input; holds, cash and all preview warnings. `TradeOffers`, `TradeBids`. |
 | **Diplomacy** | Diplomacy screen | Consulates, embassies, pacts, peace, war and trade policy per country. `Overtures`, `DeclareWar`, `TradePolicies`; previewed by `OrdersPreview.Diplomacy` (row 4e-1). Built: a scrolling country list and selected-country orders, with treasury claims and per-order clearing. |
@@ -562,12 +562,42 @@ The +1 toggle orders one expansion rung. Production rows show input/output bills
 labour per cycle, requested and expected cycles and their preview maximum, with
 up/down priority buttons. Capitol and railyard controls show prices and shortfalls.
 
-Transport keeps one capacity bar above the scrolling commodity sliders. Each row
-shows the requested and reserved amounts and moves earlier or later in the draft
-with its arrow buttons. The harvest remains unknown until resolution, as the
-screen explains. Zero capacity disables sliders; worlds without a transport limit
-are labelled unlimited. Numeric input is limited to the exact integer range of
-Godot's double-valued controls, not a new economic rule.
+Transport now covers the window with the original ledger (1021), strips
+4001–4019 and four static top-rail icons. Its 640x480 root is scaled by the largest
+whole number that fits (at least one), centred on plain `#0E0905`; at 1920x1080
+it is 1280x960 at (320,60). The shell temporarily disables its canvas-items
+stretch and hides its surrounding frame, then restores both on navigation away.
+Other screens keep their existing layout. Per-screen copies of the original
+Antiqua and display-bold fonts use oversampling at the root's scale.
+
+The measured positions and decisions D1–D11 are in
+[the Transport layout note](https://github.com/PlueRyvius/Imperialism-1-Modern/blob/a6e66624276921567bc94694f03ed203abb851c8/docs/look/transport-layout.md).
+`TransportPreview.Rows` supplies all row amounts, demand states, active flags and
+arrow permissions. Fish/livestock and cotton/wool share rows. A click raises or
+lowers through `OrdersDraft.RaiseTransportRow` / `LowerTransportRow`; arrows
+repeat after 400 ms, every 60 ms while held. Clicking or dragging the track calls
+`SetTransportRow` with the pointer-selected total. Focused rows also accept
+Left/Right, Home and End. Bounds and member selection remain in Presentation.
+There are no numeric boxes, priority buttons or End Turn control on Transport.
+The four icons are static; F1–F6 and Escape keep the existing navigation.
+
+The round handle and good's name below the bar are the approved mockup additions.
+Each row shows **ordered / available**, with availability an upper bound. Hover
+text replaces tooltips and shows the row name and availability; over an underline
+it shows demand. Inactive rows leave the background's greyed art untouched;
+D11 still allows a left-arrow click to clear a saved order there. Capacity stays
+in the lower-right strip. **Known limit:** availability excludes port fishing,
+so a ports-only fish row is greyed. One custom gatherable good can use the empty
+right-page slot without a strip; further unmatched goods are not shown. Windows
+acceptance at 1920x1080 beside the original remains pending.
+
+`godot --headless --path src/Imperialism.Client --resolution 1920x1080 -- --smoke-transport`
+uses the orders demo and checks the actual ledger arrow/track input wiring,
+row positions, whole-number canvas geometry, unchanged opening orders and the
+restored shell after leaving Transport. It prints `TRANSPORT_LOOK_SMOKE_OK`
+and `TRANSPORT_NAVIGATION unchanged=True restored=True`. It complements the
+existing viewer, shell, turn and orders smokes; a dummy-renderer headless pass
+does not establish visual acceptance.
 
 **A new draft opens the Transport screen filled, as the original's does.** This
 matches the original's opening Transport screen, measured on `s1` as Great Britain
@@ -950,8 +980,9 @@ Manual checklist:
     updated commitments, costs and warnings. Revisit without losing an order;
     after End Turn confirm mills remember requests, while food processing,
     expansions, recruitment and railyard purchases clear.
-13. Transport: drag a slider, reorder priorities, then revisit and End Turn;
-    requests and priority survive. Verify the shared bar and each shortfall.
+13. Transport: click and hold both slider arrows, drag the track, then revisit
+    and End Turn; requests survive. Verify the shared capacity bar, demand colours
+    and shared fish/livestock and cotton/wool rows. There are no priority buttons.
 14. Resize all four orders screens at the base viewport and widescreen: columns remain
     readable and the long order lists scroll inside the screen stack.
 15. Investment: select and cancel purchases, verify cumulative cost and the ordered
@@ -1042,8 +1073,9 @@ play-test fault 14; report scrolling is the additional regression).
    country, and tick a Fleet row. Read each label at rest, hovered and focused;
    selected labels must remain dark on their cream/green plates.
 2. Hover tabs and order controls: tooltip text must be dark on a cream plate.
-3. In Transport and Bid and Offers, read and edit number boxes, select their
-   text, and use both arrows. Check normal, hover, pressed and disabled arrows.
+3. In Bid and Offers, read and edit number boxes, select their text, and use
+   both arrows. In Transport, click/hold the row arrows and drag the track; check
+   the hot text, demand underline, bounds and ordered/available figures.
 4. Read the Terrain Map's pan/zoom/civilian hint against the wood.
 5. End a turn and open the report: the plain Close label must have no overlapping
    icon. Close and Escape must still dismiss it.
