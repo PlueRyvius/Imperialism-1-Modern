@@ -421,11 +421,102 @@ public sealed partial class OrdersPreview
                 committed));
         }
 
-        return new TransportPreview(
+        var preview = new TransportPreview(
             unlimited,
             unlimited ? null : capacity,
             sliders.Sum(static slider => slider.Committed),
             Array.AsReadOnly(sliders.ToArray()));
+        var (rows, unshown) = PreviewTransportRows(state, draft, names, preview);
+        return preview with { Rows = rows, UnshownCommodityKeys = unshown };
+    }
+
+    /// <summary>
+    /// The ledger rows (layout note D6–D10). Every strip whose commodities the world has
+    /// is a row; a pair is one row only when both of its commodities exist. A commodity
+    /// with no strip is a row only if Extraction can gather it, and then only the first,
+    /// at the right page's empty slot; the rest are listed as not shown.
+    /// </summary>
+    private static (IReadOnlyList<TransportRowView> Rows, IReadOnlyList<string> Unshown) PreviewTransportRows(
+        WorldState state, OrdersDraft draft, Names names, TransportPreview preview)
+    {
+        var world = state.Definition;
+        var line = TransportDefault.DemandLine(TransportDefault.Inputs(state, draft.Country));
+        var byKey = world.Commodities.ToDictionary(commodity => names.Key(commodity.Id), static commodity => commodity.Id);
+        var requested = new long[world.Commodities.Count];
+        var committed = new long[world.Commodities.Count];
+        for (var index = 0; index < draft.Transport.Count; index++)
+        {
+            var commodity = draft.Transport[index].Commodity.Value;
+            requested[commodity] += draft.Transport[index].Quantity;
+            committed[commodity] += preview.Sliders[index].Committed;
+        }
+
+        var orderedTotal = draft.Transport.Sum(static row => row.Quantity);
+        TransportRowMember Member(CommodityId id) => new(
+            names.Key(id),
+            id,
+            world.Commodities[id.Value].Name,
+            requested[id.Value],
+            committed[id.Value],
+            line.Available[id.Value],
+            line.Demand[id.Value]); // Uncapped: the underline's demand (D12).
+
+        TransportRowView Row(IReadOnlyList<CommodityId> ids, TransportLedgerColumn column, int slot, int? strip)
+        {
+            var members = Array.AsReadOnly(ids.Select(Member).ToArray());
+            return new TransportRowView(
+                string.Join('+', members.Select(static member => member.CommodityKey)),
+                string.Join(" & ", members.Select(static member => member.Name)),
+                members,
+                column,
+                slot,
+                strip,
+                members.Sum(static member => member.Requested),
+                members.Sum(static member => member.Committed),
+                members.Sum(static member => member.Available),
+                members.Sum(static member => member.Demand),
+                CanRaise: TransportLedgerLayout.HasCapacityLeft(preview, orderedTotal) &&
+                    TransportLedgerLayout.RaiseTarget(members, id => requested[id.Value]) is not null,
+                CanLower: TransportLedgerLayout.LowerTarget(members, id => requested[id.Value]) is not null);
+        }
+
+        var rows = new List<TransportRowView>();
+        var placed = new HashSet<CommodityId>();
+        foreach (var (strip, keys) in TransportLedgerLayout.Strips)
+        {
+            var present = keys.Where(byKey.ContainsKey).Select(key => byKey[key]).ToArray();
+            if (present.Length == 0)
+            {
+                continue;
+            }
+
+            // A pair whose partner the world lacks is a row of one, still on the pair's
+            // strip, so the commodity keeps its picture.
+            var (column, slot) = TransportLedgerLayout.Place(strip);
+            rows.Add(Row(present, column, slot, strip));
+            placed.UnionWith(present);
+        }
+
+        var unshown = new List<string>();
+        var spareTaken = false;
+        foreach (var commodity in world.Commodities)
+        {
+            if (placed.Contains(commodity.Id) || !TransportLedgerLayout.IsGatherable(world, commodity.Id))
+            {
+                continue;
+            }
+
+            if (spareTaken)
+            {
+                unshown.Add(names.Key(commodity.Id));
+                continue;
+            }
+
+            rows.Add(Row([commodity.Id], TransportLedgerColumn.Right, TransportLedgerLayout.UnstrippedSlot, null));
+            spareTaken = true;
+        }
+
+        return (Array.AsReadOnly(rows.ToArray()), Array.AsReadOnly(unshown.ToArray()));
     }
 
     private static TechnologyPreview PreviewTechnology(
@@ -651,6 +742,23 @@ public sealed record TransportPreview(
     IReadOnlyList<TransportSliderPreview> Sliders)
 {
     public bool IsZeroCapacity => Capacity == 0;
+
+    /// <summary>
+    /// The rebuilt ledger's rows, left page k = 0..9, then right page k = 0..7, then the
+    /// right page's k = 8 if a gatherable commodity has no strip. Edit them through
+    /// <see cref="OrdersDraft.RaiseTransportRow"/> and its siblings.
+    /// </summary>
+    public IReadOnlyList<TransportRowView> Rows { get; init; } = [];
+
+    /// <summary>
+    /// Gatherable commodities with no strip beyond the one that takes k = 8: no row is
+    /// shown for them, a limit of the original's page (D9). No shipped content has any.
+    /// </summary>
+    public IReadOnlyList<string> UnshownCommodityKeys { get; init; } = [];
+
+    /// <summary>The row with this key, or null.</summary>
+    public TransportRowView? GetRow(string rowKey) =>
+        Rows.FirstOrDefault(row => string.Equals(row.RowKey, rowKey, StringComparison.Ordinal));
 
     public bool IsOverAsked => Sliders.Any(static slider => slider.Committed < slider.Requested);
 }

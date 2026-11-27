@@ -1,23 +1,29 @@
+using System.Globalization;
 using Godot;
 using Imperialism.Presentation;
 
 namespace Imperialism.Client;
 
-/// <summary>A shared transport budget with commodity rows in draft priority order.</summary>
+/// <summary>The original 640x480 Transport ledger; only Presentation supplies its numbers.</summary>
 public sealed partial class TransportScreen : Control, IShellScreen
 {
     private GameSession? _session;
-    private VBoxContainer? _rows;
-    private Label? _capacity;
-    private Label? _warning;
-    private ProgressBar? _bar;
-    private readonly List<Action<TransportPreview>> _updates = [];
-    private bool _applying;
+    private Control? _canvas;
+    private Label? _hotText;
+    private Label? _hotDetail;
+    private Label? _date;
+    private Label? _treasury;
+    private CapacityBar? _capacity;
+    private TransportPreview? _preview;
+    private FontFile? _bodyFont;
+    private FontFile? _headingFont;
+    private readonly Dictionary<string, LedgerSlider> _sliders = new(StringComparer.Ordinal);
 
     public TransportScreen()
     {
         Name = "TransportScreen";
         SetAnchorsPreset(LayoutPreset.FullRect);
+        Resized += FitCanvas;
     }
 
     public string Title => "Transport";
@@ -25,104 +31,119 @@ public sealed partial class TransportScreen : Control, IShellScreen
     public void Enter(GameSession session)
     {
         _session = session;
-        foreach (var stock in session.Status.Warehouse)
-        {
-            var id = session.Package.Catalog.GetCommodityId(stock.CommodityKey);
-            if (!session.Draft.Transport.Any(row => row.Commodity == id))
-            {
-                session.Draft.SetTransport(id, 0);
-            }
-        }
-
-        if (_rows is null)
-        {
-            var layout = GD.Load<PackedScene>("res://scenes/TransportLayout.tscn").Instantiate<Control>();
-            AddChild(layout);
-            _capacity = layout.GetNode<Label>("Column/Capacity");
-            _bar = layout.GetNode<ProgressBar>("Column/CapacityBar");
-            _warning = layout.GetNode<Label>("Column/Warning");
-            _rows = layout.GetNode<VBoxContainer>("Column/RowsScroll/Rows");
-        }
-
-        BuildRows();
+        if (_canvas is null) Build();
+        _date!.Text = TransportText.FormatDate(session.Status.CurrentDate);
+        _treasury!.Text = "$" + session.Status.Cash.ToString("N0", CultureInfo.InvariantCulture);
+        SetHotText("");
+        Apply();
+        FitCanvas();
     }
 
-    public void Exit() { }
-
-    private void BuildRows()
+    public void Exit()
     {
-        var session = _session!;
-        var preview = session.Preview().Transport;
-        _updates.Clear();
-        OrdersControls.Clear(_rows!);
-        foreach (var slider in preview.Sliders)
+        foreach (var slider in _sliders.Values) slider.CancelHold();
+        if (_hotText is not null) SetHotText("");
+    }
+
+    private void Build()
+    {
+        var surround = new ColorRect { Name = "Surround", Color = new Color("0e0905") };
+        surround.SetAnchorsPreset(LayoutPreset.FullRect);
+        AddChild(surround);
+        _canvas = GD.Load<PackedScene>("res://scenes/TransportLayout.tscn").Instantiate<Control>();
+        AddChild(_canvas);
+        // Per-screen copies: oversampling must not mutate the other screens' cached fonts.
+        _bodyFont = (FontFile)GD.Load<FontFile>("res://art/fonts/antiqua.ttf").Duplicate();
+        _headingFont = (FontFile)GD.Load<FontFile>("res://art/fonts/display.ttf").Duplicate();
+        foreach (var font in new[] { _bodyFont, _headingFont })
         {
-            var card = OrdersControls.Card(_rows!, slider.CommodityName);
-            var controls = new HBoxContainer();
-            card.AddChild(controls);
-            var input = new HSlider
+            font.Antialiasing = TextServer.FontAntialiasing.None;
+            font.Hinting = TextServer.Hinting.Normal;
+            font.SubpixelPositioning = TextServer.SubpixelPositioning.Disabled;
+        }
+        _headingFont.Oversampling = 1;
+        _date = Header("date", new Rect2(47, 9, 77, 16), "", 10);
+        _treasury = Header("treasury", new Rect2(159, 10, 48, 16), "", 10, glyphSpacing: 2);
+        _hotText = Header("hottext", new Rect2(484, 4, 135, 15), "", 10, HorizontalAlignment.Right);
+        _hotDetail = Header("hottext.detail", new Rect2(524, 19, 95, 15), "", 10, HorizontalAlignment.Right, spaceSpacing: 12);
+        LedgerRasterText.AddTitle(_canvas, "title.left", new Rect2(162, 81, 90, 23), "Transport",
+            new FontVariation { BaseFont = _headingFont, SpacingGlyph = 2, VariationEmbolden = 0.4f }, 17, new Color("5e4a30"));
+        LedgerRasterText.AddTitle(_canvas, "title.right", new Rect2(416, 81, 62, 23), "Ledger",
+            new FontVariation { BaseFont = _headingFont, SpacingGlyph = 2 }, 17, new Color("5e4a30"));
+        WatchHover(_date, "Date");
+        WatchHover(_treasury, "Treasury");
+        foreach (var (node, text) in new[] { ("TabTransport", "Transport"), ("TabIndustry", "Industry"),
+                     ("TabTrade", "Trade"), ("TabDiplomacy", "Diplomacy") })
+            WatchHover(_canvas.GetNode<Control>(node), text);
+        _capacity = new CapacityBar();
+        _capacity.Build(_bodyFont);
+        WatchHover(_capacity, "Transport capacity");
+        _canvas.AddChild(_capacity);
+    }
+
+    private Label Header(string name, Rect2 box, string text, int fontSize,
+        HorizontalAlignment alignment = HorizontalAlignment.Left, int spaceSpacing = 8, int glyphSpacing = 1)
+    {
+        var label = LedgerText.Add(_canvas!, name, box, text, new FontVariation { BaseFont = _bodyFont, SpacingGlyph = glyphSpacing, SpacingSpace = spaceSpacing }, fontSize,
+            new Color("e3e0b8"), alignment, shadow: true);
+        return label;
+    }
+
+    private void WatchHover(Control control, string text)
+    {
+        control.MouseFilter = MouseFilterEnum.Stop;
+        control.MouseEntered += () => SetHotText(text);
+        control.MouseExited += () => SetHotText("");
+    }
+
+    private void SetHotText(string text)
+    {
+        _hotText!.Text = string.IsNullOrEmpty(text) ? "Give Transport Orders" : text;
+        _hotDetail!.Text = string.IsNullOrEmpty(text) ? "(current screen)" : "";
+    }
+
+    private void Apply()
+    {
+        _preview = _session!.Preview().Transport;
+        // Rows keep their controls while held/dragged; only their detached views change.
+        var keys = _preview.Rows.Select(row => row.RowKey).ToHashSet(StringComparer.Ordinal);
+        foreach (var (key, slider) in _sliders) slider.Visible = keys.Contains(key);
+        foreach (var row in _preview.Rows)
+        {
+            if (!_sliders.TryGetValue(row.RowKey, out var slider))
             {
-                MinValue = 0,
-                Step = 1,
-                SizeFlagsHorizontal = SizeFlags.ExpandFill,
-                CustomMinimumSize = new Vector2(100, 18),
-                TooltipText = "Requested transport allocation",
-            };
-            controls.AddChild(input);
-            var id = session.Package.Catalog.GetCommodityId(slider.CommodityKey);
-            var numeric = OrdersControls.Count(controls, value =>
-            {
-                if (_applying) return;
-                session.Draft.SetTransport(id, value);
-                Apply(session.Preview().Transport);
-            });
-            numeric.TooltipText = "Requested transport units";
-            input.ValueChanged += value =>
-            {
-                if (_applying) return;
-                session.Draft.SetTransport(id, (long)value);
-                Apply(session.Preview().Transport);
-            };
-            foreach (var (text, up) in new[] { ("↑", true), ("↓", false) })
-            {
-                var button = new Button { Text = text, TooltipText = up ? "Reserve capacity earlier" : "Reserve capacity later" };
-                controls.AddChild(button);
-                button.Pressed += () =>
+                slider = new LedgerSlider();
+                slider.Build(row, _bodyFont!);
+                var rowKey = row.RowKey;
+                slider.StepRequested += direction =>
                 {
-                    var moved = up ? session.Draft.MoveTransportUp(id) : session.Draft.MoveTransportDown(id);
-                    if (moved) BuildRows();
+                    if (direction < 0) _session.Draft.LowerTransportRow(_preview!, rowKey);
+                    else _session.Draft.RaiseTransportRow(_preview!, rowKey);
+                    Apply();
                 };
+                slider.TotalRequested += total =>
+                {
+                    _session.Draft.SetTransportRow(_preview!, rowKey, total);
+                    Apply();
+                };
+                slider.HotTextChanged += SetHotText;
+                _canvas!.AddChild(slider);
+                _sliders.Add(rowKey, slider);
             }
-
-            var result = OrdersControls.Text(card, "");
-            _updates.Add(view =>
-            {
-                var row = view.Sliders.First(item => item.CommodityKey == slider.CommodityKey);
-                input.MaxValue = view.Capacity is { } capacity ? capacity : OrdersControls.ExactIntegerLimit;
-                numeric.MaxValue = input.MaxValue;
-                numeric.Editable = !view.IsZeroCapacity;
-                numeric.SetValueNoSignal(row.Requested);
-                input.Editable = !view.IsZeroCapacity;
-                input.SetValueNoSignal(row.Requested);
-                result.Text = $"Requested: {row.Requested} · reserved: {row.Committed}" +
-                    (row.IsShort ? " · Warning: shared capacity is short." : "");
-            });
+            slider.Position = new Vector2(row.Column == TransportLedgerColumn.Left ? 70 : 325, 118 + 31 * row.Slot);
+            slider.Visible = true;
+            slider.Apply(row);
         }
-
-        Apply(preview);
+        _capacity!.Apply(_preview);
     }
 
-    private void Apply(TransportPreview preview)
+    private void FitCanvas()
     {
-        _applying = true;
-        try
-        {
-            _capacity!.Text = $"Shared capacity: {preview.Used} reserved / {preview.Capacity?.ToString() ?? "unlimited"}";
-            _bar!.MaxValue = preview.Capacity is { } capacity ? capacity : OrdersControls.ExactIntegerLimit;
-            _bar.SetValueNoSignal(preview.Used);
-            _warning!.Text = preview.IsOverAsked ? "Warning: requests exceed shared capacity; later rows are trimmed." : "";
-            foreach (var update in _updates) update(preview);
-        }
-        finally { _applying = false; }
+        if (_canvas is null) return;
+        var k = Math.Max(1, (int)Math.Floor(Math.Min(Size.X / 640, Size.Y / 480)));
+        _canvas.Scale = new Vector2(k, k);
+        _canvas.Position = (Size - new Vector2(640, 480) * k) / 2;
+        _bodyFont!.Oversampling = k;
+        // Titles are native textures; resizing scales their pixels, never their fonts.
     }
 }

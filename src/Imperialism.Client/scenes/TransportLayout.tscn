@@ -1,39 +1,57 @@
-[gd_scene format=3]
+[gd_scene load_steps=6 format=3]
 
-[node name="TransportLayout" type="PanelContainer"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[ext_resource type="Texture2D" path="res://art/transport/1021.png" id="1"]
+[ext_resource type="Texture2D" path="res://art/transport/9456.png" id="2"]
+[ext_resource type="Texture2D" path="res://art/transport/9453.png" id="3"]
+[ext_resource type="Texture2D" path="res://art/transport/9451.png" id="4"]
+[ext_resource type="Texture2D" path="res://art/transport/9449.png" id="5"]
 
-[node name="Column" type="VBoxContainer" parent="."]
+[node name="Canvas" type="Control"]
+layout_mode = 0
+offset_right = 640.0
+offset_bottom = 480.0
+metadata/layout_name = "canvas"
 
-[node name="Title" type="Label" parent="Column"]
-theme_type_variation = &"ImperialismScreenTitle"
-text = "Transport"
+[node name="Ledger" type="TextureRect" parent="."]
+layout_mode = 0
+offset_right = 640.0
+offset_bottom = 480.0
+mouse_filter = 2
+texture = ExtResource("1")
+metadata/layout_name = "ledger"
 
-[node name="Capacity" type="Label" parent="Column"]
-autowrap_mode = 3
+[node name="TabTransport" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 270.0
+offset_top = 8.0
+offset_right = 284.0
+offset_bottom = 26.0
+texture = ExtResource("2")
+metadata/layout_name = "tab.transport"
 
-[node name="CapacityBar" type="ProgressBar" parent="Column"]
-custom_minimum_size = Vector2(0, 14)
-show_percentage = false
+[node name="TabIndustry" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 298.0
+offset_top = 8.0
+offset_right = 312.0
+offset_bottom = 26.0
+texture = ExtResource("3")
+metadata/layout_name = "tab.industry"
 
-[node name="Warning" type="Label" parent="Column"]
-theme_type_variation = &"ImperialismQuiet"
-autowrap_mode = 3
+[node name="TabTrade" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 326.0
+offset_top = 8.0
+offset_right = 340.0
+offset_bottom = 26.0
+texture = ExtResource("4")
+metadata/layout_name = "tab.trade"
 
-[node name="Help" type="Label" parent="Column"]
-theme_type_variation = &"ImperialismQuiet"
-autowrap_mode = 3
-text = "Earlier rows reserve capacity first. Actual cargo depends on this turn's harvest.\nSliders are saved for next turn. Buy more capacity at Industry's railyard. Escape returns to the map."
-
-[node name="RowsScroll" type="ScrollContainer" parent="Column"]
-size_flags_horizontal = 3
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
-
-[node name="Rows" type="VBoxContainer" parent="Column/RowsScroll"]
-size_flags_horizontal = 3
-theme_override_constants/separation = 6
+[node name="TabDiplomacy" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 355.0
+offset_top = 8.0
+offset_right = 369.0
+offset_bottom = 26.0
+texture = ExtResource("5")
+metadata/layout_name = "tab.diplomacy"

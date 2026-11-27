@@ -23,6 +23,8 @@ public sealed partial class GameShell : Control
     private MapViewDefinition? _mapDefinition;
     private GameSession? _session;
     private Control? _screenStack;
+    private PanelContainer? _shellFrame;
+    private Window.ContentScaleModeEnum _shellScaleMode;
     private StatusBorder? _statusBorder;
     private Label? _hotText;
     private Label? _screenTitle;
@@ -36,6 +38,7 @@ public sealed partial class GameShell : Control
     private bool _smokeTurn;
     private bool _smokeDiplomacy;
     private bool _smokeOrders;
+    private bool _smokeTransport;
     private bool _smokeUnits;
     private bool _smokeFleet;
     private bool _smokeArmoury;
@@ -50,12 +53,13 @@ public sealed partial class GameShell : Control
         _smokeTurn = arguments.Contains("--smoke-turn", StringComparer.Ordinal);
         _smokeDiplomacy = arguments.Contains("--smoke-diplomacy", StringComparer.Ordinal);
         _smokeOrders = arguments.Contains("--smoke-orders", StringComparer.Ordinal);
+        _smokeTransport = arguments.Contains("--smoke-transport", StringComparer.Ordinal);
         _smokeUnits = arguments.Contains("--smoke-units", StringComparer.Ordinal);
         _smokeFleet = arguments.Contains("--smoke-fleet", StringComparer.Ordinal);
         _smokeArmoury = arguments.Contains("--smoke-armoury", StringComparer.Ordinal);
         _screenshotDirectory = ReadArgument(arguments, "--screenshot");
         var worldPath = ReadArgument(arguments, "--world") ??
-            (_smokeOrders ? "res://demo/orders.iworld" : DefaultWorldPath);
+            (_smokeOrders || _smokeTransport ? "res://demo/orders.iworld" : DefaultWorldPath);
 
         try
         {
@@ -68,7 +72,7 @@ public sealed partial class GameShell : Control
             StartSession(
                 ReadArgument(arguments, "--scenario") ?? _package.ScenarioKeys[0],
                 ReadArgument(arguments, "--country"));
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _smokeOrders || _smokeDiplomacy || _smokeFleet || _smokeArmoury || _screenshotDirectory is not null)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _smokeOrders || _smokeTransport || _smokeDiplomacy || _smokeFleet || _smokeArmoury || _screenshotDirectory is not null)
             {
                 CallDeferred(nameof(FinishSmoke));
             }
@@ -76,7 +80,7 @@ public sealed partial class GameShell : Control
         catch (Exception exception)
         {
             GD.PushError($"Could not load world package '{worldPath}': {exception.Message}");
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _smokeOrders || _smokeDiplomacy || _smokeFleet || _smokeArmoury)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _smokeOrders || _smokeTransport || _smokeDiplomacy || _smokeFleet || _smokeArmoury)
             {
                 GetTree().Quit(1);
                 return;
@@ -172,7 +176,9 @@ public sealed partial class GameShell : Control
 
     private void BuildInterface()
     {
+        _shellScaleMode = GetWindow().ContentScaleMode;
         var frame = new PanelContainer { ThemeTypeVariation = "ImperialismScreenFrame" };
+        _shellFrame = frame;
         frame.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(frame);
 
@@ -279,7 +285,9 @@ public sealed partial class GameShell : Control
             var control = _screens[screen];
             control.SetAnchorsPreset(LayoutPreset.FullRect);
             control.Visible = false;
-            _screenStack!.AddChild(control);
+            // Rebuilt screens cover the window; the older screens keep their stack.
+            if (screen == ShellScreen.Transport) AddChild(control);
+            else _screenStack!.AddChild(control);
         }
     }
 
@@ -375,6 +383,11 @@ public sealed partial class GameShell : Control
             control.Visible = isTarget;
         }
 
+        // Transport scales its 640x480 root in physical window pixels. Restore the
+        // shell's canvas-items stretch before opening any screen not yet rebuilt.
+        GetWindow().ContentScaleMode = screen == ShellScreen.Transport
+            ? Window.ContentScaleModeEnum.Disabled : _shellScaleMode;
+        _shellFrame!.Visible = screen != ShellScreen.Transport;
         HideTransientUi();
         _current = screen;
         ((IShellScreen)_screens[screen]).Enter(_session);
@@ -464,6 +477,24 @@ public sealed partial class GameShell : Control
         if (_screenshotDirectory is not null)
         {
             await CaptureEveryScreen(_screenshotDirectory);
+        }
+
+        if (_smokeTransport)
+        {
+            GetWindow().Size = new Vector2I(1920, 1080);
+            var opening = _session.Draft.Transport.ToArray();
+            Navigate(ShellScreen.Transport);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            GD.Print($"TRANSPORT_WINDOW window={GetWindow().Size} viewport={GetViewport().GetVisibleRect().Size} root={Size}");
+            var unchanged = opening.SequenceEqual(_session.Draft.Transport);
+            var transportOk = TransportLookSmoke.Run(_session,
+                (TransportScreen)_screens[ShellScreen.Transport], GetViewport().GetVisibleRect().Size);
+            Navigate(ShellScreen.TerrainMap);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            var restored = _shellFrame!.Visible && GetWindow().ContentScaleMode == _shellScaleMode && BorderIsOnScreen();
+            GD.Print($"TRANSPORT_NAVIGATION unchanged={unchanged} restored={restored}");
+            GetTree().Quit(transportOk && unchanged && restored ? 0 : 1);
+            return;
         }
 
         if (_smokeOrders)

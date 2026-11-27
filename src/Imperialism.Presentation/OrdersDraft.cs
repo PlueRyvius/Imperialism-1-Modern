@@ -312,6 +312,112 @@ public sealed class OrdersDraft
         Set(_transport, commodity, quantity);
     }
 
+    /// <summary>
+    /// The rebuilt ledger's right arrow on a row (layout note D7, D8): one more unit for
+    /// the member with the most expected-but-unordered, ties to the lower commodity id.
+    /// </summary>
+    /// <param name="transport">
+    /// This draft's current <see cref="OrdersPreview.Transport"/>, for each member's
+    /// <c>Available</c> and the capacity; the ordered amounts are read from the draft
+    /// itself, so a preview taken before earlier edits this turn still serves.
+    /// </param>
+    /// <returns>
+    /// False, changing nothing, when the draft's ordered total has reached capacity (an
+    /// unlimited network has no cap) or no member has room under its <c>Available</c>.
+    /// </returns>
+    /// <exception cref="ArgumentException">The preview has no row with this key.</exception>
+    public bool RaiseTransportRow(TransportPreview transport, string rowKey) =>
+        RaiseTransportRow(transport, RequireRow(transport, rowKey));
+
+    /// <summary>
+    /// The left arrow on a row (D7): one unit less for the member with the most ordered,
+    /// ties to the higher commodity id. False at zero.
+    /// </summary>
+    public bool LowerTransportRow(TransportPreview transport, string rowKey) =>
+        LowerTransportRow(RequireRow(transport, rowKey));
+
+    /// <summary>
+    /// A drag to a row total (D7): the total is clamped to what single raises can reach
+    /// and to zero, then reached one <see cref="RaiseTransportRow(TransportPreview, string)"/>
+    /// or <see cref="LowerTransportRow(TransportPreview, string)"/> at a time.
+    /// </summary>
+    /// <returns>True when the row's total changed.</returns>
+    public bool SetTransportRow(TransportPreview transport, string rowKey, long total)
+    {
+        var row = RequireRow(transport, rowKey);
+        var start = TransportRowTotal(row);
+        var current = start;
+        while (current < total && RaiseTransportRow(transport, row))
+        {
+            current++;
+        }
+
+        while (current > total && LowerTransportRow(row))
+        {
+            current--;
+        }
+
+        return current != start;
+    }
+
+    private bool RaiseTransportRow(TransportPreview transport, TransportRowView row)
+    {
+        var orderedTotal = _transport.Aggregate(0L, static (sum, entry) => checked(sum + entry.Quantity));
+        if (!TransportLedgerLayout.HasCapacityLeft(transport, orderedTotal) ||
+            TransportLedgerLayout.RaiseTarget(row.Members, TransportOrdered) is not { } member)
+        {
+            return false;
+        }
+
+        var index = _transport.FindIndex(entry => entry.Commodity == member.Commodity);
+        if (index >= 0)
+        {
+            _transport[index] = (member.Commodity, checked(_transport[index].Quantity + 1));
+            return true;
+        }
+
+        // A member new to the draft joins its partner, so a shared row's commodities stay
+        // together in Core's trim order; a row of one joins the bottom, as SetTransport does.
+        var partner = _transport.FindLastIndex(entry => row.Members.Any(other => other.Commodity == entry.Commodity));
+        _transport.Insert(partner >= 0 ? partner + 1 : _transport.Count, (member.Commodity, 1));
+        return true;
+    }
+
+    private bool LowerTransportRow(TransportRowView row)
+    {
+        if (TransportLedgerLayout.LowerTarget(row.Members, TransportOrdered) is not { } member)
+        {
+            return false;
+        }
+
+        var index = _transport.FindIndex(entry => entry.Commodity == member.Commodity);
+        _transport[index] = (member.Commodity, _transport[index].Quantity - 1);
+        return true;
+    }
+
+    private long TransportOrdered(CommodityId commodity)
+    {
+        var index = _transport.FindIndex(entry => entry.Commodity == commodity);
+        return index >= 0 ? _transport[index].Quantity : 0;
+    }
+
+    private long TransportRowTotal(TransportRowView row) =>
+        row.Members.Aggregate(0L, (sum, member) => checked(sum + TransportOrdered(member.Commodity)));
+
+    private TransportRowView RequireRow(TransportPreview transport, string rowKey)
+    {
+        ArgumentNullException.ThrowIfNull(transport);
+        ArgumentNullException.ThrowIfNull(rowKey);
+        var row = transport.GetRow(rowKey) ??
+            throw new ArgumentException("The Transport preview has no row with this key.", nameof(rowKey));
+        foreach (var member in row.Members)
+        {
+            RequireIndex(member.Commodity.Value, _world.Commodities.Count, nameof(transport));
+        }
+
+        return row;
+    }
+
     public bool MoveTransportUp(CommodityId commodity) => Move(_transport, commodity, -1);
 
     public bool MoveTransportDown(CommodityId commodity) => Move(_transport, commodity, +1);
@@ -877,17 +983,34 @@ public sealed record TransportDemandInputs(
     IReadOnlyList<CommodityId> Rows);
 
 /// <summary>
+/// <see cref="TransportDefault.DemandLine"/>'s result, one entry per commodity in the
+/// world. <see cref="Available"/> is <see cref="TransportDemandInputs.Available"/>
+/// clamped at zero.
+/// </summary>
+/// <param name="Carry">
+/// What the opening fill asks for before capacity trims it: the demand capped at what
+/// is available, coal held to iron for steel.
+/// </param>
+/// <param name="Demand">
+/// What the workers and mills want carried, net of stock and not capped at what is
+/// available: the manual's demand line (2283–2300). Never below <paramref name="Carry"/>.
+/// </param>
+public sealed record TransportDemandLine(
+    IReadOnlyList<long> Carry, IReadOnlyList<long> Demand, IReadOnlyList<long> Available);
+
+/// <summary>
 /// The Transport screen's opening fill: every row asks for its demand, capped at
-/// what is available. <b>This matches the original's opening Transport screen,
-/// measured on <c>s1</c> as Great Britain</b> (119 of 120, eight rows, every one at
-/// demand or at availability), except the one horse the original carries: nothing in
-/// our content draws horses, so this opens them at 0 and the total at 118 — an open
-/// difference recorded in <c>docs/gui-shell.md</c>.
+/// what is available (<see cref="TransportDemandLine.Carry"/>). The rule reproduces
+/// the original's opening screen for Great Britain on <c>s1</c> (119 of 120) against
+/// an <b>assumed</b> economy, except the one horse the original carries: nothing in
+/// our content draws horses, so this opens them at 0 — issue #92, recorded in
+/// <c>docs/gui-shell.md</c>.
 /// </summary>
 /// <remarks>
 /// Demand is the manual's demand line (lines 2283–2300): what the workers eat and
 /// what the mills consume, "taking your warehouse stockpile into account", and
-/// ignoring trade. Capacity the demand does not need is left unspent, as it is on the
+/// ignoring trade. It is not capped at Available, so a row can be red at full
+/// (D12). Capacity the demand does not need is left unspent, as it is on the
 /// original's screen.
 /// </remarks>
 public static class TransportDefault
@@ -975,6 +1098,34 @@ public static class TransportDefault
     {
         ArgumentNullException.ThrowIfNull(inputs);
         ArgumentOutOfRangeException.ThrowIfNegative(inputs.Capacity);
+        var line = DemandLine(inputs);
+
+        // Demand over capacity. The original's screen opens under capacity, so this is
+        // a chosen rule: rows are trimmed in row order (foods first), because a hungry
+        // worker is lost or sick while a short mill only idles.
+        var remaining = inputs.Capacity;
+        var rows = new List<(CommodityId, long)>(inputs.Rows.Count);
+        foreach (var commodity in inputs.Rows)
+        {
+            var quantity = Math.Min(line.Carry[commodity.Value], remaining);
+            rows.Add((commodity, quantity));
+            remaining -= quantity;
+        }
+
+        return rows.AsReadOnly();
+    }
+
+    /// <summary>
+    /// The demand line itself, per commodity and before any capacity trim: food for the
+    /// workforce, then each mill's recipes, each net of stock. <see cref="Allocate"/>
+    /// trims its <see cref="TransportDemandLine.Carry"/>, capped at what is available,
+    /// to capacity; the Transport screen's rows read its uncapped
+    /// <see cref="TransportDemandLine.Demand"/> for their underline (layout note D12).
+    /// One pass computes both, so the fill and the underline cannot drift.
+    /// </summary>
+    public static TransportDemandLine DemandLine(TransportDemandInputs inputs)
+    {
+        ArgumentNullException.ThrowIfNull(inputs);
         ArgumentOutOfRangeException.ThrowIfNegative(inputs.Workers);
         var count = inputs.Available.Count;
         if (inputs.Stock.Count != count)
@@ -983,8 +1134,14 @@ public static class TransportDefault
         }
 
         var stock = inputs.Stock.ToArray();
-        var available = inputs.Available.Select(static value => Math.Max(0, value)).ToArray();
+        var clamped = inputs.Available.Select(static value => Math.Max(0, value)).ToArray();
+        var available = clamped.ToArray();
         var carry = new long[count];
+        var shortfall = new long[count];
+        // Idle capacity is collected here and netted against stock only after every
+        // mill's runnable cycles, so idle demand never changes what a later mill
+        // carries: Carry, and so Allocate, stay what they were before D12.
+        var idleNeeds = new List<(long Cycles, IReadOnlyList<CommodityQuantity> Inputs)>();
 
         // Food. The worker at index k eats position k mod L of the cycle, exactly as
         // Feeding reads it, so 60 workers on grain/fruit/grain/meat want 30/15/15.
@@ -1008,6 +1165,14 @@ public static class TransportDefault
                 available[commodity.Value] -= carried;
                 carry[commodity.Value] += carried;
                 need -= carried;
+            }
+
+            // What nothing can supply is still wanted. It is charged to the position's
+            // first accepted commodity: a chosen rule, and invisible on the ledger,
+            // where the meat position's fish and livestock share one row.
+            if (need > 0 && accepted.Count > 0)
+            {
+                shortfall[accepted[0].Value] = checked(shortfall[accepted[0].Value] + need);
             }
         }
 
@@ -1043,41 +1208,140 @@ public static class TransportDefault
                     carry[input.Commodity.Value] += need;
                 }
             }
+
+            // Capacity left idle for want of inputs is still demand: the original
+            // underlines timber 16/16 red on GB s1. It is charged to the mill's first
+            // recipe, a chosen rule; a mill's recipes share one input row in every
+            // shipped mill, so the ledger cannot tell the difference.
+            var first = mill.Recipes.FirstOrDefault(static recipe => recipe.CapacityCost > 0);
+            var idle = first.CapacityCost > 0 ? points / first.CapacityCost : 0;
+            if (idle > 0)
+            {
+                idleNeeds.Add((idle, first.Inputs));
+            }
         }
 
-        // Demand over capacity. The original's screen opens under capacity, so this is
-        // a chosen rule: rows are trimmed in row order (foods first), because a hungry
-        // worker is lost or sick while a short mill only idles.
-        var remaining = inputs.Capacity;
-        var rows = new List<(CommodityId, long)>(inputs.Rows.Count);
-        foreach (var commodity in inputs.Rows)
+        // Idle capacity is met from what the runnable cycles left in stock, in mill
+        // order; the rest is shortfall.
+        foreach (var (idle, idleInputs) in idleNeeds)
         {
-            var quantity = Math.Min(carry[commodity.Value], remaining);
-            rows.Add((commodity, quantity));
-            remaining -= quantity;
+            foreach (var input in idleInputs)
+            {
+                var need = checked(idle * input.Quantity);
+                var fromStock = Math.Min(need, stock[input.Commodity.Value]);
+                stock[input.Commodity.Value] -= fromStock;
+                shortfall[input.Commodity.Value] = checked(shortfall[input.Commodity.Value] + need - fromStock);
+            }
         }
 
-        return rows.AsReadOnly();
+        var demand = carry.Select((carried, index) => checked(carried + shortfall[index])).ToArray();
+        return new TransportDemandLine(Array.AsReadOnly(carry), Array.AsReadOnly(demand), Array.AsReadOnly(clamped));
     }
 
     /// <summary>
-    /// What the country's owned tiles yield at their development, technology
-    /// permitting. An upper bound: Core gathers only within a connected depot's,
-    /// port's or the capital's catchment, which Presentation cannot see.
+    /// What Extraction is expected to collect for the country this turn: a restatement
+    /// of Core's <c>ExtractionPlanner</c> from public state, labelled a preview (layout
+    /// note D12). Owned deposits inside the catchment of the capital, a port with sea
+    /// access or a connected depot, at their development and technology permitting,
+    /// plus what the capital and connected ports fish.
     /// </summary>
+    /// <remarks>
+    /// Two places it can differ from Core, both chosen and both named in D12. It reads
+    /// ownership as the turn opens, where Extraction reads it after <c>Conflict</c>. And
+    /// a river port (no adjacent sea zone) is taken to reach the sea: Core traces its
+    /// river to a mouth with an internal check Presentation cannot call, so a cut river
+    /// port reads high here.
+    /// </remarks>
     private static long[] ExpectedGather(WorldState state, CountryId country)
     {
         var world = state.Definition;
+        var map = world.Map;
         var gathered = new long[world.Commodities.Count];
-        if (state.IsEliminated(country))
+        if (state.IsEliminated(country) || state.GetCountryCapital(country) is not { } capital)
         {
             return gathered;
         }
 
-        foreach (var cell in world.Map.Cells)
+        bool Owns(CellIndex cell) =>
+            map[cell].Region is { Kind: CellRegionKind.Province } region &&
+            state.GetProvinceOwner(region.Province) == country;
+
+        // Collection points: the capital, owned ports with a route to sea, and depots on
+        // a rail component that reaches the capital or a port-and-depot gateway.
+        var reached = new HashSet<CellIndex> { capital };
+        var connectedPorts = new HashSet<CellIndex>();
+        foreach (var port in state.GetPorts())
         {
-            if (cell.Region.Kind != CellRegionKind.Province ||
-                state.GetProvinceOwner(cell.Region.Province) != country)
+            if (Owns(port) && HasSeaAccess(state, port, country))
+            {
+                reached.Add(port);
+                connectedPorts.Add(port);
+            }
+        }
+
+        var rail = state.GetRailConnectivity(country);
+        var gateways = new HashSet<int>();
+        if (rail.GetComponentId(capital) is { } capitalComponent)
+        {
+            gateways.Add(capitalComponent);
+        }
+
+        foreach (var port in connectedPorts)
+        {
+            if (state.HasDepot(port) && rail.GetComponentId(port) is { } seaward)
+            {
+                gateways.Add(seaward);
+            }
+        }
+
+        foreach (var depot in state.GetDepots())
+        {
+            if (Owns(depot) && rail.GetComponentId(depot) is { } component && gateways.Contains(component))
+            {
+                reached.Add(depot);
+            }
+        }
+
+        // Fishing: the capital and every port that is itself a collection point, by its
+        // adjacent open sea or river tiles. Read before the catchment widens, as Core does.
+        if (world.Extraction.PortFishing is { } fishing)
+        {
+            var harbours = new HashSet<CellIndex>(state.GetPorts()) { capital };
+            foreach (var harbour in harbours)
+            {
+                if (!reached.Contains(harbour) || !Owns(harbour))
+                {
+                    continue;
+                }
+
+                var offset = fishing.Commodity.Value;
+                gathered[offset] = checked(gathered[offset] + checked(CountAdjacentWater(map, harbour) * fishing.YieldPerAdjacentWaterTile));
+            }
+        }
+
+        // The catchment: every cell within the radius of a collection point.
+        var frontier = reached.ToList();
+        for (var step = 0; step < world.Extraction.CatchmentRadius && frontier.Count > 0; step++)
+        {
+            var next = new List<CellIndex>();
+            foreach (var cell in frontier)
+            {
+                foreach (var direction in HexDirections.All)
+                {
+                    if (map.TryGetNeighbor(cell, direction, out var neighbor) && reached.Add(neighbor))
+                    {
+                        next.Add(neighbor);
+                    }
+                }
+            }
+
+            frontier = next;
+        }
+
+        foreach (var index in reached)
+        {
+            var cell = map[index];
+            if (cell.Resources.Count == 0 || !Owns(index))
             {
                 continue;
             }
@@ -1097,5 +1361,77 @@ public static class TransportDefault
         }
 
         return gathered;
+    }
+
+    /// <summary>
+    /// Core's port access, restated: a port reaches the sea unless every adjacent sea
+    /// zone holds an effectively hostile patrol and no friendly one. A port with no
+    /// adjacent sea zone is a river port and is taken to reach the sea (see
+    /// <see cref="ExpectedGather"/>).
+    /// </summary>
+    private static bool HasSeaAccess(WorldState state, CellIndex port, CountryId owner)
+    {
+        var map = state.Definition.Map;
+        var zones = new HashSet<SeaZoneId>();
+        foreach (var direction in HexDirections.All)
+        {
+            if (map.TryGetNeighbor(port, direction, out var neighbor) &&
+                map[neighbor].Region is { Kind: CellRegionKind.SeaZone } region)
+            {
+                zones.Add(region.SeaZone);
+            }
+        }
+
+        if (zones.Count == 0)
+        {
+            return true;
+        }
+
+        foreach (var zone in zones)
+        {
+            var friendly = false;
+            var hostile = false;
+            foreach (var force in state.TaskForces)
+            {
+                if (force.SeaZone != zone || force.Activity != TaskForceActivity.Patrolling)
+                {
+                    continue;
+                }
+
+                if (force.Country == owner)
+                {
+                    friendly = true;
+                }
+                else if (state.HasEffectiveHostility(force.Country, owner))
+                {
+                    hostile = true;
+                }
+            }
+
+            if (friendly || !hostile)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Core's fishing count, restated: distinct neighbouring tiles that are open sea or
+    /// carry a river, never the port's own tile.
+    /// </summary>
+    private static long CountAdjacentWater(MapDefinition map, CellIndex port)
+    {
+        var neighbours = new HashSet<CellIndex>();
+        foreach (var direction in HexDirections.All)
+        {
+            if (map.TryGetNeighbor(port, direction, out var neighbor) && neighbor != port)
+            {
+                neighbours.Add(neighbor);
+            }
+        }
+
+        return neighbours.Count(cell => map[cell].Region.Kind == CellRegionKind.SeaZone || map[cell].River is not null);
     }
 }

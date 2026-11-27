@@ -88,6 +88,83 @@ public sealed class OrdersDraftTests
         Assert.Equal(0, rows[id["lumber"]] + rows[id["steel"]]);
     }
 
+    /// <summary>
+    /// D12: the original's underlines on the same screen. Timber, coal and iron red,
+    /// horses none, the rest green. Red needs demand past Available (timber 16/16), so
+    /// demand is not capped there, while the fill still is.
+    /// </summary>
+    [Fact]
+    public void TheDemandLineReproducesTheOriginalGreatBritainS1Underlines()
+    {
+        var inputs = GreatBritainS1Inputs(GreatBritainS1Capacity, out var id);
+        var line = TransportDefault.DemandLine(inputs);
+        var rows = TransportDefault.Allocate(inputs).ToDictionary(static row => row.Commodity, static row => row.Quantity);
+
+        string Underline(string[] commodities)
+        {
+            var demand = commodities.Sum(name => line.Demand[id[name].Value]);
+            var carried = commodities.Sum(name => rows[id[name]]);
+            return demand <= 0 ? "none" : carried >= demand ? "green" : "red";
+        }
+
+        Assert.Equal(
+            ["green", "green", "green", "red", "red", "red", "green", "none"],
+            GreatBritainS1Screen.Select(row => Underline(row.Commodities)));
+
+        // The mills want their whole capacity: lumber 10 cycles, steel 12, textile 13.
+        Assert.Equal(20, line.Demand[id["timber"].Value]);
+        Assert.Equal((12L, 12L), (line.Demand[id["coal"].Value], line.Demand[id["iron"].Value]));
+        Assert.Equal(26, line.Demand[id["cotton"].Value] + line.Demand[id["wool"].Value]);
+
+        // The fill reads Carry, which is unchanged: capped at Available, coal held to iron.
+        Assert.All(inputs.Rows, commodity => Assert.Equal(line.Carry[commodity.Value], rows[commodity]));
+        Assert.All(inputs.Rows, commodity => Assert.True(line.Demand[commodity.Value] >= line.Carry[commodity.Value]));
+    }
+
+    [Fact]
+    public void UncappedMillDemandIsNetOfStock()
+    {
+        // Three iron in the warehouse: the steel mill's 12 cycles want 12 coal and 9 iron.
+        var plain = GreatBritainS1Inputs(GreatBritainS1Capacity, out var id);
+        var stock = plain.Stock.ToArray();
+        stock[id["iron"].Value] = 3;
+
+        var line = TransportDefault.DemandLine(plain with { Stock = stock });
+
+        Assert.Equal((12L, 9L), (line.Demand[id["coal"].Value], line.Demand[id["iron"].Value]));
+        Assert.Equal((11L, 8L), (line.Carry[id["coal"].Value], line.Carry[id["iron"].Value]));
+    }
+
+    /// <summary>
+    /// Idle demand (D12) must not reserve warehouse stock that a later mill sharing the
+    /// input would use. A mill blocked for want of B leaves the one A in stock to the
+    /// second mill, which then needs nothing carried, as before D12. The blocked mill's
+    /// own A and B are still wanted, net only of what the runnable cycles left (codex-3's gate
+    /// probe on https://github.com/PlueRyvius/Imperialism-1-Modern/pull/95).
+    /// </summary>
+    [Fact]
+    public void IdleDemandDoesNotReserveStockFromALaterMillSharingTheInput()
+    {
+        var a = new CommodityId(0);
+        var b = new CommodityId(1);
+        var inputs = new TransportDemandInputs(10, 0, [], [
+            new TransportMillDemand(1, [
+                (1L, (IReadOnlyList<CommodityQuantity>)
+                    new CommodityQuantity[] { new(a, 1), new(b, 1) })]),
+            new TransportMillDemand(1, [
+                (1L, (IReadOnlyList<CommodityQuantity>)
+                    new CommodityQuantity[] { new(a, 1) })])
+        ], [1L, 0L], [1L, 0L], [a, b]);
+
+        var carriedA = TransportDefault.Allocate(inputs).Where(row => row.Commodity == a).Sum(row => row.Quantity);
+        var line = TransportDefault.DemandLine(inputs);
+
+        Assert.Equal(0, carriedA);
+        Assert.Equal(0, line.Carry[a.Value]);
+        Assert.Equal(1, line.Demand[a.Value]);
+        Assert.Equal(1, line.Demand[b.Value]);
+    }
+
     [Fact]
     public void DemandOverCapacityIsTrimmedInRowOrderFoodFirst()
     {
