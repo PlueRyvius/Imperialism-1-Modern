@@ -137,3 +137,65 @@ slider frame. The slider frame is at strip-local `84,10,138,10` in 4001–4010 a
   to this note.
 - **D5. Tabs.** The four tab icons are drawn as static art; whether they navigate is
   the Transport PR's choice and is listed in it, since which tab is which is a guess.
+
+## Strip identification (Graphic Dev, 27 Nov 2026)
+
+Viewed all nineteen original PNGs together, then inspected 4009 and 4015
+individually. These are art identities, not quantities or a new allocation rule.
+The steel roll, fabric rolls and fuel pump identifications are inferred from the
+icons; the office-PC comparison must confirm their names through hot text.
+
+| strip | commodity key(s) | icon |
+|---|---|---|
+| 4001 | `commodity.fish`, `commodity.livestock` | fish + cattle |
+| 4002 | `commodity.fruit` | fruit |
+| 4003 | `commodity.grain` | grain |
+| 4004 | `commodity.timber` | tree |
+| 4005 | `commodity.lumber` | boards |
+| 4006 | `commodity.furniture` | chair |
+| 4007 | `commodity.coal` | black lumps |
+| 4008 | `commodity.iron` | brown ore |
+| 4009 | `commodity.steel` | metal roll (inferred) |
+| 4010 | `commodity.hardware` | hammer |
+| 4011 | `commodity.cotton`, `commodity.wool` | cotton + sheep |
+| 4012 | `commodity.fabric` | fabric rolls (inferred) |
+| 4013 | `commodity.clothing` | clothes |
+| 4014 | `commodity.oil` | black drop |
+| 4015 | `commodity.fuel` | fuel pump (inferred) |
+| 4016 | `commodity.horses` | horse |
+| 4017 | `commodity.gold` | gold bars |
+| 4018 | `commodity.gems` | gems |
+| 4019 | — | shared capacity, ship + locomotive |
+
+## Implementation blockers found during the Transport review
+
+**MISSING: shared-row editing contract.** Strip 4001 has one track for fish and
+livestock, and 4011 has one for cotton and wool. Presentation currently returns
+one `TransportSliderPreview` per individual commodity, and
+`OrdersDraft.SetTransport(CommodityId, long)` edits one commodity at a time.
+The existing opening-default test explicitly recognises these two shared rows;
+it sums the two commodity quantities only to compare the original's figures.
+It supplies no rule for splitting a subsequent shared-slider click.
+
+An exact interactive screen needs a decision about how a shared increment or
+decrement changes the individual orders, their priority, and the bound when one
+commodity is exhausted. Summing a read-only figure cannot provide that setter.
+Drawing two controls over the same track would hide an existing edit, and
+silently choosing a split would change data handling. This needs the Architect's
+behaviour contract before client implementation, under the owner's visual-role
+boundary. No such adapter or game-rule change has been made.
+
+**MISSING: placement for unmatched sliders.** The current screen ensures every
+warehouse commodity has a draft row, including `commodity.paper`,
+`commodity.canned-food` and `commodity.armaments`. No corresponding strip appears
+in 4001–4018. Decision D2 and the exact eighteen-slot layout therefore need a
+policy for these entries (and any custom-world commodities); hiding or relocating
+editable orders is not settled by the layout note.
+
+**MISSING: available quantity and demand status.** `TransportSliderPreview`
+provides `Requested`, `Committed` and `IsShort`, but no countryside availability
+or worker/mill demand status. `IsShort` compares committed with requested, not
+worker/mill demand. The authorised read-only-field exception can address these
+once the row grouping is settled. `TransportDefault.Inputs` already supplies
+expected gather and demand inputs; its expected gather is an upper bound, not
+an exact connectivity-aware forecast. No new view fields have been added yet.
