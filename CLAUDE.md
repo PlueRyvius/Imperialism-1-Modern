@@ -967,8 +967,10 @@ their lowest-id own neighbour or into surrender. Entrenchment is the entrenched 
 for artillery, and a fort takes 10% a level. A regiment named in no accepted order heals
 +100 to 500 at the end of `Conflict`. A battle's generator is SplitMix64 from the turn seed
 and the battle's ordinal, so the same seed fights the same battle. **Nineteen rules are
-chosen**, numbered 12–30 in `docs/formulas/army.md`. A content `army` record still counts
-medals, and the compiler multiplies by 100. Building forts, landings (6c), elimination and
+chosen**, numbered 12–30 in `docs/formulas/army.md`. A content `army` entry's experience
+counts medals and the compiler multiplies by 100; a legacy `.scn` `army` record's third
+field is a regiment **count**, not experience (observed; https://github.com/PlueRyvius/Imperialism-1-Modern/issues/99), so imported regiments
+start at zero. Building forts, landings (6c), elimination and
 anarchy (6d), Generals, and the tactical battlefield are not modelled. No soak number moved.
 
 **Row 6c fights at sea, with no content bump and no new phase.** A third mission,

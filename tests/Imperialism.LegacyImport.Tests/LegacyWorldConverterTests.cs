@@ -1532,8 +1532,11 @@ public sealed class LegacyWorldConverterTests
 
     /// <summary>
     /// <c>army</c> records convert without inventing an owner, unit name, or
-    /// battle rule. The record is <c>[province, type, experience]</c>; the type is
-    /// the executable's zero-based 30-row army-table index.
+    /// battle rule. The record is <c>[province, type, count]</c>; the type is
+    /// the executable's zero-based 30-row army-table index, and the count is
+    /// how many regiments stand there, each with no medals. Observed in the
+    /// original on 27 Nov: <c>s1</c>'s London militia record with 2 shows two
+    /// Militia (issue #99).
     /// </summary>
     [Fact]
     public void ArmyRecordsBecomeProvinceStacks()
@@ -1548,15 +1551,17 @@ public sealed class LegacyWorldConverterTests
                 Record("army", 0, 0, 4),
                 Record("army", 0, 8, 2),
                 Record("army", 0, 30, 1),
-                Record("army", 0, 7, 0),
+                Record("army", 0, 7, 1),
             ]),
             null,
             "army-record-map");
 
         Assert.True(result.Success, result.Report.ToHumanReadable());
+        const string province = "province.legacy.00000";
         Assert.Equal(
-            [("province.legacy.00000", 0, 4L), ("province.legacy.00000", 8, 2L),
-             ("province.legacy.00000", 7, 0L)],
+            [(province, 0, 0L), (province, 0, 0L), (province, 0, 0L), (province, 0, 0L),
+             (province, 8, 0L), (province, 8, 0L),
+             (province, 7, 0L)],
             result.Document!.Scenarios[0].Armies
                 .Select(static item => (item.Province, item.Type, item.Experience)));
         Assert.Contains(
@@ -1564,12 +1569,80 @@ public sealed class LegacyWorldConverterTests
             static item => item.Code == "scenario.unknown-army-type");
         Assert.DoesNotContain("scenario.tag.army", result.Report.DeferredCounts.Keys);
 
-        // The document keeps the record's medals; the compiled world holds hundredths (row 6b).
+        // Each counted regiment is its own initial army, and none carries a medal.
         var armies = WorldContentCompiler.Compile(result.Document).World.Scenario.InitialArmies;
         Assert.Equal(
-            [(new ProvinceId(0), new ArmyTypeId(0), 400L), (new ProvinceId(0), new ArmyTypeId(8), 200L),
+            [.. Enumerable.Repeat((new ProvinceId(0), new ArmyTypeId(0), 0L), 4),
+             .. Enumerable.Repeat((new ProvinceId(0), new ArmyTypeId(8), 0L), 2),
              (new ProvinceId(0), new ArmyTypeId(7), 0L)],
             armies.Select(static item => (item.Province, item.Type, item.Experience)));
+    }
+
+    /// <summary>
+    /// A militia record with 2 is two regiments at no medals, which is what the
+    /// original shows for <c>s1</c>'s London. Reading it as experience gave one
+    /// regiment with two medals.
+    /// </summary>
+    [Fact]
+    public void ArmyRecordCountOfTwoPlacesTwoRegimentsWithNoMedals()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+                Record("army", 0, 8, 2),
+            ]),
+            null,
+            "army-count-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var armies = result.Document!.Scenarios[0].Armies;
+        Assert.Equal(2, armies.Length);
+        Assert.All(armies, static item =>
+        {
+            Assert.Equal(8, item.Type);
+            Assert.Equal(0L, item.Experience);
+        });
+    }
+
+    /// <summary>
+    /// A count of 0 places nothing and says so at Info; a count past the
+    /// per-record limit is warned about and places nothing rather than
+    /// allocating without bound.
+    /// </summary>
+    [Fact]
+    public void ArmyRecordCountOfZeroOrPastTheLimitPlacesNothing()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(2, 1, LandCell(0, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 0, "Province"),
+                Record("army", 0, 7, 0),
+                Record("army", 0, 8, 1_001),
+                Record("army", 0, 0, 1_000),
+            ]),
+            null,
+            "army-zero-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var armies = result.Document!.Scenarios[0].Armies;
+        Assert.Equal(1_000, armies.Length);
+        Assert.All(armies, static item => Assert.Equal(0, item.Type));
+
+        var empty = Assert.Single(result.Report.Diagnostics, static item => item.Code == "scenario.empty-army");
+        Assert.Equal(LegacyImportSeverity.Info, empty.Severity);
+        Assert.Equal("scenario.records[3]", empty.Location);
+        var tooLarge = Assert.Single(
+            result.Report.Diagnostics,
+            static item => item.Code == "scenario.army-count-too-large");
+        Assert.Equal(LegacyImportSeverity.Warning, tooLarge.Severity);
+        Assert.Equal("scenario.records[4]", tooLarge.Location);
     }
 
     /// <summary>

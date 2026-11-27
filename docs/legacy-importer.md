@@ -145,11 +145,16 @@ That is the manual's own rule rather than a gap. See `formulas/technology.md` an
 `formulas/prospecting.md`, which record the corpus counts the tests now pin.
 
 `army` records are converted rather than deferred. The record is `[province, type,
-experience]`; the province supplies ownership, and type is the executable's zero-based
-index into its fixed 30-row army table. Each record is one regiment; repeated records
-retain their source order. An unknown province is an error; an unknown type is warned
+count]`; the province supplies ownership, and type is the executable's zero-based
+index into its fixed 30-row army table. A record places `count` regiments, each at
+zero experience — observed in the original, where `s1`'s London militia record with
+2 shows two Militia; reading the field as experience was wrong (issue
+https://github.com/PlueRyvius/Imperialism-1-Modern/issues/99). Records retain their
+source order. An unknown province is an error; an unknown type is warned
 and dropped — the 30-row limit is the importer's alone (`OriginalArmyTypeCount`), since
-Core's `ArmyTypeId` accepts any non-negative id; zero experience is preserved. This preserves the tactical roster without guessing
+Core's `ArmyTypeId` accepts any non-negative id. A count of 0 places nothing and is
+reported at Info (`scenario.empty-army`); a count above `MaxArmyRecordCount` (1,000)
+is warned about and placed not at all, so a damaged record cannot allocate without bound. This preserves the tactical roster without guessing
 deployment, movement, losses, capture, or combat resolution.
 
 `civi` records are converted rather than deferred. The record is `[type, cell]`

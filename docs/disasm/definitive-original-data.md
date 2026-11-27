@@ -128,9 +128,17 @@ The artillery flag is set exactly for the six artillery records. The role-slot t
 
 ## Verified tactical roster and AI boundary
 
-The original scenario `army` record is `[province, type, experience]`, with
-`type` zero-based into the 30-row table above. Each record is one regiment; it
-does not carry a duplicate owner. The original battle setup at `0x005A4790` creates
+The original scenario `army` record is `[province, type, count]`, with
+`type` zero-based into the 30-row table above, and it does not carry a duplicate
+owner. **Correction (27 Nov, observed):** this section first read the third field
+as experience ÷ 100, with one regiment per record. Observation in the original
+contradicts that: `s1`'s one London militia record carries 2, and the original
+game shows **two** Militia in London with no medals. The third field is a regiment
+count, as `docs/scenario-semantics.md` ("The generator's `army` block") reads it,
+and the importer now places that many regiments at zero experience
+(issue https://github.com/PlueRyvius/Imperialism-1-Modern/issues/99). The
+addresses below stand; the claim that the writer divides experience by 100 for
+this field is retracted. The original battle setup at `0x005A4790` creates
 two side controllers in fixed input order: its first side is marked `1` and
 its second side `0`. For each side it invokes `0x0059B1B0`, which iterates the
 source army list and allocates one 0x58-byte tactical unit object per source
@@ -139,10 +147,12 @@ creates the parent battle object, calls that setup, then hands control to the
 parent's virtual lifecycle entry at `0x0059FC20`.
 
 `0x005A5F20` preserves the source stack's type field and converts its stored
-experience by integer division by 100 for the tactical unit. The scenario
+experience by integer division by 100 for the tactical unit. ~~The scenario
 writer at `0x004A2900` uses the same conversion when it emits the third `army`
-field. A regiment therefore stays one tactical unit object; it is not
-expanded into one object per soldier.
+field.~~ **Contradicted by observation** for the third `army` field, which is a
+regiment count (see the correction above); what `0x004A2900` writes there is
+untraced. A regiment stays one tactical unit object; it is not expanded into one
+object per soldier.
 
 `UTacPlayer`'s decision callback at `0x0059C440` consumes those side rosters,
 gathers side statistics through `0x0059B5B0`, and sets per-unit orders through
@@ -206,10 +216,11 @@ Before the loss loop, `0x004A3800` snapshots each entry's `+0x34` value into
 `+0x3c`. After the loop, `0x004A82B0` visits positive `+0x34` entries on both
 sides. Its flag argument selects an exact `+20` or `+35` adjustment to the
 stored `+0x38` experience, capped at 400. The `+35`/`+20` selection follows the
-qualifying-entry branch above. The scenario writer divides that experience by
-100 when emitting the third `army` field; the original corpus holds small
-values (typically 1--4), and the manual's one-medal-per-three-victories/
-five-defeats cadence independently matches the recovered adjustments. This
+qualifying-entry branch above. The claim that the scenario writer divides that
+experience by 100 when emitting the third `army` field is **contradicted by
+observation** (that field is a regiment count; the corpus's small values,
+typically 1--4, are counts). The manual's one-medal-per-three-victories/
+five-defeats cadence still independently matches the recovered adjustments. This
 proves the hundredths representation, termination control flow, experience
 adjustment, and the dynamic control-field update, but not a completed capture
 outcome.

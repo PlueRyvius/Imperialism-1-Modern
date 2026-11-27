@@ -1530,10 +1530,22 @@ public static class LegacyWorldConverter
     internal const uint OriginalArmyTypeCount = 30;
 
     /// <summary>
-    /// Preserves original <c>army</c> records as <c>[province, type, experience]</c>.
+    /// The most regiments one legacy <c>army</c> record may place. The corpus
+    /// authors at most a handful a record (the generated skirmishes use 4), so
+    /// a larger count is a damaged record rather than a garrison, and refusing
+    /// it keeps the importer from allocating without bound.
+    /// </summary>
+    internal const uint MaxArmyRecordCount = 1_000;
+
+    /// <summary>
+    /// Converts original <c>army</c> records, which are <c>[province, type, count]</c>.
     /// The type is zero-based and indexes the executable's verified 30-row
     /// army table; ownership is intentionally not copied, because it is the
-    /// province-owner record that supplies it.
+    /// province-owner record that supplies it. The third field is how many
+    /// regiments of that type stand in the province, each with no medals:
+    /// observed in the original on 27 Nov, where <c>s1</c>'s one London
+    /// militia record with 2 shows two Militia (issue #99). Reading it as
+    /// experience was wrong.
     /// </summary>
     private static ArmyContent[] ReadArmies(
         ScenarioDocument scenario,
@@ -1555,13 +1567,13 @@ public static class LegacyWorldConverter
                     LegacyImportSeverity.Error,
                     "scenario.invalid-army",
                     path,
-                    "An army record must contain a province, a type and an experience value.");
+                    "An army record must contain a province, a type and a regiment count.");
                 continue;
             }
 
             var province = record.Fields[0];
             var type = record.Fields[1];
-            var experience = record.Fields[2];
+            var count = record.Fields[2];
             if (!provinceKeys.TryGetValue(province, out var provinceKey))
             {
                 report.Add(
@@ -1583,12 +1595,36 @@ public static class LegacyWorldConverter
                 continue;
             }
 
-            result.Add(new ArmyContent
+            if (count == 0)
             {
-                Province = provinceKey,
-                Type = (int)type,
-                Experience = experience,
-            });
+                report.Add(
+                    LegacyImportSeverity.Info,
+                    "scenario.empty-army",
+                    path,
+                    $"Army record for province {province} has a count of 0; no army regiment was placed.");
+                continue;
+            }
+
+            if (count > MaxArmyRecordCount)
+            {
+                report.Add(
+                    LegacyImportSeverity.Warning,
+                    "scenario.army-count-too-large",
+                    path,
+                    $"Army count {count} exceeds the limit of {MaxArmyRecordCount} a record; " +
+                    "no army regiment was placed.");
+                continue;
+            }
+
+            for (var placed = 0u; placed < count; placed++)
+            {
+                result.Add(new ArmyContent
+                {
+                    Province = provinceKey,
+                    Type = (int)type,
+                    Experience = 0,
+                });
+            }
         }
 
         return result.ToArray();
