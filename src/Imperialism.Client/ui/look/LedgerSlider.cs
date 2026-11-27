@@ -49,6 +49,10 @@ public sealed partial class LedgerSlider : Control
         var right = row.Column == TransportLedgerColumn.Left ? 209 : 204;
         _figure = LedgerText.Add(this, "row.figure", new Rect2(_edge + 70, 21.5f, right - _edge - 70, 14),
             "", _figureFont, PreferredTextSize, Colors.Black, HorizontalAlignment.Right);
+        // Captions spill into the next row's blank leading band; keep them above
+        // every row's opaque strip instead of letting later siblings erase them.
+        _name.ZIndex = _figure.ZIndex = 1;
+        _name.ZAsRelative = _figure.ZAsRelative = true;
         var handle = new LedgerHandle { Name = "SliderHandle", Position = new Vector2(_edge + 1, 13) };
         handle.SetMeta("layout_name", "slider.handle");
         AddChild(handle);

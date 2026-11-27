@@ -70,10 +70,10 @@ public sealed partial class TransportScreen : Control, IShellScreen
             BaseFont = _headingFont,
             VariationOpentype = new Godot.Collections.Dictionary { ["wght"] = 700, ["opsz"] = 34, ["SOFT"] = 50 },
         };
-        LedgerText.Add(_canvas, "title.left", new Rect2(162.5f, 80.5f, 90, 23), "Transport",
-            display, 15, new Color("5e4a30"));
-        LedgerText.Add(_canvas, "title.right", new Rect2(416.5f, 80.5f, 62, 23), "Ledger",
-            display, 15, new Color("5e4a30"));
+        LedgerText.Add(_canvas, "title.left", new Rect2(160.5f, 76.5f, 100, 30), "Transport",
+            display, 17, new Color("5e4a30"));
+        LedgerText.Add(_canvas, "title.right", new Rect2(417.5f, 77.5f, 70, 30), "Ledger",
+            display, 16, new Color("5e4a30"));
         WatchHover(_date, "Date");
         WatchHover(_treasury, "Treasury");
         foreach (var (node, text) in new[] { ("TabTransport", "Transport"), ("TabIndustry", "Industry"),

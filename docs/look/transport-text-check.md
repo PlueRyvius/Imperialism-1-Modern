@@ -286,3 +286,58 @@ Release solution build and Debug client build both passed with 0 warnings and
 asset tests). Python is skipped as requested because pytest is unavailable.
 Godot 4.7.1 is not available here; the runtime checks above use 4.6.3.
 Server-only logs for this round: `fixtures/local_only/r5/` in the task worktree.
+
+### Caption occlusion and mockup heading supersession, 27 November 2026
+
+The new draw-order smoke fails with the 1a21a5d production code: adjacent active
+strips and live demo rows both report `False`, and the Transport smoke exits 1.
+At Z=0, the later sibling's opaque strip at y31 covers caption ink extending to
+y35. Geometry and clipping checks alone did not catch that paint-over.
+
+Both caption Labels now use relative **ZIndex=1**, above the rows' strips, bars
+and handles at Z=0. Their positions, sizes, fonts and fitting are unchanged.
+The captions remain spatially clear of the next track/handle and capacity bar;
+headers and titles are well above all row captions. A structural occlusion
+check compares actual caption ink rectangles against active strip rectangles,
+effective Z indices and sibling order. A forced adjacent-active-strip pair
+prevents an inactive row in the small demo fixture from hiding this regression.
+This is a draw-order check, not a viewport pixel readback: headless Godot uses
+the dummy renderer here. The Windows screenshot remains the final raster check.
+
+The mockup also supersedes D18's old 14-pixel ledger heading ink extent. Titles
+now use Fraunces weight 700 at size **17 (Transport)** and **16 (Ledger)**,
+centered about the old D18 boxes with unchanged colour. These native sizes give
+about **32/31 physical pixels of core ink at 2x**. The new smoke requires about
+30–33 physical pixels and the expanded centered ink boxes instead of the old
+D18 rectangle. This deliberately invalidates the external probe's old bounds;
+its unchanged result is recorded below after validation.
+
+After the Z fix, the same Transport smoke exits 0 and reports
+`TRANSPORT_DRAW_ORDER adjacentActiveStrips=True liveRows=True`; before it,
+`TRANSPORT_DRAW_ORDER adjacentActiveStrips=False liveRows=False` and exit 1.
+The production captions' moved ink bounds and the 29 fitting cases are unchanged.
+
+New 1x heading core-ink boxes measured by both the unchanged external probe
+and the updated client smoke at 2x:
+
+| Title | Minimum | Maximum | Physical ink height at 2x |
+| --- | --- | --- | --- |
+| Transport | (160.5, 85.5) | (250.5, 101) | 32 px |
+| Ledger | (418, 85.5) | (474.5, 100.5) | 31 px |
+
+The external probe exits **1**, as expected, with these exact lines:
+
+```text
+TITLE_INK Transport (160.5, 85.5)..(250.5, 101.0) D18_FITS=false
+TITLE_INK Ledger (418.0, 85.5)..(474.5, 100.5) D18_FITS=false
+```
+
+This is solely the deliberately superseded D18 bounds check; the updated
+mockup extent/height checks both pass. Runtime: Godot 4.6.3 Mono (4.7.1 is not
+available here). Server-only logs: `fixtures/local_only/r6/` in this worktree.
+
+Validation for this round: Release solution build and Debug client build both
+passed with **0 warnings and 0 errors**. Full C# suite: **1,263 passed, 0 failed,
+11 skipped**, including all eight client asset tests. All **five headless smokes
+passed** (viewer, screens, turn, orders, Transport), with no errors or exceptions
+in their logs. No viewport pixel readback or Windows visual acceptance is claimed.

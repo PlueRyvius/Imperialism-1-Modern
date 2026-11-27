@@ -33,9 +33,10 @@ internal static class TransportLookSmoke
         }
         bool Fits(Label label) => label.GetThemeFont("font").GetStringSize(label.Text,
             fontSize: label.GetThemeFontSize("font_size")).X <= label.Size.X + 0.01f;
-        // D18 specifies inclusive ink-pixel boxes, not Label advance rectangles.
-        var titlesFit = TitleInkFits(leftTitle, new Rect2(163, 86, 86, 15), k) &
-            TitleInkFits(rightTitle, new Rect2(417, 86, 59, 15), k);
+        // The mockup supersedes D18: roughly 32 physical pixels of ink at 2x,
+        // centered on the former title boxes, rather than the old 14 px ledger height.
+        var titlesFit = TitleInkFits(leftTitle, new Rect2(160, 85, 92, 17), k) &
+            TitleInkFits(rightTitle, new Rect2(417, 85, 59, 17), k);
         var crisp = new[] { leftTitle, rightTitle, date, hot, detail }.All(Crisp);
         var preview = session.Preview().Transport;
         var sliders = canvas.GetChildren().OfType<LedgerSlider>().ToArray();
@@ -104,8 +105,23 @@ internal static class TransportLookSmoke
         var rowText = LedgerSlider.PreferredTextSize == 10 && LedgerSlider.TextGap == 3 && sliders.All(RowFits);
         // Exercise long paired names with the widest requested sample in both
         // columns, independently of the tiny smoke world's active commodities.
+        var stripsSafe = CaptionsAboveStrips(sliders.Select(slider =>
+            (Slider: slider, PaintsStrip: preview.Rows.Any(row => row.IsActive && row.Strip is not null &&
+                slider.GetMeta("layout_name").AsString() == "row." + row.RowKey))).ToArray(), k);
         var rowFont = sliders[0].GetNode<Label>("row_name").GetThemeFont("font");
         while (rowFont is FontVariation rowVariation) rowFont = rowVariation.BaseFont;
+        // Force two adjacent active strips: the demo world may leave the next row inactive.
+        var upper = new LedgerSlider { Position = new Vector2(70, 118) };
+        var lowerStrip = new LedgerSlider { Position = new Vector2(70, 149) };
+        canvas.AddChild(upper);
+        upper.Build(preview.Rows[0] with { Name = "Fish & Livestock", Strip = 4001, Requested = 15, Available = 19 }, rowFont);
+        canvas.AddChild(lowerStrip);
+        lowerStrip.Build(preview.Rows[0] with { Strip = 4002, Requested = 15, Available = 19 }, rowFont);
+        var adjacent = CaptionsAboveStrips([(upper, true), (lowerStrip, true)], k);
+        GD.Print($"TRANSPORT_DRAW_ORDER adjacentActiveStrips={adjacent} liveRows={stripsSafe}");
+        rowText &= adjacent && stripsSafe;
+        upper.Free();
+        lowerStrip.Free();
         foreach (var column in Enum.GetValues<Presentation.TransportLedgerColumn>())
         foreach (var (requested, available) in new[] { (15L, 19L), (119L, 120L) })
         foreach (var name in preview.Rows.Select(row => row.Name).Concat(new[] { "Fish & Livestock", "Cotton & Wool" }).Distinct())
@@ -175,12 +191,37 @@ internal static class TransportLookSmoke
         return ok;
     }
 
+    private static int EffectiveZ(CanvasItem item) => item.ZIndex +
+        (item.ZAsRelative && item.GetParent() is CanvasItem parent ? EffectiveZ(parent) : 0);
+
+    private static bool CaptionsAboveStrips((LedgerSlider Slider, bool PaintsStrip)[] rows, int scale)
+    {
+        // Headless uses the dummy renderer; inspect actual opaque strip bounds and
+        // CanvasItem ordering instead of claiming a viewport pixel readback.
+        foreach (var (slider, _) in rows)
+        foreach (var label in new[] { slider.GetNode<Label>("row_name"), slider.GetNode<Label>("row_figure") })
+        {
+            if (!label.Visible) continue;
+            var (minimum, maximum) = InkBounds(label, scale, 1f / 255);
+            var ink = new Rect2(slider.Position + minimum, maximum - minimum + Vector2.One / scale);
+            foreach (var (cover, paints) in rows)
+            {
+                if (!paints || cover == slider) continue;
+                var later = EffectiveZ(cover) > EffectiveZ(label) ||
+                    (EffectiveZ(cover) == EffectiveZ(label) && cover.GetIndex() > slider.GetIndex());
+                if (later && ink.Intersects(new Rect2(cover.Position, new Vector2(224, 30)))) return false;
+            }
+        }
+        return true;
+    }
+
     private static bool TitleInkFits(Label label, Rect2 target, int scale)
     {
         var (minimum, maximum) = InkBounds(label, scale);
-        var fits = minimum.IsFinite() && maximum.IsFinite() && minimum.X >= target.Position.X && minimum.Y >= target.Position.Y &&
+        var height = (maximum.Y - minimum.Y) * scale + 1;
+        var fits = height >= 15 * scale && height <= 16.5f * scale && minimum.IsFinite() && maximum.IsFinite() && minimum.X >= target.Position.X && minimum.Y >= target.Position.Y &&
             maximum.X < target.End.X && maximum.Y < target.End.Y;
-        GD.Print($"TRANSPORT_TITLE_INK {label.Text} {minimum}..{maximum} D18_FITS={fits}");
+        GD.Print($"TRANSPORT_TITLE_INK {label.Text} {minimum}..{maximum} MOCKUP_FITS={fits} inkHeight={height}");
         return fits;
     }
 
