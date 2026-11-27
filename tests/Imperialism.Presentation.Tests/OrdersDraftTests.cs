@@ -135,6 +135,36 @@ public sealed class OrdersDraftTests
         Assert.Equal((11L, 8L), (line.Carry[id["coal"].Value], line.Carry[id["iron"].Value]));
     }
 
+    /// <summary>
+    /// Idle demand (D12) must not reserve warehouse stock that a later mill sharing the
+    /// input would use. A mill blocked for want of B leaves the one A in stock to the
+    /// second mill, which then needs nothing carried, as before D12. The blocked mill's
+    /// own A and B are still wanted, net only of what the runnable cycles left (codex-3's gate
+    /// probe on https://github.com/PlueRyvius/Imperialism-1-Modern/pull/95).
+    /// </summary>
+    [Fact]
+    public void IdleDemandDoesNotReserveStockFromALaterMillSharingTheInput()
+    {
+        var a = new CommodityId(0);
+        var b = new CommodityId(1);
+        var inputs = new TransportDemandInputs(10, 0, [], [
+            new TransportMillDemand(1, [
+                (1L, (IReadOnlyList<CommodityQuantity>)
+                    new CommodityQuantity[] { new(a, 1), new(b, 1) })]),
+            new TransportMillDemand(1, [
+                (1L, (IReadOnlyList<CommodityQuantity>)
+                    new CommodityQuantity[] { new(a, 1) })])
+        ], [1L, 0L], [1L, 0L], [a, b]);
+
+        var carriedA = TransportDefault.Allocate(inputs).Where(row => row.Commodity == a).Sum(row => row.Quantity);
+        var line = TransportDefault.DemandLine(inputs);
+
+        Assert.Equal(0, carriedA);
+        Assert.Equal(0, line.Carry[a.Value]);
+        Assert.Equal(1, line.Demand[a.Value]);
+        Assert.Equal(1, line.Demand[b.Value]);
+    }
+
     [Fact]
     public void DemandOverCapacityIsTrimmedInRowOrderFoodFirst()
     {

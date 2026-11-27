@@ -264,7 +264,9 @@ transport order per commodity exactly as today.
     capped figure, so `Allocate` and every opening figure are exactly as before.
   - *Chosen:* food nothing can supply is charged to the cycle position's first
     accepted commodity. Mill capacity left idle for want of inputs is charged as
-    idle cycles of the mill's first recipe, net of the stock left over. Every
+    idle cycles of the mill's first recipe, net of the stock every mill's runnable
+    cycles left over, counted after all of them so idle demand never moves another
+    mill's carry. Every
     shipped mill's recipes share one ledger row, so the screen can't show the choice.
   - *Chosen restatement:* `Available` is what `ExtractionPlanner` is expected to
     collect. It counts owned deposits within `CatchmentRadius` of the capital, of

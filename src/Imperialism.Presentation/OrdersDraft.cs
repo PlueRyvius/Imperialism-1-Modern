@@ -1138,6 +1138,10 @@ public static class TransportDefault
         var available = clamped.ToArray();
         var carry = new long[count];
         var shortfall = new long[count];
+        // Idle capacity is collected here and netted against stock only after every
+        // mill's runnable cycles, so idle demand never changes what a later mill
+        // carries: Carry, and so Allocate, stay what they were before D12.
+        var idleNeeds = new List<(long Cycles, IReadOnlyList<CommodityQuantity> Inputs)>();
 
         // Food. The worker at index k eats position k mod L of the cycle, exactly as
         // Feeding reads it, so 60 workers on grain/fruit/grain/meat want 30/15/15.
@@ -1213,13 +1217,20 @@ public static class TransportDefault
             var idle = first.CapacityCost > 0 ? points / first.CapacityCost : 0;
             if (idle > 0)
             {
-                foreach (var input in first.Inputs)
-                {
-                    var need = checked(idle * input.Quantity);
-                    var fromStock = Math.Min(need, stock[input.Commodity.Value]);
-                    stock[input.Commodity.Value] -= fromStock;
-                    shortfall[input.Commodity.Value] = checked(shortfall[input.Commodity.Value] + need - fromStock);
-                }
+                idleNeeds.Add((idle, first.Inputs));
+            }
+        }
+
+        // Idle capacity is met from what the runnable cycles left in stock, in mill
+        // order; the rest is shortfall.
+        foreach (var (idle, idleInputs) in idleNeeds)
+        {
+            foreach (var input in idleInputs)
+            {
+                var need = checked(idle * input.Quantity);
+                var fromStock = Math.Min(need, stock[input.Commodity.Value]);
+                stock[input.Commodity.Value] -= fromStock;
+                shortfall[input.Commodity.Value] = checked(shortfall[input.Commodity.Value] + need - fromStock);
             }
         }
 
