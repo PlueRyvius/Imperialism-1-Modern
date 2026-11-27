@@ -61,13 +61,14 @@ public sealed partial class TransportScreen : Control, IShellScreen
             font.Hinting = TextServer.Hinting.Normal;
             font.SubpixelPositioning = TextServer.SubpixelPositioning.Disabled;
         }
+        _headingFont.Oversampling = 1;
         _date = Header("date", new Rect2(47, 9, 77, 16), "", 10);
         _treasury = Header("treasury", new Rect2(159, 10, 48, 16), "", 10, glyphSpacing: 2);
         _hotText = Header("hottext", new Rect2(484, 4, 135, 15), "", 10, HorizontalAlignment.Right);
         _hotDetail = Header("hottext.detail", new Rect2(524, 19, 95, 15), "", 10, HorizontalAlignment.Right, spaceSpacing: 12);
-        LedgerText.Add(_canvas, "title.left", new Rect2(162, 81, 90, 23), "Transport",
+        LedgerRasterText.AddTitle(_canvas, "title.left", new Rect2(162, 81, 90, 23), "Transport",
             new FontVariation { BaseFont = _headingFont, SpacingGlyph = 2, VariationEmbolden = 0.4f }, 17, new Color("5e4a30"));
-        LedgerText.Add(_canvas, "title.right", new Rect2(416, 81, 62, 23), "Ledger",
+        LedgerRasterText.AddTitle(_canvas, "title.right", new Rect2(416, 81, 62, 23), "Ledger",
             new FontVariation { BaseFont = _headingFont, SpacingGlyph = 2 }, 17, new Color("5e4a30"));
         WatchHover(_date, "Date");
         WatchHover(_treasury, "Treasury");
@@ -143,6 +144,6 @@ public sealed partial class TransportScreen : Control, IShellScreen
         _canvas.Scale = new Vector2(k, k);
         _canvas.Position = (Size - new Vector2(640, 480) * k) / 2;
         _bodyFont!.Oversampling = k;
-        _headingFont!.Oversampling = k;
+        // Titles are native textures; resizing scales their pixels, never their fonts.
     }
 }

@@ -3,7 +3,7 @@ using Godot;
 namespace Imperialism.Client;
 
 /// <summary>Seven-pixel Antiqua digits, rasterised once at 1x and enlarged as pixels.</summary>
-public sealed partial class LedgerFigure : Control
+public sealed partial class LedgerFigure : LedgerRasterText
 {
     private const int FontSize = 10;
     private readonly FontFile _font;
@@ -12,7 +12,7 @@ public sealed partial class LedgerFigure : Control
     public string Text
     {
         get => _text;
-        set { _text = value; QueueRedraw(); }
+        set { if (_text == value) return; _text = value; Rasterise(); }
     }
 
     public LedgerFigure()
@@ -40,41 +40,22 @@ public sealed partial class LedgerFigure : Control
         return figure;
     }
 
-    private readonly Dictionary<char, (int Left, int Width)> _ink = new();
+    private readonly Dictionary<char, LedgerGlyph> _ink = new();
 
-    private (int Left, int Width) Ink(char character)
+    private LedgerGlyph Ink(char character)
     {
         if (_ink.TryGetValue(character, out var cached)) return cached;
         _font.RenderRange(0, new Vector2I(FontSize, 0), character, character);
-        var glyph = (int)TextServerManager.GetPrimaryInterface().FontGetGlyphIndex(
-            _font.GetRids()[0], FontSize, character, 0);
-        var size = new Vector2I(FontSize, 0);
-        var uv = _font.GetGlyphUVRect(0, size, glyph);
-        var offset = _font.GetGlyphOffset(0, size, glyph);
-        var texture = _font.GetGlyphTextureIdx(0, size, glyph);
-        var left = int.MaxValue;
-        var right = int.MinValue;
-        if (texture >= 0)
-        {
-            using var image = _font.GetTextureImage(0, size, texture);
-            for (var y = (int)uv.Position.Y; y < uv.End.Y; y++)
-                for (var x = (int)uv.Position.X; x < uv.End.X; x++)
-                    if (image.GetPixel(x, y).A > 0.5f)
-                    {
-                        left = Math.Min(left, x);
-                        right = Math.Max(right, x);
-                    }
-        }
-        var result = right >= left
-            ? ((int)(left - uv.Position.X + offset.X), right - left + 1) : (0, 0);
-        _ink.Add(character, result);
-        return result;
+        var rid = _font.GetRids()[0];
+        var glyph = (int)TextServerManager.GetPrimaryInterface().FontGetGlyphIndex(rid, FontSize, character, 0);
+        var ink = LedgerGlyph.Read(rid, FontSize, glyph);
+        _ink.Add(character, ink);
+        return ink;
     }
 
-    public override void _Draw()
+    private void Rasterise()
     {
-        // Space ink boxes, rather than font advances: two page pixels between
-        // digits and six on each side of the slash (D14). Values remain untouched.
+        // Preserve D14's spacing and right alignment, now in a native pixel image.
         var characters = _text.Where(c => !char.IsWhiteSpace(c)).ToArray();
         var width = 0;
         for (var i = 0; i < characters.Length; i++)
@@ -82,14 +63,16 @@ public sealed partial class LedgerFigure : Control
             if (i > 0) width += characters[i] == '/' || characters[i - 1] == '/' ? 6 : 2;
             width += Ink(characters[i]).Width;
         }
-        var pen = Size.X - width;
+        var image = Image.CreateEmpty((int)Size.X, (int)Size.Y, false, Image.Format.Rgba8);
+        var pen = (int)Size.X - width;
         for (var i = 0; i < characters.Length; i++)
         {
             if (i > 0) pen += characters[i] == '/' || characters[i - 1] == '/' ? 6 : 2;
             var ink = Ink(characters[i]);
-            DrawString(_font, new Vector2(pen - ink.Left, 7), characters[i].ToString(),
-                fontSize: FontSize, modulate: Colors.Black);
+            foreach (var pixel in ink.Pixels)
+                PutInk(image, new Vector2I(pen + pixel.X - ink.Left, 7 + pixel.Y), Colors.Black);
             pen += ink.Width;
         }
+        SetRaster(image);
     }
 }

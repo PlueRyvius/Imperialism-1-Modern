@@ -22,6 +22,20 @@ internal static class TransportLookSmoke
         var shadow = date.GetThemeColor("font_shadow_color") == Colors.Black &&
             date.GetThemeConstant("shadow_offset_x") == 1 && date.GetThemeConstant("shadow_offset_y") == 1;
         var text = idle && hover && restoredText && shadow;
+        var leftTitle = canvas.GetNode<LedgerRasterText>("title_left");
+        var rightTitle = canvas.GetNode<LedgerRasterText>("title_right");
+        var figure = new LedgerFigure { Size = new Vector2(38, 9), Text = "15 / 19" };
+        canvas.AddChild(figure);
+        // Diagnostic, not a passing claim: the unhinted native 1 has no foot.
+        var foot = Enumerable.Range(0, 4).Any(x => figure.HasNativeInk(x, 6) &&
+            figure.HasNativeInk(x + 1, 6) && figure.HasNativeInk(x + 2, 6));
+        var raster = leftTitle.NativeInkCount == 242 && rightTitle.NativeInkCount == 162 &&
+            figure.NativeInkCount == 55 && leftTitle.UsesWholePixels(k) &&
+            rightTitle.UsesWholePixels(k) && figure.UsesWholePixels(k);
+        GD.Print($"TRANSPORT_RASTER_{(raster ? "OK" : "FAIL")} titles={leftTitle.NativeInkCount}/{rightTitle.NativeInkCount} " +
+            $"figure={figure.NativeInkCount} foot={foot} nativePixels={raster} scale={k}");
+        canvas.RemoveChild(figure);
+        figure.Free();
         var preview = session.Preview().Transport;
         var sliders = canvas.GetChildren().OfType<LedgerSlider>().ToArray();
         var placed = preview.Rows.All(row => sliders.Any(slider =>
@@ -62,7 +76,7 @@ internal static class TransportLookSmoke
             { ButtonIndex = MouseButton.Left, Pressed = false, Position = new Vector2(edge + 114, 14) });
         var full = session.Preview().Transport.GetRow(candidate.RowKey)!;
         var bounded = full.Requested > 0 && full.Requested <= full.Available && !full.CanRaise;
-        var ok = text && geometry && placed && lower && raise && zero && bounded;
+        var ok = raster && text && geometry && placed && lower && raise && zero && bounded;
         GD.Print($"TRANSPORT_LOOK_SMOKE_{(ok ? "OK" : "FAIL")} geometry={geometry} rows={sliders.Length} " +
             $"text={text} placed={placed} lower={lower} raise={raise} zero={zero} bounded={bounded} scale={k}");
         return ok;
