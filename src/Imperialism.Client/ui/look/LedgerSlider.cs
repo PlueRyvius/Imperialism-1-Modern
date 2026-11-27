@@ -12,6 +12,7 @@ public sealed partial class LedgerSlider : Control
     private TransportRowView? _row;
     private Texture2D? _strip;
     private Font? _font;
+    private FontVariation? _figureFont;
     private Label? _name;
     private Label? _figure;
     private float _edge;
@@ -33,6 +34,11 @@ public sealed partial class LedgerSlider : Control
         SetMeta("layout_name", "row." + row.RowKey);
         Size = new Vector2(224, 31);
         _font = font;
+        _figureFont = new FontVariation
+        {
+            BaseFont = font,
+            VariationOpentype = new Godot.Collections.Dictionary { ["wght"] = 700 },
+        };
         FocusMode = FocusModeEnum.All;
         MouseFilter = MouseFilterEnum.Stop;
         _edge = row.Column == TransportLedgerColumn.Left ? 96 : 92;
@@ -42,7 +48,7 @@ public sealed partial class LedgerSlider : Control
             font, PreferredTextSize, new Color("5e4a30"));
         var right = row.Column == TransportLedgerColumn.Left ? 209 : 204;
         _figure = LedgerText.Add(this, "row.figure", new Rect2(_edge + 70, 17, right - _edge - 70, 14),
-            "", font, PreferredTextSize, Colors.Black, HorizontalAlignment.Right);
+            "", _figureFont, PreferredTextSize, Colors.Black, HorizontalAlignment.Right);
         var handle = new LedgerHandle { Name = "SliderHandle", Position = new Vector2(_edge + 1, 13) };
         handle.SetMeta("layout_name", "slider.handle");
         AddChild(handle);
@@ -57,13 +63,13 @@ public sealed partial class LedgerSlider : Control
         _row = row;
         FocusMode = row.IsActive || row.CanLower ? FocusModeEnum.All : FocusModeEnum.None;
         _name!.Visible = _figure!.Visible = row.IsActive;
-        _figure.Text = $"{row.Requested} / {row.Available}";
+        _figure.Text = $"{row.Requested}/{row.Available}";
         // Text layout only: reserve the figure's natural width, then fit the name
         // into the remaining span. This never changes the order or its bounds.
         var right = row.Column == TransportLedgerColumn.Left ? 209 : 204;
-        var size = FitTextSize(_font!, row.Name, _figure.Text, right - _edge);
-        var height = _font!.GetHeight(size);
-        var figureWidth = _font.GetStringSize(_figure.Text, fontSize: size).X;
+        var size = FitTextSize(_font!, _figureFont!, row.Name, _figure.Text, right - _edge);
+        var height = Math.Max(_font!.GetHeight(size), _figureFont!.GetHeight(size));
+        var figureWidth = _figureFont.GetStringSize(_figure.Text, fontSize: size).X;
         _figure.AddThemeFontSizeOverride("font_size", size);
         _name!.AddThemeFontSizeOverride("font_size", size);
         _figure.Position = new Vector2(right - figureWidth, 17);
@@ -81,11 +87,11 @@ public sealed partial class LedgerSlider : Control
 
     // Prefer the mockup's 20 px at 2x. Keep both labels the same size and use
     // the largest size that fits when a long name meets a wide live figure.
-    public static int FitTextSize(Font font, string name, string figure, float width)
+    public static int FitTextSize(Font font, Font figureFont, string name, string figure, float width)
     {
         var size = PreferredTextSize;
         while (size > 1 && font.GetStringSize(name, fontSize: size).X +
-               font.GetStringSize(figure, fontSize: size).X + TextGap > width) size--;
+               figureFont.GetStringSize(figure, fontSize: size).X + TextGap > width) size--;
         return size;
     }
 

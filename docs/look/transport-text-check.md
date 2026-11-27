@@ -6,7 +6,7 @@ The historical native-raster measurements below are superseded wherever they
 conflict with the approved mockup's crisp text. Andy permitted a modern close
 match and explicitly preferred legibility over the foot and ink-count criteria.
 
-Transport uses **Lora Regular** for body/figures and **Fraunces Bold** for titles,
+Transport uses **Lora Regular** for body text, **Lora Bold** (weight 700) for row figures and **Fraunces Bold** for titles,
 both unmodified variable fonts under **SIL OFL 1.1**. Private FontFiles use
 grayscale antialiasing, normal hinting, disabled subpixel positioning and
 oversampling equal to the canvas scale. Labels draw the fonts at the final
@@ -215,11 +215,48 @@ a tightest ink gap of 5 ledger pixels (10 screen pixels), and actual 2x ink
 heights of 14 pixels for `Fish & Livestock` and 21 for `15 / 19` at size 10.
 The nominal font size is 20 screen pixels; glyph ink heights vary by face.
 
-The supplied external heading probe exited 0. It still names the former
-`transport-fraunces.ttf`, so a temporary compatibility alias to `fraunces.ttf`
+The supplied external heading probe exited 0. It still names
+the former heading filename, so a temporary compatibility alias to `fraunces.ttf`
 was used only for that run and removed afterwards. Both heading ink boxes stayed
 inside D18. The regenerated font sample contains 8,612 fractional-alpha glyph
 pixels, confirming antialiased rendering rather than binary enlarged glyphs.
 Logs are server-only under `fixtures/local_only/modern-pair/` in this worktree.
 These atlas and geometry checks do not replace the pending ETHERCAT frame beside
 the approved mockup.
+
+### Fourth-round findings, 27 November 2026
+
+Row figures now select the existing variable Lora font's `wght=700` axis and
+omit spaces around the slash (`15/19`). Fitting measures the regular name and
+the bold figure separately, retaining a shared size per row. No font file,
+quantity or allocation changes. A clean Godot 4.6.3 CPU font probe measures
+size-10 bold `15/19` at 25 ledger pixels advance (50 screen pixels at 2x),
+with 48 screen pixels of nonzero-alpha ink width; the mockup was reported as
+about 53 screen pixels wide. Final Windows acceptance is still needed.
+
+The requested downward shift conflicts with strict 31-pixel row containment.
+At local box y17, the size-10 bold figure's nonzero-alpha ink occupies
+y20.5..30.5. Moving it down 4.5 ledger pixels (9 screen pixels) puts it at
+y25..35. The next row's bar begins at local y44, so it can clear that bar,
+but it cannot also remain inside the current row's y0..31 rectangle. The
+caption position is unchanged pending a choice between these constraints.
+The smoke retains strict row containment and now additionally checks weight
+700, slash formatting and fitting against the bold figure metrics.
+
+Validation for this partial fourth-round fix:
+
+- Release solution build: 0 warnings, 0 errors, using the unchanged 4.7.1 C# SDK.
+- Full C# suite: 1,263 passed, 0 failed, 11 skipped, including 8 client asset tests.
+- Available Godot runtime: 4.6.3 Mono. Five supplementary headless smokes passed
+  (transport, viewer, screens, turn, orders); the supplied external heading probe
+  exited 0. This does not verify the requested Godot 4.7.1 runtime.
+- Transport smoke: 29 synthetic fitting cases, smallest shared size 9; tightest
+  ink gap 8 ledger pixels. Sample name ink height 14 screen pixels, bold figure
+  height 21 screen pixels. Both heading ink boxes still fit D18.
+- The s1 Great Britain fixture is absent from this worktree; its actual fallback
+  rows have not been measured.
+- Python suite could not start: `/usr/bin/python3: No module named pytest`.
+  Installing packages was prohibited for this round.
+
+The positional correction remains blocked by the conflicting bounds above;
+this commit addresses the stale font reference and bold, tighter figures only.

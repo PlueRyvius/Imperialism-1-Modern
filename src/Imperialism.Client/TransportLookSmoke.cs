@@ -54,16 +54,19 @@ internal static class TransportLookSmoke
             var left = slider.Position.X == 70;
             var size = name.GetThemeFontSize("font_size");
             var font = name.GetThemeFont("font");
+            var figureFont = figure.GetThemeFont("font");
+            var bold = figureFont is FontVariation weight &&
+                weight.VariationOpentype["wght"].AsInt32() == 700;
             var expectedSize = Enumerable.Range(1, 10).Where(candidateSize =>
                 font.GetStringSize(name.Text, fontSize: candidateSize).X +
-                font.GetStringSize(figure.Text, fontSize: candidateSize).X + 3 <= (left ? 113 : 112))
+                figureFont.GetStringSize(figure.Text, fontSize: candidateSize).X + 3 <= (left ? 113 : 112))
                 .DefaultIfEmpty(1).Max();
             var (nameMin, nameMax) = InkBounds(name, k, 1f / 255);
             var (figureMin, figureMax) = InkBounds(figure, k, 1f / 255);
             var gap = figureMin.X - nameMax.X - 1f / k;
             tightestGap = Math.Min(tightestGap, gap);
             smallestSize = Math.Min(smallestSize, size);
-            var fits = Crisp(name) && Crisp(figure) && Fits(name) && Fits(figure) &&
+            var fits = bold && figure.Text == figure.Text.Replace(" ", "") && Crisp(name) && Crisp(figure) && Fits(name) && Fits(figure) &&
                 size == expectedSize && figure.GetThemeFontSize("font_size") == size &&
                 nameMin.IsFinite() && figureMin.IsFinite() &&
                 nameMin.X >= name.Position.X && nameMax.X < name.Position.X + name.Size.X &&
@@ -106,7 +109,7 @@ internal static class TransportLookSmoke
         rowText &= RowFits(measurement);
         GD.Print($"TRANSPORT_ROW_INK scale={k} preferredSize={LedgerSlider.PreferredTextSize} smallestSize={smallestSize} fitCases={checkedRows} " +
             $"nameHeight={(sampleNameMax.Y - sampleNameMin.Y) * k + 1} figureHeight={(sampleFigureMax.Y - sampleFigureMin.Y) * k + 1} " +
-            $"tightestGap={tightestGap} name={sampleNameMin}..{sampleNameMax} figure={sampleFigureMin}..{sampleFigureMax}");
+            $"figureWidth={(sampleFigureMax.X - sampleFigureMin.X) * k + 1} tightestGap={tightestGap} name={sampleNameMin}..{sampleNameMax} figure={sampleFigureMin}..{sampleFigureMax}");
         measurement.Free();
         var capacity = canvas.GetNode<Control>("CapacityRow").GetNode<Label>("capacity_figure");
         crisp &= Crisp(capacity) && Fits(capacity) && rowText && titlesFit &&
