@@ -120,12 +120,13 @@ The slider pieces themselves (rim, fills, arrows, handle) are still to be found 
 
 ## The Transport target
 
-Transport is the first screen and the one Andy approved. What its PR must show:
+Transport is the first screen and the one Andy approved. Its measured layout,
+art pieces and row rules are in `docs/look/transport-layout.md`, which wins
+where this summary differs. What its PR must show:
 
 - the original's Transport screen layout: the frame and top rail, the desk, the
-  open ledger (`assets/original/pictuniv/1021.png`), the commodity icons, and the End Turn
-  button (`assets/original/pictenu/1011.png`); the coloured commodity icons and
-  the slider pieces are still to be identified in `assets/original/pictuniv/`;
+  open ledger (`assets/original/pictuniv/1021.png`), the commodity strips and
+  icons; there is **no End Turn button** on Transport (layout note D3);
 - each row: its icon, its good's name, its `LedgerSlider` and "carried /
   available" under the bar;
 - the headings **"Transport"** and **"Ledger"** in the display face;
