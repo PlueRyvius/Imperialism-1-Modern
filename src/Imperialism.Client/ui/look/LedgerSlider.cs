@@ -44,10 +44,10 @@ public sealed partial class LedgerSlider : Control
         _edge = row.Column == TransportLedgerColumn.Left ? 96 : 92;
         if (row.Strip is { } strip) _strip = GD.Load<Texture2D>($"res://art/transport/{strip}.png");
         // The two mockup additions are separate nodes: the name here, the handle below.
-        _name = LedgerText.Add(this, "row.name", new Rect2(_edge, 17, 70, 14), row.Name,
+        _name = LedgerText.Add(this, "row.name", new Rect2(_edge, 21.5f, 70, 14), row.Name,
             font, PreferredTextSize, new Color("5e4a30"));
         var right = row.Column == TransportLedgerColumn.Left ? 209 : 204;
-        _figure = LedgerText.Add(this, "row.figure", new Rect2(_edge + 70, 17, right - _edge - 70, 14),
+        _figure = LedgerText.Add(this, "row.figure", new Rect2(_edge + 70, 21.5f, right - _edge - 70, 14),
             "", _figureFont, PreferredTextSize, Colors.Black, HorizontalAlignment.Right);
         var handle = new LedgerHandle { Name = "SliderHandle", Position = new Vector2(_edge + 1, 13) };
         handle.SetMeta("layout_name", "slider.handle");
@@ -72,7 +72,7 @@ public sealed partial class LedgerSlider : Control
         var figureWidth = _figureFont.GetStringSize(_figure.Text, fontSize: size).X;
         _figure.AddThemeFontSizeOverride("font_size", size);
         _name!.AddThemeFontSizeOverride("font_size", size);
-        _figure.Position = new Vector2(right - figureWidth, 17);
+        _figure.Position = new Vector2(right - figureWidth, 21.5f);
         _figure.Size = new Vector2(figureWidth, height);
         _name.Text = row.Name;
         _name.Size = new Vector2(Math.Max(1, right - _edge - figureWidth - TextGap), height);

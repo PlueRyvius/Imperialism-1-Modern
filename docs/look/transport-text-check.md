@@ -260,3 +260,29 @@ Validation for this partial fourth-round fix:
 
 The positional correction remains blocked by the conflicting bounds above;
 this commit addresses the stale font reference and bold, tighter figures only.
+
+### Offset completed after the row-bound clarification, 27 November 2026
+
+The mockup wins over the former strict 31-pixel containment criterion. Both row
+labels now begin at local y21.5 instead of y17: **+4.5 ledger pixels / +9 screen
+pixels at 2x**. The half pixel lands on a whole physical pixel at 2x. Text may
+extend into the following row's empty leading band, while its ink must start
+below the underline ending at y20 and end strictly before y39 (the next track).
+The smoke checks clipping against every clipping Control ancestor, preserves
+name/figure separation and heading D18 checks, and exercises both columns' last
+possible commodity slots. Left-page ink stays above y440; right-page ink stays
+above the capacity row's leading track band at y405. Bold weight 700, spaceless
+figures and the shared fitting fallback are unchanged.
+
+Measured on Godot 4.6.3 Mono at 1920x1080: the first row's name ink is at local
+**y25.5..32**, figure ink at **y25..35**. All 29 fitting cases pass, including
+both columns' last possible slots. The smallest shared size remains 9, the
+minimum name/figure ink gap remains 8 ledger pixels, and the sample name/figure
+ink heights remain 14/21 screen pixels. The five headless smokes and unchanged
+external heading probe pass. These are CPU atlas and live-control geometry
+checks; the ETHERCAT frame beside the approved mockup remains pending.
+Release solution build and Debug client build both passed with 0 warnings and
+0 errors. Full C# suite: 1,263 passed, 0 failed, 11 skipped (including all eight
+asset tests). Python is skipped as requested because pytest is unavailable.
+Godot 4.7.1 is not available here; the runtime checks above use 4.6.3.
+Server-only logs for this round: `fixtures/local_only/r5/` in the task worktree.

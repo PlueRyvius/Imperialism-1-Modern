@@ -43,6 +43,16 @@ internal static class TransportLookSmoke
             slider.GetMeta("layout_name").AsString() == "row." + row.RowKey &&
             slider.Position == new Vector2(row.Column == Presentation.TransportLedgerColumn.Left ? 70 : 325,
                 118 + 31 * row.Slot)));
+        var capacityRow = canvas.GetNode<Control>("CapacityRow");
+        bool Unclipped(LedgerSlider slider, Vector2 minimum, Vector2 maximum)
+        {
+            var first = slider.GetGlobalTransform() * minimum;
+            var last = slider.GetGlobalTransform() * maximum;
+            for (Node? node = slider; node is not null; node = node.GetParent())
+                if (node is Control { ClipContents: true } clip &&
+                    (!clip.GetGlobalRect().HasPoint(first) || !clip.GetGlobalRect().HasPoint(last))) return false;
+            return true;
+        }
         var tightestGap = float.PositiveInfinity;
         var smallestSize = LedgerSlider.PreferredTextSize;
         var checkedRows = 0;
@@ -71,17 +81,25 @@ internal static class TransportLookSmoke
                 nameMin.IsFinite() && figureMin.IsFinite() &&
                 nameMin.X >= name.Position.X && nameMax.X < name.Position.X + name.Size.X &&
                 figureMin.X >= figure.Position.X && figureMax.X < figure.Position.X + figure.Size.X &&
+                // The mockup's captions use the blank band beyond the 31 px control.
                 nameMin.Y >= 20 && figureMin.Y >= 20 &&
-                nameMax.Y < 31 && figureMax.Y < 31 && gap >= LedgerSlider.TextGap &&
-                name.Position.X == (left ? 96 : 92) && name.Position.Y == figure.Position.Y &&
+                nameMax.Y < 39 && figureMax.Y < 39 && gap >= LedgerSlider.TextGap &&
+                Unclipped(slider, nameMin, nameMax) && Unclipped(slider, figureMin, figureMax) &&
+                slider.Position.Y + Math.Max(nameMax.Y, figureMax.Y) < (left ? 440 : capacityRow.Position.Y + 8) &&
+                name.Position.X == (left ? 96 : 92) && name.Position.Y == 21.5f && name.Position.Y == figure.Position.Y &&
                 name.Position.X + name.Size.X <= figure.Position.X &&
-                name.Position.Y + name.Size.Y <= slider.Size.Y &&
-                figure.Position.Y + figure.Size.Y <= slider.Size.Y &&
                 Math.Abs(slider.Position.X + figure.Position.X + figure.Size.X - (left ? 279 : 529)) < 0.01f;
             if (!fits) GD.Print($"TRANSPORT_ROW_FAIL name={name.Text} figure={figure.Text} size={size}/{expectedSize} " +
                 $"nameBox={name.Position}/{name.Size} ink={nameMin}..{nameMax} figureBox={figure.Position}/{figure.Size} " +
                 $"ink={figureMin}..{figureMax} gap={gap} crisp={Crisp(name)}/{Crisp(figure)} advanceFit={Fits(name)}/{Fits(figure)}");
             return fits;
+        }
+        if (sliders.Length > 0)
+        {
+            var first = sliders[0];
+            var (nameTop, nameBottom) = InkBounds(first.GetNode<Label>("row_name"), k, 1f / 255);
+            var (figureTop, figureBottom) = InkBounds(first.GetNode<Label>("row_figure"), k, 1f / 255);
+            GD.Print($"TRANSPORT_FIRST_ROW_INK nameY={nameTop.Y}..{nameBottom.Y} figureY={figureTop.Y}..{figureBottom.Y} local=true");
         }
         var rowText = LedgerSlider.PreferredTextSize == 10 && LedgerSlider.TextGap == 3 && sliders.All(RowFits);
         // Exercise long paired names with the widest requested sample in both
@@ -93,7 +111,8 @@ internal static class TransportLookSmoke
         foreach (var name in preview.Rows.Select(row => row.Name).Concat(new[] { "Fish & Livestock", "Cotton & Wool" }).Distinct())
         {
             var row = preview.Rows[0] with { Column = column, Name = name, Requested = requested, Available = available };
-            var sample = new LedgerSlider { Position = new Vector2(column == Presentation.TransportLedgerColumn.Left ? 70 : 325, 0) };
+            var sample = new LedgerSlider { Position = new Vector2(column == Presentation.TransportLedgerColumn.Left ? 70 : 325,
+                118 + 31 * (column == Presentation.TransportLedgerColumn.Left ? 9 : 8)) };
             // Inherit the live screen's theme before testing Label minimum sizes.
             canvas.AddChild(sample);
             sample.Build(row, rowFont);
