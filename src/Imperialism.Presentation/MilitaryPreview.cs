@@ -750,6 +750,13 @@ public sealed partial class OrdersPreview
         var categories = new List<ArmouryCategoryView>();
         foreach (var category in Enum.GetValues<ArmyCategory>())
         {
+            // Militia is a garrison the province raises for itself, never a purchase
+            // (owner ruling, issue #99), so the Armoury has no row for it at all.
+            if (!OrdersDraft.IsPurchasableCategory(category))
+            {
+                continue;
+            }
+
             var type = ArmourySimulation.ResolveCategory(state, country, category);
             var unavailable = type?.Purchase is null
                 ? RegimentPurchaseRefusal.NotPurchasable
