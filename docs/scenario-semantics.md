@@ -239,8 +239,10 @@ country receives one of each type, and every Forester stands on forest, every
 Rancher on wool hill or cattle ranch. **A civilian's owner is whoever owns the
 cell it stands on**, which means moving one across a border changes its side.
 
-`army` is `[province, type, experience]`: each record is one regiment and the
-third field is its experience/medal progression value. `ship` is `[country,
+`army` is `[province, type, count]`: the third field is how many regiments of
+that type stand in the province, each with no medals. Observed in the original on
+27 Nov: `s1`'s one London militia record with 2 shows two Militia. An earlier
+reading of it as experience ÷ 100 is retracted. `ship` is `[country,
 type, zone, count]`.
 
 **A `ship` record's type is a 1-based index into the game's ship array, verified.** Read as

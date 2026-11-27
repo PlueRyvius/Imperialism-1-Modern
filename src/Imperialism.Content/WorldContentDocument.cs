@@ -539,8 +539,9 @@ public sealed class ArmyContent
     public int Type { get; set; }
 
     /// <summary>
-    /// The original record's third field. The executable retains it in
-    /// hundredths, awards 20 or 35 after battle, and caps it at four medals.
+    /// Medals. The executable retains experience in hundredths, awards 20 or 35
+    /// after battle, and caps it at four medals. A legacy <c>army</c> record's
+    /// third field is a regiment count, not this, so imported regiments carry 0.
     /// </summary>
     public long Experience { get; set; }
 

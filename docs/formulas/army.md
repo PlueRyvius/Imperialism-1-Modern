@@ -183,9 +183,10 @@ price, no ARMS and no stats.
 
 A scenario's `army` records become regiments at world creation, owned by the **province's
 initial owner** — the owner is then stored on the regiment, so a capture can put one
-country's regiments in another's province without a model change. The record's experience
-field counts **medals**; the compiler stores **hundredths**, medals × 100 clamped to 400, as
-the executable does. Every imported regiment starts at health 500. A record on an unowned province is
+country's regiments in another's province without a model change. A legacy record's third
+field is a **regiment count**, so the importer writes one content `army` entry per
+regiment at zero experience. A content entry's experience counts **medals**; the compiler
+stores **hundredths**, medals × 100 clamped to 400, as the executable does. Every imported regiment starts at health 500. A record on an unowned province is
 not placed and is listed in `WorldState.UnplacedInitialArmies`. A world with no catalogue
 (any migrated package) places none, exactly as it behaved at v31.
 
