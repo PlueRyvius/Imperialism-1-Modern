@@ -1,3 +1,4 @@
+using System.Globalization;
 using Godot;
 using Imperialism.Core;
 using Imperialism.Presentation;
@@ -60,7 +61,8 @@ public sealed partial class ArmouryScreen : Control, IShellScreen
             ? "Country eliminated. All drafted orders are set aside."
             : "Each category builds its best type known as the turn opens. A regiment appears in the " +
               "capital's province next turn. Warnings do not block drafting.");
-        Text($"Cash claimed {armoury.CashClaimed} · Labour withheld {armoury.LabourWithheld}");
+        Text(string.Create(CultureInfo.InvariantCulture,
+            $"Cash claimed ${armoury.CashClaimed:N0} · Labour withheld {armoury.LabourWithheld}"));
 
         Heading("Regiments");
         foreach (var row in armoury.Categories)
