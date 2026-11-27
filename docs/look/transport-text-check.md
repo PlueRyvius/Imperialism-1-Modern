@@ -15,7 +15,8 @@ keep their original fonts. Header spacing is the font's normal spacing; ink
 and shadows retain D15's colours and offsets.
 
 The Transport smoke now checks antialiased Labels and scale-dependent
-oversampling, title/header/capacity width fit, same-line row name/figure fit,
+oversampling, heading ink bounds on both axes against D18, header/capacity
+width fit, same-line row name/figure fit,
 name origins at the bars, figure right edges x279/x529 and boxes within rows.
 It retains hover, geometry, row placement, input and order invariants. It no
 longer checks binary ink counts, whole 1x pixel blocks or the foot on `1`.
@@ -27,9 +28,21 @@ acceptance shot. The sample was visually inspected on the server. The CPU
 rasterizer found 8,351 fractional-alpha glyph pixels in the final sample,
 confirming antialiased source coverage rather than binary glyph textures.
 At native layout size 8, Lora's `Fish & Livestock` width is 61 and `15 / 19`
-is 25, leaving space in the 113-pixel bar span. Title size 16 measures 86/58 pixels in advance width and fits the
-existing 90/62-pixel title boxes. Exact Windows baseline/placement and visual
-acceptance beside the mockup remain untested until the ETHERCAT shot.
+is 25, leaving space in the 113-pixel bar span.
+
+The D18 fix uses title size 15 with the same bold variation axes and moves
+both Label origins 0.5 px right/up. At size 16, Ledger's thresholded ink
+spans 15 px vertically, so translation alone cannot fit the D18 pixel range.
+At final 2x resolution, alpha >= 0.5 pixel origins measure (1x coordinates):
+Transport (163, 87)..(242, 100.5), Ledger (417, 86)..(470, 100.5).
+D18's inclusive pixel boxes are tested as x [163,249) / [417,476), y [86,101),
+matching the independent gate probe. This checks ink, rather than advance
+width or the larger Label rectangle. The smoke shapes the live Label text
+and variation at final resolution, scans the glyph atlas, and uses its live
+position and vertically centred baseline. Empty ink fails too.
+The server-only gate probe was updated to read the current heading declarations
+instead of its hard-coded old positions, size and baseline.
+Exact Windows baseline/placement and visual acceptance beside the mockup remain untested until the ETHERCAT shot.
 
 Final server verification: the repository's Godot SDK 4.7.1 Release solution
 build exited 0 with **0 warnings and 0 errors**. The full suite passed
@@ -39,7 +52,12 @@ headless smokes (Transport, viewer, screen navigation, turn/report and orders)
 all exited 0 without warnings or errors. Transport reported final scale 2,
 8 fitting row labels, fitting headings, unchanged opening orders and restored
 navigation; one-unit arrow edits and zero/full drag endpoints passed.
-Server-only logs are in this worktree's `fixtures/local_only/text-crisp/`.
+The D18 fix reran these checks with one MSBuild worker and
+`DOTNET_PROCESSOR_COUNT=2` after parallel workers exhausted resources
+(`System.OutOfMemoryException` / MSBuild named-pipe socket failure).
+The Python disassembly suite also passed **28**, skipped **2** (local
+binary/listing unavailable). Server-only fix logs use the `fix-` prefix in
+this worktree's `fixtures/local_only/text-crisp/`.
 The original four font files, original art, Core and Presentation have no diff.
 
 ## Historical checks (superseded)

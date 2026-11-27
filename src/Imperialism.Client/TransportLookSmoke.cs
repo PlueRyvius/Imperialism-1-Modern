@@ -33,6 +33,9 @@ internal static class TransportLookSmoke
         }
         bool Fits(Label label) => label.GetThemeFont("font").GetStringSize(label.Text,
             fontSize: label.GetThemeFontSize("font_size")).X <= label.Size.X + 0.01f;
+        // D18 specifies inclusive ink-pixel boxes, not Label advance rectangles.
+        var titlesFit = TitleInkFits(leftTitle, new Rect2(163, 86, 86, 15), k) &
+            TitleInkFits(rightTitle, new Rect2(417, 86, 59, 15), k);
         var crisp = new[] { leftTitle, rightTitle, date, hot, detail }.All(Crisp);
         var preview = session.Preview().Transport;
         var sliders = canvas.GetChildren().OfType<LedgerSlider>().ToArray();
@@ -53,10 +56,10 @@ internal static class TransportLookSmoke
                 Math.Abs(slider.Position.X + figure.Position.X + figure.Size.X - (left ? 279 : 529)) < 0.01f;
         });
         var capacity = canvas.GetNode<Control>("CapacityRow").GetNode<Label>("capacity_figure");
-        crisp &= Crisp(capacity) && Fits(capacity) && rowText && Fits(leftTitle) && Fits(rightTitle) &&
+        crisp &= Crisp(capacity) && Fits(capacity) && rowText && titlesFit &&
             new[] { date, hot, detail }.All(Fits);
         GD.Print($"TRANSPORT_TEXT_{(crisp ? "OK" : "FAIL")} finalScale={k} rowLabels={sliders.Length * 2} " +
-            $"namesFit={rowText} titlesFit={Fits(leftTitle) && Fits(rightTitle)} antialiasing=grayscale");
+            $"namesFit={rowText} titlesFit={titlesFit} antialiasing=grayscale");
         var candidate = preview.Rows.FirstOrDefault(row => row.IsActive && (row.CanLower || row.CanRaise));
         if (candidate is null)
         {
@@ -96,4 +99,63 @@ internal static class TransportLookSmoke
             $"text={text} placed={placed} lower={lower} raise={raise} zero={zero} bounded={bounded} scale={k}");
         return ok;
     }
+
+    private static bool TitleInkFits(Label label, Rect2 target, int scale)
+    {
+        // Shape at final resolution with oversampling 1, as in the independent
+        // atlas probe. Read live Label text, variation axes, position and metrics.
+        var liveFont = label.GetThemeFont("font");
+        var font = (FontVariation)liveFont.Duplicate();
+        var face = (FontFile)font.BaseFont.Duplicate();
+        face.Oversampling = 1;
+        font.BaseFont = face;
+        var size = label.GetThemeFontSize("font_size");
+        var ts = TextServerManager.GetPrimaryInterface();
+        var shaped = ts.CreateShapedText();
+        try
+        {
+            ts.ShapedTextAddString(shaped, label.Text, font.GetRids(), size * scale);
+            ts.ShapedTextShape(shaped);
+            var baseline = label.Position + new Vector2(0,
+                Mathf.Floor((label.Size.Y - liveFont.GetHeight(size)) / 2) + liveFont.GetAscent(size));
+            var minimum = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+            var maximum = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+            var pen = 0f;
+            var cacheSize = new Vector2I(size * scale, 0);
+            foreach (var glyph in ts.ShapedTextGetGlyphs(shaped))
+            {
+                var rid = glyph["font_rid"].AsRid();
+                var index = glyph["index"].AsInt32();
+                ts.FontRenderGlyph(rid, cacheSize, index);
+                var uv = ts.FontGetGlyphUVRect(rid, cacheSize, index);
+                var offset = ts.FontGetGlyphOffset(rid, cacheSize, index);
+                var texture = ts.FontGetGlyphTextureIdx(rid, cacheSize, index);
+                if (texture >= 0)
+                {
+                    var atlas = ts.FontGetTextureImage(rid, cacheSize, texture);
+                    var logical = ts.FontGetGlyphSize(rid, cacheSize, index);
+                    for (var y = 0; y < (int)uv.Size.Y; y++)
+                    for (var x = 0; x < (int)uv.Size.X; x++)
+                    {
+                        if (atlas.GetPixel((int)uv.Position.X + x, (int)uv.Position.Y + y).A < 0.5f) continue;
+                        var point = baseline + new Vector2(pen, 0) / scale +
+                            (glyph["offset"].AsVector2() +
+                             offset + new Vector2(x, y) * (logical / uv.Size)) / scale;
+                        minimum = minimum.Min(point);
+                        maximum = maximum.Max(point);
+                    }
+                }
+                pen += glyph["advance"].AsSingle() * glyph["repeat"].AsInt32();
+            }
+            var fits = minimum.IsFinite() && maximum.IsFinite() && minimum.X >= target.Position.X && minimum.Y >= target.Position.Y &&
+                maximum.X < target.End.X && maximum.Y < target.End.Y;
+            GD.Print($"TRANSPORT_TITLE_INK {label.Text} {minimum}..{maximum} D18_FITS={fits}");
+            return fits;
+        }
+        finally
+        {
+            ts.FreeRid(shaped);
+        }
+    }
+
 }
