@@ -343,13 +343,9 @@ public sealed class MilitaryOrdersTests
         var game = new Game(Compile(blueCash: cash));
         var before = game.State.GetRegiments(Blue).Count;
         game.Draft.SetRegimentPurchase(ArmyCategory.RegularInfantry, count);
-        game.Draft.SetRegimentPurchase(ArmyCategory.Militia, 1);
 
         var preview = game.Preview().Armoury;
         Assert.Equal(expected, preview.Categories.Single(row => row.Category == ArmyCategory.RegularInfantry).Warning);
-        Assert.Equal(
-            RegimentPurchaseRefusal.NotPurchasable,
-            preview.Categories.Single(row => row.Category == ArmyCategory.Militia).Warning);
         Assert.Equal(expected is null ? count * 500 : 0, preview.CashClaimed);
 
         game.EndTurn();
@@ -370,7 +366,6 @@ public sealed class MilitaryOrdersTests
         var control = new Game(Compile(blueCash: cash));
         var game = new Game(Compile(blueCash: cash));
         game.Draft.SetRegimentPurchase(ArmyCategory.RegularInfantry, count);
-        game.Draft.SetRegimentPurchase(ArmyCategory.Militia, 1);
         var categories = game.Preview().Armoury.Categories;
 
         control.EndTurn();
@@ -381,7 +376,31 @@ public sealed class MilitaryOrdersTests
         Assert.Equal(
             game.State.GetRegiments(Blue).Count - control.State.GetRegiments(Blue).Count,
             categories.Single(row => row.Category == ArmyCategory.RegularInfantry).WorkersTaken);
-        Assert.Equal(0, categories.Single(row => row.Category == ArmyCategory.Militia).WorkersTaken);
+    }
+
+    [Fact]
+    public void TheArmouryHasNoMilitiaRow()
+    {
+        // Owner ruling, issue #99: militia is a province's own garrison, never recruited.
+        var categories = new Game(Compile()).Preview().Armoury.Categories;
+
+        Assert.DoesNotContain(categories, row => row.Category == ArmyCategory.Militia);
+        Assert.Equal(
+            Enum.GetValues<ArmyCategory>().Where(category => category != ArmyCategory.Militia),
+            categories.Select(static row => row.Category));
+    }
+
+    [Fact]
+    public void DraftingMilitiaIsRejectedAndBuildsNoPurchase()
+    {
+        var game = new Game(Compile());
+
+        Assert.Throws<ArgumentException>(() => game.Draft.SetRegimentPurchase(ArmyCategory.Militia, 1));
+        Assert.Empty(game.Draft.RegimentPurchases);
+        Assert.True(game.Draft.IsEmpty);
+        Assert.Empty(game.Draft.Build().RegimentPurchases);
+        // Core's NotPurchasable refusal stays the guard for direct callers:
+        // RegimentTests.MilitiaIsNotBuiltInTheArmoury.
     }
 
     [Fact]

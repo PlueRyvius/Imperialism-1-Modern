@@ -227,7 +227,8 @@ below.
 
 The previews, **labelled previews**, restate Core's planners:
 
-- `OrdersPreview.Armoury` gives every category with the type it would build as the
+- `OrdersPreview.Armoury` gives every category but Militia (a garrison, never
+  recruited: issue #99, and `SetRegimentPurchase` rejects it) with the type it would build as the
   turn opens, the worker grade, the bill, cash and arms, and Core's refusal of the
   drafted row. It also lists the Garrison book: every regiment held, with its province,
   health, experience and drafted destination.

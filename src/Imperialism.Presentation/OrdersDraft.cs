@@ -555,6 +555,11 @@ public sealed class OrdersDraft
     /// raise. Which type that is, is read as the turn opens; the draft keeps only the
     /// category, as Core's order does.
     /// </summary>
+    /// <exception cref="ArgumentException">
+    /// <see cref="ArmyCategory.Militia"/>, which the Armoury has no row for: militia is a
+    /// garrison raised in the province, not recruited (owner ruling, issue #99). Core still
+    /// refuses it as <c>NotPurchasable</c> for any caller that bypasses the draft.
+    /// </exception>
     public void SetRegimentPurchase(ArmyCategory category, long count)
     {
         if (!Enum.IsDefined(category))
@@ -562,8 +567,21 @@ public sealed class OrdersDraft
             throw new ArgumentOutOfRangeException(nameof(category));
         }
 
+        if (!IsPurchasableCategory(category))
+        {
+            throw new ArgumentException(
+                "Militia is a province's own garrison; the Armoury has no row for it.",
+                nameof(category));
+        }
+
         Set(_regimentPurchases, category, count);
     }
+
+    /// <summary>
+    /// Whether the Armoury offers this category at all. Every category but
+    /// <see cref="ArmyCategory.Militia"/> (issue #99).
+    /// </summary>
+    public static bool IsPurchasableCategory(ArmyCategory category) => category != ArmyCategory.Militia;
 
     /// <summary>The Shipyard's arrows for a hull class.</summary>
     public void SetShipBuild(ShipTypeId type, long count)

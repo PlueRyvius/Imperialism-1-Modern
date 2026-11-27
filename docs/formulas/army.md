@@ -64,6 +64,7 @@ their own table under Battles.
 | Which technology opens each era | **manual**, the Regimental Upgrade Requirement Table, 1620–1641; **corroborated** by the `STR#ENU.GOB` technology effect strings for every regular type (below) |
 | "Rifled Guns" and "Heavy Guns" are Rifled Artillery and Large Artillery | **chosen rule 10** — an inference from the manual, **now resource-backed**: the effect strings say exactly this |
 | Militia is never built in the Armoury and never leaves its province | **manual**, 1645–1655 |
+| Militia is not recruitable: it is "generated automatically in the province as a basic garrison", so the Armoury has no Militia row and the draft rejects it | **owner ruling**, Andy, 27 Nov 2026 ([issue #99](https://github.com/PlueRyvius/Imperialism-1-Modern/issues/99)); the garrison itself is not modelled yet |
 | Minutemen, Militia and Conscripts "cannot be deployed by rail" | **manual**, 4038–4041 |
 | New units start in the province of the capital | **manual**, 2675–2682 |
 | A march goes to an adjacent friendly province; the train goes further in friendly territory | **manual**, 1751–1763 |
