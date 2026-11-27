@@ -88,6 +88,53 @@ public sealed class OrdersDraftTests
         Assert.Equal(0, rows[id["lumber"]] + rows[id["steel"]]);
     }
 
+    /// <summary>
+    /// D12: the original's underlines on the same screen. Timber, coal and iron red,
+    /// horses none, the rest green. Red needs demand past Available (timber 16/16), so
+    /// demand is not capped there, while the fill still is.
+    /// </summary>
+    [Fact]
+    public void TheDemandLineReproducesTheOriginalGreatBritainS1Underlines()
+    {
+        var inputs = GreatBritainS1Inputs(GreatBritainS1Capacity, out var id);
+        var line = TransportDefault.DemandLine(inputs);
+        var rows = TransportDefault.Allocate(inputs).ToDictionary(static row => row.Commodity, static row => row.Quantity);
+
+        string Underline(string[] commodities)
+        {
+            var demand = commodities.Sum(name => line.Demand[id[name].Value]);
+            var carried = commodities.Sum(name => rows[id[name]]);
+            return demand <= 0 ? "none" : carried >= demand ? "green" : "red";
+        }
+
+        Assert.Equal(
+            ["green", "green", "green", "red", "red", "red", "green", "none"],
+            GreatBritainS1Screen.Select(row => Underline(row.Commodities)));
+
+        // The mills want their whole capacity: lumber 10 cycles, steel 12, textile 13.
+        Assert.Equal(20, line.Demand[id["timber"].Value]);
+        Assert.Equal((12L, 12L), (line.Demand[id["coal"].Value], line.Demand[id["iron"].Value]));
+        Assert.Equal(26, line.Demand[id["cotton"].Value] + line.Demand[id["wool"].Value]);
+
+        // The fill reads Carry, which is unchanged: capped at Available, coal held to iron.
+        Assert.All(inputs.Rows, commodity => Assert.Equal(line.Carry[commodity.Value], rows[commodity]));
+        Assert.All(inputs.Rows, commodity => Assert.True(line.Demand[commodity.Value] >= line.Carry[commodity.Value]));
+    }
+
+    [Fact]
+    public void UncappedMillDemandIsNetOfStock()
+    {
+        // Three iron in the warehouse: the steel mill's 12 cycles want 12 coal and 9 iron.
+        var plain = GreatBritainS1Inputs(GreatBritainS1Capacity, out var id);
+        var stock = plain.Stock.ToArray();
+        stock[id["iron"].Value] = 3;
+
+        var line = TransportDefault.DemandLine(plain with { Stock = stock });
+
+        Assert.Equal((12L, 9L), (line.Demand[id["coal"].Value], line.Demand[id["iron"].Value]));
+        Assert.Equal((11L, 8L), (line.Carry[id["coal"].Value], line.Carry[id["iron"].Value]));
+    }
+
     [Fact]
     public void DemandOverCapacityIsTrimmedInRowOrderFoodFirst()
     {

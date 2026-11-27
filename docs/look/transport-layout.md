@@ -249,3 +249,37 @@ transport order per commodity exactly as today.
   leaves out port fishing, so a country that fishes only from ports sees a greyed
   fish row. It is unchanged because counting port fishing would change the opening
   fill, which matches the original on GB s1 apart from issue #92. The PR lists it.
+- **D12. Uncapped demand, a three-way underline, and Available from Extraction**
+  (claude-2, for the Architect's review). This supersedes D10's colour rule, D11's
+  "Demand is capped at Available" and D11's port-fishing limit.
+  - *Manual:* a row's demand is what the workers and mills want, "taking your
+    warehouse stockpile into account" (lines 2283–2300). It is **not capped at
+    Available**. The original underlines timber 16/16 red on GB `s1`, which a
+    capped demand could never do. Lines appear only under "many" sliders, so
+    `TransportRowView.DemandStatus` is `None` when demand is 0 (no line, as under
+    the original's horses), `Met` when what is carried covers demand (green) and
+    `Short` otherwise (red). `LedgerSlider` draws that and nothing else.
+  - *Unchanged:* the opening fill reads `TransportDemandLine.Carry`, the old
+    capped figure, so `Allocate` and every opening figure are exactly as before.
+  - *Chosen:* food nothing can supply is charged to the cycle position's first
+    accepted commodity. Mill capacity left idle for want of inputs is charged as
+    idle cycles of the mill's first recipe, net of the stock left over. Every
+    shipped mill's recipes share one ledger row, so the screen can't show the choice.
+  - *Chosen restatement:* `Available` is what `ExtractionPlanner` is expected to
+    collect. It counts owned deposits within `CatchmentRadius` of the capital, of
+    owned ports with sea access and of depots whose rail reaches the capital or a
+    gateway port with a depot, behind the same technology gate and yield curve, plus
+    port fishing from the capital and seed ports. It is no longer an upper bound.
+    `TransportLedgerTests.AvailableIsWhatExtractionCollectsThisTurn` checks it
+    against a resolved turn. **Limits:** a river port (no adjacent sea zone) is
+    assumed to reach the sea, because Core's `RiverPortConnectivity` is internal.
+    Ownership is read as the turn opens, while Extraction reads it after `Conflict`.
+  - **(b) cotton + wool 24/47 against the original's 26/45.** Available
+    is not what binds: with 47 available, a 13-point mill and an empty warehouse,
+    the rule carries 26. Carrying 24 means one of two things. Either GB's imported
+    textile capacity is 12, or two cotton/wool sit in GB's opening warehouse and the
+    rule nets them while the original's fill may not. Both are importer or Core content. The
+    PC must read GB's `capa` and `ware` for `s1` to tell them apart. Available's
+    47 against 45 is the same kind of question, about the yield and catchment
+    figures on real data.
+  - **(b) horses 0/3 against 1/3** stays issue #92. No horse demand is invented.

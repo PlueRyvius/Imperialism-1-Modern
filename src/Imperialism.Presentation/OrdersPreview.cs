@@ -459,7 +459,7 @@ public sealed partial class OrdersPreview
             requested[id.Value],
             committed[id.Value],
             line.Available[id.Value],
-            line.Demand[id.Value]);
+            line.Demand[id.Value]); // Uncapped: the underline's demand (D12).
 
         TransportRowView Row(IReadOnlyList<CommodityId> ids, TransportLedgerColumn column, int slot, int? strip)
         {

@@ -288,23 +288,133 @@ public sealed class TransportLedgerTests
     }
 
     [Fact]
-    public void TheUnderlineIsGreenOnlyWhenWhatIsCarriedCoversDemand()
+    public void TheUnderlineIsRedWhileDemandExceedsWhatIsCarriedEvenPastAvailable()
     {
-        // Seven workers on grain and an empty warehouse: grain's demand is the 2 gathered.
+        // D12, from the manual (2283–2300) and the original's GB s1 screen: seven workers
+        // on grain and an empty warehouse want 7 grain, though only 2 are gathered.
         var (package, state) = World(capacity: 40, stocked: false);
         var grain = Commodity(package, "commodity.grain");
         var draft = new OrdersDraft(state.Definition, Blue);
-        draft.SetTransport(grain, 1);
+        draft.SetTransport(grain, 2);
 
-        var short1 = Preview(package, state, draft).GetRow("commodity.grain")!;
-        Assert.Equal((2L, 1L), (short1.Demand, short1.Committed));
-        Assert.False(short1.IsDemandMet);
+        var row = Preview(package, state, draft).GetRow("commodity.grain")!;
+
+        Assert.Equal((7L, 2L, 2L), (row.Demand, row.Committed, row.Available));
+        Assert.Equal(TransportDemandStatus.Short, row.DemandStatus);
+    }
+
+    [Fact]
+    public void TheUnderlineIsGreenWhenWhatIsCarriedCoversDemand()
+    {
+        // Six grain in the warehouse feed six of the seven workers, so one is wanted from
+        // the fields: red at 0, green at 1 and above ("enough or more than enough").
+        var (package, state) = World(capacity: 40, stocked: false, customise: static document =>
+        {
+            foreach (var scenario in document.Scenarios)
+            {
+                scenario.InitialInventory =
+                [
+                    new InitialInventoryContent { Country = "country.blue", Commodity = "commodity.grain", Quantity = 6 },
+                ];
+            }
+        });
+        var grain = Commodity(package, "commodity.grain");
+        var draft = new OrdersDraft(state.Definition, Blue);
+        draft.SetTransport(grain, 0);
+        Assert.Equal(1L, Preview(package, state, draft).GetRow("commodity.grain")!.Demand);
+        Assert.Equal(TransportDemandStatus.Short, Preview(package, state, draft).GetRow("commodity.grain")!.DemandStatus);
+
+        draft.SetTransport(grain, 1);
+        Assert.Equal(TransportDemandStatus.Met, Preview(package, state, draft).GetRow("commodity.grain")!.DemandStatus);
 
         draft.SetTransport(grain, 2);
-        Assert.True(Preview(package, state, draft).GetRow("commodity.grain")!.IsDemandMet);
+        Assert.Equal(TransportDemandStatus.Met, Preview(package, state, draft).GetRow("commodity.grain")!.DemandStatus);
+    }
 
-        // A row with no demand is met at zero.
-        Assert.True(Preview(package, state, draft).GetRow(CottonWool)!.IsDemandMet);
+    [Fact]
+    public void ARowNothingWantsHasNoUnderlineEvenWhenItCarriesSomething()
+    {
+        // The original's horses: 1 carried, no line. Nothing in the fixture uses cotton.
+        var (package, state) = World();
+        var draft = new OrdersDraft(state.Definition, Blue);
+        draft.SetTransport(Commodity(package, "commodity.cotton"), 1);
+
+        var row = Preview(package, state, draft).GetRow(CottonWool)!;
+
+        Assert.Equal((0L, 1L), (row.Demand, row.Committed));
+        Assert.Equal(TransportDemandStatus.None, row.DemandStatus);
+    }
+
+    /// <summary>
+    /// D12: a row's Available is what Extraction collects, not every owned tile. A 6x1
+    /// map: Blue's capital (0, grain), plain land (1), grain two tiles out (2), sea (3), a
+    /// port on grain (4), and Red's capital (5). With a catchment of 1 the grain at 2 is
+    /// out of reach, unless a depot on a line to the capital stands on it. The port
+    /// fishes its one sea tile; the capital has no water.
+    /// </summary>
+    [Theory]
+    [InlineData(false, 4)]
+    [InlineData(true, 6)]
+    public void AvailableIsWhatExtractionCollectsThisTurn(bool depotOnTheFarGrain, long grainExpected)
+    {
+        var package = OrdersFixture.Compile(document =>
+        {
+            document.Commodities =
+            [
+                .. document.Commodities,
+                new CommodityContentDefinition { Key = "commodity.fish", Name = "Fish", Category = CommodityCategory.Raw },
+            ];
+            document.Extraction = new ExtractionContentSettings
+            {
+                CatchmentRadius = 1,
+                PortFishing = new PortFishingContent { Commodity = "commodity.fish", YieldPerAdjacentWaterTile = 3 },
+            };
+            CellContentDocument Land(string province, bool grain = false, bool town = false) => new()
+            {
+                Terrain = "terrain.plains",
+                Region = new CellRegionContent { Province = province },
+                Resources = grain ? ["resource.grain"] : [],
+                HasSettlementSite = town,
+            };
+            document.Map.Width = 6;
+            document.Map.Cells =
+            [
+                Land("province.home", grain: true, town: true),
+                Land("province.home"),
+                Land("province.home", grain: true),
+                new CellContentDocument { Terrain = "terrain.ocean", Region = new CellRegionContent { SeaZone = "sea.north" } },
+                Land("province.home", grain: true),
+                Land("province.far", town: true),
+            ];
+            foreach (var scenario in document.Scenarios)
+            {
+                scenario.Capitals =
+                [
+                    new CountryCapitalContent { Country = "country.blue", Cell = 0 },
+                    new CountryCapitalContent { Country = "country.red", Cell = 5 },
+                ];
+                scenario.Ports = [4];
+                if (depotOnTheFarGrain)
+                {
+                    scenario.Rails = [new CellLinkContent { First = 0, Second = 1 }, new CellLinkContent { First = 1, Second = 2 }];
+                    scenario.Depots = [2];
+                }
+            }
+        });
+        var state = NewState(package);
+        var draft = new OrdersDraft(state.Definition, Blue);
+        var transport = Preview(package, state, draft);
+
+        var grain = Commodity(package, "commodity.grain");
+        var fish = Commodity(package, "commodity.fish");
+        Assert.Equal(grainExpected, transport.GetRow("commodity.grain")!.Available);
+        Assert.Equal(3L, transport.GetRow("commodity.fish")!.Available);
+
+        // And the restatement agrees with the engine it restates.
+        var collected = TurnResolver.Resolve(state, draft.BuildTurnOrders(), 1).Events
+            .OfType<ResourceExtractedEvent>().Single(extracted => extracted.Country == Blue).Collected;
+        Assert.Equal(grainExpected, collected.Where(item => item.Commodity == grain).Sum(static item => item.Quantity));
+        Assert.Equal(3L, collected.Where(item => item.Commodity == fish).Sum(static item => item.Quantity));
     }
 
     [Fact]

@@ -9,6 +9,19 @@ public enum TransportLedgerColumn : byte
     Right,
 }
 
+/// <summary>The demand line under a Transport ledger row (layout note D12).</summary>
+public enum TransportDemandStatus : byte
+{
+    /// <summary>No worker or mill wants the row: no line, as under the original's horses.</summary>
+    None,
+
+    /// <summary>What is carried covers the demand: a green line.</summary>
+    Met,
+
+    /// <summary>The workers or mills want more than is carried: a red line.</summary>
+    Short,
+}
+
 /// <summary>
 /// One commodity on a Transport ledger row. A row holds one, or two for the original's
 /// shared strips.
@@ -16,12 +29,13 @@ public enum TransportLedgerColumn : byte
 /// <param name="Requested">What the draft orders now.</param>
 /// <param name="Committed">What the shared bar carries of that, in the draft's order.</param>
 /// <param name="Available">
-/// <see cref="TransportDemandInputs.Available"/>: what the tiles are expected to yield,
-/// an upper bound, because Core gathers only inside a connected catchment.
+/// <see cref="TransportDemandInputs.Available"/>: what Extraction is expected to gather
+/// this turn, restating its catchment and port fishing (layout note D12).
 /// </param>
 /// <param name="Demand">
-/// <see cref="TransportDefault.DemandLine"/>'s demand: what the workers and mills want
-/// carried, net of stock and capped at <paramref name="Available"/>.
+/// <see cref="TransportDemandLine.Demand"/>: what the workers and mills want carried,
+/// net of stock and <b>not</b> capped at <paramref name="Available"/> (D12), so a mill
+/// that wants more than exists shows short.
 /// </param>
 public sealed record TransportRowMember(
     string CommodityKey,
@@ -38,9 +52,9 @@ public sealed record TransportRowMember(
 /// </summary>
 /// <remarks>
 /// The figure is <see cref="Requested"/> / <see cref="Available"/> (D10), and
-/// <see cref="Available"/> is an upper bound. The underline is green when
-/// <see cref="IsDemandMet"/>. A row with nothing available is drawn greyed and takes no
-/// clicks (D9): <see cref="IsActive"/>.
+/// <see cref="Available"/> is Extraction's expected gather. The underline is
+/// <see cref="DemandStatus"/> (D12): none, green or red. A row with nothing available is
+/// drawn greyed and takes no clicks (D9): <see cref="IsActive"/>.
 /// </remarks>
 /// <param name="RowKey">The member keys joined by <c>+</c>, in strip order; stable.</param>
 /// <param name="Name">A single member's name, or "A &amp; B" for a shared strip.</param>
@@ -65,8 +79,13 @@ public sealed record TransportRowView(
     bool CanRaise,
     bool CanLower)
 {
-    /// <summary>The ordered amount covers the row's demand: a green underline.</summary>
-    public bool IsDemandMet => Committed >= Demand;
+    /// <summary>
+    /// The demand line under the slider (manual 2283–2300, D12): none when nothing wants
+    /// the row, green when what is carried covers the demand, red when it falls short.
+    /// </summary>
+    public TransportDemandStatus DemandStatus => Demand <= 0
+        ? TransportDemandStatus.None
+        : Committed >= Demand ? TransportDemandStatus.Met : TransportDemandStatus.Short;
 
     /// <summary>Something is expected to be gathered, so the strip is pasted and editable.</summary>
     public bool IsActive => Available > 0;

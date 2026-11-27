@@ -582,14 +582,15 @@ There are no numeric boxes, priority buttons or End Turn control on Transport.
 The four icons are static; F1–F6 and Escape keep the existing navigation.
 
 The round handle and good's name below the bar are the approved mockup additions.
-Each row shows **ordered / available**, with availability an upper bound. Hover
-text replaces tooltips and shows the row name and availability; over an underline
-it shows demand. Inactive rows leave the background's greyed art untouched;
-D11 still allows a left-arrow click to clear a saved order there. Capacity stays
-in the lower-right strip. **Known limit:** availability excludes port fishing,
-so a ports-only fish row is greyed. One custom gatherable good can use the empty
-right-page slot without a strip; further unmatched goods are not shown. Windows
-acceptance at 1920x1080 beside the original remains pending.
+Each row shows **ordered / available**, availability being what Extraction is
+expected to collect this turn, port fishing included (D12). Hover text replaces
+tooltips and shows the row name and availability; over an underline it shows
+demand. The underline is green when what is carried covers demand, red when it
+does not, and absent where nothing wants the row (D12). Inactive rows leave the
+background's greyed art untouched; D11 still allows a left-arrow click to clear a
+saved order there. Capacity stays in the lower-right strip. One custom gatherable
+good can use the empty right-page slot without a strip; further unmatched goods
+are not shown. Windows acceptance at 1920x1080 beside the original remains pending.
 
 `godot --headless --path src/Imperialism.Client --resolution 1920x1080 -- --smoke-transport`
 uses the orders demo and checks the actual ledger arrow/track input wiring,
@@ -627,8 +628,8 @@ Armoury (lines 2371–2383), which is a purchase, not a standing demand Presenta
 can read. So the default opens horses at 0 and the total at 118, not 119. The test
 fixture uses only the importer's three mills and does not invent a horse consumer. Great Britain's real workforce, mill
 capacities and warehouse are still to come from the PC; the test's fixture names
-each figure it assumes. Availability is the owned tiles' yield, an upper bound,
-because Presentation cannot see which tiles a depot reaches.
+each figure it assumes. Availability restates Extraction's catchment and port
+fishing from public state (D12); its limits are listed there.
 
 Entering either screen inserts missing rows at zero without changing existing
 quantities or priorities. Editing a control writes to `session.Draft`, then reads
