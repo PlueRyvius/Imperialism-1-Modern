@@ -43,18 +43,71 @@ internal static class TransportLookSmoke
             slider.GetMeta("layout_name").AsString() == "row." + row.RowKey &&
             slider.Position == new Vector2(row.Column == Presentation.TransportLedgerColumn.Left ? 70 : 325,
                 118 + 31 * row.Slot)));
-        var rowText = sliders.All(slider =>
+        var tightestGap = float.PositiveInfinity;
+        var smallestSize = LedgerSlider.PreferredTextSize;
+        var checkedRows = 0;
+        bool RowFits(LedgerSlider slider)
         {
+            checkedRows++;
             var name = slider.GetNode<Label>("row_name");
             var figure = slider.GetNode<Label>("row_figure");
             var left = slider.Position.X == 70;
-            return Crisp(name) && Crisp(figure) && Fits(name) && Fits(figure) &&
+            var size = name.GetThemeFontSize("font_size");
+            var font = name.GetThemeFont("font");
+            var expectedSize = Enumerable.Range(1, 10).Where(candidateSize =>
+                font.GetStringSize(name.Text, fontSize: candidateSize).X +
+                font.GetStringSize(figure.Text, fontSize: candidateSize).X + 3 <= (left ? 113 : 112))
+                .DefaultIfEmpty(1).Max();
+            var (nameMin, nameMax) = InkBounds(name, k, 1f / 255);
+            var (figureMin, figureMax) = InkBounds(figure, k, 1f / 255);
+            var gap = figureMin.X - nameMax.X - 1f / k;
+            tightestGap = Math.Min(tightestGap, gap);
+            smallestSize = Math.Min(smallestSize, size);
+            var fits = Crisp(name) && Crisp(figure) && Fits(name) && Fits(figure) &&
+                size == expectedSize && figure.GetThemeFontSize("font_size") == size &&
+                nameMin.IsFinite() && figureMin.IsFinite() &&
+                nameMin.X >= name.Position.X && nameMax.X < name.Position.X + name.Size.X &&
+                figureMin.X >= figure.Position.X && figureMax.X < figure.Position.X + figure.Size.X &&
+                nameMin.Y >= 20 && figureMin.Y >= 20 &&
+                nameMax.Y < 31 && figureMax.Y < 31 && gap >= LedgerSlider.TextGap &&
                 name.Position.X == (left ? 96 : 92) && name.Position.Y == figure.Position.Y &&
                 name.Position.X + name.Size.X <= figure.Position.X &&
                 name.Position.Y + name.Size.Y <= slider.Size.Y &&
                 figure.Position.Y + figure.Size.Y <= slider.Size.Y &&
                 Math.Abs(slider.Position.X + figure.Position.X + figure.Size.X - (left ? 279 : 529)) < 0.01f;
-        });
+            if (!fits) GD.Print($"TRANSPORT_ROW_FAIL name={name.Text} figure={figure.Text} size={size}/{expectedSize} " +
+                $"nameBox={name.Position}/{name.Size} ink={nameMin}..{nameMax} figureBox={figure.Position}/{figure.Size} " +
+                $"ink={figureMin}..{figureMax} gap={gap} crisp={Crisp(name)}/{Crisp(figure)} advanceFit={Fits(name)}/{Fits(figure)}");
+            return fits;
+        }
+        var rowText = LedgerSlider.PreferredTextSize == 10 && LedgerSlider.TextGap == 3 && sliders.All(RowFits);
+        // Exercise long paired names with the widest requested sample in both
+        // columns, independently of the tiny smoke world's active commodities.
+        var rowFont = sliders[0].GetNode<Label>("row_name").GetThemeFont("font");
+        while (rowFont is FontVariation rowVariation) rowFont = rowVariation.BaseFont;
+        foreach (var column in Enum.GetValues<Presentation.TransportLedgerColumn>())
+        foreach (var (requested, available) in new[] { (15L, 19L), (119L, 120L) })
+        foreach (var name in preview.Rows.Select(row => row.Name).Concat(new[] { "Fish & Livestock", "Cotton & Wool" }).Distinct())
+        {
+            var row = preview.Rows[0] with { Column = column, Name = name, Requested = requested, Available = available };
+            var sample = new LedgerSlider { Position = new Vector2(column == Presentation.TransportLedgerColumn.Left ? 70 : 325, 0) };
+            // Inherit the live screen's theme before testing Label minimum sizes.
+            canvas.AddChild(sample);
+            sample.Build(row, rowFont);
+            rowText &= RowFits(sample);
+            sample.Free();
+        }
+        var measurement = new LedgerSlider { Position = new Vector2(70, 0) };
+        canvas.AddChild(measurement);
+        measurement.Build(preview.Rows[0] with { Name = "Fish & Livestock", Column = Presentation.TransportLedgerColumn.Left,
+            Requested = 15, Available = 19 }, rowFont);
+        var (sampleNameMin, sampleNameMax) = InkBounds(measurement.GetNode<Label>("row_name"), k, 1f / 255);
+        var (sampleFigureMin, sampleFigureMax) = InkBounds(measurement.GetNode<Label>("row_figure"), k, 1f / 255);
+        rowText &= RowFits(measurement);
+        GD.Print($"TRANSPORT_ROW_INK scale={k} preferredSize={LedgerSlider.PreferredTextSize} smallestSize={smallestSize} fitCases={checkedRows} " +
+            $"nameHeight={(sampleNameMax.Y - sampleNameMin.Y) * k + 1} figureHeight={(sampleFigureMax.Y - sampleFigureMin.Y) * k + 1} " +
+            $"tightestGap={tightestGap} name={sampleNameMin}..{sampleNameMax} figure={sampleFigureMin}..{sampleFigureMax}");
+        measurement.Free();
         var capacity = canvas.GetNode<Control>("CapacityRow").GetNode<Label>("capacity_figure");
         crisp &= Crisp(capacity) && Fits(capacity) && rowText && titlesFit &&
             new[] { date, hot, detail }.All(Fits);
@@ -102,13 +155,33 @@ internal static class TransportLookSmoke
 
     private static bool TitleInkFits(Label label, Rect2 target, int scale)
     {
+        var (minimum, maximum) = InkBounds(label, scale);
+        var fits = minimum.IsFinite() && maximum.IsFinite() && minimum.X >= target.Position.X && minimum.Y >= target.Position.Y &&
+            maximum.X < target.End.X && maximum.Y < target.End.Y;
+        GD.Print($"TRANSPORT_TITLE_INK {label.Text} {minimum}..{maximum} D18_FITS={fits}");
+        return fits;
+    }
+
+    private static (Vector2 Minimum, Vector2 Maximum) InkBounds(Label label, int scale, float threshold = 0.5f)
+    {
         // Shape at final resolution with oversampling 1, as in the independent
         // atlas probe. Read live Label text, variation axes, position and metrics.
         var liveFont = label.GetThemeFont("font");
-        var font = (FontVariation)liveFont.Duplicate();
-        var face = (FontFile)font.BaseFont.Duplicate();
-        face.Oversampling = 1;
-        font.BaseFont = face;
+        Font font;
+        if (liveFont is FontVariation variation)
+        {
+            var copy = (FontVariation)variation.Duplicate();
+            var face = (FontFile)copy.BaseFont.Duplicate();
+            face.Oversampling = 1;
+            copy.BaseFont = face;
+            font = copy;
+        }
+        else
+        {
+            var face = (FontFile)liveFont.Duplicate();
+            face.Oversampling = 1;
+            font = face;
+        }
         var size = label.GetThemeFontSize("font_size");
         var ts = TextServerManager.GetPrimaryInterface();
         var shaped = ts.CreateShapedText();
@@ -137,7 +210,7 @@ internal static class TransportLookSmoke
                     for (var y = 0; y < (int)uv.Size.Y; y++)
                     for (var x = 0; x < (int)uv.Size.X; x++)
                     {
-                        if (atlas.GetPixel((int)uv.Position.X + x, (int)uv.Position.Y + y).A < 0.5f) continue;
+                        if (atlas.GetPixel((int)uv.Position.X + x, (int)uv.Position.Y + y).A < threshold) continue;
                         var point = baseline + new Vector2(pen, 0) / scale +
                             (glyph["offset"].AsVector2() +
                              offset + new Vector2(x, y) * (logical / uv.Size)) / scale;
@@ -147,10 +220,7 @@ internal static class TransportLookSmoke
                 }
                 pen += glyph["advance"].AsSingle() * glyph["repeat"].AsInt32();
             }
-            var fits = minimum.IsFinite() && maximum.IsFinite() && minimum.X >= target.Position.X && minimum.Y >= target.Position.Y &&
-                maximum.X < target.End.X && maximum.Y < target.End.Y;
-            GD.Print($"TRANSPORT_TITLE_INK {label.Text} {minimum}..{maximum} D18_FITS={fits}");
-            return fits;
+            return (minimum, maximum);
         }
         finally
         {

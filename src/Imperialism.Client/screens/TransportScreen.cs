@@ -52,8 +52,8 @@ public sealed partial class TransportScreen : Control, IShellScreen
         _canvas = GD.Load<PackedScene>("res://scenes/TransportLayout.tscn").Instantiate<Control>();
         AddChild(_canvas);
         // Per-screen copies: oversampling must not mutate the other screens' cached fonts.
-        _bodyFont = (FontFile)GD.Load<FontFile>("res://art/fonts/transport-lora.ttf").Duplicate();
-        _headingFont = (FontFile)GD.Load<FontFile>("res://art/fonts/transport-fraunces.ttf").Duplicate();
+        _bodyFont = (FontFile)GD.Load<FontFile>("res://art/fonts/lora.ttf").Duplicate();
+        _headingFont = (FontFile)GD.Load<FontFile>("res://art/fonts/fraunces.ttf").Duplicate();
         foreach (var font in new[] { _bodyFont, _headingFont })
         {
             font.Antialiasing = TextServer.FontAntialiasing.Gray;

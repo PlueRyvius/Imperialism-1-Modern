@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://dp88leiykj7m"
-path="res://.godot/imported/transport-lora.ttf-118dbeea28a6498918eb2277c921fecc.fontdata"
+uid="uid://1iejxnpo5tld"
+path="res://.godot/imported/lora.ttf-8996395810b3ddede13f855000941f74.fontdata"
 
 [deps]
 
-source_file="res://art/fonts/transport-lora.ttf"
-dest_files=["res://.godot/imported/transport-lora.ttf-118dbeea28a6498918eb2277c921fecc.fontdata"]
+source_file="res://art/fonts/lora.ttf"
+dest_files=["res://.godot/imported/lora.ttf-8996395810b3ddede13f855000941f74.fontdata"]
 
 [params]
 

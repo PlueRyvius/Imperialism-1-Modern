@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://ch4wuujm2m1rv"
-path="res://.godot/imported/transport-fraunces.ttf-336686182159446692fc1643e173f46f.fontdata"
+uid="uid://wpvfjeji8kb8"
+path="res://.godot/imported/fraunces.ttf-6873d5a3aa5be1a324d4ff62b20ffb13.fontdata"
 
 [deps]
 
-source_file="res://art/fonts/transport-fraunces.ttf"
-dest_files=["res://.godot/imported/transport-fraunces.ttf-336686182159446692fc1643e173f46f.fontdata"]
+source_file="res://art/fonts/fraunces.ttf"
+dest_files=["res://.godot/imported/fraunces.ttf-6873d5a3aa5be1a324d4ff62b20ffb13.fontdata"]
 
 [params]
 

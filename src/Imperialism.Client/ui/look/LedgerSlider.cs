@@ -4,7 +4,7 @@ using Imperialism.Presentation;
 namespace Imperialism.Client;
 
 /// <summary>
-/// One original 224x30 row. Arithmetic here only maps values to pixels and pointer
+/// One original 224x30 strip within a 31 px row pitch. Arithmetic maps values to pixels and pointer
 /// positions to a requested total; Presentation owns all bounds and edit decisions.
 /// </summary>
 public sealed partial class LedgerSlider : Control
@@ -31,18 +31,18 @@ public sealed partial class LedgerSlider : Control
     {
         Name = "row_" + row.RowKey.Replace("commodity.", "").Replace('+', '_');
         SetMeta("layout_name", "row." + row.RowKey);
-        Size = new Vector2(224, 30);
+        Size = new Vector2(224, 31);
         _font = font;
         FocusMode = FocusModeEnum.All;
         MouseFilter = MouseFilterEnum.Stop;
         _edge = row.Column == TransportLedgerColumn.Left ? 96 : 92;
         if (row.Strip is { } strip) _strip = GD.Load<Texture2D>($"res://art/transport/{strip}.png");
         // The two mockup additions are separate nodes: the name here, the handle below.
-        _name = LedgerText.Add(this, "row.name", new Rect2(_edge, 18, 70, 12), row.Name,
-            font, 8, new Color("5e4a30"));
+        _name = LedgerText.Add(this, "row.name", new Rect2(_edge, 17, 70, 14), row.Name,
+            font, PreferredTextSize, new Color("5e4a30"));
         var right = row.Column == TransportLedgerColumn.Left ? 209 : 204;
-        _figure = LedgerText.Add(this, "row.figure", new Rect2(_edge + 70, 18, right - _edge - 70, 12),
-            "", font, 8, Colors.Black, HorizontalAlignment.Right);
+        _figure = LedgerText.Add(this, "row.figure", new Rect2(_edge + 70, 17, right - _edge - 70, 14),
+            "", font, PreferredTextSize, Colors.Black, HorizontalAlignment.Right);
         var handle = new LedgerHandle { Name = "SliderHandle", Position = new Vector2(_edge + 1, 13) };
         handle.SetMeta("layout_name", "slider.handle");
         AddChild(handle);
@@ -60,18 +60,33 @@ public sealed partial class LedgerSlider : Control
         _figure.Text = $"{row.Requested} / {row.Available}";
         // Text layout only: reserve the figure's natural width, then fit the name
         // into the remaining span. This never changes the order or its bounds.
-        var figureWidth = _font!.GetStringSize(_figure.Text, fontSize: 8).X;
         var right = row.Column == TransportLedgerColumn.Left ? 209 : 204;
-        _figure.Position = new Vector2(right - figureWidth, 18);
-        _figure.Size = new Vector2(figureWidth, 12);
-        _name!.Size = new Vector2(Math.Max(1, right - _edge - figureWidth - 3), 12);
-        var nameSize = 8;
-        while (nameSize > 5 && _font.GetStringSize(row.Name, fontSize: nameSize).X > _name.Size.X) nameSize--;
-        _name.AddThemeFontSizeOverride("font_size", nameSize);
+        var size = FitTextSize(_font!, row.Name, _figure.Text, right - _edge);
+        var height = _font!.GetHeight(size);
+        var figureWidth = _font.GetStringSize(_figure.Text, fontSize: size).X;
+        _figure.AddThemeFontSizeOverride("font_size", size);
+        _name!.AddThemeFontSizeOverride("font_size", size);
+        _figure.Position = new Vector2(right - figureWidth, 17);
+        _figure.Size = new Vector2(figureWidth, height);
+        _name.Text = row.Name;
+        _name.Size = new Vector2(Math.Max(1, right - _edge - figureWidth - TextGap), height);
         var handle = GetNode<LedgerHandle>("SliderHandle");
         handle.Visible = row.IsActive;
         handle.Position = new Vector2(_edge + 1 + FillWidth(row), 13);
         QueueRedraw();
+    }
+
+    public const int PreferredTextSize = 10;
+    public const int TextGap = 3;
+
+    // Prefer the mockup's 20 px at 2x. Keep both labels the same size and use
+    // the largest size that fits when a long name meets a wide live figure.
+    public static int FitTextSize(Font font, string name, string figure, float width)
+    {
+        var size = PreferredTextSize;
+        while (size > 1 && font.GetStringSize(name, fontSize: size).X +
+               font.GetStringSize(figure, fontSize: size).X + TextGap > width) size--;
+        return size;
     }
 
     private static float FillWidth(TransportRowView row) => row.Available > 0

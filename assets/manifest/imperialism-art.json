@@ -117,32 +117,32 @@
   ],
   "externalFonts": [
     {
-        "path": "fonts/transport-lora.ttf",
+        "path": "fonts/lora.ttf",
         "source": "https://raw.githubusercontent.com/google/fonts/5026800714d07231937d92eb4cceabf06e05d74e/ofl/lora/Lora%5Bwght%5D.ttf",
         "license": "SIL OFL 1.1",
         "sha256": "822a6621ccbe8d97d20ac88c1c41f5615c9c2c202eaa75f272cd452aac6475a7",
-        "role": "transport-lora"
+        "role": "lora"
     },
     {
-        "path": "fonts/transport-lora-OFL.txt",
+        "path": "fonts/lora-OFL.txt",
         "source": "https://raw.githubusercontent.com/google/fonts/5026800714d07231937d92eb4cceabf06e05d74e/ofl/lora/OFL.txt",
         "license": "SIL OFL 1.1",
         "sha256": "1d9a970809ac804b582a6ce7f0ebc4e7fefcbfd7ff6299cad35ee656a21be716",
-        "role": "transport-license"
+        "role": "font-license"
     },
     {
-        "path": "fonts/transport-fraunces.ttf",
+        "path": "fonts/fraunces.ttf",
         "source": "https://raw.githubusercontent.com/google/fonts/5026800714d07231937d92eb4cceabf06e05d74e/ofl/fraunces/Fraunces%5BSOFT%2CWONK%2Copsz%2Cwght%5D.ttf",
         "license": "SIL OFL 1.1",
         "sha256": "177ff6c0f14e5550a3c624247cd1189611d4eb65d000b14944c63d967958abbb",
-        "role": "transport-fraunces"
+        "role": "fraunces"
     },
     {
-        "path": "fonts/transport-fraunces-OFL.txt",
+        "path": "fonts/fraunces-OFL.txt",
         "source": "https://raw.githubusercontent.com/google/fonts/5026800714d07231937d92eb4cceabf06e05d74e/ofl/fraunces/OFL.txt",
         "license": "SIL OFL 1.1",
         "sha256": "bdf4c22802eaf804f998195871c6b8938aac2ac14b2d78a8bd66a6f1eced833b",
-        "role": "transport-license"
+        "role": "font-license"
     }
 ]
 }

@@ -131,11 +131,12 @@ public sealed class ArtManifestTests
     }
 
     [Fact]
-    public void TransportFontsRecordOfficialSourcesLicencesAndUnmodifiedBytes()
+    public void ModernFontsRecordOfficialSourcesLicencesAndUnmodifiedBytes()
     {
         using var document = JsonDocument.Parse(File.ReadAllText(ManifestPath));
         var fonts = document.RootElement.GetProperty("externalFonts").EnumerateArray().ToArray();
-        Assert.Equal(4, fonts.Length);
+        Assert.Equal(new[] { "fonts/lora.ttf", "fonts/lora-OFL.txt", "fonts/fraunces.ttf", "fonts/fraunces-OFL.txt" },
+            fonts.Select(font => font.GetProperty("path").GetString()));
         foreach (var font in fonts)
         {
             Assert.StartsWith("https://raw.githubusercontent.com/google/fonts/", font.GetProperty("source").GetString());

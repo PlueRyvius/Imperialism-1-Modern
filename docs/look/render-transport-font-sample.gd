@@ -48,9 +48,9 @@ func _initialize():
     image.fill(page)
     var original_body = face("antiqua.ttf")
     var original_heading = face("display_bold.ttf")
-    var body = face("transport-lora.ttf")
+    var body = face("lora.ttf")
     var heading = FontVariation.new()
-    heading.base_font = face("transport-fraunces.ttf")
+    heading.base_font = face("fraunces.ttf")
     heading.variation_opentype = {"wght":700, "opsz":34, "SOFT":50}
     var samples = ["Transport", "Ledger", "Fish & Livestock", "15 / 19", "119 / 120", "Spring, 1882", "$10,000", "Give Transport Orders"]
     var aa = 0
@@ -59,11 +59,11 @@ func _initialize():
         draw_text(body, "Original bundled faces" if col == 0 else "Lora / Fraunces Bold (OFL)", 24, Vector2(x,40))
         for i in samples.size():
             var font = (original_heading if col == 0 else heading) if i < 2 else (original_body if col == 0 else body)
-            var size = 32 if i < 2 else (16 if i < 4 else (18 if i == 4 else 20))
+            var size = 30 if i < 2 else (18 if i == 4 else 20)
             aa += draw_text(font, samples[i], size, Vector2(x, 110 + i * 75))
     var output = OS.get_cmdline_user_args()[0]
     var result = image.save_png(output)
     print("FONT_SAMPLE size=1200x720 finalScale=2 fractionalAlphaPixels=", aa, " save=", result)
-    print("BODY longestNameAt8=", body.get_string_size("Fish & Livestock", HORIZONTAL_ALIGNMENT_LEFT, -1, 8), " figureAt8=",body.get_string_size("15 / 19",HORIZONTAL_ALIGNMENT_LEFT,-1,8))
-    print("TITLES ", heading.get_string_size("Transport",HORIZONTAL_ALIGNMENT_LEFT,-1,16)," / ",heading.get_string_size("Ledger",HORIZONTAL_ALIGNMENT_LEFT,-1,16))
+    print("BODY longestNameAt10=", body.get_string_size("Fish & Livestock", HORIZONTAL_ALIGNMENT_LEFT, -1, 10), " figureAt10=",body.get_string_size("15 / 19",HORIZONTAL_ALIGNMENT_LEFT,-1,10))
+    print("TITLES ", heading.get_string_size("Transport",HORIZONTAL_ALIGNMENT_LEFT,-1,15)," / ",heading.get_string_size("Ledger",HORIZONTAL_ALIGNMENT_LEFT,-1,15))
     quit(0 if result == OK else 1)
