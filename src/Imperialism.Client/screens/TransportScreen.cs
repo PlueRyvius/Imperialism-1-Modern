@@ -10,6 +10,7 @@ public sealed partial class TransportScreen : Control, IShellScreen
     private GameSession? _session;
     private Control? _canvas;
     private Label? _hotText;
+    private Label? _hotDetail;
     private Label? _date;
     private Label? _treasury;
     private CapacityBar? _capacity;
@@ -31,8 +32,9 @@ public sealed partial class TransportScreen : Control, IShellScreen
     {
         _session = session;
         if (_canvas is null) Build();
-        _date!.Text = session.Status.CurrentDate.ToString();
+        _date!.Text = TransportText.FormatDate(session.Status.CurrentDate);
         _treasury!.Text = "$" + session.Status.Cash.ToString("N0", CultureInfo.InvariantCulture);
+        SetHotText("");
         Apply();
         FitCanvas();
     }
@@ -40,7 +42,7 @@ public sealed partial class TransportScreen : Control, IShellScreen
     public void Exit()
     {
         foreach (var slider in _sliders.Values) slider.CancelHold();
-        if (_hotText is not null) _hotText.Text = "";
+        if (_hotText is not null) SetHotText("");
     }
 
     private void Build()
@@ -52,15 +54,21 @@ public sealed partial class TransportScreen : Control, IShellScreen
         AddChild(_canvas);
         // Per-screen copies: oversampling must not mutate the other screens' cached fonts.
         _bodyFont = (FontFile)GD.Load<FontFile>("res://art/fonts/antiqua.ttf").Duplicate();
-        _headingFont = (FontFile)GD.Load<FontFile>("res://art/fonts/display_bold.ttf").Duplicate();
-        _date = Header("date", new Rect2(46, 9, 77, 16), "", 11);
-        _treasury = Header("treasury", new Rect2(157, 9, 48, 16), "", 11);
-        _hotText = Header("hottext", new Rect2(484, 5, 136, 29), "", 10, HorizontalAlignment.Right);
-        _hotText.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        LedgerText.Add(_canvas, "title.left", new Rect2(162, 86, 88, 15), "Transport",
-            _headingFont, 14, new Color("5e4a30"));
-        LedgerText.Add(_canvas, "title.right", new Rect2(416, 86, 60, 16), "Ledger",
-            _headingFont, 14, new Color("5e4a30"));
+        _headingFont = (FontFile)GD.Load<FontFile>("res://art/fonts/display.ttf").Duplicate();
+        foreach (var font in new[] { _bodyFont, _headingFont })
+        {
+            font.Antialiasing = TextServer.FontAntialiasing.None;
+            font.Hinting = TextServer.Hinting.Normal;
+            font.SubpixelPositioning = TextServer.SubpixelPositioning.Disabled;
+        }
+        _date = Header("date", new Rect2(47, 9, 77, 16), "", 10);
+        _treasury = Header("treasury", new Rect2(159, 10, 48, 16), "", 10, glyphSpacing: 2);
+        _hotText = Header("hottext", new Rect2(484, 4, 135, 15), "", 10, HorizontalAlignment.Right);
+        _hotDetail = Header("hottext.detail", new Rect2(524, 19, 95, 15), "", 10, HorizontalAlignment.Right, spaceSpacing: 12);
+        LedgerText.Add(_canvas, "title.left", new Rect2(162, 81, 90, 23), "Transport",
+            new FontVariation { BaseFont = _headingFont, SpacingGlyph = 2, VariationEmbolden = 0.4f }, 17, new Color("5e4a30"));
+        LedgerText.Add(_canvas, "title.right", new Rect2(416, 81, 62, 23), "Ledger",
+            new FontVariation { BaseFont = _headingFont, SpacingGlyph = 2 }, 17, new Color("5e4a30"));
         WatchHover(_date, "Date");
         WatchHover(_treasury, "Treasury");
         foreach (var (node, text) in new[] { ("TabTransport", "Transport"), ("TabIndustry", "Industry"),
@@ -73,13 +81,10 @@ public sealed partial class TransportScreen : Control, IShellScreen
     }
 
     private Label Header(string name, Rect2 box, string text, int fontSize,
-        HorizontalAlignment alignment = HorizontalAlignment.Left)
+        HorizontalAlignment alignment = HorizontalAlignment.Left, int spaceSpacing = 8, int glyphSpacing = 1)
     {
-        var label = LedgerText.Add(_canvas!, name, box, text, _bodyFont!, fontSize,
-            new Color("e3e0b8"), alignment);
-        label.AddThemeColorOverride("font_shadow_color", new Color("904813"));
-        label.AddThemeConstantOverride("shadow_offset_x", 1);
-        label.AddThemeConstantOverride("shadow_offset_y", 1);
+        var label = LedgerText.Add(_canvas!, name, box, text, new FontVariation { BaseFont = _bodyFont, SpacingGlyph = glyphSpacing, SpacingSpace = spaceSpacing }, fontSize,
+            new Color("e3e0b8"), alignment, shadow: true);
         return label;
     }
 
@@ -90,7 +95,11 @@ public sealed partial class TransportScreen : Control, IShellScreen
         control.MouseExited += () => SetHotText("");
     }
 
-    private void SetHotText(string text) => _hotText!.Text = text;
+    private void SetHotText(string text)
+    {
+        _hotText!.Text = string.IsNullOrEmpty(text) ? "Give Transport Orders" : text;
+        _hotDetail!.Text = string.IsNullOrEmpty(text) ? "(current screen)" : "";
+    }
 
     private void Apply()
     {

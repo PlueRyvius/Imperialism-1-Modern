@@ -11,6 +11,17 @@ internal static class TransportLookSmoke
         var k = Math.Max(1, (int)Math.Floor(Math.Min(windowSize.X / 640, windowSize.Y / 480)));
         var geometry = canvas.Size == new Vector2(640, 480) && canvas.Scale == new Vector2(k, k) &&
             canvas.Position == (windowSize - new Vector2(640, 480) * k) / 2;
+        var date = canvas.GetNode<Label>("date");
+        var hot = canvas.GetNode<Label>("hottext");
+        var detail = canvas.GetNode<Label>("hottext_detail");
+        var idle = hot.Text == "Give Transport Orders" && detail.Text == "(current screen)";
+        date.EmitSignal(Control.SignalName.MouseEntered);
+        var hover = hot.Text == "Date" && detail.Text == "";
+        date.EmitSignal(Control.SignalName.MouseExited);
+        var restoredText = hot.Text == "Give Transport Orders" && detail.Text == "(current screen)";
+        var shadow = date.GetThemeColor("font_shadow_color") == Colors.Black &&
+            date.GetThemeConstant("shadow_offset_x") == 1 && date.GetThemeConstant("shadow_offset_y") == 1;
+        var text = idle && hover && restoredText && shadow;
         var preview = session.Preview().Transport;
         var sliders = canvas.GetChildren().OfType<LedgerSlider>().ToArray();
         var placed = preview.Rows.All(row => sliders.Any(slider =>
@@ -51,9 +62,9 @@ internal static class TransportLookSmoke
             { ButtonIndex = MouseButton.Left, Pressed = false, Position = new Vector2(edge + 114, 14) });
         var full = session.Preview().Transport.GetRow(candidate.RowKey)!;
         var bounded = full.Requested > 0 && full.Requested <= full.Available && !full.CanRaise;
-        var ok = geometry && placed && lower && raise && zero && bounded;
+        var ok = text && geometry && placed && lower && raise && zero && bounded;
         GD.Print($"TRANSPORT_LOOK_SMOKE_{(ok ? "OK" : "FAIL")} geometry={geometry} rows={sliders.Length} " +
-            $"placed={placed} lower={lower} raise={raise} zero={zero} bounded={bounded} scale={k}");
+            $"text={text} placed={placed} lower={lower} raise={raise} zero={zero} bounded={bounded} scale={k}");
         return ok;
     }
 }

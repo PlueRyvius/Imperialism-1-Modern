@@ -40,7 +40,7 @@ public sealed partial class LedgerSlider : Control
         // The two mockup additions are separate nodes: the name here, the handle below.
         _name = LedgerText.Add(this, "row.name", new Rect2(0, 22, 180, 8), row.Name,
             font, 8, new Color("5e4a30"));
-        _figure = LedgerFigure.Add(this, "row.figure", new Rect2(184, 22, 38, 8));
+        _figure = LedgerFigure.Add(this, "row.figure", new Rect2(184, 22, 38, 9));
         var handle = new LedgerHandle { Name = "SliderHandle", Position = new Vector2(_edge + 1, 13) };
         handle.SetMeta("layout_name", "slider.handle");
         AddChild(handle);

@@ -16,7 +16,7 @@ public sealed partial class CapacityBar : Control
         SetMeta("layout_name", "capacity.row");
         Position = new Vector2(325, 397);
         Size = new Vector2(224, 34);
-        _figure = LedgerFigure.Add(this, "capacity.figure", new Rect2(174, 24, 48, 9));
+        _figure = LedgerFigure.Add(this, "capacity.figure", new Rect2(173, 23, 49, 10));
     }
 
     public void Apply(TransportPreview view)

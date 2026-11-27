@@ -6,7 +6,7 @@ namespace Imperialism.Client;
 internal static class LedgerText
 {
     public static Label Add(Control parent, string layoutName, Rect2 box, string text,
-        Font font, int fontSize, Color colour, HorizontalAlignment alignment = HorizontalAlignment.Left)
+        Font font, int fontSize, Color colour, HorizontalAlignment alignment = HorizontalAlignment.Left, bool shadow = false)
     {
         var label = new Label
         {
@@ -18,7 +18,9 @@ internal static class LedgerText
         label.AddThemeFontOverride("font", font);
         label.AddThemeFontSizeOverride("font_size", fontSize);
         label.AddThemeColorOverride("font_color", colour);
-        label.AddThemeColorOverride("font_shadow_color", Colors.Transparent);
+        label.AddThemeColorOverride("font_shadow_color", shadow ? Colors.Black : Colors.Transparent);
+        label.AddThemeConstantOverride("shadow_offset_x", 1);
+        label.AddThemeConstantOverride("shadow_offset_y", 1);
         label.AddThemeConstantOverride("outline_size", 0);
         parent.AddChild(label);
         return label;
