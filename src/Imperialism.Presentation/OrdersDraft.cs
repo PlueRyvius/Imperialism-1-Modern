@@ -312,6 +312,112 @@ public sealed class OrdersDraft
         Set(_transport, commodity, quantity);
     }
 
+    /// <summary>
+    /// The rebuilt ledger's right arrow on a row (layout note D7, D8): one more unit for
+    /// the member with the most expected-but-unordered, ties to the lower commodity id.
+    /// </summary>
+    /// <param name="transport">
+    /// This draft's current <see cref="OrdersPreview.Transport"/>, for each member's
+    /// <c>Available</c> and the capacity; the ordered amounts are read from the draft
+    /// itself, so a preview taken before earlier edits this turn still serves.
+    /// </param>
+    /// <returns>
+    /// False, changing nothing, when the draft's ordered total has reached capacity (an
+    /// unlimited network has no cap) or no member has room under its <c>Available</c>.
+    /// </returns>
+    /// <exception cref="ArgumentException">The preview has no row with this key.</exception>
+    public bool RaiseTransportRow(TransportPreview transport, string rowKey) =>
+        RaiseTransportRow(transport, RequireRow(transport, rowKey));
+
+    /// <summary>
+    /// The left arrow on a row (D7): one unit less for the member with the most ordered,
+    /// ties to the higher commodity id. False at zero.
+    /// </summary>
+    public bool LowerTransportRow(TransportPreview transport, string rowKey) =>
+        LowerTransportRow(RequireRow(transport, rowKey));
+
+    /// <summary>
+    /// A drag to a row total (D7): the total is clamped to what single raises can reach
+    /// and to zero, then reached one <see cref="RaiseTransportRow(TransportPreview, string)"/>
+    /// or <see cref="LowerTransportRow(TransportPreview, string)"/> at a time.
+    /// </summary>
+    /// <returns>True when the row's total changed.</returns>
+    public bool SetTransportRow(TransportPreview transport, string rowKey, long total)
+    {
+        var row = RequireRow(transport, rowKey);
+        var start = TransportRowTotal(row);
+        var current = start;
+        while (current < total && RaiseTransportRow(transport, row))
+        {
+            current++;
+        }
+
+        while (current > total && LowerTransportRow(row))
+        {
+            current--;
+        }
+
+        return current != start;
+    }
+
+    private bool RaiseTransportRow(TransportPreview transport, TransportRowView row)
+    {
+        var orderedTotal = _transport.Aggregate(0L, static (sum, entry) => checked(sum + entry.Quantity));
+        if (!TransportLedgerLayout.HasCapacityLeft(transport, orderedTotal) ||
+            TransportLedgerLayout.RaiseTarget(row.Members, TransportOrdered) is not { } member)
+        {
+            return false;
+        }
+
+        var index = _transport.FindIndex(entry => entry.Commodity == member.Commodity);
+        if (index >= 0)
+        {
+            _transport[index] = (member.Commodity, checked(_transport[index].Quantity + 1));
+            return true;
+        }
+
+        // A member new to the draft joins its partner, so a shared row's commodities stay
+        // together in Core's trim order; a row of one joins the bottom, as SetTransport does.
+        var partner = _transport.FindLastIndex(entry => row.Members.Any(other => other.Commodity == entry.Commodity));
+        _transport.Insert(partner >= 0 ? partner + 1 : _transport.Count, (member.Commodity, 1));
+        return true;
+    }
+
+    private bool LowerTransportRow(TransportRowView row)
+    {
+        if (TransportLedgerLayout.LowerTarget(row.Members, TransportOrdered) is not { } member)
+        {
+            return false;
+        }
+
+        var index = _transport.FindIndex(entry => entry.Commodity == member.Commodity);
+        _transport[index] = (member.Commodity, _transport[index].Quantity - 1);
+        return true;
+    }
+
+    private long TransportOrdered(CommodityId commodity)
+    {
+        var index = _transport.FindIndex(entry => entry.Commodity == commodity);
+        return index >= 0 ? _transport[index].Quantity : 0;
+    }
+
+    private long TransportRowTotal(TransportRowView row) =>
+        row.Members.Aggregate(0L, (sum, member) => checked(sum + TransportOrdered(member.Commodity)));
+
+    private TransportRowView RequireRow(TransportPreview transport, string rowKey)
+    {
+        ArgumentNullException.ThrowIfNull(transport);
+        ArgumentNullException.ThrowIfNull(rowKey);
+        var row = transport.GetRow(rowKey) ??
+            throw new ArgumentException("The Transport preview has no row with this key.", nameof(rowKey));
+        foreach (var member in row.Members)
+        {
+            RequireIndex(member.Commodity.Value, _world.Commodities.Count, nameof(transport));
+        }
+
+        return row;
+    }
+
     public bool MoveTransportUp(CommodityId commodity) => Move(_transport, commodity, -1);
 
     public bool MoveTransportDown(CommodityId commodity) => Move(_transport, commodity, +1);
@@ -877,6 +983,14 @@ public sealed record TransportDemandInputs(
     IReadOnlyList<CommodityId> Rows);
 
 /// <summary>
+/// <see cref="TransportDefault.DemandLine"/>'s result, one entry per commodity in the
+/// world. <see cref="Available"/> is <see cref="TransportDemandInputs.Available"/>
+/// clamped at zero, an upper bound on what Extraction gathers.
+/// </summary>
+/// <param name="Demand">What the opening fill asks for before capacity trims it.</param>
+public sealed record TransportDemandLine(IReadOnlyList<long> Demand, IReadOnlyList<long> Available);
+
+/// <summary>
 /// The Transport screen's opening fill: every row asks for its demand, capped at
 /// what is available. <b>This matches the original's opening Transport screen,
 /// measured on <c>s1</c> as Great Britain</b> (119 of 120, eight rows, every one at
@@ -975,6 +1089,32 @@ public static class TransportDefault
     {
         ArgumentNullException.ThrowIfNull(inputs);
         ArgumentOutOfRangeException.ThrowIfNegative(inputs.Capacity);
+        var line = DemandLine(inputs);
+
+        // Demand over capacity. The original's screen opens under capacity, so this is
+        // a chosen rule: rows are trimmed in row order (foods first), because a hungry
+        // worker is lost or sick while a short mill only idles.
+        var remaining = inputs.Capacity;
+        var rows = new List<(CommodityId, long)>(inputs.Rows.Count);
+        foreach (var commodity in inputs.Rows)
+        {
+            var quantity = Math.Min(line.Demand[commodity.Value], remaining);
+            rows.Add((commodity, quantity));
+            remaining -= quantity;
+        }
+
+        return rows.AsReadOnly();
+    }
+
+    /// <summary>
+    /// The demand line itself, per commodity and before any capacity trim: food for the
+    /// workforce, then each mill's recipes, each net of stock and capped at what is
+    /// available. <see cref="Allocate"/> trims this to capacity, and the Transport
+    /// screen's rows read it for their underline, so the two cannot drift.
+    /// </summary>
+    public static TransportDemandLine DemandLine(TransportDemandInputs inputs)
+    {
+        ArgumentNullException.ThrowIfNull(inputs);
         ArgumentOutOfRangeException.ThrowIfNegative(inputs.Workers);
         var count = inputs.Available.Count;
         if (inputs.Stock.Count != count)
@@ -983,7 +1123,8 @@ public static class TransportDefault
         }
 
         var stock = inputs.Stock.ToArray();
-        var available = inputs.Available.Select(static value => Math.Max(0, value)).ToArray();
+        var clamped = inputs.Available.Select(static value => Math.Max(0, value)).ToArray();
+        var available = clamped.ToArray();
         var carry = new long[count];
 
         // Food. The worker at index k eats position k mod L of the cycle, exactly as
@@ -1045,19 +1186,7 @@ public static class TransportDefault
             }
         }
 
-        // Demand over capacity. The original's screen opens under capacity, so this is
-        // a chosen rule: rows are trimmed in row order (foods first), because a hungry
-        // worker is lost or sick while a short mill only idles.
-        var remaining = inputs.Capacity;
-        var rows = new List<(CommodityId, long)>(inputs.Rows.Count);
-        foreach (var commodity in inputs.Rows)
-        {
-            var quantity = Math.Min(carry[commodity.Value], remaining);
-            rows.Add((commodity, quantity));
-            remaining -= quantity;
-        }
-
-        return rows.AsReadOnly();
+        return new TransportDemandLine(Array.AsReadOnly(carry), Array.AsReadOnly(clamped));
     }
 
     /// <summary>
