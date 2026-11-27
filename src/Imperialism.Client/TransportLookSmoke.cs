@@ -19,7 +19,7 @@ internal static class TransportLookSmoke
         var hover = hot.Text == "Date" && detail.Text == "";
         date.EmitSignal(Control.SignalName.MouseExited);
         var restoredText = hot.Text == "Give Transport Orders" && detail.Text == "(current screen)";
-        var shadow = date.GetThemeColor("font_shadow_color") == Colors.Black &&
+        var shadow = date.GetThemeColor("font_shadow_color") == new Color("140a04") &&
             date.GetThemeConstant("shadow_offset_x") == 1 && date.GetThemeConstant("shadow_offset_y") == 1;
         var text = idle && hover && restoredText && shadow;
         var leftTitle = canvas.GetNode<Label>("title_left");
@@ -72,12 +72,16 @@ internal static class TransportLookSmoke
                 font.GetStringSize(name.Text, fontSize: candidateSize).X +
                 figureFont.GetStringSize(figure.Text, fontSize: candidateSize).X + 3 <= (left ? 113 : 112))
                 .DefaultIfEmpty(1).Max();
-            var (nameMin, nameMax) = InkBounds(name, k, 1f / 255);
-            var (figureMin, figureMax) = InkBounds(figure, k, 1f / 255);
+            var (nameMin, nameMax) = LedgerText.InkBounds(name, k, 1f / 255);
+            var (figureMin, figureMax) = LedgerText.InkBounds(figure, k, 1f / 255);
             var gap = figureMin.X - nameMax.X - 1f / k;
             tightestGap = Math.Min(tightestGap, gap);
             smallestSize = Math.Min(smallestSize, size);
-            var fits = bold && figure.Text == figure.Text.Replace(" ", "") && Crisp(name) && Crisp(figure) && Fits(name) && Fits(figure) &&
+            var values = figure.Text.Split(" / ");
+            var fits = bold && values.Length == 2 && values.All(value => long.TryParse(value, out _)) &&
+                name.GetThemeColor("font_color") == new Color("5a3e24") &&
+                figure.GetThemeColor("font_color") == new Color("341e0e") &&
+                name.GetThemeColor("font_shadow_color").A == 0 && figure.GetThemeColor("font_shadow_color").A == 0 && Crisp(name) && Crisp(figure) && Fits(name) && Fits(figure) &&
                 size == expectedSize && figure.GetThemeFontSize("font_size") == size &&
                 nameMin.IsFinite() && figureMin.IsFinite() &&
                 nameMin.X >= name.Position.X && nameMax.X < name.Position.X + name.Size.X &&
@@ -98,8 +102,8 @@ internal static class TransportLookSmoke
         if (sliders.Length > 0)
         {
             var first = sliders[0];
-            var (nameTop, nameBottom) = InkBounds(first.GetNode<Label>("row_name"), k, 1f / 255);
-            var (figureTop, figureBottom) = InkBounds(first.GetNode<Label>("row_figure"), k, 1f / 255);
+            var (nameTop, nameBottom) = LedgerText.InkBounds(first.GetNode<Label>("row_name"), k, 1f / 255);
+            var (figureTop, figureBottom) = LedgerText.InkBounds(first.GetNode<Label>("row_figure"), k, 1f / 255);
             GD.Print($"TRANSPORT_FIRST_ROW_INK nameY={nameTop.Y}..{nameBottom.Y} figureY={figureTop.Y}..{figureBottom.Y} local=true");
         }
         var rowText = LedgerSlider.PreferredTextSize == 10 && LedgerSlider.TextGap == 3 && sliders.All(RowFits);
@@ -139,15 +143,62 @@ internal static class TransportLookSmoke
         canvas.AddChild(measurement);
         measurement.Build(preview.Rows[0] with { Name = "Fish & Livestock", Column = Presentation.TransportLedgerColumn.Left,
             Requested = 15, Available = 19 }, rowFont);
-        var (sampleNameMin, sampleNameMax) = InkBounds(measurement.GetNode<Label>("row_name"), k, 1f / 255);
-        var (sampleFigureMin, sampleFigureMax) = InkBounds(measurement.GetNode<Label>("row_figure"), k, 1f / 255);
+        var (sampleNameMin, sampleNameMax) = LedgerText.InkBounds(measurement.GetNode<Label>("row_name"), k, 1f / 255);
+        var (sampleFigureMin, sampleFigureMax) = LedgerText.InkBounds(measurement.GetNode<Label>("row_figure"), k, 1f / 255);
         rowText &= RowFits(measurement);
         GD.Print($"TRANSPORT_ROW_INK scale={k} preferredSize={LedgerSlider.PreferredTextSize} smallestSize={smallestSize} fitCases={checkedRows} " +
             $"nameHeight={(sampleNameMax.Y - sampleNameMin.Y) * k + 1} figureHeight={(sampleFigureMax.Y - sampleFigureMin.Y) * k + 1} " +
             $"figureWidth={(sampleFigureMax.X - sampleFigureMin.X) * k + 1} tightestGap={tightestGap} name={sampleNameMin}..{sampleNameMax} figure={sampleFigureMin}..{sampleFigureMax}");
         measurement.Free();
         var capacity = canvas.GetNode<Control>("CapacityRow").GetNode<Label>("capacity_figure");
-        crisp &= Crisp(capacity) && Fits(capacity) && rowText && titlesFit &&
+        var capacityName = capacityRow.GetNode<Label>("capacity_name");
+        var capacityFont = capacity.GetThemeFont("font");
+        bool CapacityFits(string expected)
+        {
+            var size = capacityName.GetThemeFontSize("font_size");
+            var (nameMin, nameMax) = LedgerText.InkBounds(capacityName, k, 1f / 255);
+            var (figureMin, figureMax) = LedgerText.InkBounds(capacity, k, 1f / 255);
+            return capacityName.Text == "Capacity used" && capacity.Text == expected &&
+                capacityFont is FontVariation weight && weight.VariationOpentype["wght"].AsInt32() == 700 &&
+                size == LedgerSlider.FitTextSize(rowFont, capacityFont, "Capacity used", expected, 112) &&
+                capacity.GetThemeFontSize("font_size") == size &&
+                capacityName.Position == new Vector2(92, 21.5f) && capacity.Position.Y == 21.5f &&
+                Math.Abs(capacity.Position.X + capacity.Size.X - 204) < 0.01f &&
+                nameMin.Y >= 20 && figureMin.Y >= 20 && nameMax.Y < 39 && figureMax.Y < 39 &&
+                capacityRow.Position.Y + Math.Max(nameMax.Y, figureMax.Y) < 440 &&
+                capacityName.Position.X + capacityName.Size.X + 3 <= capacity.Position.X + 0.01f &&
+                capacityName.GetThemeColor("font_color") == new Color("5a3e24") &&
+                capacity.GetThemeColor("font_color") == new Color("341e0e") &&
+                capacityName.GetThemeColor("font_shadow_color").A == 0 && capacity.GetThemeColor("font_shadow_color").A == 0 &&
+                Crisp(capacityName) && Crisp(capacity) && Fits(capacityName) && Fits(capacity);
+        }
+        var capacityText = CapacityFits($"{preview.Used} / {preview.Capacity?.ToString() ?? "∞"}");
+        var capacityControl = (CapacityBar)capacityRow;
+        capacityControl.Apply(preview with { Used = 119, Capacity = 120 });
+        capacityText &= CapacityFits("119 / 120");
+        capacityControl.Apply(preview with { Used = 119, Capacity = null });
+        capacityText &= CapacityFits("119 / ∞");
+        capacityControl.Apply(preview);
+        var treasury = canvas.GetNode<Label>("treasury");
+        bool RailInk(Label label, Vector2 expected, bool right = false)
+        {
+            var (min, max) = LedgerText.InkBounds(label, k);
+            return (new Vector2(right ? max.X : min.X, min.Y) - expected).Length() < 0.01f;
+        }
+        bool RailStyle(Label label, int size, bool display) => label.GetThemeFontSize("font_size") == size &&
+            label.GetThemeColor("font_color") == new Color("faeec8") &&
+            label.GetThemeColor("font_shadow_color") == new Color("140a04") &&
+            label.GetThemeConstant("shadow_offset_x") == 1 && label.GetThemeConstant("shadow_offset_y") == 1 &&
+            (display ? label.GetThemeFont("font") is FontVariation weight &&
+                weight.VariationOpentype["wght"].AsInt32() == 700 : label.GetThemeFont("font") is FontFile);
+        var rail = RailStyle(date, 12, true) && RailStyle(treasury, 12, true) &&
+            RailStyle(hot, 11, true) && RailStyle(detail, 9, false) &&
+            RailInk(date, new Vector2(46, 15)) && RailInk(treasury, new Vector2(158, 15)) &&
+            RailInk(hot, new Vector2(619, 7), true) && RailInk(detail, new Vector2(619, 20.5f), true) &&
+            hot.HorizontalAlignment == HorizontalAlignment.Right && detail.HorizontalAlignment == HorizontalAlignment.Right;
+        titlesFit &= new[] { leftTitle, rightTitle }.All(title => title.GetThemeColor("font_color") == new Color("341e0e"));
+        GD.Print($"TRANSPORT_MOCKUP_TEXT rail={rail} capacity={capacityText}");
+        crisp &= rail && capacityText && Crisp(treasury) && Fits(treasury) && Crisp(capacity) && Fits(capacity) && rowText && titlesFit &&
             new[] { date, hot, detail }.All(Fits);
         GD.Print($"TRANSPORT_TEXT_{(crisp ? "OK" : "FAIL")} finalScale={k} rowLabels={sliders.Length * 2} " +
             $"namesFit={rowText} titlesFit={titlesFit} antialiasing=grayscale");
@@ -202,7 +253,7 @@ internal static class TransportLookSmoke
         foreach (var label in new[] { slider.GetNode<Label>("row_name"), slider.GetNode<Label>("row_figure") })
         {
             if (!label.Visible) continue;
-            var (minimum, maximum) = InkBounds(label, scale, 1f / 255);
+            var (minimum, maximum) = LedgerText.InkBounds(label, scale, 1f / 255);
             var ink = new Rect2(slider.Position + minimum, maximum - minimum + Vector2.One / scale);
             foreach (var (cover, paints) in rows)
             {
@@ -217,78 +268,12 @@ internal static class TransportLookSmoke
 
     private static bool TitleInkFits(Label label, Rect2 target, int scale)
     {
-        var (minimum, maximum) = InkBounds(label, scale);
+        var (minimum, maximum) = LedgerText.InkBounds(label, scale);
         var height = (maximum.Y - minimum.Y) * scale + 1;
         var fits = height >= 15 * scale && height <= 16.5f * scale && minimum.IsFinite() && maximum.IsFinite() && minimum.X >= target.Position.X && minimum.Y >= target.Position.Y &&
             maximum.X < target.End.X && maximum.Y < target.End.Y;
         GD.Print($"TRANSPORT_TITLE_INK {label.Text} {minimum}..{maximum} MOCKUP_FITS={fits} inkHeight={height}");
         return fits;
-    }
-
-    private static (Vector2 Minimum, Vector2 Maximum) InkBounds(Label label, int scale, float threshold = 0.5f)
-    {
-        // Shape at final resolution with oversampling 1, as in the independent
-        // atlas probe. Read live Label text, variation axes, position and metrics.
-        var liveFont = label.GetThemeFont("font");
-        Font font;
-        if (liveFont is FontVariation variation)
-        {
-            var copy = (FontVariation)variation.Duplicate();
-            var face = (FontFile)copy.BaseFont.Duplicate();
-            face.Oversampling = 1;
-            copy.BaseFont = face;
-            font = copy;
-        }
-        else
-        {
-            var face = (FontFile)liveFont.Duplicate();
-            face.Oversampling = 1;
-            font = face;
-        }
-        var size = label.GetThemeFontSize("font_size");
-        var ts = TextServerManager.GetPrimaryInterface();
-        var shaped = ts.CreateShapedText();
-        try
-        {
-            ts.ShapedTextAddString(shaped, label.Text, font.GetRids(), size * scale);
-            ts.ShapedTextShape(shaped);
-            var baseline = label.Position + new Vector2(0,
-                Mathf.Floor((label.Size.Y - liveFont.GetHeight(size)) / 2) + liveFont.GetAscent(size));
-            var minimum = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
-            var maximum = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
-            var pen = 0f;
-            var cacheSize = new Vector2I(size * scale, 0);
-            foreach (var glyph in ts.ShapedTextGetGlyphs(shaped))
-            {
-                var rid = glyph["font_rid"].AsRid();
-                var index = glyph["index"].AsInt32();
-                ts.FontRenderGlyph(rid, cacheSize, index);
-                var uv = ts.FontGetGlyphUVRect(rid, cacheSize, index);
-                var offset = ts.FontGetGlyphOffset(rid, cacheSize, index);
-                var texture = ts.FontGetGlyphTextureIdx(rid, cacheSize, index);
-                if (texture >= 0)
-                {
-                    var atlas = ts.FontGetTextureImage(rid, cacheSize, texture);
-                    var logical = ts.FontGetGlyphSize(rid, cacheSize, index);
-                    for (var y = 0; y < (int)uv.Size.Y; y++)
-                    for (var x = 0; x < (int)uv.Size.X; x++)
-                    {
-                        if (atlas.GetPixel((int)uv.Position.X + x, (int)uv.Position.Y + y).A < threshold) continue;
-                        var point = baseline + new Vector2(pen, 0) / scale +
-                            (glyph["offset"].AsVector2() +
-                             offset + new Vector2(x, y) * (logical / uv.Size)) / scale;
-                        minimum = minimum.Min(point);
-                        maximum = maximum.Max(point);
-                    }
-                }
-                pen += glyph["advance"].AsSingle() * glyph["repeat"].AsInt32();
-            }
-            return (minimum, maximum);
-        }
-        finally
-        {
-            ts.FreeRid(shaped);
-        }
     }
 
 }

@@ -290,32 +290,30 @@ transport order per commodity exactly as today.
 
 ## Decisions on the text look (Architect, 27 Nov 2026)
 
-Measured from the original's `O30` Transport shot on ETHERCAT
-(`C:\qf-test\evidence\look\transport-95-r2\TEXT.md`, ETHERCAT only). All
-coordinates are 1x frame pixels.
+D13–D15, D17's positions and D18 now follow our own approved mockup compose
+script, as transcribed in the follow-up task (owner ruling, 27 Nov). Other
+observations retain the original O30 source on ETHERCAT
+(`C:\qf-test\evidence\look\transport-95-r2\TEXT.md`, ETHERCAT only).
+All coordinates are 1x frame pixels.
 
-- **D13. Hard edges, core colours, no ClearType.** Every text item in the shot has
-  sub-pixel colour fringes: orange on the left of a stroke and blue on the right. The
-  whole frame holds 1,944 colours, which a 256-colour game can't produce, so the
-  fringes are read as ETHERCAT's font smoothing and not the game's ink. That reading
-  is inferred, not verified. Our text is drawn hard-edged in the core colour only,
-  as the figures already are (d7cd4c5). Ink counts are compared against the core.
-- **D14. Row and capacity figures.** The text is "ordered / available", with **a
-  space on each side of the slash**: the original leaves 6 px of page on either side,
-  where a digit gap is 2 px. The glyphs are as follows:
-  - Digits are 7 px tall. "5" and "9" have a 3 px core. "1" is a 1 px stem on a
-    3 px foot.
-  - Digits sit 2 px apart.
-  - The slash is 5 px wide and 9 px tall, running 2 px below the digit baseline.
-  - The L0 "15 / 19" ink box is x 254..291, y 140..148. The capacity "119 / 120" is
-    x 499..546, y 420..429. Figures are right-aligned to the box's right edge.
-  - The original's L0 figure has about 48 px darker than luminance 128. Ours should
-    land near that.
-- **D15. The header: date, treasury and hot text.** All three are ink #E3E0B8 with a
-  #000000 shadow at (+1, +1), drawn under the ink. Their ink boxes:
-  - date x 47..119, y 13..22;
-  - treasury x 159..201, y 13..21, reading "$10,000" on GB `s1`;
-  - hot text x 484..618, y 8..31.
+- **D13. Mockup-wins colours and smoothing (owner, 27 Nov).** Our own approved
+  mockup compose script is authoritative: draw directly at the final 2x resolution
+  with greyscale anti-aliasing, no letter spacing and no synthetic bold. Row names
+  are #5A3E24; figures and headings are #341E0E. None has a shadow. This replaces
+  the former hard-edge/core-colour criterion and its ClearType interpretation.
+- **D14. Row and capacity figures (mockup-wins, owner, 27 Nov).** The script writes
+  `f'{carried} / {avail}'`, with a single space on each side of `/`. Use Lora
+  weight 700 through FontVariation, preferred size 10 at 1x, right-aligned to the
+  bar end. Names remain regular Lora. Preserve the shared fitting fallback and
+  the local y20..39 ink band from the crisp-text PR. Capacity has `Capacity used`
+  at its bar's left end and `used / capacity` at the right, with these same styles
+  and the same local y21.5 label position as row captions; bar geometry is unchanged.
+  Native glyph shapes, feet and binary ink counts are superseded.
+- **D15. Rail text (mockup-wins, owner, 27 Nov).** The script specifies #FAEEC8
+  with #140A04 shadow at (+1,+1) 1x. Date and treasury use Fraunces Bold at 12;
+  hot text uses Fraunces Bold at 11 and its detail regular Lora at 9. Ink tops:
+  date (46,15), treasury (158,15), hot text y7 and detail y20.5. Both hot-text
+  lines are right-aligned at x620, final ink pixel x619. Use normal single spaces.
 - **D16. The date reads "Spring, 1882"**, as "<quarter name>, <year>". The quarter
   names are the original's own, from `STR#ENU.GOB`: "Winter", "Spring", "Summer"
   and "Fall".
@@ -325,28 +323,32 @@ coordinates are 1x frame pixels.
   - The names are formatted in Presentation. `TurnDate` and its `ToString` are
     unchanged.
 - **D17. The hot text has an idle line.** When nothing is hovered, it reads "Give
-  Transport Orders" on line 1 (from x 484, y 8) and "(current screen)" on line 2
-  (from x 524, y 23). Hover text replaces both lines and the idle text comes back
+  Transport Orders" on line 1 (ink top y7, right-aligned at x620) and "(current screen)" on line 2
+  (ink top y20.5, right-aligned at x620). Hover text replaces both lines and the idle text comes back
   on exit. The original's Industry screen shows "Give Industry Orders" in the same
   place, so the idle line belongs to the screen.
-- **D18. Titles.** "Transport" has an ink box of x 163..248, y 86..100 and "Ledger"
-  one of x 417..475, y 86..100. Both are #5E4A30, with no shadow and hard edges.
-  The original's core is 244 and 158 px of #5E4A30; ours is 199 and 126 with
-  greyscale anti-aliasing.
+- **D18. Titles (mockup-wins, owner, 27 Nov).** Both headings use #341E0E,
+  without shadows, replacing the former title colour. Preserve the crisp-text
+  PR's Fraunces Bold sizes 17/16, positions and expanded heading ink bounds;
+  the old 14-pixel ink/count criterion remains superseded.
+
+- **Transport display name (mockup-wins, owner, 27 Nov).** The script labels
+  left-page row 8 `Iron Ore`. Only Transport's Presentation row label changes;
+  commodity identity, content/import names and all figures remain unchanged.
 
 ## 27 November 2026: crisp Transport text supersedes the raster criteria
 
 Andy requested text rendered at the root's final resolution and allowed a
 modern close-match font for legibility. This supersedes D13, D14 and D18
 where they require hard-edged native 1x glyphs, their ink counts or the foot
-on `1`. Those decisions remain above as history. The approved mockup wins.
+on `1`. The superseding criteria are recorded in D13–D18 above. The approved mockup wins.
 No game values, allocation, row activation or input decisions change.
 
 Andy chose "Modern pair" on 27 November 2026: every rebuilt screen uses
 Lora (`fonts/lora.ttf`) and Fraunces Bold (`fonts/fraunces.ttf`), with row
 names/figures preferring size 10 (20 px at 2x), reduced together only to fit.
 
-Transport now uses Lora Regular for body text and figures and Fraunces Bold
+Transport uses Lora Regular for names and Lora weight 700 for figures and Fraunces Bold
 (weight 700, optical size 34, softness 50) for its headings. Both are SIL OFL
 1.1, downloaded unmodified from the Google Fonts upstream at commit
 `5026800714d07231937d92eb4cceabf06e05d74e`. The manifest's `externalFonts`
@@ -356,20 +358,19 @@ four fonts and the original-only extractor are unchanged.
 All Transport text uses antialiased Labels and private font copies with
 oversampling equal to the integer canvas scale. At 1920x1080, glyphs are
 rasterized at 2x, rather than enlarged from 1x textures. Body/figure size is
-10 where it fits, header size 10, capacity size 9 and bold title size 15
-in ledger units.
+10 where it fits (including capacity), rail sizes 12/11/9 and bold title sizes
+17/16 in ledger units. The mockup-wins D13–D18 above supersede earlier values.
 Normal font word spacing replaces the header's manual spacing.
 
 Each row's name begins at its bar's left edge (x166 or x417), with its
 figure right-aligned at x279 or x529 on the same line. Label boxes start
-at row-local y17, with natural font height (14 pixels at size 10), within
-the 31-pixel row pitch; the baseline follows Lora's metrics. The figure
+at row-local y21.5, with natural font height (14 pixels at size 10), using
+the blank band after the 31-pixel row pitch; the baseline follows Lora's metrics. The figure
 reserves its natural width; the name gets the remaining span with a
 3-pixel gap. Both use the largest shared integer size up to 10 that fits.
-`Fish & Livestock` with `15 / 19` fits at size 10; with `119 / 120` it uses
-size 9 in either column. Unusually long custom names can shrink further.
-No name is placed below an icon. These positions remain subject to the
-forthcoming mockup text spec and the Windows comparison.
+Longer names or figures reduce both labels together as needed; unusually long
+custom names can shrink further. No name is placed below an icon. Windows
+comparison against the mockup remains required.
 
 Acceptance checks final-scale antialiased Labels, name/figure fit and
 alignment, plus the unchanged geometry and input checks. A foot or binary

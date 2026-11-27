@@ -17,6 +17,23 @@ public sealed class TransportLedgerTests
     private const string CottonWool = "commodity.cotton+commodity.wool";
 
     [Fact]
+    public void IronOreIsOnlyTheTransportLedgerDisplayLabel()
+    {
+        var (package, state) = World(document => document.Commodities =
+        [
+            .. document.Commodities,
+            new CommodityContentDefinition { Key = "commodity.iron", Name = "Iron", Category = CommodityCategory.Raw },
+        ]);
+        var transport = Preview(package, state, new OrdersDraft(state.Definition, Blue));
+        var row = transport.GetRow("commodity.iron")!;
+
+        Assert.Equal("Iron Ore", row.Name);
+        Assert.Equal("Iron", Assert.Single(row.Members).Name);
+        Assert.Equal("Iron", state.Definition.Commodities[Commodity(package, "commodity.iron").Value].Name);
+        Assert.Equal((TransportLedgerColumn.Left, 7, (int?)4008), (row.Column, row.Slot, row.Strip));
+    }
+
+    [Fact]
     public void FishAndLivestockAndCottonAndWoolAreEachOneRowWithSummedFigures()
     {
         var (package, state) = World();
