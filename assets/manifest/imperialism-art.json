@@ -1,5 +1,5 @@
 {
-  "//": "Which of the original's bitmaps become interface art, how each is cropped, and how its transparency resolves. Regenerate with: dotnet run --project tools/Imperialism.AssetExtractor -- --manifest assets/manifest/imperialism-art.json --data-dir <install>/Data --output src/Imperialism.Client/art. See docs/asset-pipeline.md.",
+  "//": "Which of the original's bitmaps become interface art, how each is cropped, and how its transparency resolves. Regenerate with: dotnet run --project tools/Imperialism.AssetExtractor -- --manifest assets/manifest/imperialism-art.json --data-dir <install>/Data --output src/Imperialism.Client/art. See docs/asset-pipeline.md. externalFonts are separately sourced, committed Transport fonts and licences; the original-art extractor leaves them untouched.",
 
   "source": [
     { "archive": "pictuniv.gob", "sha256": "", "resourceCount": 1098 }
@@ -114,5 +114,35 @@
     { "source": "Antquab.ttf", "path": "fonts/antiqua_bold.ttf", "role": "body-bold" },
     { "source": "WeBeLt__.ttf", "path": "fonts/display.ttf", "role": "display" },
     { "source": "WeBeBd__.ttf", "path": "fonts/display_bold.ttf", "role": "display-bold" }
-  ]
+  ],
+  "externalFonts": [
+    {
+        "path": "fonts/transport-lora.ttf",
+        "source": "https://raw.githubusercontent.com/google/fonts/5026800714d07231937d92eb4cceabf06e05d74e/ofl/lora/Lora%5Bwght%5D.ttf",
+        "license": "SIL OFL 1.1",
+        "sha256": "822a6621ccbe8d97d20ac88c1c41f5615c9c2c202eaa75f272cd452aac6475a7",
+        "role": "transport-lora"
+    },
+    {
+        "path": "fonts/transport-lora-OFL.txt",
+        "source": "https://raw.githubusercontent.com/google/fonts/5026800714d07231937d92eb4cceabf06e05d74e/ofl/lora/OFL.txt",
+        "license": "SIL OFL 1.1",
+        "sha256": "1d9a970809ac804b582a6ce7f0ebc4e7fefcbfd7ff6299cad35ee656a21be716",
+        "role": "transport-license"
+    },
+    {
+        "path": "fonts/transport-fraunces.ttf",
+        "source": "https://raw.githubusercontent.com/google/fonts/5026800714d07231937d92eb4cceabf06e05d74e/ofl/fraunces/Fraunces%5BSOFT%2CWONK%2Copsz%2Cwght%5D.ttf",
+        "license": "SIL OFL 1.1",
+        "sha256": "177ff6c0f14e5550a3c624247cd1189611d4eb65d000b14944c63d967958abbb",
+        "role": "transport-fraunces"
+    },
+    {
+        "path": "fonts/transport-fraunces-OFL.txt",
+        "source": "https://raw.githubusercontent.com/google/fonts/5026800714d07231937d92eb4cceabf06e05d74e/ofl/fraunces/OFL.txt",
+        "license": "SIL OFL 1.1",
+        "sha256": "bdf4c22802eaf804f998195871c6b8938aac2ac14b2d78a8bd66a6f1eced833b",
+        "role": "transport-license"
+    }
+]
 }

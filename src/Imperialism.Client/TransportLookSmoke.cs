@@ -22,26 +22,41 @@ internal static class TransportLookSmoke
         var shadow = date.GetThemeColor("font_shadow_color") == Colors.Black &&
             date.GetThemeConstant("shadow_offset_x") == 1 && date.GetThemeConstant("shadow_offset_y") == 1;
         var text = idle && hover && restoredText && shadow;
-        var leftTitle = canvas.GetNode<LedgerRasterText>("title_left");
-        var rightTitle = canvas.GetNode<LedgerRasterText>("title_right");
-        var figure = new LedgerFigure { Size = new Vector2(38, 9), Text = "15 / 19" };
-        canvas.AddChild(figure);
-        // Diagnostic, not a passing claim: the unhinted native 1 has no foot.
-        var foot = Enumerable.Range(0, 4).Any(x => figure.HasNativeInk(x, 6) &&
-            figure.HasNativeInk(x + 1, 6) && figure.HasNativeInk(x + 2, 6));
-        var raster = leftTitle.NativeInkCount == 242 && rightTitle.NativeInkCount == 162 &&
-            figure.NativeInkCount == 55 && leftTitle.UsesWholePixels(k) &&
-            rightTitle.UsesWholePixels(k) && figure.UsesWholePixels(k);
-        GD.Print($"TRANSPORT_RASTER_{(raster ? "OK" : "FAIL")} titles={leftTitle.NativeInkCount}/{rightTitle.NativeInkCount} " +
-            $"figure={figure.NativeInkCount} foot={foot} nativePixels={raster} scale={k}");
-        canvas.RemoveChild(figure);
-        figure.Free();
+        var leftTitle = canvas.GetNode<Label>("title_left");
+        var rightTitle = canvas.GetNode<Label>("title_right");
+        bool Crisp(Label label)
+        {
+            var font = label.GetThemeFont("font");
+            while (font is FontVariation variation) font = variation.BaseFont;
+            return font is FontFile file && file.Antialiasing == TextServer.FontAntialiasing.Gray &&
+                file.Oversampling == k && label.TextureFilter == CanvasItem.TextureFilterEnum.Linear;
+        }
+        bool Fits(Label label) => label.GetThemeFont("font").GetStringSize(label.Text,
+            fontSize: label.GetThemeFontSize("font_size")).X <= label.Size.X + 0.01f;
+        var crisp = new[] { leftTitle, rightTitle, date, hot, detail }.All(Crisp);
         var preview = session.Preview().Transport;
         var sliders = canvas.GetChildren().OfType<LedgerSlider>().ToArray();
         var placed = preview.Rows.All(row => sliders.Any(slider =>
             slider.GetMeta("layout_name").AsString() == "row." + row.RowKey &&
             slider.Position == new Vector2(row.Column == Presentation.TransportLedgerColumn.Left ? 70 : 325,
                 118 + 31 * row.Slot)));
+        var rowText = sliders.All(slider =>
+        {
+            var name = slider.GetNode<Label>("row_name");
+            var figure = slider.GetNode<Label>("row_figure");
+            var left = slider.Position.X == 70;
+            return Crisp(name) && Crisp(figure) && Fits(name) && Fits(figure) &&
+                name.Position.X == (left ? 96 : 92) && name.Position.Y == figure.Position.Y &&
+                name.Position.X + name.Size.X <= figure.Position.X &&
+                name.Position.Y + name.Size.Y <= slider.Size.Y &&
+                figure.Position.Y + figure.Size.Y <= slider.Size.Y &&
+                Math.Abs(slider.Position.X + figure.Position.X + figure.Size.X - (left ? 279 : 529)) < 0.01f;
+        });
+        var capacity = canvas.GetNode<Control>("CapacityRow").GetNode<Label>("capacity_figure");
+        crisp &= Crisp(capacity) && Fits(capacity) && rowText && Fits(leftTitle) && Fits(rightTitle) &&
+            new[] { date, hot, detail }.All(Fits);
+        GD.Print($"TRANSPORT_TEXT_{(crisp ? "OK" : "FAIL")} finalScale={k} rowLabels={sliders.Length * 2} " +
+            $"namesFit={rowText} titlesFit={Fits(leftTitle) && Fits(rightTitle)} antialiasing=grayscale");
         var candidate = preview.Rows.FirstOrDefault(row => row.IsActive && (row.CanLower || row.CanRaise));
         if (candidate is null)
         {
@@ -76,7 +91,7 @@ internal static class TransportLookSmoke
             { ButtonIndex = MouseButton.Left, Pressed = false, Position = new Vector2(edge + 114, 14) });
         var full = session.Preview().Transport.GetRow(candidate.RowKey)!;
         var bounded = full.Requested > 0 && full.Requested <= full.Available && !full.CanRaise;
-        var ok = raster && text && geometry && placed && lower && raise && zero && bounded;
+        var ok = crisp && text && geometry && placed && lower && raise && zero && bounded;
         GD.Print($"TRANSPORT_LOOK_SMOKE_{(ok ? "OK" : "FAIL")} geometry={geometry} rows={sliders.Length} " +
             $"text={text} placed={placed} lower={lower} raise={raise} zero={zero} bounded={bounded} scale={k}");
         return ok;

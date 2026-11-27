@@ -2,7 +2,7 @@ using Godot;
 
 namespace Imperialism.Client;
 
-/// <summary>Original faces, confined to the measured boxes inside a scaled ledger.</summary>
+/// <summary>Antialiased faces, confined to the measured boxes inside a scaled ledger.</summary>
 internal static class LedgerText
 {
     public static Label Add(Control parent, string layoutName, Rect2 box, string text,
@@ -12,7 +12,7 @@ internal static class LedgerText
         {
             Name = layoutName.Replace('.', '_'), Position = box.Position, Size = box.Size,
             Text = text, HorizontalAlignment = alignment, VerticalAlignment = VerticalAlignment.Center,
-            ClipText = true, MouseFilter = Control.MouseFilterEnum.Ignore,
+            ClipText = true, TextureFilter = CanvasItem.TextureFilterEnum.Linear, MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         label.SetMeta("layout_name", layoutName);
         label.AddThemeFontOverride("font", font);

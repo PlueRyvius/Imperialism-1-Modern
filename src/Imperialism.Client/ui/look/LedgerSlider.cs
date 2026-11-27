@@ -13,7 +13,7 @@ public sealed partial class LedgerSlider : Control
     private Texture2D? _strip;
     private Font? _font;
     private Label? _name;
-    private LedgerFigure? _figure;
+    private Label? _figure;
     private float _edge;
     private int _heldDirection;
     private double _repeatIn;
@@ -38,9 +38,11 @@ public sealed partial class LedgerSlider : Control
         _edge = row.Column == TransportLedgerColumn.Left ? 96 : 92;
         if (row.Strip is { } strip) _strip = GD.Load<Texture2D>($"res://art/transport/{strip}.png");
         // The two mockup additions are separate nodes: the name here, the handle below.
-        _name = LedgerText.Add(this, "row.name", new Rect2(0, 22, 180, 8), row.Name,
+        _name = LedgerText.Add(this, "row.name", new Rect2(_edge, 18, 70, 12), row.Name,
             font, 8, new Color("5e4a30"));
-        _figure = LedgerFigure.Add(this, "row.figure", new Rect2(184, 22, 38, 9));
+        var right = row.Column == TransportLedgerColumn.Left ? 209 : 204;
+        _figure = LedgerText.Add(this, "row.figure", new Rect2(_edge + 70, 18, right - _edge - 70, 12),
+            "", font, 8, Colors.Black, HorizontalAlignment.Right);
         var handle = new LedgerHandle { Name = "SliderHandle", Position = new Vector2(_edge + 1, 13) };
         handle.SetMeta("layout_name", "slider.handle");
         AddChild(handle);
@@ -56,6 +58,16 @@ public sealed partial class LedgerSlider : Control
         FocusMode = row.IsActive || row.CanLower ? FocusModeEnum.All : FocusModeEnum.None;
         _name!.Visible = _figure!.Visible = row.IsActive;
         _figure.Text = $"{row.Requested} / {row.Available}";
+        // Text layout only: reserve the figure's natural width, then fit the name
+        // into the remaining span. This never changes the order or its bounds.
+        var figureWidth = _font!.GetStringSize(_figure.Text, fontSize: 8).X;
+        var right = row.Column == TransportLedgerColumn.Left ? 209 : 204;
+        _figure.Position = new Vector2(right - figureWidth, 18);
+        _figure.Size = new Vector2(figureWidth, 12);
+        _name!.Size = new Vector2(Math.Max(1, right - _edge - figureWidth - 3), 12);
+        var nameSize = 8;
+        while (nameSize > 5 && _font.GetStringSize(row.Name, fontSize: nameSize).X > _name.Size.X) nameSize--;
+        _name.AddThemeFontSizeOverride("font_size", nameSize);
         var handle = GetNode<LedgerHandle>("SliderHandle");
         handle.Visible = row.IsActive;
         handle.Position = new Vector2(_edge + 1 + FillWidth(row), 13);
