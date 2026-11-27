@@ -199,3 +199,41 @@ worker/mill demand. The authorised read-only-field exception can address these
 once the row grouping is settled. `TransportDefault.Inputs` already supplies
 expected gather and demand inputs; its expected gather is an upper bound, not
 an exact connectivity-aware forecast. No new view fields have been added yet.
+
+## Decisions on the blockers (Architect, 27 Nov 2026)
+
+These settle the three MISSING items above. They are presentation contracts:
+Core, content and every game number are unchanged, and the draft still submits one
+transport order per commodity exactly as today.
+
+- **D6. A ledger row may hold two commodities.** Presentation gains a row view,
+  one per ledger row. `fish`+`livestock` and `cotton`+`wool` are each one row,
+  applied only when both keys exist in the world; every other commodity is a row of
+  its own. A row's figures are the sums of its members'. *Chosen*: the strips
+  show the pairs, and nothing else in our model joins them.
+- **D7. A click on a shared row moves one unit of one member.** Raise adds one to
+  the member with the most expected-but-unordered (`Available − ordered`), ties to
+  the lower commodity id. Lower removes one from the member with the most ordered,
+  ties to the higher commodity id. A drag to a total repeats single steps. The
+  opening fill from `TransportDefault` is kept as it is: nothing is re-split until
+  the player clicks. *Chosen*: deterministic, never orders a member past what it is
+  expected to yield, and leaves the measured opening fill alone.
+- **D8. No raise past the shared capacity.** A raise is refused when the draft's
+  ordered total has reached the transport capacity, and on a row when it has
+  reached the row's `Available`. That is the original's slider behaviour. With the
+  total never above capacity, the order in which Core trims rows can't change the
+  result, so the rebuilt screen has **no move up / move down controls**. The
+  draft's order stays `TransportDefault`'s, food first. *Chosen.*
+- **D9. Only gatherable goods have a row.** A slotted row is active, with its strip
+  pasted and editable, when its `Available` is above zero. Otherwise the ledger's
+  greyed row shows and does not respond. This supersedes D2. Commodities with no
+  strip (`paper`, `canned-food`, `armaments`) get no row: Extraction never gathers
+  them, so a slider for them could carry nothing, and their draft entries stay at
+  zero, untouched. A gatherable commodity with no slot, which no shipped content
+  has, takes the empty right-hand slot k=8 with the slider drawn and no strip. Any
+  beyond that one are not shown, and the PR lists this as a limit. *Chosen.*
+- **D10. The figure and the underline.** The row figure is "ordered / available".
+  `Available` is `TransportDemandInputs.Available`, an upper bound and labelled
+  as one. The underline is green when the ordered amount covers the row's demand,
+  as `TransportDefault` computes it (exposed from there, not restated), and red
+  otherwise. *Chosen*: the original's own meaning for the colour is not traced.
