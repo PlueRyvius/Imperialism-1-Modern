@@ -237,3 +237,15 @@ transport order per commodity exactly as today.
   as one. The underline is green when the ordered amount covers the row's demand,
   as `TransportDefault` computes it (exposed from there, not restated), and red
   otherwise. *Chosen*: the original's own meaning for the colour is not traced.
+- **D11. What the contract settled while it was built** (claude-2, accepted by the
+  Architect). The row edits take the screen's current `TransportPreview`, because
+  the draft knows neither capacity nor Available. Produced goods that have a strip
+  (lumber, furniture, steel, hardware, fabric, clothing, fuel) keep their row and
+  show greyed while nothing is available; this follows D9. A pair with one member
+  missing stays on the pair's strip. Only a member that a row raise adds is placed
+  beside its partner, so the opening fill's order stands. Demand is capped at
+  Available. A greyed row that still orders something may be lowered, so the
+  player can clear it. **Known limit:** a row's Available counts deposits only and
+  leaves out port fishing, so a country that fishes only from ports sees a greyed
+  fish row. It is unchanged because counting port fishing would change the opening
+  fill, which matches the original on GB s1 apart from issue #92. The PR lists it.
