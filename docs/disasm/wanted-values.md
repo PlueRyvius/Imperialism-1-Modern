@@ -225,8 +225,12 @@ field 2 through `0x0055F100`, and creates one `TShip` per field 3 through
 through `0x0055F100`. `TShip+0x08` is the resulting `UOcean` record and
 `TShip+0x14` is the owning country id. `UOcean`'s map resolver at `0x00563300`
 selects the 0x48-byte ocean record for raw map region `r` as
-`records[r - 0x17]`. Thus a scenario `zone`/`ship` id `z` denotes raw map-ocean
-region `z + 0x17`.
+`records[r - 0x17]`. A scenario `zone`/`ship` id is **not** `r - 0x17`, though:
+it is the dense id the load-time scan at `0x00529F60` gives each ocean-region
+value in order of first appearance by cell index (see
+`definitive-original-data.md`), then merged and compacted by `0x0052D750`
+(`docs/legacy-importer.md`). Still wanted: where `[0x006A43D4]+20`, the wrap flag
+the merge's neighbour test reads, is set (assumed on).
 
 The loader is called from setup state 2 at `0x0057DA70`, after the pre-load
 map/zone preparation in state 3 (`0x0057CAD0`), and before the per-power

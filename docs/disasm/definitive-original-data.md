@@ -395,9 +395,20 @@ reader at `0x00582720` and `zone` records to `0x00582FA0`; both handlers resolve
 their zone id through `0x0055F100`. The `ship` fields are `(country, type,
 zone, count)` and create one `TShip` at `0x0054F8E0` per `count`. The created
 record has the resolved `UOcean` object at `+0x08` and its owner country id at
-`+0x14`. `UOcean` maps raw ocean region `r` to a 0x48-byte runtime entry at
-`r - 0x17` through `0x00563300`; therefore a scenario zone id `z` maps to raw
-ocean region `z + 0x17`. The loader runs in setup state 2 at `0x0057DA70`,
+`+0x14`. **A scenario zone id is a dense ocean id, not "map byte − 0x17".**
+On scenario load `0x0050EC60` calls UMapper slot `+0x64` (thunk `0x00407DA1` → `0x00529F60`, arg 1), which scans the map's cells in row-major order — cell index order — and gives each ocean-region value not seen before the next id, 0, 1, 2… (`0x00529FB7`–`0x00529FE7`); `0x00562D90` then builds N `UOcean` records with ids 0..N−1. A `ship` record's zone and a `zone` record's id (`0x00582FA0` only copies the
+name) are those ids; an id that matches no ocean region resolves through
+`0x0055F100` to 0, so its ships are counted but placed in no zone. The scan gives `s1`
+42 ids (0–41); the merge below leaves 40. An earlier version of this
+section said zone `z` maps to raw ocean region `z + 0x17`; that was wrong (traced
+on the PC, 28 Nov 2026). After the scan, `0x00401BCC` → `0x0052C1A0` (corner
+records), `0x00401A55` → `0x0052CAE0` (boundary segments, nearest partner) and
+`0x004084EF` → `0x0052D750` (merge) fold every zone under 32 cells into a
+neighbour and move the last zone into each emptied id; `s1` ends with 40 ids
+(0–39), the scan's 7 and 3 merged into 4, 41 renumbered 7 and 40 renumbered 3.
+Read from the disassembly and emulated on all ten maps (28 Nov 2026); the rule is
+spelled out in `docs/legacy-importer.md`. The wrap flag `[0x006A43D4]+20` is
+still untraced and assumed on. The loader runs in setup state 2 at `0x0057DA70`,
 after state 3's map/zone preparation and before the per-power post-load calls.
 Fleet placement is now executable-backed, while mission eligibility, range,
 and movement remain open.

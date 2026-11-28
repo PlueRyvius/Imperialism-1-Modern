@@ -208,14 +208,43 @@ validation rule for imported state. Tutorial scenarios contain capacities 3,
 5, 6, and 7, so the modern capacity value is an unrestricted checked integer.
 
 Keys are deterministic. Known terrain and resources use semantic keys;
-countries, provinces, and sea zones retain padded numeric legacy IDs. Only
-`zone` IDs referenced by ocean cells become modern sea zones. The ocean byte
-uses a combined region namespace whose ocean part begins at `0x17`: the
-executable's `UOcean` resolves byte `r` as `records[r - 0x17]`
-(`0x00563300`), so a scenario `zone` or `ship` id `z` is ocean byte `z + 23`.
-The importer subtracts that constant. It used to subtract the highest country
-id the file names plus one, which agrees only when that id is 22 (#41); an
-ocean byte below `0x17` is reported as `map.invalid-sea-zone-reference`. Other zone
+countries, provinces, and sea zones retain padded numeric legacy IDs. Sea
+zones are numbered as the original numbers them on load: the importer
+scans the cells in index order and gives each distinct ocean-region byte the
+next dense id, 0, 1, 2…, in order of first appearance (`0x00529F60`, then
+`0x00562D90` builds one `UOcean` per id). A scenario `zone` or `ship` id is that
+dense id, so `sea-zone.legacy.NNN` is keyed by it. Reading the id as "ocean byte
+− 0x17" was wrong and is retracted; earlier still the importer subtracted the
+highest country id plus one (#41). An ocean byte below `0x17` is still reported
+as `map.invalid-sea-zone-reference`. A ship whose zone is at or past the number
+of sea zones is counted in `scenario.unplaced-ship-zones`, as the original's
+`0x0055F100` places it in no zone, and a `zone` record naming no sea zone is
+counted in `scenario.unused-zone-records`.
+Then, as the original does, every zone under 32 cells is merged into a
+neighbour and the ids are compacted again (`LegacySeaZoneMerge`). **The rule is
+the original's, read from the disassembly**: `0x0052C1A0` builds a corner record
+wherever three parties meet at a cell's NW or SE corner, `0x0052CAE0` pairs each
+record with its nearest partner of the same zone pair into a boundary segment
+(by dx·dy in half-columns, with the executable's `215 − dx` fold), and
+`0x0052D750` visits the zones from the highest id down. A zone with 0 < cells < 32
+takes the first segment with the highest score — 10000 if the two together reach
+32, plus 5000 if the neighbour has not yet absorbed a zone, plus the segment's raw
+box `|Δx·Δy|` times the neighbour's cells (strict >, first wins). With no segment
+and six cells or fewer it takes the first ocean neighbour in another zone (its
+cells in index order, NE clockwise); with no segment and 7–31 cells it is left
+alone. Counts are never recounted. Each merge relabels the zone's cells and
+segments, and the last zone then moves into the emptied id. Each step is reported
+at Info as `map.sea-zone-merged` or `map.sea-zone-renumbered`. On the five Europe
+maps (`s0`, `s1`, `s3`, `s13`, `s14`) 42 zones become 40: 7 into 4 (28 cells,
+score 16320) and 41 moves to 7, then 3 into 4 (17 cells, score 10880) and 40 moves
+to 3; `s9`, `s10`, `s11`, `s12` and `s15` merge nothing (61, 59, 61, 61, 60).
+**Three points are chosen**, because the trace leaves them open: **U1** neighbours
+wrap east-west (where the executable sets its wrap flag is untraced; turning it
+off changes no event on the ten maps); **U4** a segment relabelled to name the
+same zone at both ends is skipped, where read literally a zone would "merge into
+itself" and lose its id while its cells still named it; **U5** the compaction
+check runs for every id, though a dense scan cannot leave one empty. No shipped
+map reaches U4 or U5. Other zone
 records, all unsupported scenario tags (including legacy `rail` records), INF
 briefings and metadata, scenario trailing bytes, and map trailer records are
 reported as deferred information.

@@ -161,7 +161,7 @@ public sealed class LegacyWorldConverterTests
             NameRecord("cnam", 3, "Green"),
             NameRecord("pnam", 10, "West"),
             NameRecord("pnam", 11, "East"),
-            NameRecord("zone", 7, "Northern Sea"),
+            NameRecord("zone", 0, "Northern Sea"),
             NameRecord("zone", 40, "Port City"),
             new ScenarioRecord("tech", [2u, 1u]),
             new ScenarioRecord("rail", [0u]),
@@ -182,7 +182,8 @@ public sealed class LegacyWorldConverterTests
         Assert.Equal(["country.legacy.002", "country.legacy.003"], document.Countries.Select(static item => item.Key));
         Assert.Equal(["province.legacy.00010", "province.legacy.00011"], document.Map.Provinces.Select(static item => item.Key));
         Assert.Single(document.Map.SeaZones);
-        Assert.Equal("sea-zone.legacy.007", document.Map.SeaZones[0].Key);
+        Assert.Equal("sea-zone.legacy.000", document.Map.SeaZones[0].Key);
+        Assert.Equal("Northern Sea", document.Map.SeaZones[0].Name);
         Assert.Equal("resource.coal", Assert.Single(document.Map.Cells[0].Resources));
         Assert.Equal(23, document.Commodities.Length);
         Assert.Equal(13, document.Commodities.Count(static item => item.Category == CommodityCategory.Raw));
@@ -1443,8 +1444,8 @@ public sealed class LegacyWorldConverterTests
     /// the type is a 1-based index into the executable's naval table.
     /// </summary>
     /// <remarks>
-    /// **They were deferred for want of that order and are not any more.** The zone is
-    /// carried and never interpreted — it is not the map's ocean zone byte — and a
+    /// **They were deferred for want of that order and are not any more.** The zone is a
+    /// dense sea-zone id, kept raw beside its key, and a
     /// repeated class is a second record rather than an error, which is why `s1` can give
     /// one power `8x2` and `8x1` separately. See <c>docs/formulas/trade.md</c>.
     /// </remarks>
@@ -3433,13 +3434,278 @@ public sealed class LegacyWorldConverterTests
             item => item.Code == "scenario.invalid-civi");
     }
 
+    /// <summary>
+    /// The original numbers its sea zones on load by scanning the cells in index order
+    /// and giving each ocean-region byte not seen before the next id (<c>0x00529F60</c>).
+    /// A scenario's <c>zone</c> and <c>ship</c> ids are those dense ids, not "ocean byte
+    /// − 0x17".
+    /// </summary>
     [Fact]
-    public void AShipFindsItsSeaByTheExecutablesOceanBaseNotByTheCountriesAFileNames()
+    public void SeaZonesAreNumberedDenselyInOrderOfFirstAppearanceByCellIndex()
     {
-        // Only countries 0 and 1 are named, so a base derived from the highest
-        // country id would be 2 and read ocean byte 32 as zone 30. The
-        // executable reads it as zone 32 - 0x17 = 9, which is where the ship
-        // record says the fleet is.
+        // 40 is seen first, then 25, then 33: numeric order would be 25, 33, 40.
+        // Every zone holds 32 cells or more, so the merge that follows the scan
+        // (0x0052D750) leaves all three alone.
+        var result = LegacyWorldConverter.Convert(
+            GridMap(
+                "#" + new string((char)40, 32),
+                new string((char)25, 33),
+                new string((char)33, 33)),
+            new ScenarioDocument(
+            [
+                Record("year", 1),
+                NameRecord("cnam", 0, "Only"),
+                NameRecord("pnam", 0, "Home"),
+                NameRecord("zone", 1, "Middle Sea"),
+                NameRecord("zone", 3, "No Such Sea"),
+
+                // Zone 2 is the third region seen (byte 33); zone 3 is past the end.
+                Record("ship", 0, 1, 2, 1),
+                Record("ship", 0, 1, 3, 1),
+            ]),
+            null,
+            "dense-zones");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var document = Assert.IsType<WorldContentDocument>(result.Document);
+        Assert.Equal(
+            ["sea-zone.legacy.000", "sea-zone.legacy.001", "sea-zone.legacy.002"],
+            document.Map.SeaZones.Select(static zone => zone.Key));
+        Assert.Equal(
+            ["sea-zone.legacy.000", "sea-zone.legacy.001", "sea-zone.legacy.002"],
+            new[] { 1, 33, 66 }.Select(index => document.Map.Cells[index].Region.SeaZone));
+        Assert.DoesNotContain(result.Report.Diagnostics, static item => item.Code.StartsWith("map.sea-zone-", StringComparison.Ordinal));
+
+        // A zone record names the zone of its dense id: 1 is byte 25, the second seen.
+        Assert.Equal("Middle Sea", document.Map.SeaZones[1].Name);
+        Assert.Equal(1, result.Report.DeferredCounts["scenario.unused-zone-records"]);
+
+        var ships = Assert.Single(document.Scenarios).Ships;
+        Assert.Equal(2, ships.Length);
+        Assert.Equal("sea-zone.legacy.002", ships[0].SeaZoneKey);
+        Assert.Equal(2, ships[0].SeaZone);
+
+        // An id at or past the number of sea zones places nothing and is counted.
+        Assert.Null(ships[1].SeaZoneKey);
+        Assert.Equal(3, ships[1].SeaZone);
+        Assert.Equal(1, result.Report.DeferredCounts["scenario.unplaced-ship-zones"]);
+    }
+
+    /// <summary>
+    /// The original's merge (<c>0x0052D750</c>) scores each boundary segment of a zone
+    /// under 32 cells as 10000·(the two fill 32) + 5000·(the neighbour not yet absorbed)
+    /// + box·neighbour cells, and keeps the <b>first</b> best (strict &gt;). Every
+    /// boundary here is horizontal, so every box is 0. S lies between P and Q, both 36
+    /// cells and untouched, so both score 15000 and the upper one, whose segment comes
+    /// first, wins. The last zone, Q, then takes S's emptied id 1, so a <c>ship</c>
+    /// record and a <c>zone</c> name for id 1 land on Q's water.
+    /// </summary>
+    [Fact]
+    public void ASmallSeaZoneMergesIntoTheFirstOfTwoEquallyScoredNeighboursAndTheLastZoneTakesItsId()
+    {
+        var result = ConvertGrid(
+            [
+                NameRecord("zone", 0, "Upper Sea"),
+                NameRecord("zone", 1, "Lower Sea"),
+                Record("ship", 0, 1, 1, 1),
+                Record("ship", 0, 1, 2, 1),
+            ],
+            "#PPPPPPPPPPPP",
+            "#PPPPPPPPPPPP",
+            "#PPPPPPPPPPPP",
+            "#SSSSSSSSSSSS",
+            "#QQQQQQQQQQQQ",
+            "#QQQQQQQQQQQQ",
+            "#QQQQQQQQQQQQ");
+
+        var document = Assert.IsType<WorldContentDocument>(result.Document);
+        Assert.Equal(
+            [
+                "merged map.sea-zones[1] Sea zone 1 (12 cells) was merged into sea zone 0 (score 15000), as the original merges zones under 32 cells.",
+                "renumbered map.sea-zones[2] Sea zone 2 took the emptied id 1, as the original compacts its zones.",
+            ],
+            MergeSteps(result));
+        Assert.Equal(["sea-zone.legacy.000", "sea-zone.legacy.001"], document.Map.SeaZones.Select(static zone => zone.Key));
+        Assert.Equal("Lower Sea", document.Map.SeaZones[1].Name);
+        Assert.Equal(48, document.Map.Cells.Count(static cell => cell.Region.SeaZone == "sea-zone.legacy.000"));
+        Assert.All(Enumerable.Range(4 * 13, 3 * 13).Where(static index => index % 13 != 0), index =>
+            Assert.Equal("sea-zone.legacy.001", document.Map.Cells[index].Region.SeaZone));
+
+        // Ship zone 1 is Q's water now; zone 2 no longer exists.
+        var ships = Assert.Single(document.Scenarios).Ships;
+        Assert.Equal("sea-zone.legacy.001", ships[0].SeaZoneKey);
+        Assert.Null(ships[1].SeaZoneKey);
+        Assert.Equal(1, result.Report.DeferredCounts["scenario.unplaced-ship-zones"]);
+    }
+
+    /// <summary>
+    /// The +10000 term: A and S together make 24 cells, S and B 48, so B (15000) beats
+    /// A (5000) although A's segment comes first. B then sits in id 1 and carries its
+    /// absorbed flag there, so A, merging last, scores 10000 and not 15000.
+    /// </summary>
+    [Fact]
+    public void ASmallSeaZonePrefersTheNeighbourThatTakesItToThirtyTwoCells()
+    {
+        var result = ConvertGrid(
+            [],
+            "#AAAAAAAAAAAA",
+            "#SSSSSSSSSSSS",
+            "#BBBBBBBBBBBB",
+            "#BBBBBBBBBBBB",
+            "#BBBBBBBBBBBB");
+
+        Assert.Equal(
+            [
+                "merged map.sea-zones[1] Sea zone 1 (12 cells) was merged into sea zone 2 (score 15000), as the original merges zones under 32 cells.",
+                "renumbered map.sea-zones[2] Sea zone 2 took the emptied id 1, as the original compacts its zones.",
+                "merged map.sea-zones[0] Sea zone 0 (12 cells) was merged into sea zone 1 (score 10000), as the original merges zones under 32 cells.",
+                "renumbered map.sea-zones[1] Sea zone 1 took the emptied id 0, as the original compacts its zones.",
+            ],
+            MergeSteps(result));
+        var document = Assert.IsType<WorldContentDocument>(result.Document);
+        Assert.Equal("sea-zone.legacy.000", Assert.Single(document.Map.SeaZones).Key);
+    }
+
+    /// <summary>
+    /// The +5000 term: P and Q both take S past 32 cells, but P has already absorbed T
+    /// (id 3, merged first because the loop runs from the highest id down), so Q scores
+    /// 15000 against P's 10000. Without the term P would win, its segment being first.
+    /// P is two bands with one byte, which is still one zone.
+    /// </summary>
+    [Fact]
+    public void ASmallSeaZonePrefersANeighbourThatHasNotAbsorbedAnother()
+    {
+        var result = ConvertGrid(
+            [],
+            "#PPPPPPPPPPPP",
+            "#PPPPPPPPPPPP",
+            "#PPPPPPPPPPPP",
+            "#SSSSSSSSSSSS",
+            "#QQQQQQQQQQQQ",
+            "#QQQQQQQQQQQQ",
+            "#QQQQQQQQQQQQ",
+            "#PPPPPPPPPPPP",
+            "#TTTTTTTTTTTT");
+
+        Assert.Equal(
+            [
+                "merged map.sea-zones[3] Sea zone 3 (12 cells) was merged into sea zone 0 (score 15000), as the original merges zones under 32 cells.",
+                "merged map.sea-zones[1] Sea zone 1 (12 cells) was merged into sea zone 2 (score 15000), as the original merges zones under 32 cells.",
+                "renumbered map.sea-zones[2] Sea zone 2 took the emptied id 1, as the original compacts its zones.",
+            ],
+            MergeSteps(result));
+    }
+
+    /// <summary>
+    /// The box term: S's boundary with P is horizontal (box 0, score 15000) and comes
+    /// first; its boundary with V runs from corner (9, 3) down to (8, 7), a 1×4 box, so
+    /// V scores 15000 + 4·36 = 15144 and wins.
+    /// </summary>
+    [Fact]
+    public void ASmallSeaZonePrefersTheLongerBoundaryWhenTheOtherTermsTie()
+    {
+        var result = ConvertGrid(
+            [],
+            "#PPPPPPPPPPPP",
+            "#PPPPPPPPPPPP",
+            "#PPPPPPPPPPPP",
+            "#SSSVVVVVVVVV",
+            "#SSSVVVVVVVVV",
+            "#SSSVVVVVVVVV",
+            "#SSSVVVVVVVVV");
+
+        Assert.Equal(
+            [
+                "merged map.sea-zones[1] Sea zone 1 (12 cells) was merged into sea zone 2 (score 15144), as the original merges zones under 32 cells.",
+                "renumbered map.sea-zones[2] Sea zone 2 took the emptied id 1, as the original compacts its zones.",
+            ],
+            MergeSteps(result));
+    }
+
+    /// <summary>
+    /// A zone wholly inside another has no corner where three parties meet, so no
+    /// segment touches it. At six cells or fewer the original takes the first ocean
+    /// neighbour in another zone (<c>0x0052D9C3</c>); at seven to 31 it leaves the zone
+    /// as it is.
+    /// </summary>
+    [Fact]
+    public void AnEnclosedSeaZoneMergesOnlyAtSixCellsOrFewer()
+    {
+        var six = ConvertGrid(
+            [],
+            "#PPPPPPPPPPPP",
+            "#PPPXXXXXXPPP",
+            "#PPPPPPPPPPPP",
+            "#PPPPPPPPPPPP");
+        Assert.Equal(
+            ["merged map.sea-zones[1] Sea zone 1 (6 cells) was merged into neighbouring sea zone 0, as the original merges zones under 32 cells."],
+            MergeSteps(six));
+        Assert.Equal("sea-zone.legacy.000", Assert.Single(Assert.IsType<WorldContentDocument>(six.Document).Map.SeaZones).Key);
+
+        var seven = ConvertGrid(
+            [],
+            "#PPPPPPPPPPPP",
+            "#PPPXXXXXXXPP",
+            "#PPPPPPPPPPPP",
+            "#PPPPPPPPPPPP");
+        Assert.Empty(MergeSteps(seven));
+        var document = Assert.IsType<WorldContentDocument>(seven.Document);
+        Assert.Equal(2, document.Map.SeaZones.Length);
+        Assert.Equal(7, document.Map.Cells.Count(static cell => cell.Region.SeaZone == "sea-zone.legacy.001"));
+    }
+
+    /// <summary>
+    /// The oracle for the original's merge on the shipped maps, from the disassembly
+    /// emulated against all ten files: the five Europe maps go from 42 zones to 40, the
+    /// other five merge nothing.
+    /// </summary>
+    [CorpusFact]
+    public void TheShippedMapsMergeTheirSeaZonesAsTheOriginalDoes()
+    {
+        var directory = RequireScenarioDirectory();
+        string[] europe =
+        [
+            "merged map.sea-zones[7] Sea zone 7 (28 cells) was merged into sea zone 4 (score 16320), as the original merges zones under 32 cells.",
+            "renumbered map.sea-zones[41] Sea zone 41 took the emptied id 7, as the original compacts its zones.",
+            "merged map.sea-zones[3] Sea zone 3 (17 cells) was merged into sea zone 4 (score 10880), as the original merges zones under 32 cells.",
+            "renumbered map.sea-zones[40] Sea zone 40 took the emptied id 3, as the original compacts its zones.",
+        ];
+        var expected = new Dictionary<string, (int Zones, string[] Steps)>(StringComparer.Ordinal)
+        {
+            ["s0"] = (40, europe),
+            ["s1"] = (40, europe),
+            ["s3"] = (40, europe),
+            ["s13"] = (40, europe),
+            ["s14"] = (40, europe),
+            ["s9"] = (61, []),
+            ["s10"] = (59, []),
+            ["s11"] = (61, []),
+            ["s12"] = (61, []),
+            ["s15"] = (60, []),
+        };
+
+        foreach (var (key, want) in expected)
+        {
+            var result = LegacyWorldConverter.Convert(
+                LegacyMapCodec.Decode(File.ReadAllBytes(Path.Combine(directory, $"{key}.map")), MapFormatProfile.Imperialism1),
+                LegacyScenarioCodec.Decode(File.ReadAllBytes(Path.Combine(directory, $"{key}.scn"))),
+                null,
+                $"corpus-{key}");
+
+            var document = Assert.IsType<WorldContentDocument>(result.Document);
+            Assert.True(want.Zones == document.Map.SeaZones.Length, $"{key}: {document.Map.SeaZones.Length} sea zones, expected {want.Zones}.");
+            Assert.Equal(want.Steps, MergeSteps(result));
+        }
+    }
+
+    /// <summary>
+    /// The byte itself does not matter, only the order it is first seen in: a lone
+    /// ocean byte 32 is zone 0, so a ship in zone 0 is placed there and one in zone 9
+    /// (which "byte − 0x17" would have chosen) is not.
+    /// </summary>
+    [Fact]
+    public void AShipZoneIsNotTheOceanByteLessTheOceanBase()
+    {
         var ocean = new HexCell
         {
             Terrain = 0,
@@ -3456,6 +3722,7 @@ public sealed class LegacyWorldConverterTests
                 NameRecord("cnam", 1, "Second"),
                 NameRecord("pnam", 0, "West"),
                 NameRecord("pnam", 1, "East"),
+                Record("ship", 1, 1, 0, 2),
                 Record("ship", 1, 1, 9, 2),
             ]),
             null,
@@ -3463,10 +3730,11 @@ public sealed class LegacyWorldConverterTests
 
         Assert.True(result.Success);
         var document = Assert.IsType<WorldContentDocument>(result.Document);
-        Assert.Equal("sea-zone.legacy.009", Assert.Single(document.Map.SeaZones).Key);
-        var ship = Assert.Single(Assert.Single(document.Scenarios).Ships);
-        Assert.Equal("sea-zone.legacy.009", ship.SeaZoneKey);
-        Assert.Equal(0, result.Report.DeferredCounts.GetValueOrDefault("scenario.unplaced-ship-zones"));
+        Assert.Equal("sea-zone.legacy.000", Assert.Single(document.Map.SeaZones).Key);
+        var ships = Assert.Single(document.Scenarios).Ships;
+        Assert.Equal("sea-zone.legacy.000", ships[0].SeaZoneKey);
+        Assert.Null(ships[1].SeaZoneKey);
+        Assert.Equal(1, result.Report.DeferredCounts["scenario.unplaced-ship-zones"]);
     }
 
     [Fact]
@@ -3493,6 +3761,42 @@ public sealed class LegacyWorldConverterTests
         return CorpusFactAttribute.RequireScenarioDirectory();
     }
 
+    private static LegacyImportResult ConvertGrid(ScenarioRecord[] records, params string[] rows) =>
+        LegacyWorldConverter.Convert(
+            GridMap(rows),
+            new ScenarioDocument(
+            [
+                Record("year", 1),
+                NameRecord("cnam", 0, "Only"),
+                NameRecord("pnam", 0, "Home"),
+                .. records,
+            ]),
+            null,
+            "sea-zone-merge");
+
+    /// <summary>
+    /// A map drawn as text: '#' is land of province 0, owned by country 0, and every
+    /// other character is an ocean cell whose region byte is that character.
+    /// </summary>
+    private static MapDocument GridMap(params string[] rows)
+    {
+        var cells = rows.SelectMany(static row => row).Select(static symbol => symbol == '#'
+            ? LandCell(0, 0)
+            : new HexCell
+            {
+                Terrain = 0,
+                Province = ushort.MaxValue,
+                NationZoneA = (byte)symbol,
+                NationZoneB = (byte)symbol,
+            }).ToArray();
+        return CreateMap(rows[0].Length, rows.Length, cells);
+    }
+
+    private static string[] MergeSteps(LegacyImportResult result) => result.Report.Diagnostics
+        .Where(static item => item.Code is "map.sea-zone-merged" or "map.sea-zone-renumbered")
+        .Select(static item => $"{item.Code["map.sea-zone-".Length..]} {item.Location} {item.Message}")
+        .ToArray();
+
     private static MapDocument CreateMap(int width, int height, params HexCell[] cells)
     {
         var profile = new MapFormatProfile(width, height, trailerRecordCount: 2, trailerRecordSize: 3);
@@ -3507,8 +3811,8 @@ public sealed class LegacyWorldConverterTests
         NationZoneB = owner,
     };
 
-    // Ocean byte 33 is scenario zone 10: the executable's ocean regions begin
-    // at 0x17 whatever countries a file names.
+    // A lone ocean cell is sea zone 0, whatever its byte: zones are numbered in
+    // order of first appearance by cell index.
     private static HexCell OceanCell() => new()
     {
         Terrain = 0,
