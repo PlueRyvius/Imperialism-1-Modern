@@ -134,6 +134,9 @@ per (kind, target). `Build` maps the lists one to one, in draft order, onto
 Each row shows:
 
 - whether the country is a Great Power or eliminated;
+- `ProvincesOwned`, the provinces Core records it as owning as the turn opens, read
+  from province ownership and never the province id; an eliminated country keeps its
+  count, and the preview's own `ProvincesOwned` gives the drafting country's;
 - the relation mode, and whether a war or peace is pending;
 - the posts each way, both pacts, and both standing policies;
 - the drafted policy and Core's refusal of it;
@@ -418,8 +421,8 @@ gets the Fleet screen's banner (read from `FleetView.OrdersSetAside`, since
 
 Open Diplomacy with its tab or F5. Great Powers precede minors in a scrolling
 country list; eliminated countries are grey but remain selectable. Each row
-shows relation and pending war/peace, posts and pacts each way, standing policies
-and the drafted change. Select a country to offer consulate, embassy, pact or
+shows relation, provinces owned ("Provinces 14"), pending war/peace, posts and pacts each way, standing policies
+and the drafted change; the header shows your own provinces. Select a country to offer consulate, embassy, pact or
 peace, declare war, or choose none, a world-offered subsidy, or boycott. Prices,
 refusal warnings, war consequences and all four treasury figures come directly
 from `OrdersPreview.Diplomacy`. Warnings never disable an action. The right-hand

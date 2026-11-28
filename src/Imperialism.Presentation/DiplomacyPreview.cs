@@ -55,6 +55,11 @@ public sealed record WarOptionView(
 /// One other country as the Diplomacy screen shows it: standing, relation, posts, pact
 /// and trade policy as the turn opens, and what each order on it would do.
 /// </summary>
+/// <param name="ProvincesOwned">
+/// Provinces Core records the country as owning as the turn opens, read from province
+/// ownership and never from the province id. An eliminated country keeps its provinces,
+/// as Core does, so its count stands.
+/// </param>
 /// <param name="RelationMode">The mode recorded, which may not be in effect yet.</param>
 /// <param name="IsAtWar">A war is in effect this turn.</param>
 /// <param name="IsWarPending">War is declared and begins next turn.</param>
@@ -80,6 +85,7 @@ public sealed record DiplomaticCountryView(
     string CountryName,
     bool IsGreatPower,
     bool IsEliminated,
+    int ProvincesOwned,
     CountryRelationMode RelationMode,
     bool IsAtWar,
     bool IsWarPending,
@@ -183,6 +189,12 @@ public sealed record DiplomacyPreview(
 
     /// <summary>Paid at the Armoury in <c>Production</c>, before any overture.</summary>
     public long ClaimedByArmoury { get; init; }
+
+    /// <summary>
+    /// Provinces the drafting country owns as the turn opens, counted the same way as each
+    /// row's <see cref="DiplomaticCountryView.ProvincesOwned"/>.
+    /// </summary>
+    public int ProvincesOwned { get; init; }
 }
 
 /// <summary>
@@ -578,6 +590,16 @@ public sealed partial class OrdersPreview
         var claims = SimulateProductionClaims(state, draft);
         var drafted = SimulateDiplomacy(state, draft);
 
+        // Ownership from Core's own record, never from the province id.
+        var provincesOwned = new int[world.Countries.Count];
+        for (var province = 0; province < world.Map.Provinces.Count; province++)
+        {
+            if (state.GetProvinceOwner(new ProvinceId(province)) is { } owner)
+            {
+                provincesOwned[owner.Value]++;
+            }
+        }
+
         var countries = new List<DiplomaticCountryView>();
         foreach (var other in world.Countries)
         {
@@ -631,6 +653,7 @@ public sealed partial class OrdersPreview
                 other.Name,
                 other.IsGreatPower,
                 state.IsEliminated(target),
+                provincesOwned[target.Value],
                 recorded,
                 effective,
                 recorded == CountryRelationMode.Hostile && !effective,
@@ -681,6 +704,7 @@ public sealed partial class OrdersPreview
             ClaimedByTradeSchool = claims.TradeSchoolCash,
             ClaimedByUniversity = claims.UniversityCash,
             ClaimedByArmoury = claims.Armoury.CashClaimed,
+            ProvincesOwned = provincesOwned[country.Value],
         };
     }
 }

@@ -71,7 +71,7 @@ public sealed partial class DiplomacyScreen : Control, IShellScreen
     {
         var preview = _session!.Preview().Diplomacy;
         _treasury!.Text = string.Create(CultureInfo.InvariantCulture,
-            $"Treasury at open: ${preview.CashAtOpen:N0} · Earlier claims: ${preview.ClaimedBeforeDiplomacy:N0}\n" +
+            $"Your provinces: {preview.ProvincesOwned} · Treasury at open: ${preview.CashAtOpen:N0} · Earlier claims: ${preview.ClaimedBeforeDiplomacy:N0}\n" +
             $"Overtures claim: ${preview.ClaimedByOvertures:N0} · After overtures: ${preview.CashAfterOvertures:N0}");
         _notice!.Text = preview.OrdersSetAside
             ? "Your country is eliminated. Core sets these orders aside."
