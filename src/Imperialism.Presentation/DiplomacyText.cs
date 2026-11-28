@@ -63,7 +63,7 @@ public static class DiplomacyText
 
     /// <summary>The block under a country's name in the list and in its detail.</summary>
     public static string Summary(DiplomaticCountryView country) =>
-        $"{(country.IsGreatPower ? "Great Power" : "Minor nation")} · {RelationName(country.RelationMode)}\n" +
+        $"{(country.IsGreatPower ? "Great Power" : "Minor nation")} · {RelationName(country.RelationMode)} · Provinces {country.ProvincesOwned}\n" +
         $"At war: {Yes(country.IsAtWar)} · War pending: {Yes(country.IsWarPending)} · Peace pending: {Yes(country.IsPeacePending)}\n" +
         $"Our posts: {Posts(country.OurConsulate, country.OurEmbassy)} · Their posts: {Posts(country.TheirConsulate, country.TheirEmbassy)}\n" +
         $"Pact ours / theirs: {Yes(country.OurPact)} / {Yes(country.TheirPact)}\n" +

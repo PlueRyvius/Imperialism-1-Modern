@@ -215,6 +215,75 @@ public sealed class DiplomacyOrdersTests
             game.Preview().Diplomacy.Countries.Select(static row => row.CountryName));
     }
 
+    /// <summary>
+    /// Blue owns Home, Red owns Far, Green owns Green and Amber owns nothing: the count is
+    /// read from Core's ownership record, for the drafting country as well as each row.
+    /// </summary>
+    private static Game ProvinceGame()
+    {
+        var document = TurnReportFixture.CreateDocument();
+        AddDiplomacy(document);
+        document.Countries =
+        [
+            .. document.Countries,
+            new CountryContentDefinition { Key = "country.amber", Name = "Amber Duchy", IsGreatPower = false },
+        ];
+        return new Game(WorldContentCompiler.CompilePackage(document));
+    }
+
+    [Fact]
+    public void EachCountryShowsTheProvincesItOwnsAsTheTurnOpens()
+    {
+        var game = ProvinceGame();
+        var preview = game.Preview();
+        var expected = new int[game.State.Definition.Countries.Count];
+        for (var province = 0; province < game.State.Definition.Map.Provinces.Count; province++)
+        {
+            if (game.State.GetProvinceOwner(new ProvinceId(province)) is { } owner)
+            {
+                expected[owner.Value]++;
+            }
+        }
+
+        Assert.Equal(1, preview.Diplomacy.ProvincesOwned);
+        Assert.Equal(expected[Blue.Value], preview.Diplomacy.ProvincesOwned);
+        Assert.Equal(1, View(preview, "country.red").ProvincesOwned);
+        Assert.Equal(1, View(preview, "country.green").ProvincesOwned);
+        foreach (var row in preview.Diplomacy.Countries)
+        {
+            Assert.Equal(expected[game.Package.Catalog.GetCountryId(row.CountryKey).Value], row.ProvincesOwned);
+        }
+
+        Assert.StartsWith("Great Power · At peace · Provinces 1\n",
+            DiplomacyText.Summary(View(preview, "country.red")), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ACountryWithNoProvincesShowsZero()
+    {
+        var preview = ProvinceGame().Preview();
+        Assert.Equal(0, View(preview, "country.amber").ProvincesOwned);
+        Assert.StartsWith("Minor nation · At peace · Provinces 0\n",
+            DiplomacyText.Summary(View(preview, "country.amber")), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ACapturedProvinceMovesTheCountFromOneCountryToTheOther()
+    {
+        var game = ProvinceGame();
+        var green = game.Package.Catalog.GetCountryId("country.green");
+        var province = Enumerable.Range(0, game.State.Definition.Map.Provinces.Count)
+            .Select(static id => new ProvinceId(id))
+            .Single(id => game.State.GetProvinceOwner(id) == green);
+
+        game.State.SetProvinceOwner(province, Red);
+
+        var preview = game.Preview();
+        Assert.Equal(2, View(preview, "country.red").ProvincesOwned);
+        Assert.Equal(0, View(preview, "country.green").ProvincesOwned);
+        Assert.Equal(1, preview.Diplomacy.ProvincesOwned);
+    }
+
     private static DiplomaticCountryView View(OrdersPreview preview, string key) =>
         preview.Diplomacy.Countries.Single(row => row.CountryKey == key);
 
