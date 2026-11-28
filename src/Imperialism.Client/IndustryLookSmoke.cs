@@ -18,6 +18,9 @@ internal static class IndustryLookSmoke
         screen.OpenBuilding(warehouseBuilding);
         var warehouse = canvas.GetNode<IndustryDialog>("warehouse");
         var opening = warehouse.GetNode<Label>("stock_timber").Text;
+        var fish = warehouse.GetNode<Label>("stock_fish").Text ==
+            (session.Status.Warehouse.FirstOrDefault(row => row.CommodityKey == "commodity.fish")?.Available.ToString() ?? "");
+        var warehousePower = warehouse.GetNode<Label>("power").Text == session.Preview().PowerPlant.PowerMade.ToString();
         var facility = session.Preview().Industry.Recipes.First();
         var building = IndustryScreen.Buildings.Single(row => row.Role == facility.FacilityKey);
         screen.OpenBuilding(building);
@@ -63,6 +66,22 @@ internal static class IndustryLookSmoke
             var recipePanel = canvas.GetNode<IndustryDialog>("production");
             allRecipes &= session.Preview().Industry.Recipes.Where(row => row.FacilityKey == mappedFacility.FacilityKey)
                 .All(row => recipePanel.HasNode("content/recipe_" + row.RecipeKey.Replace('.', '_') + "_right"));
+            var recipeRows = session.Preview().Industry.Recipes.Where(row => row.FacilityKey == mappedFacility.FacilityKey).ToArray();
+            var figures = new List<Rect2>();
+            for (var i = 0; i < recipeRows.Length; i++)
+            {
+                var prefix = "content/recipe_" + recipeRows[i].RecipeKey.Replace('.', '_');
+                var right = recipePanel.GetNode<PlateButton>(prefix + "_right");
+                var figure = recipePanel.GetNode<Label>(prefix + "_figure");
+                var panelArt = IndustryScreen.Buildings.Single(row => row.Role == mappedFacility.FacilityKey).Panel;
+                var paired = panelArt is 9203 or 9204;
+                var bar = paired ? 106 + 30 * i : panelArt == 9212 ? 138 : 98;
+                allRecipes &= right.Position.Y == bar - 4 && figure.Position.Y == bar - 6 &&
+                    figure.Position.Y + figure.Size.Y <= recipePanel.Size.Y - 29;
+                var box = new Rect2(figure.Position, figure.Size);
+                allRecipes &= figures.All(previous => !previous.Intersects(box));
+                figures.Add(box);
+            }
         }
         var reached = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < session.Preview().Industry.Facilities.Count + 2; i++)
@@ -99,23 +118,38 @@ internal static class IndustryLookSmoke
             canvas.GetChildren().OfType<Control>().Where(row => row.Name.ToString().StartsWith("slot_", StringComparison.Ordinal))
                 .Select(row => int.Parse(row.Name.ToString()[5..])).SequenceEqual(expectedOrder);
         var hidden = !IndustryScreen.ShowsBuilding(IndustryScreen.Buildings[0], preview with { Facilities = [] });
+        var heldFacility = preview.Facilities.First(row => IndustryScreen.Buildings.Any(item => item.Role == row.FacilityKey));
+        var zeroCapacity = !IndustryScreen.ShowsBuilding(IndustryScreen.Buildings.Single(row => row.Role == heldFacility.FacilityKey),
+            preview with { Facilities = [heldFacility with { Capacity = 0 }] });
         var hitOrder = true;
         foreach (var candidate in IndustryScreen.Buildings)
         {
             var slot = canvas.GetNode<Control>($"slot_{candidate.Slot}");
             var hit = slot.GetNode<Control>("hit");
-            var point = slot.Position + hit.Position + hit.Size / 2;
-            var expectedHit = expectedOrder.Reverse().Select(id => canvas.GetNode<Control>($"slot_{id}"))
-                .FirstOrDefault(node => node.Visible && new Rect2(node.Position + node.GetNode<Control>("hit").Position, node.GetNode<Control>("hit").Size).HasPoint(point));
-            hitOrder &= screen.PickBuilding(point)?.Slot == (expectedHit is null ? null : int.Parse(expectedHit.Name.ToString()[5..]));
+            var mask = GD.Load<Texture2D>($"res://art/industry/{(candidate.Mask != 0 ? candidate.Mask : candidate.Tile)}.png").GetImage();
+            for (var y = 0; y < mask.GetHeight(); y += 7)
+            for (var x = 0; x < mask.GetWidth(); x += 7)
+            {
+                var pixel = mask.GetPixel(x, y);
+                var opaque = pixel.A > 0 && pixel != (candidate.Mask != 0 ? Colors.White : Colors.Magenta);
+                hitOrder &= hit._HasPoint(new(x, y)) == opaque;
+            }
         }
+        var visibility = IndustryScreen.Buildings.Select(row => canvas.GetNode<Control>($"slot_{row.Slot}").Visible).ToArray();
+        foreach (var row in IndustryScreen.Buildings) canvas.GetNode<Control>($"slot_{row.Slot}").Visible = true;
+        var textileRoof = screen.PickBuilding(new(312, 326))?.Role == "facility.textile-mill";
+        foreach (var row in IndustryScreen.Buildings) canvas.GetNode<Control>($"slot_{row.Slot}").Visible = visibility[row.Slot];
         screen.OpenBuilding(IndustryScreen.Buildings[11]);
+        screen.OpenBuilding(warehouseBuilding);
+        var powerWarehouse = canvas.GetNode<IndustryDialog>("warehouse");
         var fuelBefore = session.Draft.BurnFuel;
         var fuelButton = canvas.GetNode<PlateButton>("production/content/fuel_right");
         fuelButton._GuiInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true });
         fuelButton._GuiInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false });
         var power = session.Draft.BurnFuel == fuelBefore + 1;
+        warehousePower &= powerWarehouse.GetNode<Label>("power").Text == session.Preview().PowerPlant.PowerMade.ToString();
         session.Draft.BurnFuel = fuelBefore;
+        screen.CloseTopDialog();
         screen.CloseTopDialog();
         // A separate screen observes the actual target input wiring without switching the live shell.
         var navScreen = new IndustryScreen();
@@ -131,7 +165,8 @@ internal static class IndustryLookSmoke
         var crisp = canvas.GetNode<Label>("date").GetThemeFont("font") is FontVariation variation &&
             variation.BaseFont is FontFile font && font.Oversampling == k;
         var prohibited = Descendants(screen).Any(node => node is Button or SpinBox or Slider or ProgressBar or ScrollContainer);
-        var ok = geometry && idle && retained && changed && balance && expanded && liveBalance && top && closed && special && order && tiles && crisp && accessible && allRecipes && slotTable && drawOrder && hidden && hitOrder && armoury && power && !prohibited;
+        var ok = geometry && idle && retained && changed && balance && expanded && liveBalance && top && closed && special && order && tiles && crisp && accessible && allRecipes && slotTable && drawOrder && hidden && zeroCapacity && hitOrder && textileRoof && fish && warehousePower && armoury && power && !prohibited;
+        GD.Print($"INDUSTRY_REGRESSION zeroCapacity={zeroCapacity} textileRoof={textileRoof} fish={fish} warehousePower={warehousePower}");
         GD.Print($"INDUSTRY_SMOKE_{(ok ? "OK" : "FAIL")} geometry={geometry} idle={idle} warehouseRetained={retained} production={changed} balance={balance}/{liveBalance} expansion={expanded} topClose={top}/{closed} special={special} priority={order} tiles={tiles} crisp={crisp} accessible={accessible} allRecipes={allRecipes} slots={slotTable} drawOrder={drawOrder} absent={hidden} hits={hitOrder} armoury={armoury} power={power} stockControls={prohibited} openingTimber={opening}");
         return ok;
     }

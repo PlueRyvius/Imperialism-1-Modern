@@ -30,7 +30,7 @@ public sealed partial class IndustryScreen : Control, IShellScreen
         new(14,7030,340,44,"railyard",9214,new(98,166)),
         new(15,7031,150,95,"capitol",9216,new(63,236)),
     ];
-    private readonly Dictionary<int, Rect2> _hits = [];
+    private readonly Dictionary<int, Image> _hits = [];
     private readonly Dictionary<int, Label> _sideFigures = [];
     private GameSession? _session;
     private Control? _canvas;
@@ -162,26 +162,30 @@ public sealed partial class IndustryScreen : Control, IShellScreen
             };
             tile.SetMeta("layout_name", $"slot.{building.Slot}");
             _canvas.AddChild(tile);
-            var bounds = OpaqueBox(Art(building.Mask == 0 ? building.Tile : building.Mask).GetImage());
-            _hits.Add(building.Slot, bounds);
+            _hits.Add(building.Slot, Art(building.Mask == 0 ? building.Tile : building.Mask).GetImage());
             if (building.Tile != 0) Picture(tile, "art", Art(building.Tile), Vector2.Zero, true);
-            var hit = new Control
+            var hit = new IndustryBuildingHit
             {
                 Name = "hit",
-                Position = bounds.Position,
-                Size = bounds.Size,
+                Size = tile.Size,
+                ContainsPixel = point => HasBuildingPixel(building, point),
                 MouseFilter = MouseFilterEnum.Stop,
                 FocusMode = FocusModeEnum.All
             };
             tile.AddChild(hit);
             hit.MouseEntered += () => SetHot(BuildingHot(PickBuilding(_canvas.GetLocalMousePosition()) ?? building));
+            hit.MouseMoved += () => SetHot(PickBuilding(_canvas.GetLocalMousePosition()) is { } picked ? BuildingHot(picked) : "");
             hit.FocusEntered += () => SetHot(BuildingHot(building));
             hit.MouseExited += () => SetHot("");
             hit.GuiInput += input =>
             {
                 if (input is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } ||
                     input is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Enter or Key.Space })
-                { OpenBuilding(input is InputEventMouseButton ? PickBuilding(_canvas.GetLocalMousePosition()) ?? building : building); hit.AcceptEvent(); }
+                {
+                    var picked = input is InputEventMouseButton ? PickBuilding(_canvas.GetLocalMousePosition()) : building;
+                    if (picked is not null) OpenBuilding(picked);
+                    hit.AcceptEvent();
+                }
             };
             _tiles.Add(building.Slot, tile);
         }
@@ -207,20 +211,18 @@ public sealed partial class IndustryScreen : Control, IShellScreen
         _detail = Text(_canvas, "hottext.detail", new(420, 18, 167, 16), "", true, align: HorizontalAlignment.Right, size: 9);
     }
 
-    private static Rect2 OpaqueBox(Image image)
+    private bool HasBuildingPixel(Building building, Vector2 point)
     {
-        var background = image.GetPixel(0, 0);
-        var min = new Vector2(image.GetWidth(), image.GetHeight());
-        var max = new Vector2(-1, -1);
-        for (var y = 0; y < image.GetHeight(); y++)
-        for (var x = 0; x < image.GetWidth(); x++)
-            if (!image.GetPixel(x, y).IsEqualApprox(background))
-            { min = min.Min(new Vector2(x, y)); max = max.Max(new Vector2(x, y)); }
-        return new Rect2(min, max - min + Vector2.One);
+        var image = _hits[building.Slot];
+        if (point.X < 0 || point.Y < 0 || point.X >= image.GetWidth() || point.Y >= image.GetHeight()) return false;
+        var pixel = image.GetPixel((int)point.X, (int)point.Y);
+        return pixel.A > 0 && (building.Mask != 0
+            ? !pixel.IsEqualApprox(image.GetPixel(0, 0))
+            : !(pixel.R > 0.99f && pixel.G < 0.01f && pixel.B > 0.99f));
     }
 
     internal Building? PickBuilding(Vector2 point) => DrawOrder.Reverse().Select(slot => Buildings[slot])
-        .FirstOrDefault(row => _tiles[row.Slot].Visible && _hits[row.Slot].HasPoint(point - new Vector2(row.X, row.Y)));
+        .FirstOrDefault(row => _tiles[row.Slot].Visible && HasBuildingPixel(row, point - new Vector2(row.X, row.Y)));
 
     private string BuildingHot(Building building) => _preview!.Facilities.FirstOrDefault(row => row.FacilityKey == building.Role)?.FacilityName
         ?? building.Role switch
@@ -337,9 +339,13 @@ public sealed partial class IndustryScreen : Control, IShellScreen
             for (var i = 0; i < recipes.Length; i++)
             {
                 var key = recipes[i].RecipeKey;
-                var y = 91 - (recipes.Length - 1 - i) * 40;
-                if (recipes.Length > 1) Text(content, "recipe." + key + ".name", new(19, y - 13, 174, 14), recipes[i].RecipeName, size: 9);
-                Stepper(content, "recipe." + key, new(68, y), new(231, y), new(79, y + 12, 149, 16),
+                // Original panel bars sit below the ingredients: single at 98, paired at 106/136.
+                var paired = art is 9203 or 9204;
+                var y = paired ? 102 + i * 30 : art == 9212 ? 134 : 94;
+                // Single-bar panels share that row horizontally when the content offers alternatives.
+                var width = paired ? 172 : 172 / recipes.Length;
+                var x = paired ? 68 : 68 + i * width;
+                Stepper(content, "recipe." + key, new(x, y), new(x + width - 9, y), new(x + 13, y - 2, width - 26, 14),
                     () => _preview!.Recipes.Single(row => row.RecipeKey == key).RequestedCycles,
                     value => _session!.Draft.SetProduction(_session.Package.Catalog.GetProductionRecipeId(key), value), recipes[i].RecipeName);
             }
@@ -409,7 +415,7 @@ public sealed partial class IndustryScreen : Control, IShellScreen
         [ ("cotton",107,84),("fabric",170,103),("clothing",224,103),("wool",106,117),("paper",172,154),
           ("timber",106,170),("furniture",221,170),("lumber",169,183),("iron",107,221),("hardware",224,224),
           ("steel",170,241),("coal",106,247),("armaments",227,248),("oil",110,280),("fuel",175,282),
-          ("grain",109,317),("fruit",158,317),("livestock",158,344),("canned-food",215,336),("horses",137,382) ];
+          ("grain",109,317),("fruit",158,317),("fish",109,344),("livestock",158,344),("canned-food",215,336),("horses",137,382) ];
         foreach (var (key, x, y) in counts)
         {
             var opening = Text(_warehouse, "stock." + key, new(x - 68, y - 35 - 3, 24, 14), "", size: 9);
@@ -426,6 +432,8 @@ public sealed partial class IndustryScreen : Control, IShellScreen
         }
         var labour = Text(_warehouse, "labour", new(204 - 68, 382 - 35 - 3, 30, 14), "", size: 9);
         _warehouseUpdates.Add(() => labour.Text = _preview!.LabourAvailable.ToString());
+        var power = Text(_warehouse, "power", new(223 - 68, 282 - 35, 24, 14), "", size: 9);
+        _warehouseUpdates.Add(() => power.Text = _session!.Preview().PowerPlant.PowerMade.ToString());
         // The frame arrow toggles opening stock / draft balance in the measured boxes.
         Button(_warehouse, "balance", Art(9242), new(156, 7), () =>
         {

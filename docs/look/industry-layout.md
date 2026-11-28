@@ -39,8 +39,8 @@ Capitol; Power Plant uses 7027. Panel association `9200 + slot` is I; the wareho
 | 15 | Capitol | 150,95 | 7031 L1 | 9216 M | RecruitmentPreview.Requested |
 
 Draw order M (0x00696178): **12 13 7 10 14 15 9 6 11 2 3 8 0 1 4 5**.
-Hover/click resolves the reverse order, as 0x004BAFA0 does. Hit geometry is the opaque
-bounding rectangle of the chosen tile, or L0 mask for slots 9/12/13. These three
+Hover/click resolves the reverse order, as 0x004BAFA0 does. Hit geometry tests each opaque, non-magenta pixel of the chosen tile, or
+the non-white pixels of the L0 mask for slots 9/12/13. These three
 buildings are already painted into background 6000; their masks are not drawn.
 
 Chosen: a facility target/tile shows only at positive or unlimited country capacity.
@@ -96,11 +96,15 @@ other panel positions are I. Each frame is panel-local (-3,-26), 3 px border wit
 top dialog. Warehouse remains open beside production and refreshes after edits.
 
 Panel-local controls: title (19,8,174,17); capacity (19,24,170,16); expansion
-9244/9245 at (196,9), 61×24; recipe arrows 9240/9242 at (68,91)/(231,91), 9×9,
-with 9241/9243 held art; figure (79,103,149,16). Both Metalworks and Lumber recipes
-share the proper panel; earlier recipe arrows are 40 px above the last with names
-13 px above. Capitol recruitment arrows (74,89)/(237,89), figure (85,102,149,16).
-Power Plant's fuel arrows use the single-recipe positions and existing BurnFuel setter.
+9244/9245 at (196,9), 61×24; single-recipe arrows 9240/9242 at (68,94)/(231,94), 9×9,
+with 9241/9243 held art; figure (81,92,146,14). Both Metalworks and Lumber recipes
+share the proper panel: arrows at y=102/132 and figures at y=100/130, below the
+ingredients on the original bars. Recipe names remain available as arrow hottext. Chosen: alternative recipes in a
+single-bar panel (Textile) split that bottom row horizontally, keeping every arrow
+and figure below the ingredients; two alternatives use arrows x=68/145 and 154/231,
+figures (81,92,60,14) and (167,92,60,14). Food Processing uses its lower
+bar: arrows y=134, figure (81,132,146,14). Capitol recruitment arrows (74,89)/(237,89), figure (85,102,149,16).
+Power Plant's fuel arrows retain (68,91)/(231,91), figure (79,103,149,16), and the existing BurnFuel setter.
 
 Frame-bar previous/next arrows at panel-local (5,-19)/(252,-19) are retained for
 absent facilities and the covered Power Plant. They do not change production priority.
@@ -136,8 +140,8 @@ OK/Cancel confirmation flow is deferred to keep this change bounded.
 | `warehouse.stock.canned-food` | 215 | 333 | 24 | 14 | — | CountryStatusView.Warehouse.Available / IndustryPreview.WarehouseBalance.Quantity |
 | `warehouse.stock.horses` | 137 | 379 | 24 | 14 | — | CountryStatusView.Warehouse.Available / IndustryPreview.WarehouseBalance.Quantity |
 | `warehouse.labour` | 204 | 379 | 30 | 14 | — | IndustryPreview.LabourAvailable |
-| `warehouse.stock.fish` | — | — | — | — | — | **MISSING** fish position unresolved measurement; omitted |
-| `warehouse.power` | 223 | 282 | 12 | 8 | — | **MISSING** warehouse power (transient, not inventory); omitted |
+| `warehouse.stock.fish` | 109 | 341 | 24 | 14 | — | CountryStatusView.Warehouse.Available / IndustryPreview.WarehouseBalance.Quantity |
+| `warehouse.power` | 223 | 282 | 24 | 14 | — | PowerPlantView.PowerMade (transient, not inventory) |
 | `warehouse.balance` | 224 | 42 | 8 | 9 | pictuniv/9242.png | toggle opening stock / IndustryPreview.WarehouseBalance (chosen) |
 
 
@@ -147,7 +151,7 @@ OK/Cancel confirmation flow is deferred to keep this change bounded.
 - Trade School panel 9209 and SetTraining wiring remain a follow-up; its baked-in target supplies hover text.
 - MISSING: starved and six needed-goods figures lack Presentation fields; empty on the side rail.
 - MISSING: Capitol province-count line until https://github.com/PlueRyvius/Imperialism-1-Modern/pull/103 lands.
-- Warehouse fish placement, transient power figure, food identities, frame right-side grey area and small background residual remain unresolved measurements.
+- Other food identities, frame right-side grey area and small background residual remain unresolved measurements.
 - Priority arrows stay omitted; standing draft order is unchanged. Flagged for Andy.
 - Windows 1920×1080 comparison beside the original and Tester gate remain pending.
 
