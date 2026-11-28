@@ -1102,3 +1102,32 @@ play-test fault 14; report scrolling is the additional regression).
 
 Run `--smoke-test`, `--smoke-screens` and `--smoke-turn` as regression checks
 alongside these interaction checks. Capture evidence outside the repository.
+
+### Industry city look
+
+Industry (F3) uses the original 640×480 city at a whole-number scale, centred
+on #0E0905, with Lora figures and Fraunces Bold headings rendered at the final
+resolution. Click a building's rectangular opaque bounds to open its panel.
+The Warehouse stays open while another panel is used; Escape or clicking a
+frame closes the top panel. Production arrows repeat after 400 ms, every 60 ms.
+The expansion bitmap toggles the existing expansion order. Recruitment and
+Railyard use the same arrow controls. Production priority is preserved and has
+no editing arrows on this screen (chosen, awaiting Andy's ruling).
+
+The frame's small previous/next arrows (also Page Up / Page Down) select a
+facility, including those without a visible building, so their expansion stays
+reachable. Multiple recipes appear together in the same panel. The Warehouse
+opens with stock counts; its frame arrow switches the figures to the balance
+after industrial orders. Hovering a figure also gives that balance. This view
+includes production outputs and construction, but excludes feeding and future
+transport/trade deliveries. These added frame controls are chosen access
+fallbacks while the original tile roles and remaining panel art await tracing.
+
+`godot --headless --path src/Imperialism.Client -- --smoke-industry` exercises
+production, expansion, recruitment, Railyard, warehouse persistence and live
+balances, top-dialog closing, every facility's accessibility, unchanged priority,
+crisp font configuration, canvas geometry and shell restoration. It defaults to
+`demo/orders.iworld`. Adding `--screenshot <directory>` in a graphical run saves
+`industry-city.png` and `industry-dialogs.png` at 1920×1080 in that directory.
+The ETHERCAT comparison and pending/MISSING rows in the layout note remain the
+visual acceptance gate.
