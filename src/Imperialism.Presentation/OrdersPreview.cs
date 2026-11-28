@@ -397,7 +397,11 @@ public sealed partial class OrdersPreview
             Array.AsReadOnly(recipes.ToArray()),
             Array.AsReadOnly(facilities.ToArray()),
             railyard,
-            recruitment);
+            recruitment)
+        {
+            WarehouseBalance = Array.AsReadOnly(world.Commodities.Select(commodity =>
+                new CommodityAmountView(names.Key(commodity.Id), commodity.Name, available[commodity.Id.Value])).ToArray()),
+        };
     }
 
     private static TransportPreview PreviewTransport(WorldState state, OrdersDraft draft, Names names)
@@ -720,7 +724,13 @@ public sealed record IndustryPreview(
     IReadOnlyList<RecipePreview> Recipes,
     IReadOnlyList<FacilityPreview> Facilities,
     RailyardPreview? Railyard,
-    RecruitmentPreview? Recruitment);
+    RecruitmentPreview? Recruitment)
+{
+    /// <summary>Detached warehouse after the draft's industrial orders: production
+    /// outputs included, then expansions, railyard, shipyard and recruitment.
+    /// Excludes future transport/trade deliveries and feeding; not a turn forecast.</summary>
+    public IReadOnlyList<CommodityAmountView> WarehouseBalance { get; init; } = [];
+}
 
 public sealed record TransportSliderPreview(
     string CommodityKey,

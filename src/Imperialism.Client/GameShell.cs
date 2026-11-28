@@ -39,6 +39,7 @@ public sealed partial class GameShell : Control
     private bool _smokeDiplomacy;
     private bool _smokeOrders;
     private bool _smokeTransport;
+    private bool _smokeIndustry;
     private bool _smokeUnits;
     private bool _smokeFleet;
     private bool _smokeArmoury;
@@ -53,13 +54,14 @@ public sealed partial class GameShell : Control
         _smokeTurn = arguments.Contains("--smoke-turn", StringComparer.Ordinal);
         _smokeDiplomacy = arguments.Contains("--smoke-diplomacy", StringComparer.Ordinal);
         _smokeOrders = arguments.Contains("--smoke-orders", StringComparer.Ordinal);
+        _smokeIndustry = arguments.Contains("--smoke-industry", StringComparer.Ordinal);
         _smokeTransport = arguments.Contains("--smoke-transport", StringComparer.Ordinal);
         _smokeUnits = arguments.Contains("--smoke-units", StringComparer.Ordinal);
         _smokeFleet = arguments.Contains("--smoke-fleet", StringComparer.Ordinal);
         _smokeArmoury = arguments.Contains("--smoke-armoury", StringComparer.Ordinal);
         _screenshotDirectory = ReadArgument(arguments, "--screenshot");
         var worldPath = ReadArgument(arguments, "--world") ??
-            (_smokeOrders || _smokeTransport ? "res://demo/orders.iworld" : DefaultWorldPath);
+            (_smokeOrders || _smokeTransport || _smokeIndustry ? "res://demo/orders.iworld" : DefaultWorldPath);
 
         try
         {
@@ -72,7 +74,7 @@ public sealed partial class GameShell : Control
             StartSession(
                 ReadArgument(arguments, "--scenario") ?? _package.ScenarioKeys[0],
                 ReadArgument(arguments, "--country"));
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _smokeOrders || _smokeTransport || _smokeDiplomacy || _smokeFleet || _smokeArmoury || _screenshotDirectory is not null)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _smokeOrders || _smokeTransport || _smokeIndustry || _smokeDiplomacy || _smokeFleet || _smokeArmoury || _screenshotDirectory is not null)
             {
                 CallDeferred(nameof(FinishSmoke));
             }
@@ -80,7 +82,7 @@ public sealed partial class GameShell : Control
         catch (Exception exception)
         {
             GD.PushError($"Could not load world package '{worldPath}': {exception.Message}");
-            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _smokeOrders || _smokeTransport || _smokeDiplomacy || _smokeFleet || _smokeArmoury)
+            if (_smokeTest || _smokeScreens || _smokeTurn || _smokeUnits || _smokeOrders || _smokeTransport || _smokeIndustry || _smokeDiplomacy || _smokeFleet || _smokeArmoury)
             {
                 GetTree().Quit(1);
                 return;
@@ -162,6 +164,13 @@ public sealed partial class GameShell : Control
 
         if (@event.IsActionPressed("shell_back") && _current == ShellScreen.TerrainMap &&
             ((TerrainMapScreen)_screens[ShellScreen.TerrainMap]).DeselectCivilian())
+        {
+            AcceptEvent();
+            return;
+        }
+
+        if (@event.IsActionPressed("shell_back") && _current == ShellScreen.Industry &&
+            ((IndustryScreen)_screens[ShellScreen.Industry]).CloseTopDialog())
         {
             AcceptEvent();
             return;
@@ -272,7 +281,9 @@ public sealed partial class GameShell : Control
         terrainMap.TurnEndRequested += EndTurn;
         _screens[ShellScreen.TerrainMap] = terrainMap;
         _screens[ShellScreen.Transport] = new TransportScreen();
-        _screens[ShellScreen.Industry] = new IndustryScreen();
+        var industry = new IndustryScreen();
+        industry.NavigationRequested += Navigate;
+        _screens[ShellScreen.Industry] = industry;
         _screens[ShellScreen.BidAndOffers] = new TradeScreen();
         _screens[ShellScreen.Diplomacy] = new DiplomacyScreen();
         _screens[ShellScreen.Technology] = new TechnologyScreen();
@@ -286,7 +297,7 @@ public sealed partial class GameShell : Control
             control.SetAnchorsPreset(LayoutPreset.FullRect);
             control.Visible = false;
             // Rebuilt screens cover the window; the older screens keep their stack.
-            if (screen == ShellScreen.Transport) AddChild(control);
+            if (screen is ShellScreen.Transport or ShellScreen.Industry) AddChild(control);
             else _screenStack!.AddChild(control);
         }
     }
@@ -385,9 +396,9 @@ public sealed partial class GameShell : Control
 
         // Transport scales its 640x480 root in physical window pixels. Restore the
         // shell's canvas-items stretch before opening any screen not yet rebuilt.
-        GetWindow().ContentScaleMode = screen == ShellScreen.Transport
+        GetWindow().ContentScaleMode = screen is ShellScreen.Transport or ShellScreen.Industry
             ? Window.ContentScaleModeEnum.Disabled : _shellScaleMode;
-        _shellFrame!.Visible = screen != ShellScreen.Transport;
+        _shellFrame!.Visible = screen is not (ShellScreen.Transport or ShellScreen.Industry);
         HideTransientUi();
         _current = screen;
         ((IShellScreen)_screens[screen]).Enter(_session);
@@ -477,6 +488,30 @@ public sealed partial class GameShell : Control
         if (_screenshotDirectory is not null)
         {
             await CaptureEveryScreen(_screenshotDirectory);
+        }
+
+        if (_smokeIndustry)
+        {
+            GetWindow().Size = new Vector2I(1920, 1080);
+            Navigate(ShellScreen.Industry);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            var screen = (IndustryScreen)_screens[ShellScreen.Industry];
+            var industryOk = IndustryLookSmoke.Run(_session, screen, GetViewport().GetVisibleRect().Size);
+            if (_screenshotDirectory is not null)
+            {
+                await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                GetViewport().GetTexture().GetImage().SavePng($"{_screenshotDirectory}/industry-city.png");
+                screen.OpenBuilding(IndustryScreen.Buildings.Single(row => row.Role == "warehouse"));
+                screen.OpenBuilding(IndustryScreen.Buildings.Single(row => row.Role == "facility.lumber-mill"));
+                await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                GetViewport().GetTexture().GetImage().SavePng($"{_screenshotDirectory}/industry-dialogs.png");
+            }
+            Navigate(ShellScreen.TerrainMap);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            var restored = _shellFrame!.Visible && GetWindow().ContentScaleMode == _shellScaleMode && BorderIsOnScreen();
+            GD.Print($"INDUSTRY_NAVIGATION restored={restored}");
+            GetTree().Quit(industryOk && restored ? 0 : 1);
+            return;
         }
 
         if (_smokeTransport)
