@@ -208,14 +208,20 @@ validation rule for imported state. Tutorial scenarios contain capacities 3,
 5, 6, and 7, so the modern capacity value is an unrestricted checked integer.
 
 Keys are deterministic. Known terrain and resources use semantic keys;
-countries, provinces, and sea zones retain padded numeric legacy IDs. Only
-`zone` IDs referenced by ocean cells become modern sea zones. The ocean byte
-uses a combined region namespace whose ocean part begins at `0x17`: the
-executable's `UOcean` resolves byte `r` as `records[r - 0x17]`
-(`0x00563300`), so a scenario `zone` or `ship` id `z` is ocean byte `z + 23`.
-The importer subtracts that constant. It used to subtract the highest country
-id the file names plus one, which agrees only when that id is 22 (#41); an
-ocean byte below `0x17` is reported as `map.invalid-sea-zone-reference`. Other zone
+countries, provinces, and sea zones retain padded numeric legacy IDs. Sea
+zones are numbered as the original numbers them on load: the importer
+scans the cells in index order and gives each distinct ocean-region byte the
+next dense id, 0, 1, 2…, in order of first appearance (`0x00529F60`, then
+`0x00562D90` builds one `UOcean` per id). A scenario `zone` or `ship` id is that
+dense id, so `sea-zone.legacy.NNN` is keyed by it. Reading the id as "ocean byte
+− 0x17" was wrong and is retracted; earlier still the importer subtracted the
+highest country id plus one (#41). An ocean byte below `0x17` is still reported
+as `map.invalid-sea-zone-reference`. A ship whose zone is at or past the number
+of sea zones is counted in `scenario.unplaced-ship-zones`, as the original's
+`0x0055F100` places it in no zone, and a `zone` record naming no sea zone is
+counted in `scenario.unused-zone-records`. Open: `0x0052CAE0` and `0x0052D750`
+run after the scan and are untraced; if they compact empty slots, the ids could
+shift. Other zone
 records, all unsupported scenario tags (including legacy `rail` records), INF
 briefings and metadata, scenario trailing bytes, and map trailer records are
 reported as deferred information.

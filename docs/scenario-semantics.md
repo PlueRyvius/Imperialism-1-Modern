@@ -181,10 +181,13 @@ resolve the encoded zone id through `0x0055F100`. The `ship` record is
 `[country, type, zone, count]`; its created `TShip` stores that resolved runtime
 `UOcean` entry at `+0x08`.
 
-`UOcean` resolves raw map-ocean byte `r` as `records[r - 0x17]`
-(`0x00563300`). The zone handler uses the scenario zone id directly in that
-same lookup. Therefore a scenario `zone`/`ship` id `z` is raw map-ocean byte
-`z + 23`. The earlier neighbour-based identification of several named seas was
+A scenario `zone`/`ship` id is a **dense ocean id**: on load, `0x00529F60`
+scans the cells in index order and numbers each ocean-region value 0, 1, 2… in
+order of first appearance, and `0x00562D90` builds one `UOcean` per id. An id
+matching no region resolves to no zone (`0x0055F100`). The reading "`z` is raw
+map-ocean byte `z + 23`" was wrong (PC trace, 28 Nov 2026). Whether
+`0x0052CAE0`/`0x0052D750`, which run after the scan, compact empty slots is
+untraced. The earlier neighbour-based identification of several named seas was
 incorrect and is superseded by this executable-backed chain.
 
 The scenario loader runs in setup state 2 at `0x0057DA70`, after the state-3

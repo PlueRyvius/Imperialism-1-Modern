@@ -76,14 +76,20 @@ internal readonly record struct LegacyShipCombat(
 public static class LegacyWorldConverter
 {
     /// <summary>
-    /// The first raw map region the original treats as ocean. <c>UOcean</c>
-    /// resolves ocean byte <c>r</c> as <c>records[r - 0x17]</c>
-    /// (<c>0x00563300</c>), and the <c>zone</c> and <c>ship</c> handlers use a
-    /// scenario zone id <c>z</c> in that same lookup, so <c>z</c> is ocean byte
-    /// <c>z + 0x17</c>. It is a constant of the executable, not of a scenario:
-    /// deriving it from the highest country id a file happens to name agreed
-    /// only while that id was 22 (#41).
+    /// The first raw map region the original treats as ocean. A value below it
+    /// on an ocean cell is an error. It is a constant of the executable, not of
+    /// a scenario: deriving it from the highest country id a file happens to
+    /// name agreed only while that id was 22 (#41).
     /// </summary>
+    /// <remarks>
+    /// <b>It is not the offset of a scenario zone id.</b> On scenario load the
+    /// original (<c>0x0050EC60</c> → UMapper slot <c>+0x64</c> → <c>0x00529F60</c>,
+    /// arg 1) scans the cells in index order and gives each ocean-region value
+    /// not seen before the next id, 0, 1, 2…; <c>0x00562D90</c> then builds one
+    /// <c>UOcean</c> per id. A <c>ship</c> record's zone and a <c>zone</c>
+    /// record's id are those dense ids, which is what <see cref="Convert"/>
+    /// assigns. Reading a zone as "ocean byte − 0x17" was wrong.
+    /// </remarks>
     internal const uint LegacyOceanRegionBase = 0x17;
 
     /// <summary>
@@ -671,7 +677,12 @@ public static class LegacyWorldConverter
             .Distinct()
             .Order()
             .ToArray();
+        // Sea zones are numbered densely in order of first appearance by cell
+        // index, as the original's scan at 0x00529F60 does; a scenario's zone
+        // ids are those numbers. 0x0052CAE0 and 0x0052D750 run after that scan
+        // and are untraced, so whether they compact anything is still open.
         var cellSeaZoneIds = new uint[map.Cells.Count];
+        var denseSeaZoneIds = new Dictionary<byte, uint>();
         for (var index = 0; index < map.Cells.Count; index++)
         {
             var cell = map.Cells[index];
@@ -687,21 +698,18 @@ public static class LegacyWorldConverter
                     "map.invalid-sea-zone-reference",
                     $"map.cells[{index}]",
                     $"Ocean region value {cell.NationZoneA} is below the executable's ocean region base {LegacyOceanRegionBase}.");
-                cellSeaZoneIds[index] = cell.NationZoneA;
             }
-            else
+
+            if (!denseSeaZoneIds.TryGetValue(cell.NationZoneA, out var seaZoneId))
             {
-                cellSeaZoneIds[index] = cell.NationZoneA - LegacyOceanRegionBase;
+                seaZoneId = (uint)denseSeaZoneIds.Count;
+                denseSeaZoneIds.Add(cell.NationZoneA, seaZoneId);
             }
+
+            cellSeaZoneIds[index] = seaZoneId;
         }
 
-        var seaZoneIds = map.Cells
-            .Select((cell, index) => (cell, index))
-            .Where(static item => item.cell.IsOcean)
-            .Select(item => cellSeaZoneIds[item.index])
-            .Distinct()
-            .Order()
-            .ToArray();
+        var seaZoneIds = Enumerable.Range(0, denseSeaZoneIds.Count).Select(static id => (uint)id).ToArray();
         var seaZoneSet = seaZoneIds.ToHashSet();
         var unusedZoneRecords = scenario.Records.Count(record =>
             record.Tag == "zone" &&
@@ -1420,12 +1428,12 @@ public static class LegacyWorldConverter
     /// converting against a guess would hand powers fleets that were never there. It is
     /// recovered, so they convert.
     /// <para>
-    /// <b>The zone is carried and never interpreted.</b> A ship's zone is not the map's
-    /// ocean zone byte — <c>docs/scenario-semantics.md</c> establishes that the two
-    /// numberings are unrelated and that 23 zone ids appear on no ocean cell at all — so a
-    /// fleet can be named and not located. It is kept rather than dropped because losing
-    /// it would make the information unrecoverable from a round trip, and because merchant
-    /// marine capacity does not care where the ships are.
+    /// <b>The zone is a dense sea-zone id</b>, numbered in order of first appearance by
+    /// cell index as the original's load-time scan does (<c>0x00529F60</c>), so it places
+    /// the fleet in the zone first seen that many places in. An id that names no ocean
+    /// region is resolved by the original (<c>0x0055F100</c>) to no zone: the ships are
+    /// counted but placed nowhere, which is <c>scenario.unplaced-ship-zones</c> here. The
+    /// raw number is kept beside the key so a round trip loses nothing.
     /// </para>
     /// <para>
     /// <b>A repeated (country, type) is not an error</b>, unlike a repeated <c>tech</c>.
@@ -1503,9 +1511,9 @@ public static class LegacyWorldConverter
                 Country = countryKey,
                 Type = ShipTypeKey(ShipTypes[(int)type - 1].Key),
                 SeaZone = (int)zone,
-                // A ship's zone z is the same number the map's ocean byte
-                // z + 23 reduces to, so the map's own key for it places the
-                // fleet. A zone with no ocean cell stays unplaced and counted.
+                // A ship's zone is the dense sea-zone id, so the map's own
+                // key for it places the fleet. An id at or past the number of
+                // sea zones stays unplaced and counted.
                 SeaZoneKey = seaZoneKeys.TryGetValue(zone, out var seaZoneKey) ? seaZoneKey : null,
                 Count = count,
             });

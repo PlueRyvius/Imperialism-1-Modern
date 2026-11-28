@@ -161,7 +161,7 @@ public sealed class LegacyWorldConverterTests
             NameRecord("cnam", 3, "Green"),
             NameRecord("pnam", 10, "West"),
             NameRecord("pnam", 11, "East"),
-            NameRecord("zone", 7, "Northern Sea"),
+            NameRecord("zone", 0, "Northern Sea"),
             NameRecord("zone", 40, "Port City"),
             new ScenarioRecord("tech", [2u, 1u]),
             new ScenarioRecord("rail", [0u]),
@@ -182,7 +182,8 @@ public sealed class LegacyWorldConverterTests
         Assert.Equal(["country.legacy.002", "country.legacy.003"], document.Countries.Select(static item => item.Key));
         Assert.Equal(["province.legacy.00010", "province.legacy.00011"], document.Map.Provinces.Select(static item => item.Key));
         Assert.Single(document.Map.SeaZones);
-        Assert.Equal("sea-zone.legacy.007", document.Map.SeaZones[0].Key);
+        Assert.Equal("sea-zone.legacy.000", document.Map.SeaZones[0].Key);
+        Assert.Equal("Northern Sea", document.Map.SeaZones[0].Name);
         Assert.Equal("resource.coal", Assert.Single(document.Map.Cells[0].Resources));
         Assert.Equal(23, document.Commodities.Length);
         Assert.Equal(13, document.Commodities.Count(static item => item.Category == CommodityCategory.Raw));
@@ -1443,8 +1444,8 @@ public sealed class LegacyWorldConverterTests
     /// the type is a 1-based index into the executable's naval table.
     /// </summary>
     /// <remarks>
-    /// **They were deferred for want of that order and are not any more.** The zone is
-    /// carried and never interpreted — it is not the map's ocean zone byte — and a
+    /// **They were deferred for want of that order and are not any more.** The zone is a
+    /// dense sea-zone id, kept raw beside its key, and a
     /// repeated class is a second record rather than an error, which is why `s1` can give
     /// one power `8x2` and `8x1` separately. See <c>docs/formulas/trade.md</c>.
     /// </remarks>
@@ -3433,13 +3434,73 @@ public sealed class LegacyWorldConverterTests
             item => item.Code == "scenario.invalid-civi");
     }
 
+    /// <summary>
+    /// The original numbers its sea zones on load by scanning the cells in index order
+    /// and giving each ocean-region byte not seen before the next id (<c>0x00529F60</c>).
+    /// A scenario's <c>zone</c> and <c>ship</c> ids are those dense ids, not "ocean byte
+    /// − 0x17".
+    /// </summary>
     [Fact]
-    public void AShipFindsItsSeaByTheExecutablesOceanBaseNotByTheCountriesAFileNames()
+    public void SeaZonesAreNumberedDenselyInOrderOfFirstAppearanceByCellIndex()
     {
-        // Only countries 0 and 1 are named, so a base derived from the highest
-        // country id would be 2 and read ocean byte 32 as zone 30. The
-        // executable reads it as zone 32 - 0x17 = 9, which is where the ship
-        // record says the fleet is.
+        static HexCell Ocean(byte region) => new()
+        {
+            Terrain = 0,
+            Province = ushort.MaxValue,
+            NationZoneA = region,
+            NationZoneB = region,
+        };
+
+        // 40 is seen first, then 25, then 33: numeric order would be 25, 33, 40.
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(5, 1, LandCell(0, 0), Ocean(40), Ocean(25), Ocean(40), Ocean(33)),
+            new ScenarioDocument(
+            [
+                Record("year", 1),
+                NameRecord("cnam", 0, "Only"),
+                NameRecord("pnam", 0, "Home"),
+                NameRecord("zone", 1, "Middle Sea"),
+                NameRecord("zone", 3, "No Such Sea"),
+
+                // Zone 2 is the third region seen (byte 33); zone 3 is past the end.
+                Record("ship", 0, 1, 2, 1),
+                Record("ship", 0, 1, 3, 1),
+            ]),
+            null,
+            "dense-zones");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var document = Assert.IsType<WorldContentDocument>(result.Document);
+        Assert.Equal(
+            ["sea-zone.legacy.000", "sea-zone.legacy.001", "sea-zone.legacy.002"],
+            document.Map.SeaZones.Select(static zone => zone.Key));
+        Assert.Equal(
+            ["sea-zone.legacy.000", "sea-zone.legacy.001", "sea-zone.legacy.000", "sea-zone.legacy.002"],
+            document.Map.Cells.Skip(1).Select(static cell => cell.Region.SeaZone));
+
+        // A zone record names the zone of its dense id: 1 is byte 25, the second seen.
+        Assert.Equal("Middle Sea", document.Map.SeaZones[1].Name);
+        Assert.Equal(1, result.Report.DeferredCounts["scenario.unused-zone-records"]);
+
+        var ships = Assert.Single(document.Scenarios).Ships;
+        Assert.Equal(2, ships.Length);
+        Assert.Equal("sea-zone.legacy.002", ships[0].SeaZoneKey);
+        Assert.Equal(2, ships[0].SeaZone);
+
+        // An id at or past the number of sea zones places nothing and is counted.
+        Assert.Null(ships[1].SeaZoneKey);
+        Assert.Equal(3, ships[1].SeaZone);
+        Assert.Equal(1, result.Report.DeferredCounts["scenario.unplaced-ship-zones"]);
+    }
+
+    /// <summary>
+    /// The byte itself does not matter, only the order it is first seen in: a lone
+    /// ocean byte 32 is zone 0, so a ship in zone 0 is placed there and one in zone 9
+    /// (which "byte − 0x17" would have chosen) is not.
+    /// </summary>
+    [Fact]
+    public void AShipZoneIsNotTheOceanByteLessTheOceanBase()
+    {
         var ocean = new HexCell
         {
             Terrain = 0,
@@ -3456,6 +3517,7 @@ public sealed class LegacyWorldConverterTests
                 NameRecord("cnam", 1, "Second"),
                 NameRecord("pnam", 0, "West"),
                 NameRecord("pnam", 1, "East"),
+                Record("ship", 1, 1, 0, 2),
                 Record("ship", 1, 1, 9, 2),
             ]),
             null,
@@ -3463,10 +3525,11 @@ public sealed class LegacyWorldConverterTests
 
         Assert.True(result.Success);
         var document = Assert.IsType<WorldContentDocument>(result.Document);
-        Assert.Equal("sea-zone.legacy.009", Assert.Single(document.Map.SeaZones).Key);
-        var ship = Assert.Single(Assert.Single(document.Scenarios).Ships);
-        Assert.Equal("sea-zone.legacy.009", ship.SeaZoneKey);
-        Assert.Equal(0, result.Report.DeferredCounts.GetValueOrDefault("scenario.unplaced-ship-zones"));
+        Assert.Equal("sea-zone.legacy.000", Assert.Single(document.Map.SeaZones).Key);
+        var ships = Assert.Single(document.Scenarios).Ships;
+        Assert.Equal("sea-zone.legacy.000", ships[0].SeaZoneKey);
+        Assert.Null(ships[1].SeaZoneKey);
+        Assert.Equal(1, result.Report.DeferredCounts["scenario.unplaced-ship-zones"]);
     }
 
     [Fact]
@@ -3507,8 +3570,8 @@ public sealed class LegacyWorldConverterTests
         NationZoneB = owner,
     };
 
-    // Ocean byte 33 is scenario zone 10: the executable's ocean regions begin
-    // at 0x17 whatever countries a file names.
+    // A lone ocean cell is sea zone 0, whatever its byte: zones are numbered in
+    // order of first appearance by cell index.
     private static HexCell OceanCell() => new()
     {
         Terrain = 0,

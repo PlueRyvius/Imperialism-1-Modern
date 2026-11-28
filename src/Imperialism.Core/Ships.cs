@@ -218,8 +218,8 @@ public sealed record ShipCombatStats
 /// <para>
 /// <paramref name="LegacyZone"/> is the scenario's raw zone number, carried so a
 /// round trip loses nothing. It is <b>not</b> a runtime id: the original's zone
-/// <c>z</c> is map ocean byte <c>z + 23</c> (see <c>docs/scenario-semantics.md</c>),
-/// while runtime sea zones are dense. <paramref name="SeaZone"/> is the resolved
+/// <c>z</c> is the ocean region first seen <c>z</c>-th by cell index, counting
+/// from 0 (see <c>docs/scenario-semantics.md</c>). <paramref name="SeaZone"/> is the resolved
 /// runtime zone and the only thing that places a fleet; null leaves it unplaced.
 /// </para>
 /// <para>
