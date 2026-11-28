@@ -7,9 +7,10 @@ wrong.
 
 Read [`ghidra.md`](ghidra.md) first for setup. Nothing here needs the game running.
 
-**Two of the five entries below are struck through**, answered by the extraction recorded
-in [`definitive-original-data.md`](definitive-original-data.md). They are kept rather than
-deleted, because each was wrong about something instructive:
+**Three of the entries below are struck through.** Two were answered by the
+extraction recorded in [`definitive-original-data.md`](definitive-original-data.md)
+and are kept because each was wrong about something instructive; entry 2 was
+answered by a 2026-11 decompilation pass, recorded in the same file:
 
 - **Entry 1 said there was no static ship table.** There is. Every search missed it because
   the fields are encoded, and the fingerprint was built from decoded values.
@@ -80,7 +81,7 @@ Ship-of-the-Line. Ungated, exactly as required.
 
 ---
 
-## 2. The seven engine defaults
+## 2. ~~The seven engine defaults~~ — RECOVERED
 
 **The highest-value set on this list**, and the reason a decompiler was wanted at all. These
 are what a *skirmish* starts a power with. They are constants in the binary and **cannot be
@@ -98,6 +99,17 @@ recovered from the corpus**, because the whole evidence is that the records are 
 
 `tech` — the seventh — is already recovered, from the manual: every power starts with High
 Pressure Steam Engine and Seed Drill.
+
+**Answered** (2026-11 decompilation; see *Verified scenario engine defaults* in
+[`definitive-original-data.md`](definitive-original-data.md)). They are
+constructor/loader writes, not a table: `cash` defaults to
+`0x00653558[difficulty]` = `50000, 10000, 10000, 5000, 5000, 0` (0-based, six
+entries, memory order; barbarians are exempt at a flat `10000`). `tran`
+defaults to **15** at `power+0xa6` — positive, as the check demanded. `ware`
+has **no default at all**: no constructor or handler writes warehouse stock,
+so the manual's "initial stockpiles" is the scenario's own `ware` records.
+`deve`/`rail` are map-vtable-applied record handlers (`+0xcc` / `+0x124`) with
+no defaults; `rela` lands in the manager pair matrix via its vtable `+0x28`.
 
 **How to recognise it.** Look for the code path that runs when a scenario has *no* record of
 a given type. A skirmish load is the case to trace.
@@ -353,6 +365,27 @@ chosen rule pending relations; a Great Power seller ranks by nothing, per the re
 rule (`game-systems.md:204-206`), which README.TXT / README11.TXT should confirm. Also wanted: **the subsidy buttons' percentages** — we ship the
 tutorial's 5 and 10, and nothing in the extraction names a level or a third button.
 
+**Answered for the storage, the chain, and the ranking — not for the world
+price** (2026-11 decompilation; see *Verified subsidy and treaty storage and
+acceptance chain* in
+[`definitive-original-data.md`](definitive-original-data.md)). Headlines:
+
+- The subsidy **is** stored, unscaled, as the low 14 bits of a per-pair word
+  `word[power+0xe0+2·country]` (`0xffff` = none); the sum of what a power pays
+  lives at `power+0xac`.
+- That sum feeds the pair-matrix refresh directly:
+  `cell = clamp(treasury + pool/100 − Σpaid% − partnerIndex, 0, 0xFF)`, where
+  `pool` is a per-period economy pool stored ×100 at `power+0x8f0`. So
+  **relations = money + economy pool − paid subsidies**, one formula — the
+  missing half of the bidder rule is this matrix, not a separate score.
+- The candidate bidder ordering sorts by a persisted per-power score quad
+  (`manager+0x1824`) and **breaks ties on a coin flip** — the original is
+  non-deterministic on equal scores, where the engine ships id order.
+- **The six button percentages exist nowhere as data** — not in the exe, the
+  data files, or the 43 `TABLE` resources. Only the six button *labels*
+  (`STR#` ordinals 1702–1707) attest them; the values are passed as immediates
+  by a UI handler not yet pinned.
+
 ---
 
 ## 5. Prices we hold on weak evidence
@@ -419,6 +452,16 @@ task-force interactions with randomized checks".
 | Escort selection | What "docked at your capital" means in the data: a fleet's zone, a port flag, an unassigned state; and whether escorts fight once a turn or once per interception | rule 24 |
 | State 6 duration | Whether a blockade lapses after some turns, or persists like a patrol | rule 12's persistence (not its port effect, which is verified) |
 | Which merchant is lost | When a merchant is sunk, which hull goes | rule 27 |
+
+**Partially answered** (2026-11 decompilation; see *Verified naval engagement
+dice (partial)* in
+[`definitive-original-data.md`](definitive-original-data.md)). The engagement
+check around `0x005578A0` is: fight iff `100 + meanAttack − meanDefence +
+max(0, nA + nB − 10) ≥ rng() % 100`, with fleet armour as
+`Σ armour × 10 ÷ ship count` over the recovered 36-byte table rows, and
+sea-zone control as `1 << (word[fleet+0x1c] & 0x1f)`. The outcome split, the
+refund question, the loss combination, escort selection, blockade duration and
+the lost-merchant choice remain open.
 
 **Wanted once traced:** replace `StrategicNavalBattleResolver` behind `INavalBattleResolver`
 and the constants and draws in `NavalWarPlanner`. `NavalWarTests` drives outcomes by
