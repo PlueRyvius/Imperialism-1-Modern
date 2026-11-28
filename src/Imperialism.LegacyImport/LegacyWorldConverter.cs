@@ -86,9 +86,11 @@ public static class LegacyWorldConverter
     /// original (<c>0x0050EC60</c> → UMapper slot <c>+0x64</c> → <c>0x00529F60</c>,
     /// arg 1) scans the cells in index order and gives each ocean-region value
     /// not seen before the next id, 0, 1, 2…; <c>0x00562D90</c> then builds one
-    /// <c>UOcean</c> per id. A <c>ship</c> record's zone and a <c>zone</c>
-    /// record's id are those dense ids, which is what <see cref="Convert"/>
-    /// assigns. Reading a zone as "ocean byte − 0x17" was wrong.
+    /// <c>UOcean</c> per id. Before that, <c>0x0052D750</c> merges every zone
+    /// under 32 cells into a neighbour and compacts the ids (see
+    /// <see cref="LegacySeaZoneMerge"/>). A <c>ship</c> record's zone and a
+    /// <c>zone</c> record's id are the ids after both passes, which is what
+    /// <see cref="Convert"/> assigns. Reading a zone as "ocean byte − 0x17" was wrong.
     /// </remarks>
     internal const uint LegacyOceanRegionBase = 0x17;
 
@@ -678,9 +680,10 @@ public static class LegacyWorldConverter
             .Order()
             .ToArray();
         // Sea zones are numbered densely in order of first appearance by cell
-        // index, as the original's scan at 0x00529F60 does; a scenario's zone
-        // ids are those numbers. 0x0052CAE0 and 0x0052D750 run after that scan
-        // and are untraced, so whether they compact anything is still open.
+        // index, as the original's scan at 0x00529F60 does. The original then
+        // merges every zone under 32 cells into a neighbour and compacts the ids
+        // again (0x0052C1A0, 0x0052CAE0, 0x0052D750); a scenario's zone and ship
+        // ids are the ids after both passes. See LegacySeaZoneMerge.
         var cellSeaZoneIds = new uint[map.Cells.Count];
         var denseSeaZoneIds = new Dictionary<byte, uint>();
         for (var index = 0; index < map.Cells.Count; index++)
@@ -709,7 +712,33 @@ public static class LegacyWorldConverter
             cellSeaZoneIds[index] = seaZoneId;
         }
 
-        var seaZoneIds = Enumerable.Range(0, denseSeaZoneIds.Count).Select(static id => (uint)id).ToArray();
+        var merged = LegacySeaZoneMerge.Merge(
+            map.Width,
+            map.Height,
+            map.Cells.Select((cell, index) => cell.IsOcean ? (int)cellSeaZoneIds[index] : -1).ToArray(),
+            denseSeaZoneIds.Count);
+        for (var index = 0; index < map.Cells.Count; index++)
+        {
+            if (map.Cells[index].IsOcean)
+            {
+                cellSeaZoneIds[index] = (uint)merged.Zones[index];
+            }
+        }
+
+        foreach (var step in merged.Events)
+        {
+            report.Add(
+                LegacyImportSeverity.Info,
+                step.Moved ? "map.sea-zone-renumbered" : "map.sea-zone-merged",
+                $"map.sea-zones[{step.Zone}]",
+                step.Moved
+                    ? $"Sea zone {step.Zone} took the emptied id {step.Target}, as the original compacts its zones."
+                    : step.Score is { } score
+                        ? $"Sea zone {step.Zone} ({step.Cells} cells) was merged into sea zone {step.Target} (score {score}), as the original merges zones under {LegacySeaZoneMerge.SmallZoneCells} cells."
+                        : $"Sea zone {step.Zone} ({step.Cells} cells) was merged into neighbouring sea zone {step.Target}, as the original merges zones under {LegacySeaZoneMerge.SmallZoneCells} cells.");
+        }
+
+        var seaZoneIds = Enumerable.Range(0, merged.ZoneCount).Select(static id => (uint)id).ToArray();
         var seaZoneSet = seaZoneIds.ToHashSet();
         var unusedZoneRecords = scenario.Records.Count(record =>
             record.Tag == "zone" &&
@@ -2289,7 +2318,7 @@ public static class LegacyWorldConverter
     /// the wrap, a line across the seam lost both ends as "asymmetric" and then
     /// the world it was written into would have accepted it.
     /// </summary>
-    private static int? GetNeighbour(int index, int width, int height, byte bit)
+    internal static int? GetNeighbour(int index, int width, int height, byte bit)
     {
         var x = index % width;
         var y = index / width;

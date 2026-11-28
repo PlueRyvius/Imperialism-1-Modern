@@ -185,9 +185,11 @@ A scenario `zone`/`ship` id is a **dense ocean id**: on load, `0x00529F60`
 scans the cells in index order and numbers each ocean-region value 0, 1, 2… in
 order of first appearance, and `0x00562D90` builds one `UOcean` per id. An id
 matching no region resolves to no zone (`0x0055F100`). The reading "`z` is raw
-map-ocean byte `z + 23`" was wrong (PC trace, 28 Nov 2026). Whether
-`0x0052CAE0`/`0x0052D750`, which run after the scan, compact empty slots is
-untraced. The earlier neighbour-based identification of several named seas was
+map-ocean byte `z + 23`" was wrong (PC trace, 28 Nov 2026). After the scan,
+`0x0052C1A0` → `0x0052CAE0` → `0x0052D750` merge every zone under 32 cells into a
+neighbour and move the last zone into each emptied id, so the id a record names
+is the id after that merge: the Europe maps have 40 zones, not 42. The rule, read
+from the disassembly, is in `docs/legacy-importer.md`. The earlier neighbour-based identification of several named seas was
 incorrect and is superseded by this executable-backed chain.
 
 The scenario loader runs in setup state 2 at `0x0057DA70`, after the state-3
