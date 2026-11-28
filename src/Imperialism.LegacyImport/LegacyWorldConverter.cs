@@ -799,7 +799,10 @@ public static class LegacyWorldConverter
         var countryCash = ReadCountryCash(scenario, countryKeys, report);
         var civilians = ReadCivilians(scenario, map, countryKeys, report);
         var ships = ReadShips(scenario, countryKeys, seaZoneKeys, report);
-        var armies = ReadArmies(scenario, provinceKeys, report);
+        var ownedProvinces = provinceOwners
+            .Where(pair => pair.Value is { } owner && countryKeys.ContainsKey(owner))
+            .ToDictionary(static pair => pair.Key, static pair => pair.Value!.Value);
+        var armies = ReadArmies(scenario, provinceKeys, ownedProvinces, report);
         var relations = ReadRelations(scenario, countryKeys, report);
 
         // `labo` names the Great Powers and only them — seven in every shipped scenario —
@@ -1546,13 +1549,20 @@ public static class LegacyWorldConverter
     /// observed in the original on 27 Nov, where <c>s1</c>'s one London
     /// militia record with 2 shows two Militia (issue #99). Reading it as
     /// experience was wrong.
+    /// <para>
+    /// After the records, <see cref="FillMissingGarrisons"/> gives an owned
+    /// province that no record names its owner's usual militia — a chosen rule.
+    /// </para>
     /// </summary>
     private static ArmyContent[] ReadArmies(
         ScenarioDocument scenario,
         IReadOnlyDictionary<uint, string> provinceKeys,
+        IReadOnlyDictionary<uint, uint> ownedProvinces,
         LegacyImportReport report)
     {
         var result = new List<ArmyContent>();
+        var namedProvinces = new HashSet<uint>();
+        var militia = new List<(uint Province, uint Type, uint Count)>();
         foreach (var (record, index) in scenario.Records.Select(static (record, index) => (record, index)))
         {
             if (record.Tag != "army")
@@ -1584,6 +1594,7 @@ public static class LegacyWorldConverter
                 continue;
             }
 
+            namedProvinces.Add(province);
             if (type >= OriginalArmyTypeCount)
             {
                 report.Add(
@@ -1616,18 +1627,106 @@ public static class LegacyWorldConverter
                 continue;
             }
 
-            for (var placed = 0u; placed < count; placed++)
+            if (StandardArmyTypes[(int)type].Category == ArmyCategory.Militia)
             {
-                result.Add(new ArmyContent
-                {
-                    Province = provinceKey,
-                    Type = (int)type,
-                    Experience = 0,
-                });
+                militia.Add((province, type, count));
             }
+
+            AddRegiments(result, provinceKey, type, count);
         }
 
+        FillMissingGarrisons(provinceKeys, ownedProvinces, namedProvinces, militia, result, report);
         return result.ToArray();
+    }
+
+    private static void AddRegiments(List<ArmyContent> result, string provinceKey, uint type, uint count)
+    {
+        for (var placed = 0u; placed < count; placed++)
+        {
+            result.Add(new ArmyContent
+            {
+                Province = provinceKey,
+                Type = (int)type,
+                Experience = 0,
+            });
+        }
+    }
+
+    /// <summary>
+    /// <b>A chosen rule</b> (owner, 28 Nov: every owned province gets its
+    /// scenario's militia at the start). Militia "are just generated
+    /// automatically in the province as a basic garrison", yet <c>s3</c>
+    /// authors France's Lorraine and Alsace with no <c>army</c> record at all.
+    /// An owned province — owner from the map's nation byte — that no
+    /// <c>army</c> record names gets its owner's most common militia count per
+    /// province, ties to the smaller count, of its owner's most common militia
+    /// type, ties to the lower index. Only provinces holding militia are
+    /// counted. An owner with no militia anywhere takes the scenario-wide mode;
+    /// a scenario with none adds nothing. A province named by any record — a
+    /// count of 0, a non-militia type, even an unknown type — is authored and
+    /// left alone. The number filled is reported at Info.
+    /// </summary>
+    private static void FillMissingGarrisons(
+        IReadOnlyDictionary<uint, string> provinceKeys,
+        IReadOnlyDictionary<uint, uint> ownedProvinces,
+        IReadOnlySet<uint> namedProvinces,
+        IReadOnlyList<(uint Province, uint Type, uint Count)> militia,
+        List<ArmyContent> result,
+        LegacyImportReport report)
+    {
+        if (militia.Count == 0)
+        {
+            return;
+        }
+
+        var countByProvince = militia
+            .GroupBy(static item => item.Province)
+            .ToDictionary(static group => group.Key, static group => group.Aggregate(0u, static (sum, item) => sum + item.Count));
+        (uint Type, uint Count) Usual(IEnumerable<(uint Province, uint Type, uint Count)> records)
+        {
+            var list = records.ToList();
+            var count = list
+                .Select(static item => item.Province)
+                .Distinct()
+                .GroupBy(province => countByProvince[province])
+                .OrderByDescending(static group => group.Count())
+                .ThenBy(static group => group.Key)
+                .First().Key;
+            var type = list
+                .GroupBy(static item => item.Type)
+                .OrderByDescending(static group => group.Aggregate(0L, static (sum, item) => sum + item.Count))
+                .ThenBy(static group => group.Key)
+                .First().Key;
+            return (type, count);
+        }
+
+        var scenarioWide = Usual(militia);
+        var byOwner = militia
+            .Where(item => ownedProvinces.ContainsKey(item.Province))
+            .GroupBy(item => ownedProvinces[item.Province])
+            .ToDictionary(static group => group.Key, group => Usual(group));
+        var filled = 0;
+        foreach (var province in provinceKeys.Keys.Order())
+        {
+            if (namedProvinces.Contains(province) || !ownedProvinces.TryGetValue(province, out var owner))
+            {
+                continue;
+            }
+
+            var (type, count) = byOwner.GetValueOrDefault(owner, scenarioWide);
+            AddRegiments(result, provinceKeys[province], type, count);
+            filled++;
+        }
+
+        if (filled > 0)
+        {
+            report.Add(
+                LegacyImportSeverity.Info,
+                "scenario.garrison-filled",
+                "scenario.armies",
+                $"{filled.ToString(CultureInfo.InvariantCulture)} owned province(s) named in no army record " +
+                "were given their owner's usual militia (a chosen rule).");
+        }
     }
 
     /// <summary>

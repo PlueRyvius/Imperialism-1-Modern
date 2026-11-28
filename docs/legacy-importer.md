@@ -157,6 +157,21 @@ reported at Info (`scenario.empty-army`); a count above `MaxArmyRecordCount` (1,
 is warned about and placed not at all, so a damaged record cannot allocate without bound. This preserves the tactical roster without guessing
 deployment, movement, losses, capture, or combat resolution.
 
+**An owned province named in no `army` record gets a garrison — a chosen rule.** The
+owner ruled that militia "are just generated automatically in the province as a basic
+garrison", and asked (28 Nov) that every owned province start with its scenario's
+militia. `s3` authors France's Lorraine (13) and Alsace (14) with no record at all,
+while France's other provinces hold 5 (Corsica 4); every other owned province in the
+ten scenarios has at least one militia. So a province whose owner (the map's nation
+byte, never the province id) is a country, and which no record names, is given the
+owner's **most common militia count per province**, ties to the smaller count, of the
+owner's most common militia-category type (Minutemen, Militia or Conscripts, by
+regiments, ties to the lower index). Only provinces holding militia enter the mode. An
+owner with no militia anywhere takes the scenario-wide mode; a scenario with no militia
+adds nothing. A province named by **any** record — a count of 0, a non-militia type,
+even an unknown type — is authored and left alone, and an unowned province gets
+nothing. The number filled is reported once at Info (`scenario.garrison-filled`).
+
 `civi` records are converted rather than deferred. The record is `[type, cell]`
 and names **no owner** — the original reads it off the province the cell sits
 in, and the corpus supports that without exception: all 203 records across the
