@@ -472,6 +472,115 @@ the lifecycle for ports created or removed after setup, remain open. State 5
 landing and state 6 blockade are not being conflated with this state-1 sailing
 rule.
 
+## Verified scenario engine defaults
+
+Wanted-values entry 2, recovered by decompilation (Ghidra 12.2, same executable
+hash below). The seven defaults are **constructor/loader writes, not a table**
+(one exception noted). All sites are in the scenario-load path for a power
+record that carries no matching record tag.
+
+- `cash`: the skirmish default treasury is
+  `0x00653558[difficulty]`, dwords in memory order, **0-based by difficulty**:
+  `50000, 10000, 10000, 5000, 5000, 0` (six entries; the sixth difficulty
+  starts penniless). The barbarian power is exempt: its constructor writes
+  `10000` into the treasury field `power+0x10` unconditionally.
+- `tran`: default transport capacity is `15`, written as a word at
+  `power+0xa6`; the `tran` record overwrites it when present.
+- `ware`: **no default exists.** A sweep of all 27 scenario record tags and
+  both power constructors finds no warehouse-stock default write — a scenario
+  without `ware` records starts with an empty warehouse. (This contradicts the
+  manual's "initial stockpiles" phrasing; the manual describes the *scenario*'s
+  `ware` records, which every shipped scenario carries.)
+- `deve`: applied through the map object's vtable slot `+0xcc` (developer
+  handler); no default when the record is absent.
+- `rail`: applied through map vtable slot `+0x124`, gated on `power+0xa0`, and
+  adjusts cash by ±2000; no default.
+- `rela`: raw records map to the country-manager pair matrix via manager
+  vtable slot `+0x28` (see the manager section below); semantics of the stored
+  0–255 scale remain the documented `candidate` reading.
+- `tech`: already recovered (manual); unchanged.
+
+## Verified subsidy and treaty storage and acceptance chain
+
+Wanted-values entry 4's subsidy/bidder half. The percent is **stored
+unscaled**:
+
+- Per-pair treaty word: `word[power + 0xe0 + 2·country]`, `0xffff` = none.
+  **The subsidy percentage is the low 14 bits** (`& 0x3fff`).
+- The only writer is power vtable slot `+0x1d4` (`FUN_004de340`), which gates
+  on slot `+0x1dc` (`FUN_004de700`, affordability):
+  `current% − new% + max(0, treasury + pool/100) ≥ 0`, where `pool` is
+  `power+0x8f0`, a per-period economy pool **stored ×100**.
+- The setter maintains `power+0xac` = **sum of all percent commitments this
+  power pays** (`+= / -= (word & 0x3fff)` incrementally).
+- Attitude/acceptance provider = power vtable slot `+0x1e8`
+  (`FUN_004de790`), called for every ordered pair by the refresh loops at
+  `0x5b2da0` and `0x5b3400` (both 0-based, `x,y < 7`):
+  `cell = clamp(treasury + pool/100 − Σpaid% − partnerIndex, 0, 0xFF)`,
+  written into the manager pair matrix at `manager+0x79c` with stride
+  `0x17` (`a*0x17 + b`, 0-based, 23×23 words; floor 0x32, worst 0xff). The
+  `− partnerIndex` term orders equal-treasury powers deterministically by
+  country id. The *semantic* labels (attitude/acceptance) are `candidate`;
+  the formula and offsets are direct reads.
+- Bidder ordering (`candidate` as the trade bidder list — its 106 vtable
+  dispatch sites are not individually attributed): manager vtable slot `+0x40`
+  (`FUN_004f1630`) sorts the seven powers by the sum of four dwords per power
+  at `manager + 0x1824 + 0x10·i` (a persisted field; save/load copy it with
+  `rep movsd` at `0x5483f6`/`0x54c50e`), and **swaps equal scores on a coin
+  flip** (`rng() & 1`) — ties are non-deterministic per call in the original.
+- **The six subsidy button percentages are not in the binary or any data
+  file.** Exhaustive search found no ladder containing 15/25/50/75/100-style
+  values in the executable, the whole `game/**` tree, or any of the 43 `TABLE`
+  resources. The only attestation of the values is `STR#ENU.GOB` string
+  ordinals 1702–1707 (six strings, the dialog's button labels), `candidate`
+  for the actual set the menu passes.
+- Per-difficulty AI tables (dwords unless noted, **0-based, six entries**,
+  memory order; index = config `+0x40`):
+  - `0x653498` economy-pool desire/offset: `1000, 500, 200, 100, 10, 0`
+  - `0x6534b0` modifier floor: `2, 3, 4, 6, 10, 0`
+  - `0x6534e0` modifier ceiling: `20, 35, 50, 75, 100, 0`
+  - `0x653540` escalation stage limit: `6, 6, 6, 6, 6, 0`
+  - bytes, indexed the same way — `0x6534c8` initial `8,0,0,0,10,0`;
+    `0x6534f8` step-down `2,0,0,0,2,0`; `0x653510` step-up `1,0,0,0,1,0`
+    (raw values; most entries being 0 is what memory holds).
+- Saved-game record offsets for the power attitude block (loader at
+  `0x547305`): record `+0x6cc/+0x6d0/+0x6d4/+0x6d8/+0x6dc/+0x6e0` →
+  `power+0x840/+0x844/+0x8f0/+0x8f4/+0x8f8/+0x8fc`. The `+0x8fc` byte is an
+  escalation stage counter; at the `0x653540` limit it raises a news event
+  (string id 10059).
+
+## Verified naval engagement dice (partial)
+
+Wanted-values entry 7, first facts from the `0x005578A0` neighbourhood
+(cluster `0x54f5–0x55ad` of the naval table's xrefs; decompiled pass):
+
+- Fleet armour statistic: `Σ armour × 10 ÷ ship count` over the 36-byte naval
+  table rows (`0x698124 + id·0x24` defence column, `0x698114 + id·0x24`
+  damage column).
+- Engagement roll: fight iff `100 + meanAttack − meanDefence + max(0,
+  nAttacker + nDefender − 10) ≥ rng() % 100` (roll against
+  `FUN_005e83f0()%100`). The `+100` base means the check is mostly-pass with
+  a deficit penalty; scale stored as computed.
+- A separate decision constant triple, memory order: `200, 100, 50`, used
+  with `(min + 5) × 10 − avgAttack`; which branch each belongs to is
+  `candidate`.
+- Sea-zone control is a bitmask write: `1 << (word[fleet+0x1c] & 0x1f)` at
+  `*(fleet+0xc)+0xa1`.
+- Untraced from entry 7: the outcome split (turned back/captured/sunk), the
+  refund question, damage combination into a sunk ship, escort selection
+  semantics, blockade duration, which merchant is lost.
+
+## Verified resource container format
+
+The `.gob` / `.irg` data files are **resource-only PE DLLs** (SSG shipped
+Win32 resources, not a custom archive). A plain `.rsrc` walk (type
+`TABLE` = ordinal 1033, `'TABLE'` at `0x69b7b0`) lists them without
+`wrestool`: `tabsenu.gob` carries 43 `TABLE` resources, and the game loads
+them at runtime with `LoadLibraryA` + `FindResourceA`/`LoadResource`/
+`LockResource` (`FUN_005df430`, asserts `D:\Ambit\WAssetMgr.cpp:0xce`). Table
+*names* are composed at runtime, so resource-name ↔ game-table identity still
+needs a running game; the raw blobs are extractable now.
+
 ## Additional cost-table leads
 
 The `UCity.cpp` constructor creates these records as generic cost objects. Methods at `0x004B7080`, `0x004B7210`, and `0x004B7320` calculate availability, deduct commodities/cash, and produce order costs. Their owning action/list labels remain unresolved:
