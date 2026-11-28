@@ -7,22 +7,31 @@ namespace Imperialism.Client;
 /// <summary>The original city, with detached Presentation figures and existing draft setters.</summary>
 public sealed partial class IndustryScreen : Control, IShellScreen
 {
-    // ONE role table. Every role is pending trace: panel location does not prove tile identity.
-    internal sealed record Building(int Tile, int X, int Y, Rect2 Hit, string Role, int Panel, Vector2 Popup);
+    // Slots and positions measured; panel associations inferred except Warehouse/Capitol.
+    // Displayed stage is chosen; see docs/look/industry-layout.md.
+    internal sealed record Building(int Slot, int Tile, int X, int Y, string Role, int Panel, Vector2 Popup, int Mask = 0);
+    internal static readonly int[] DrawOrder = [12, 13, 7, 10, 14, 15, 9, 6, 11, 2, 3, 8, 0, 1, 4, 5];
     internal static readonly Building[] Buildings =
     [
-        new(7026, 50, 35, new(17,52,191,100), "railyard", 9214, new(98,166)), // pending trace
-        new(7039, 240,35, new(8,12,216,141), "warehouse", 9215, new(71,61)), // pending trace
-        new(7030, 340,44, new(111,25,138,140), "facility.oil-refinery", 9211, new(300,110)), // pending trace
-        new(7031, 150,95, new(54,28,148,102), "capitol", 9216, new(63,236)), // pending trace
-        new(7050, 281,184, new(25,24,205,131), "facility.textile-mill", 9200, new(98,166)), // pending trace
-        new(7024, 50,220, new(0,38,107,75), "facility.food-processing", 9214, new(63,236)), // pending trace
-        new(7048, 200,235, new(8,24,210,135), "facility.furniture-factory", 9205, new(245,271)), // pending trace
-        new(7051, 340,266, new(122,4,128,139), "facility.steel-mill", 9202, new(300,271)), // pending trace
-        new(7052, 87,286, new(20,8,209,147), "facility.lumber-mill", 9206, new(98,310)), // pending trace
-        new(7049, 340,300, new(38,43,170,118), "facility.metal-works", 9211, new(300,330)), // pending trace
-        new(7053, 230,310, new(42,68,177,97), "facility.clothing-factory", 9201, new(245,330)), // pending trace
+        new(0,7048,200,235,"facility.textile-mill",9200,new(98,166)),
+        new(1,7049,340,300,"facility.clothing-factory",9201,new(300,330)),
+        new(2,7050,281,184,"facility.steel-mill",9202,new(300,271)),
+        new(3,7051,340,266,"facility.metal-works",9203,new(300,271)),
+        new(4,7052,87,286,"facility.lumber-mill",9204,new(98,310)),
+        new(5,7053,230,310,"facility.furniture-factory",9205,new(245,271)),
+        new(6,7054,340,139,"facility.oil-refinery",9206,new(300,220)),
+        new(7,7039,240,35,"shipyard",9207,new(98,166)),
+        new(8,7024,50,220,"armory",9208,new(98,166)),
+        new(9,0,50,107,"trade-school",9209,new(98,166),7109),
+        new(10,7026,50,35,"university",9210,new(98,166)),
+        new(11,7027,340,139,"facility.power-plant",9211,new(300,220)),
+        new(12,0,82,35,"facility.food-processing",9212,new(63,236),7112),
+        new(13,0,300,35,"warehouse",9215,new(71,61),7113),
+        new(14,7030,340,44,"railyard",9214,new(98,166)),
+        new(15,7031,150,95,"capitol",9216,new(63,236)),
     ];
+    private readonly Dictionary<int, Rect2> _hits = [];
+    private readonly Dictionary<int, Label> _sideFigures = [];
     private GameSession? _session;
     private Control? _canvas;
     private FontFile? _body;
@@ -32,12 +41,9 @@ public sealed partial class IndustryScreen : Control, IShellScreen
     private Label? _detail;
     private Label? _date;
     private Label? _cash;
-    private Label? _labour;
-    private Label? _food;
     private IndustryPreview? _preview;
     private IndustryDialog? _warehouse;
     private IndustryDialog? _panel;
-    private Building? _selected;
     private string? _facilityKey;
     private readonly Dictionary<int, Control> _tiles = [];
     private readonly List<Action> _panelUpdates = [];
@@ -81,7 +87,8 @@ public sealed partial class IndustryScreen : Control, IShellScreen
         foreach (var child in node.GetChildren()) CancelHolds(child);
     }
 
-    private Texture2D Art(int id) => GD.Load<Texture2D>($"res://art/industry/{id}.png");
+    private Texture2D Art(int id) => GD.Load<Texture2D>(id is >= 6001 and <= 6011 or 6013
+        ? $"res://art/icon/commodity_{id - 6000:00}.png" : $"res://art/industry/{id}.png");
     private TextureRect Picture(Control parent, string name, Texture2D art, Vector2 position, bool keyed = false)
     {
         var piece = new TextureRect
@@ -143,46 +150,53 @@ public sealed partial class IndustryScreen : Control, IShellScreen
         };
         _keyMaterial = new ShaderMaterial { Shader = new Shader { Code = "shader_type canvas_item; void fragment(){ vec4 c = texture(TEXTURE, UV); if(c.r > 0.99 && c.g < 0.01 && c.b > 0.99) discard; COLOR = c; }" } };
         Picture(_canvas, "city", Art(6000), Vector2.Zero);
-        foreach (var building in Buildings)
+        foreach (var slot in DrawOrder)
         {
+            var building = Buildings[slot];
             var tile = new Control
             {
-                Name = $"bldg_{building.Tile}",
+                Name = $"slot_{building.Slot}",
                 Position = new(building.X, building.Y),
                 Size = new(250, 165),
                 MouseFilter = MouseFilterEnum.Ignore
             };
-            tile.SetMeta("layout_name", $"bldg.{building.Tile}");
+            tile.SetMeta("layout_name", $"slot.{building.Slot}");
             _canvas.AddChild(tile);
-            Picture(tile, "art", Art(building.Tile), Vector2.Zero, true);
+            var bounds = OpaqueBox(Art(building.Mask == 0 ? building.Tile : building.Mask).GetImage());
+            _hits.Add(building.Slot, bounds);
+            if (building.Tile != 0) Picture(tile, "art", Art(building.Tile), Vector2.Zero, true);
             var hit = new Control
             {
                 Name = "hit",
-                Position = building.Hit.Position,
-                Size = building.Hit.Size,
+                Position = bounds.Position,
+                Size = bounds.Size,
                 MouseFilter = MouseFilterEnum.Stop,
                 FocusMode = FocusModeEnum.All
             };
             tile.AddChild(hit);
-            hit.MouseEntered += () => SetHot(BuildingHot(building));
+            hit.MouseEntered += () => SetHot(BuildingHot(PickBuilding(_canvas.GetLocalMousePosition()) ?? building));
             hit.FocusEntered += () => SetHot(BuildingHot(building));
             hit.MouseExited += () => SetHot("");
             hit.GuiInput += input =>
             {
                 if (input is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } ||
                     input is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Enter or Key.Space })
-                { OpenBuilding(building); hit.AcceptEvent(); }
+                { OpenBuilding(input is InputEventMouseButton ? PickBuilding(_canvas.GetLocalMousePosition()) ?? building : building); hit.AcceptEvent(); }
             };
-            _tiles.Add(building.Tile, tile);
+            _tiles.Add(building.Slot, tile);
         }
         foreach (var (id, x, y) in new[] { (6013,6,110),(6001,6,149),(6002,6,189),(6003,6,229),
-                     (6010,595,110),(6011,595,149),(6012,595,189) })
+                     (6007,6,269),(6008,6,349),(6009,6,389),(6010,595,110),(6011,595,149),
+                     (6012,595,189),(6005,595,318),(6006,595,357),(6004,595,395) })
         {
-            var texture = id == 6012 ? Art(id) : GD.Load<Texture2D>($"res://art/icon/commodity_{id - 6000:00}.png");
-            Picture(_canvas, $"side.{id}", texture, new(x, y));
+            var icon = Picture(_canvas, $"side.{id}", Art(id), new(x, y));
+            icon.MouseFilter = MouseFilterEnum.Stop;
+            icon.MouseEntered += () => SetHot(SideHot(id));
+            icon.MouseExited += () => SetHot("");
+            // Missing Presentation figures stay empty, not substituted warehouse stock.
+            _sideFigures.Add(id, Text(_canvas, $"side.{id}.figure", new(x + 2, y + (id == 6012 ? 65 : 22), 33, 14),
+                "", true, align: HorizontalAlignment.Right, size: 9));
         }
-        _labour = Text(_canvas, "side.6013.figure", new(10, 132, 25, 14), "", true, align: HorizontalAlignment.Right);
-        _food = Text(_canvas, "side.6010.figure", new(599, 132, 25, 14), "", true, align: HorizontalAlignment.Right);
         foreach (var (id, x, target) in new[] { (9455,270,ShellScreen.Transport),(9454,298,ShellScreen.Industry),
                      (9451,326,ShellScreen.BidAndOffers),(9449,355,ShellScreen.Diplomacy) })
             Button(_canvas, "tab." + target, id is 9455 or 9454 ? Art(id) : GD.Load<Texture2D>($"res://art/transport/{id}.png"),
@@ -193,15 +207,49 @@ public sealed partial class IndustryScreen : Control, IShellScreen
         _detail = Text(_canvas, "hottext.detail", new(420, 18, 167, 16), "", true, align: HorizontalAlignment.Right, size: 9);
     }
 
-    private string BuildingHot(Building building)
+    private static Rect2 OpaqueBox(Image image)
     {
-        if (!building.Role.StartsWith("facility.", StringComparison.Ordinal))
-            return building.Role == "capitol" ? "Capitol" : building.Role == "railyard" ? "Railyard" : "Warehouse";
-        var facility = _preview!.Facilities.FirstOrDefault(row => row.FacilityKey == building.Role);
-        var recipe = _preview.Recipes.FirstOrDefault(row => row.FacilityKey == building.Role);
-        return facility is null ? "" : facility.FacilityName + (recipe is null ? "" :
-            $"\nProduction: {recipe.RequestedCycles} of {facility.Capacity?.ToString() ?? "unlimited"}");
+        var background = image.GetPixel(0, 0);
+        var min = new Vector2(image.GetWidth(), image.GetHeight());
+        var max = new Vector2(-1, -1);
+        for (var y = 0; y < image.GetHeight(); y++)
+        for (var x = 0; x < image.GetWidth(); x++)
+            if (!image.GetPixel(x, y).IsEqualApprox(background))
+            { min = min.Min(new Vector2(x, y)); max = max.Max(new Vector2(x, y)); }
+        return new Rect2(min, max - min + Vector2.One);
     }
+
+    internal Building? PickBuilding(Vector2 point) => DrawOrder.Reverse().Select(slot => Buildings[slot])
+        .FirstOrDefault(row => _tiles[row.Slot].Visible && _hits[row.Slot].HasPoint(point - new Vector2(row.X, row.Y)));
+
+    private string BuildingHot(Building building) => _preview!.Facilities.FirstOrDefault(row => row.FacilityKey == building.Role)?.FacilityName
+        ?? building.Role switch
+        {
+            "capitol" => "Capitol", "railyard" => "Railyard", "warehouse" => "Warehouse",
+            "shipyard" => "Shipyard", "armory" => "Armory", "university" => "University",
+            "trade-school" => "Trade School", "facility.power-plant" => "Power Plant", _ => ""
+        };
+
+    private string SideHot(int id)
+    {
+        var value = _sideFigures[id].Text;
+        return id switch
+        {
+            6013 => "Available labor",
+            6001 => value == "0" ? "No Untrained Workers" : "Untrained Workers",
+            6002 => value == "0" ? "No Trained Workers" : "Trained Workers",
+            6003 => value == "0" ? "No Expert Workers" : "Expert Workers",
+            6007 => value == "0" ? "No Power" : "Power",
+            6008 => value == "0" ? "No Illness" : "Sick workers",
+            6009 => "Starved Workers", 6010 => "Grain", 6011 => "Fruit", 6012 => "Meat",
+            6005 => "Workers demand clothing", 6006 => "Workers demand furniture", _ => "Workers demand hardware"
+        };
+    }
+
+    internal static bool ShowsBuilding(Building building, IndustryPreview preview) =>
+        building.Role is "warehouse" or "trade-school" || building.Slot is 7 or 8 or 10 or 14 or 15 ||
+        (preview.Facilities.Any(row => row.FacilityKey == building.Role && row.Capacity is null or > 0) &&
+        (building.Slot != 11 || !preview.Facilities.Any(row => row.FacilityKey == "facility.oil-refinery" && row.Capacity is null or > 0)));
 
     private void SetHot(string value)
     {
@@ -213,15 +261,14 @@ public sealed partial class IndustryScreen : Control, IShellScreen
     private void Apply()
     {
         _preview = _session!.Preview().Industry;
-        foreach (var building in Buildings)
-        {
-            var facility = _preview.Facilities.FirstOrDefault(row => row.FacilityKey == building.Role);
-            // Chosen: draw only facilities this country has; unlimited facilities exist without a capacity.
-            _tiles[building.Tile].Visible = !building.Role.StartsWith("facility.", StringComparison.Ordinal) ||
-                facility is { Capacity: null or > 0 };
-        }
-        _labour!.Text = _preview.IsLabourLimited ? _preview.LabourAvailable.ToString() : "∞";
-        _food!.Text = _session.Status.Warehouse.FirstOrDefault(row => row.CommodityKey == "commodity.canned-food")?.Available.ToString() ?? "";
+        foreach (var building in Buildings) _tiles[building.Slot].Visible = ShowsBuilding(building, _preview);
+        _sideFigures[6013].Text = _preview.IsLabourLimited ? _preview.LabourAvailable.ToString() : "∞";
+        var workforce = _session.Status.Workforce;
+        _sideFigures[6001].Text = workforce.Single(row => row.Grade == Imperialism.Core.WorkerGrade.Untrained).Total.ToString();
+        _sideFigures[6002].Text = workforce.Single(row => row.Grade == Imperialism.Core.WorkerGrade.Trained).Total.ToString();
+        _sideFigures[6003].Text = workforce.Single(row => row.Grade == Imperialism.Core.WorkerGrade.Expert).Total.ToString();
+        _sideFigures[6008].Text = _session.Status.TotalSickWorkers.ToString();
+        _sideFigures[6007].Text = _session.Preview().PowerPlant.IsModelled ? _session.Preview().PowerPlant.PowerMade.ToString() : "";
         foreach (var update in _panelUpdates) update();
         foreach (var update in _warehouseUpdates) update();
     }
@@ -243,6 +290,8 @@ public sealed partial class IndustryScreen : Control, IShellScreen
 
     internal void OpenBuilding(Building building)
     {
+        if (building.Role is "shipyard" or "armory") { NavigationRequested?.Invoke(ShellScreen.Armoury); return; }
+        if (building.Role is "university" or "trade-school") { SetHot(BuildingHot(building)); return; }
         if (building.Role == "warehouse") { OpenWarehouse(); return; }
         OpenPanel(building, building.Role);
     }
@@ -250,7 +299,6 @@ public sealed partial class IndustryScreen : Control, IShellScreen
     private void OpenPanel(Building building, string role)
     {
         ClosePanel();
-        _selected = building;
         _facilityKey = role;
         var mapped = Buildings.FirstOrDefault(row => row.Role == role);
         var art = role == "capitol" ? 9216 : mapped?.Panel ?? 9214;
@@ -259,7 +307,7 @@ public sealed partial class IndustryScreen : Control, IShellScreen
         var content = new Control { Name = "content", Position = new(3, 26), Size = new(270, 120), MouseFilter = MouseFilterEnum.Ignore };
         _panel.AddChild(content);
         var facility = _preview!.Facilities.FirstOrDefault(row => row.FacilityKey == role);
-        var title = facility?.FacilityName ?? (role == "capitol" ? "Capitol" : "Railyard");
+        var title = facility?.FacilityName ?? BuildingHot(building);
         Text(content, "title", new(19, 8, 174, 17), title, heading: true);
         var capacity = Text(content, "capacity", new(19, 24, 170, 16), "");
         if (facility is not null)
@@ -295,6 +343,15 @@ public sealed partial class IndustryScreen : Control, IShellScreen
                     () => _preview!.Recipes.Single(row => row.RecipeKey == key).RequestedCycles,
                     value => _session!.Draft.SetProduction(_session.Package.Catalog.GetProductionRecipeId(key), value), recipes[i].RecipeName);
             }
+            if (role == "facility.power-plant")
+                Stepper(content, "fuel", new(68, 91), new(231, 91), new(79, 103, 149, 16),
+                    () => _session!.Preview().PowerPlant.Drafted, value => _session!.Draft.BurnFuel = value, "Burn fuel");
+        }
+        else if (role == "facility.power-plant")
+        {
+            _panelUpdates.Add(() => capacity.Text = "Capacity: " + _session!.Preview().PowerPlant.PlantCapacity);
+            Stepper(content, "fuel", new(68, 91), new(231, 91), new(79, 103, 149, 16),
+                () => _session!.Preview().PowerPlant.Drafted, value => _session!.Draft.BurnFuel = value, "Burn fuel");
         }
         else if (role == "capitol")
         {
@@ -308,7 +365,7 @@ public sealed partial class IndustryScreen : Control, IShellScreen
             Stepper(content, "railyard", new(68, 91), new(231, 91), new(79, 103, 149, 16),
                 () => _preview!.Railyard?.RequestedPoints ?? 0, value => _session!.Draft.BuildTransportCapacity = value, "Build transport capacity");
         }
-        // Chosen access fallback: hidden/unmapped facilities must still be buildable.
+        // Chosen access fallback: absent facilities and the covered Power Plant stay reachable.
         // Reuse the original arrows in the empty frame bar; no new game order or priority edit.
         Button(_panel, "facility.previous", Art(9240), new(8, 7), () => CycleFacility(-1), "Previous facility (Page Up)");
         Button(_panel, "facility.next", Art(9242), new(255, 7), () => CycleFacility(1), "Next facility (Page Down)");
@@ -332,9 +389,12 @@ public sealed partial class IndustryScreen : Control, IShellScreen
 
     private void CycleFacility(int delta)
     {
-        var keys = _preview!.Facilities.Select(row => row.FacilityKey).Concat(new[] { "railyard", "capitol" }).ToArray();
+        var keys = _preview!.Facilities.Select(row => row.FacilityKey)
+            .Where(role => Buildings.Any(row => row.Role == role))
+            .Concat(new[] { "railyard", "capitol" }).ToArray();
         var index = Array.IndexOf(keys, _facilityKey);
-        OpenPanel(_selected ?? Buildings[0], keys[(index + delta + keys.Length) % keys.Length]);
+        var role = keys[(index + delta + keys.Length) % keys.Length];
+        OpenPanel(Buildings.Single(row => row.Role == role), role);
     }
 
     private void OpenWarehouse()

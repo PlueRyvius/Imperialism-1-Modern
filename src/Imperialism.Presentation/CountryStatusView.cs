@@ -110,6 +110,9 @@ public sealed class CountryStatusView
 
     public long TotalWorkers { get; }
 
+    /// <summary>Sick headcount over all workforce grades, for the Industry border.</summary>
+    public long TotalSickWorkers => _workforce.Sum(row => row.Sick);
+
     /// <summary>Always three entries, lowest grade first.</summary>
     public IReadOnlyList<WorkforceGradeView> Workforce => _workforce;
 

@@ -27,6 +27,7 @@ public sealed class CountryStatusViewTests
         Assert.Equal(5000, status.Cash);
         Assert.Equal(40, status.TransportCapacity);
         Assert.Equal(7, status.TotalWorkers);
+        Assert.Equal(0, status.TotalSickWorkers);
 
         // Labour is not a headcount. Core derives it from the feeding rules, and
         // this fixture declares none, so seven healthy workers still supply
@@ -113,6 +114,28 @@ public sealed class CountryStatusViewTests
         Assert.All(status.Workforce, grade => Assert.Equal(0, grade.Sick));
         Assert.Equal([4, 2, 1], status.Workforce.Select(grade => grade.Healthy));
         Assert.Equal(7, status.TotalWorkers);
+        Assert.Equal(0, status.TotalSickWorkers);
+    }
+
+    [Fact]
+    public void SickTotalIsDetachedAndRestatesTheWorkforceIllness()
+    {
+        var document = CreateDocument();
+        document.Commodities = [.. document.Commodities,
+            new CommodityContentDefinition { Key = "commodity.fruit", Name = "Fruit", Category = CommodityCategory.Raw }];
+        document.Feeding = new FeedingContentSettings
+        {
+            PreferenceCycle = [new() { Accepted = ["commodity.fruit"] }, new() { Accepted = ["commodity.grain"] }],
+            LabourByGrade = [1, 2, 4],
+        };
+        var package = WorldContentCompiler.CompilePackage(document);
+        var state = new WorldState(package.GetWorld("scenario.demo"));
+        var before = CountryStatusView.Create(package, "scenario.demo", state, Blue);
+        // Four of seven workers want unavailable fruit and eat grain instead.
+        _ = TurnResolver.Resolve(state, TurnOrders.Empty(2), 0);
+        var after = CountryStatusView.Create(package, "scenario.demo", state, Blue);
+        Assert.Equal(0, before.TotalSickWorkers);
+        Assert.Equal(4, after.TotalSickWorkers);
     }
 
     [Fact]
