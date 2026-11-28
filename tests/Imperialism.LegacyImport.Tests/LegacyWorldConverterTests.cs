@@ -1646,6 +1646,89 @@ public sealed class LegacyWorldConverterTests
     }
 
     /// <summary>
+    /// A chosen rule (owner, 28 Nov): an owned province no <c>army</c> record
+    /// names gets its owner's most common militia count per province, ties to
+    /// the smaller, of its owner's most common militia type; an owner with no
+    /// militia takes the scenario-wide mode. A province named by any record,
+    /// even a count of 0 or a non-militia type, and an unowned province, get
+    /// nothing. <c>s3</c>'s Lorraine and Alsace are the case it is for.
+    /// </summary>
+    [Fact]
+    public void AnOwnedProvinceNamedInNoArmyRecordGetsItsOwnersUsualMilitia()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(
+                12,
+                1,
+                LandCell(0, 0), LandCell(1, 0), LandCell(2, 0), LandCell(3, 0), LandCell(4, 0),
+                LandCell(5, 1), LandCell(6, 1), LandCell(7, 1),
+                LandCell(8, 2), LandCell(9, byte.MaxValue), LandCell(10, 2),
+                OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Zero"),
+                NameRecord("cnam", 1, "One"),
+                NameRecord("cnam", 2, "Two"),
+                // Country 0: militia 3, 3, 5 — mode 3; province 3 unnamed; 4 is a count of 0.
+                Record("army", 0, 0, 3),
+                Record("army", 1, 0, 3),
+                Record("army", 2, 0, 5),
+                Record("army", 4, 0, 0),
+                // Country 1: Militia 2 and 4 — a tie, so 2; province 7 unnamed.
+                Record("army", 5, 8, 2),
+                Record("army", 6, 8, 4),
+                // Country 2 holds no militia: 8 takes the scenario-wide 3 of type 0,
+                // and 10, named by a non-militia record, stays as authored.
+                Record("army", 10, 7, 1),
+            ]),
+            null,
+            "garrison-fill-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        var byProvince = result.Document!.Scenarios[0].Armies
+            .GroupBy(static item => item.Province)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.Select(static item => (item.Type, item.Experience)).ToArray());
+
+        static string Key(int province) => $"province.legacy.{province:D5}";
+        Assert.Equal(Enumerable.Repeat((0, 0L), 3), byProvince[Key(3)]);
+        Assert.Equal(Enumerable.Repeat((8, 0L), 2), byProvince[Key(7)]);
+        Assert.Equal(Enumerable.Repeat((0, 0L), 3), byProvince[Key(8)]);
+        Assert.Equal([(7, 0L)], byProvince[Key(10)]);
+        Assert.False(byProvince.ContainsKey(Key(4)));
+        Assert.False(byProvince.ContainsKey(Key(9)));
+        Assert.Equal(5, byProvince[Key(2)].Length);
+
+        var filled = Assert.Single(result.Report.Diagnostics, static item => item.Code == "scenario.garrison-filled");
+        Assert.Equal(LegacyImportSeverity.Info, filled.Severity);
+        Assert.StartsWith("3 owned province(s)", filled.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A scenario with no militia anywhere fills nothing and reports nothing.
+    /// </summary>
+    [Fact]
+    public void AScenarioWithNoMilitiaFillsNoGarrison()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(3, 1, LandCell(0, 0), LandCell(1, 0), OceanCell()),
+            new ScenarioDocument(
+            [
+                Record("year", 0),
+                NameRecord("cnam", 0, "Zero"),
+                Record("army", 0, 7, 1),
+            ]),
+            null,
+            "garrison-none-map");
+
+        Assert.True(result.Success, result.Report.ToHumanReadable());
+        Assert.Equal([7], result.Document!.Scenarios[0].Armies.Select(static item => item.Type));
+        Assert.DoesNotContain(result.Report.Diagnostics, static item => item.Code == "scenario.garrison-filled");
+    }
+
+    /// <summary>
     /// The 30-row limit lives in the importer now (issue #47): index 29 is the
     /// last row and converts, index 30 is warned about and dropped exactly as
     /// before, even though Core would accept it.

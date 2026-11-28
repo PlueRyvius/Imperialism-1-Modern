@@ -242,7 +242,10 @@ cell it stands on**, which means moving one across a border changes its side.
 `army` is `[province, type, count]`: the third field is how many regiments of
 that type stand in the province, each with no medals. Observed in the original on
 27 Nov: `s1`'s one London militia record with 2 shows two Militia. An earlier
-reading of it as experience ÷ 100 is retracted. `ship` is `[country,
+reading of it as experience ÷ 100 is retracted. A province with no `army`
+record at all is not necessarily ungarrisoned: `s3`'s Lorraine and Alsace are the
+only owned provinces in the ten scenarios without one, and the importer fills them
+with their owner's usual militia, a chosen rule (`legacy-importer.md`). `ship` is `[country,
 type, zone, count]`.
 
 **A `ship` record's type is a 1-based index into the game's ship array, verified.** Read as

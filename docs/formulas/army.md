@@ -191,6 +191,10 @@ stores **hundredths**, medals × 100 clamped to 400, as the executable does. Eve
 not placed and is listed in `WorldState.UnplacedInitialArmies`. A world with no catalogue
 (any migrated package) places none, exactly as it behaved at v31.
 
+**Chosen rule (importer):** an owned province that no legacy `army` record names is given
+its owner's most common militia count and type, ties to the smaller (`s3`'s Lorraine and
+Alsace); see `docs/legacy-importer.md`.
+
 ## Battles
 
 An order whose destination the country **did not own as the turn opened** is an attack.
