@@ -3488,6 +3488,92 @@ public sealed class LegacyWorldConverterTests
         Assert.Contains(result.Report.Diagnostics, static item => item.Code == "map.invalid-sea-zone-reference");
     }
 
+    [Fact]
+    public void LandCellWithoutProvinceIsUnassignedAndCannotCreateAnOwnerCountry()
+    {
+        var noProvince = new HexCell
+        {
+            Terrain = 1,
+            Province = ushort.MaxValue,
+            NationZoneA = 74,
+            NationZoneB = 74,
+            TownType = 35,
+            Rail = 2,
+            ResourceA = 3,
+            River = 49,
+        };
+        var map = CreateMap(
+            3,
+            1,
+            noProvince,
+            LandCell(10, 0) with { Rail = 16 },
+            LandCell(10, 0));
+        var scenario = new ScenarioDocument(
+        [
+            Record("year", 1),
+            NameRecord("cnam", 0, "Ordinary country"),
+            NameRecord("pnam", 10, "Ordinary province"),
+            NameRecord("pnam", ushort.MaxValue, "Not a province"),
+            Record("deve", 0, 2),
+            Record("civi", 0, 0),
+            Record("port", 0),
+            Record("rail", 0),
+        ]);
+
+        var result = LegacyWorldConverter.Convert(map, scenario, null, "no-province-cell");
+
+        Assert.True(result.Success);
+        var document = Assert.IsType<WorldContentDocument>(result.Document);
+        Assert.Equal(["country.legacy.000"], document.Countries.Select(static country => country.Key));
+        Assert.Equal(["province.legacy.00010"], document.Map.Provinces.Select(static province => province.Key));
+        Assert.DoesNotContain(document.Scenarios[0].ProvinceOwners, static owner => owner.Province == "province.legacy.65535");
+        Assert.Empty(document.Scenarios[0].Capitals);
+
+        var cell = document.Map.Cells[0];
+        Assert.Null(cell.Region.Province);
+        Assert.Null(cell.Region.SeaZone);
+        Assert.Equal(document.Map.Cells[1].Terrain, cell.Terrain);
+        Assert.Equal(["resource.coal"], cell.Resources);
+        Assert.True(cell.HasSettlementSite);
+        Assert.NotNull(cell.River);
+        Assert.Empty(document.Scenarios[0].Rails);
+
+        var importedScenario = document.Scenarios[0];
+        Assert.Empty(importedScenario.CellDevelopment);
+        Assert.Empty(importedScenario.Civilians);
+        Assert.Empty(importedScenario.Ports);
+        Assert.Empty(importedScenario.Depots);
+
+        var warning = Assert.Single(result.Report.Diagnostics, static item => item.Code == "map.land-cell-without-province");
+        Assert.Equal(LegacyImportSeverity.Warning, warning.Severity);
+        Assert.Equal("map.cells[0]", warning.Location);
+        Assert.Equal(1, warning.Count);
+        WorldContentCompiler.Compile(document);
+    }
+
+    [Fact]
+    public void OrdinaryLandCellStillImportsItsProvinceAndOwnerWithoutWarning()
+    {
+        var result = LegacyWorldConverter.Convert(
+            CreateMap(1, 1, LandCell(10, 0)),
+            new ScenarioDocument(
+            [
+                Record("year", 1),
+                NameRecord("cnam", 0, "Country"),
+                NameRecord("pnam", 10, "Province"),
+            ]),
+            null,
+            "ordinary-cell");
+
+        Assert.True(result.Success);
+        var document = Assert.IsType<WorldContentDocument>(result.Document);
+        Assert.Equal("province.legacy.00010", Assert.Single(document.Map.Provinces).Key);
+        Assert.Equal("province.legacy.00010", document.Map.Cells[0].Region.Province);
+        Assert.Equal("country.legacy.000", Assert.Single(document.Countries).Key);
+        Assert.Equal("country.legacy.000", Assert.Single(document.Scenarios[0].ProvinceOwners).Country);
+        Assert.DoesNotContain(result.Report.Diagnostics, static item => item.Code == "map.land-cell-without-province");
+    }
+
     private static string RequireScenarioDirectory()
     {
         return CorpusFactAttribute.RequireScenarioDirectory();

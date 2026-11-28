@@ -14,6 +14,8 @@ town, and river codes create warnings and no inferred feature. Conflicting
 owners, references that cannot form valid modern content, duplicate capitals,
 conflicting years, or missing dimensions/year block output.
 
+A non-ocean cell with province `65535` stays unassigned: it contributes no province, owner, or country, while its terrain and other cell features remain imported.
+
 Every converted package defines the standard 23-commodity catalog independently
 of which deposits happen to occur on that map. The 13 known legacy deposit
 codes become explicit resource definitions pointing to their raw commodities;

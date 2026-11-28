@@ -654,12 +654,25 @@ public static class LegacyWorldConverter
             report.Defer("inf.metadata-values", info.Metadata.Count);
         }
 
+        for (var index = 0; index < map.Cells.Count; index++)
+        {
+            var cell = map.Cells[index];
+            if (!cell.IsOcean && cell.Province == ushort.MaxValue)
+            {
+                report.Add(
+                    LegacyImportSeverity.Warning,
+                    "map.land-cell-without-province",
+                    $"map.cells[{index}]",
+                    "Land cell has no province and was imported without a province region.");
+            }
+        }
+
         var mapProvinceIds = map.Cells
-            .Where(static cell => !cell.IsOcean)
+            .Where(static cell => !cell.IsOcean && cell.Province != ushort.MaxValue)
             .Select(static cell => (uint)cell.Province)
             .ToHashSet();
         var provinceIds = mapProvinceIds
-            .Concat(provinceNames.Keys)
+            .Concat(provinceNames.Keys.Where(static id => id != ushort.MaxValue))
             .Distinct()
             .Order()
             .ToArray();
@@ -738,7 +751,9 @@ public static class LegacyWorldConverter
 
             var region = source.IsOcean
                 ? new CellRegionContent { SeaZone = seaZoneKeys[cellSeaZoneIds[index]] }
-                : new CellRegionContent { Province = provinceKeys[source.Province] };
+                : source.Province == ushort.MaxValue
+                    ? new CellRegionContent()
+                    : new CellRegionContent { Province = provinceKeys[source.Province] };
             var resources = new List<string>(2);
             AddResource(source.ResourceA, resources, resourceKeys);
             AddResource(source.ResourceB, resources, resourceKeys);
@@ -1163,9 +1178,15 @@ public static class LegacyWorldConverter
                 continue;
             }
 
-            if (map.Cells[(int)cell].IsOcean)
+            var source = map.Cells[(int)cell];
+            if (source.IsOcean)
             {
                 report.Add(LegacyImportSeverity.Error, "scenario.deve-on-ocean", path, $"Development refers to ocean cell {cell}.");
+                continue;
+            }
+
+            if (source.Province == ushort.MaxValue)
+            {
                 continue;
             }
 
@@ -1730,9 +1751,15 @@ public static class LegacyWorldConverter
                 continue;
             }
 
-            if (map.Cells[(int)cell].IsOcean)
+            var source = map.Cells[(int)cell];
+            if (source.IsOcean)
             {
                 report.Add(LegacyImportSeverity.Error, "scenario.port-on-ocean", path, $"Port refers to ocean cell {cell}.");
+                continue;
+            }
+
+            if (source.Province == ushort.MaxValue)
+            {
                 continue;
             }
 
@@ -1827,6 +1854,11 @@ public static class LegacyWorldConverter
                     "scenario.civi-on-ocean",
                     path,
                     $"Civilian refers to ocean cell {cell}.");
+                continue;
+            }
+
+            if (source.Province == ushort.MaxValue)
+            {
                 continue;
             }
 
@@ -1953,9 +1985,15 @@ public static class LegacyWorldConverter
                 continue;
             }
 
-            if (map.Cells[(int)cell].IsOcean)
+            var source = map.Cells[(int)cell];
+            if (source.IsOcean)
             {
                 report.Add(LegacyImportSeverity.Error, "scenario.depot-on-ocean", path, $"Depot refers to ocean cell {cell}.");
+                continue;
+            }
+
+            if (source.Province == ushort.MaxValue)
+            {
                 continue;
             }
 
@@ -2149,7 +2187,7 @@ public static class LegacyWorldConverter
         for (var index = 0; index < map.Cells.Count; index++)
         {
             var cell = map.Cells[index];
-            if (cell.IsOcean)
+            if (cell.IsOcean || cell.Province == ushort.MaxValue)
             {
                 continue;
             }
@@ -2184,7 +2222,22 @@ public static class LegacyWorldConverter
                 continue;
             }
 
-            if (cell.IsOcean || cell.NationZoneA == byte.MaxValue)
+            if (cell.IsOcean)
+            {
+                report.Add(
+                    LegacyImportSeverity.Error,
+                    "map.invalid-capital",
+                    $"map.cells[{index}]",
+                    "A capital must be a land cell with a country owner.");
+                continue;
+            }
+
+            if (cell.Province == ushort.MaxValue)
+            {
+                continue;
+            }
+
+            if (cell.NationZoneA == byte.MaxValue)
             {
                 report.Add(
                     LegacyImportSeverity.Error,
@@ -2257,6 +2310,11 @@ public static class LegacyWorldConverter
                         "map.invalid-rail-reference",
                         $"map.cells[{index}].rail.{direction.Name}",
                         "A reciprocal rail link refers to an ocean cell.");
+                    continue;
+                }
+
+                if (source.Province == ushort.MaxValue || map.Cells[neighbour.Value].Province == ushort.MaxValue)
+                {
                     continue;
                 }
 
